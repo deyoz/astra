@@ -22,6 +22,7 @@
 #include "apps_interaction.h"
 #include "etick.h"
 #include "counters.h"
+#include "gtimer.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -316,7 +317,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
          "pr_auto = CASE :pr_auto WHEN -1 THEN pr_auto ELSE :pr_auto END, "
          "pr_manual = CASE :pr_manual WHEN -1 THEN pr_manual ELSE :pr_manual END "
      "WHERE point_id = :point_id "
-       "AND stage_id = :stage_id; "
+       "AND stage_id = :stage_id"
    : "BEGIN "
          "UPDATE trip_stages "
          "SET est = :est, act = :act, "
@@ -426,13 +427,8 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
       params << PrmLexema("act_time", "EVT.UNKNOWN");
     reqInfo->LocaleToLog(lexema_id, params, evtGraph, point_id, (int)stage );
   }
-  TQuery syncTripFinalStagesQry( &OraSession );
-  syncTripFinalStagesQry.SQLText =
-    "BEGIN "
-    "  gtimer.sync_trip_final_stages(:point_id); "
-    "END;";
-  syncTripFinalStagesQry.CreateVariable( "point_id", otInteger, point_id );
-  syncTripFinalStagesQry.Execute();
+
+  gtimer::sync_trip_final_stages(point_id);
 }
 
 std::string findAirpFromPoints(int point_id)
@@ -1054,15 +1050,7 @@ void astra_timer( TDateTime utcdate )
    "      trip_stages.time_auto_not_act >= :now - 3 "
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
-  TQuery QExecStage(&OraSession);
-  QExecStage.SQLText =
-   "BEGIN "
-   " :exec_stage := gtimer.ExecStage(:point_id,:stage_id,:act);"
-   "END;";
-  QExecStage.DeclareVariable( "point_id", otInteger );
-  QExecStage.DeclareVariable( "stage_id", otInteger );
-  QExecStage.DeclareVariable( "exec_stage", otInteger );
-  QExecStage.DeclareVariable( "act", otDate );
+
   bool pr_exit = false;
   int count=0;
 
@@ -1082,16 +1070,14 @@ void astra_timer( TDateTime utcdate )
       TFlights flightsForLock;
       flightsForLock.Get( point_id, ftTranzit );
       flightsForLock.Lock(__FUNCTION__);
-        QExecStage.SetVariable( "point_id", point_id );
-        QExecStage.SetVariable( "stage_id", stage_id );
       TDateTime execTime2 = NowUTC();
       bool pr_exec_stage = false;
       try {
-          QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
+          Dates::DateTime_t b_act_stage;
+          pr_exec_stage = gtimer::execStage(point_id, TStage(stage_id), b_act_stage); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
           if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
               ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-          pr_exec_stage = QExecStage.GetVariableAsInteger( "exec_stage" );
-          TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
+          TDateTime act_stage = BoostToDateTime(b_act_stage);
           if ( pr_exec_stage ) {
               // запись в лог о выполнении шага
           TReqInfo::Instance()->LocaleToLog( "EVT.STAGE.COMPLETED_ACT_TIME", LEvntPrms() << PrmStage("stage", (TStage)stage_id, airp)
@@ -1450,3 +1436,247 @@ bool CheckStageACT( int point_id, TStage stage_id )
     return DbCpp::ResultCode::NoDataFound != cur.err();
 }
 
+#ifdef XP_TESTING
+
+#include "xp_testing.h"
+#include <utility>
+#include <vector>
+#include <string>
+
+START_TEST(check_exec_stage)
+{
+    Dates::DateTime_t utc = Dates::second_clock::universal_time();
+    Dates::DateTime_t dayBeforeYesterday = utc - Dates::days(2);
+
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (287, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (288, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (289, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (290, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (291, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (292, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (293, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+    make_db_curs("INSERT INTO MOVE_REF (MOVE_ID, REFERENCE) VALUES (294, NULL)",  PgOra::getRWSession("MOVE_REF")).exec();
+
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'С7',    1, 'ВНК', 0,  NULL, '777',    0, NULL, NULL, NULL,  371, NULL, 287, NULL, NULL, 887, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2813, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'СОЧ', 0,  NULL,  NULL, NULL, NULL, NULL,  887, NULL, NULL, 287, NULL, NULL, 888, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2814,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'СУ',    1, 'ВНК', 0,  NULL, '321',    0, NULL, NULL, NULL,  553, NULL, 288, NULL, NULL, 889, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2816, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'ЧЛБ', 0,  NULL,  NULL, NULL, NULL, NULL,  889, NULL, NULL, 288, NULL, NULL, 890, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2817,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'У6',    1, 'СОЧ', 0,  NULL, '737',    0, NULL, NULL, NULL,  159, NULL, 289, NULL, NULL, 891, 0, 0, 1, 0, NULL, NULL,  :dt,  'Д',    1, 2819, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'У6',    1, 'ВНК', 0,  NULL, '737',    0, NULL, NULL,  891,  159, NULL, 289, NULL, NULL, 892, 1, 0, 1, 1, NULL,  :dt,  :dt,  'Д',    1, 2820,  :dt,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'У6',    1, 'ПЛК', 1,  NULL, '737',    0, NULL, NULL,  891,  159, NULL, 289, NULL, NULL, 893, 2, 0, 1, 1, NULL,  :dt,  :dt,  'Д',    1, 2821,  :dt,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'КГД', 0,  NULL,  NULL, NULL, NULL, NULL,  891, NULL, NULL, 289, NULL, NULL, 894, 3, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2822,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'ЮТ',    0, 'СОЧ', 0, 65021, 'ТУ3',    1, NULL, NULL, NULL,  580, NULL, 290, NULL, NULL, 895, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2826, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'ВНК', 0,  NULL,  NULL, NULL, NULL, NULL,  895, NULL, NULL, 290, NULL, NULL, 896, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2827,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'ЮТ',    0, 'ВНК', 0, 65021, 'ТУ3',    1, NULL, NULL, NULL,  461, NULL, 291, NULL, NULL, 897, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2829, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'РЩН', 0,  NULL,  NULL, NULL, NULL, NULL,  897, NULL, NULL, 291, NULL, NULL, 898, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2830,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'ЮТ',    1, 'ВНК', 1, 65021, 'ТУ3',    1, NULL, NULL, NULL,  804, NULL, 292, NULL, NULL, 899, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2832, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'ПЛК', 1,  NULL,  NULL, NULL, NULL, NULL,  899, NULL, NULL, 292, NULL, NULL, 900, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2833,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'ЮТ',    1, 'ВНК', 1, 65021, 'ТУ3',    1, NULL, NULL, NULL,  804, NULL, 293, NULL, NULL, 901, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2835, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'ПЛК', 1,  NULL,  NULL, NULL, NULL, NULL,  901, NULL, NULL, 293, NULL, NULL, 902, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2836,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, 'ЮТ',    1, 'ВНК', 1, 65021, 'ТУ3',    1, NULL, NULL, NULL,  298, NULL, 294, NULL, NULL, 903, 0, 0, 1, 0, NULL, NULL,  :dt, NULL, NULL, 2838, NULL,  :dt,  'п')",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO POINTS (ACT_IN, ACT_OUT, AIRLINE, AIRLINE_FMT, AIRP, AIRP_FMT, BORT, CRAFT, CRAFT_FMT, EST_IN, EST_OUT, FIRST_POINT, FLT_NO, LITERA, MOVE_ID, PARK_IN, PARK_OUT, POINT_ID, POINT_NUM, PR_DEL, PR_REG, PR_TRANZIT, REMARK, SCD_IN, SCD_OUT, SUFFIX, SUFFIX_FMT, TID, TIME_IN, TIME_OUT, TRIP_TYPE) VALUES (NULL, NULL, NULL, NULL, 'ПРХ', 1,  NULL,  NULL, NULL, NULL, NULL,  903, NULL, NULL, 294, NULL, NULL, 904, 1, 0, 0, 0, NULL,  :dt, NULL, NULL, NULL, 2839,  :dt, NULL, NULL)",  PgOra::getRWSession("POINTS")).stb().bind(":dt", dayBeforeYesterday).exec();
+
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 887, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 889, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 891, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 892, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 893, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 895, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 897, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 899, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 901, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 10, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 20, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 1, 0, :dt, 25,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 1, 0, :dt, 26,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 30, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 1, 0, :dt, 31,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 35, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 1, 0, :dt, 36,  :dt)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 40, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 50, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+    make_db_curs("INSERT INTO TRIP_STAGES(ACT, EST, IGNORE_AUTO, POINT_ID, PR_AUTO, PR_MANUAL, SCD, STAGE_ID, TIME_AUTO_NOT_ACT) VALUES (NULL, NULL, 0, 903, 0, 0, :dt, 70, NULL)",  PgOra::getRWSession("TRIP_STAGES")).stb().bind(":dt", dayBeforeYesterday).exec();
+
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (887, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (889, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (891, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (892, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (893, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (895, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (897, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (899, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (901, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 1)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 2)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 3)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 4)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 5)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+    make_db_curs("INSERT INTO TRIP_FINAL_STAGES (POINT_ID, STAGE_ID, STAGE_TYPE) VALUES (903, 0, 6)",  PgOra::getRWSession("TRIP_FINAL_STAGES")).exec();
+
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 887, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 889, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 891, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 892, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 893, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 895, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 897, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 899, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 901, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+    make_db_curs("INSERT INTO TRIP_CKIN_CLIENT (CLIENT_TYPE, DESK_GRP_ID, POINT_ID, PR_PERMIT, PR_TCKIN, PR_UPD_STAGE, PR_WAITLIST) VALUES ('WEB', NULL, 903, 0, 0, 0, 0)",  PgOra::getRWSession("TRIP_CKIN_CLIENT")).exec();
+
+    for (int point_id : {887, 889, 891, 893, 895, 897, 899, 901, 903}) {
+        int stage_id = 10;
+
+        Dates::DateTime_t b_act_stage;
+        bool pr_exec_stage = gtimer::execStage(point_id, TStage(stage_id), b_act_stage);
+
+        fail_unless(pr_exec_stage);
+    }
+}
+END_TEST
+
+
+#define SUITENAME "stages"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_exec_stage);
+}
+TCASEFINISH;
+#undef SUITENAME // "stages"
+
+#endif // XP_TESTING

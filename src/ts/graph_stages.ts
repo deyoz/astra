@@ -4,7 +4,7 @@ include(ts/spp/write_dests_macro.ts)
 include(ts/spp/write_trips_macro.ts)
 include(ts/spp/read_trips_macro.ts)
 
-# meta: suite graph_stages
+# meta: suite stages
 
 ### test 1 - проверяем trip_final_stages
 ### куча рейсов в разных статусах - проверяем их доступность в списках рейсов в разных модулях
