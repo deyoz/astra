@@ -2763,7 +2763,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
     "  last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
