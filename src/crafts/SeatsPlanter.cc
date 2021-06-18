@@ -325,6 +325,7 @@ private:
   int _crcComp;
   int _tid;
   multiset<CheckIn::TPaxRemItem> rems;
+  std::set<std::string> freeSeatRems;
   std::optional<int> _tariffPaxId;
   std::optional<TCompLayerType> _layer_type;
   std::optional<TSeat> _seat;
@@ -402,7 +403,7 @@ public:
   bool isCheckLayer( const std::optional<TCompLayerType> &layer_type ) {
     return ( layer_type && (checkinLayers.find( layer_type.value() ) != checkinLayers.end()) );
   }
-  bool isRemExists( const std::set<std::string>& searchRems ) {
+  bool isRemExists( const std::set<std::string>& searchRems) {
     return ( find_if( rems.begin(), rems.end(), [searchRems](const auto& item)
                         {return (find(searchRems.begin(), searchRems.end(), item.code) != searchRems.end());}) != rems.end() );
   }
@@ -440,6 +441,12 @@ public:
                      << EncodeCompLayerType(_layer_type.value())
                      << " isCheckLayer " << isCheckLayer( _layer_type );
     CheckIn::LoadPaxRem( !isCheckLayer( _layer_type ) /*crs*/, _pax_id, rems );
+    TRemGrp rg;
+    rg.Load(retFORBIDDEN_FREE_SEAT, _point_id); //ремарки запрещенные к свободной рассадке);
+    std::set<std::string> d = algo::transform<std::set<std::string>>(rems,[&](auto r){return r.code;});
+    std::set_intersection(d.begin(),d.end(),
+                          rg.begin(),rg.end(),
+                          inserter(freeSeatRems, freeSeatRems.end()));
     switch ( _layer_type.value() ) {
       case cltGoShow:
       case cltTranzit:
@@ -647,10 +654,28 @@ private:
       DCSServiceApplying::RequiredRfiscs( DCSAction::ChangeSeatOnDesk, PaxId_t(_pax_id) ).throwIfNotExists();
   }
 
+  bool isFreeSeatRemark(  const std::set<TPlace*,CompareSeats>& _seats ) {
+    if ( freeSeatRems.empty() )
+      return false;
+    for ( const auto &seat : _seats ) {
+      std::vector<TSeatRemark> sremarks;
+      seat->GetRemarks( _point_id, sremarks );
+      for ( const auto& it : freeSeatRems ) {
+        if ( std::find( sremarks.begin(), sremarks.end(), TSeatRemark( it, false ) ) != sremarks.end() )
+          return true;
+      }
+    }
+    return false;
+  }
+
   void getRFISC( const std::set<TPlace*,CompareSeats>& _seats,
                  TPaxSegRFISCKey& rfisc, TSeat& seat ) {
     rfisc.clear();
     TRFISC r;
+
+    if ( isFreeSeatRemark(_seats) )
+      return;
+
     for ( const auto & s : _seats ) {
       r = s->getRFISC( _point_id );
       if ( !r.empty() ) {
@@ -1143,18 +1168,8 @@ private:
          !_clientSets.isFlag( flWaitList ) && //  не ругаемся, если пересадка идет с ЛО
          isCheckLayer( _layer_type ) && // уже зарегистрированного
          GetTripSets(tsReseatOnRFISC,fltInfo) ) { //сообщение при пересадке пассажира на место с разметкой RFISC
-      TRemGrp remGrp;
-      remGrp.Load(retFORBIDDEN_FREE_SEAT, _point_id); //ремарки запрещенные к свободной рассадке
-      for ( TRemGrp::iterator it=remGrp.begin(); it!=remGrp.end(); ++it ) {
-        if ( isRemExists( std::set<std::string>{*it} ) ) {
-          for ( const auto &seat : newSeats.value().second ) {
-            std::vector<TSeatRemark> sremarks;
-            seat->GetRemarks( _point_id, sremarks );
-            if ( std::find( sremarks.begin(), sremarks.end(), TSeatRemark( *it, false ) ) != sremarks.end() )
-              return;
-          }
-        }
-      }
+      if ( isFreeSeatRemark(newSeats.value().second))
+        return;
       AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
     }
   }
