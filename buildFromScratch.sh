@@ -225,8 +225,10 @@ display_all_stage_flags
 
 user=`echo ${CONNECT_STRING} | awk -F '/' '{print $1}'`
 password=`echo ${CONNECT_STRING} | awk -F '/' '{print $2}' | awk -F '@' '{print $1}'`
-PG_CONNECT_STRING="postgresql://${user}:$password@localhost/${user}"
-PG_CONNECT_STRING_ARX="postgresql://${user}_arx:$password@localhost/${user}_arx"
+PG_CONNECT_STRING_AUTO="postgresql://${user}:$password@localhost/${user}"
+PG_CONNECT_STRING_ARX_AUTO="postgresql://${user}_arx:$password@localhost/${user}_arx"
+export PG_CONNECT_STRING=${PG_CONNECT_STRING:-$PG_CONNECT_STRING_AUTO}
+export PG_CONNECT_STRING_ARC=${PG_CONNECT_STRING_ARC:-$PG_CONNECT_STRING_ARX_AUTO}
 
 
 #echo MAKE_J=${MAKE_J} TEST_J=${TEST_J}

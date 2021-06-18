@@ -37,8 +37,4 @@ COPY . /opt/astra/
 
 RUN echo "nameserver 10.1.90.138" > /etc/resolv.conf \
     && echo "search komtex sirena-travel.ru" >> /etc/resolv.conf \
-    && ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --configlibs --buildlibs --configastra --buildastra --createtcl
-
-# RUN echo "nameserver 10.1.90.138" > /etc/resolv.conf \
-#     && echo "search komtex sirena-travel.ru" >> /etc/resolv.conf \
-#     && SYSPAROL=system/nonstop@oracle1.komtex/build ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --createdb --runtests
+    && ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --configlibs --buildlibs --configastra --buildastra

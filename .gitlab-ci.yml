@@ -30,6 +30,11 @@ build_noora:
 
   variables:
     DOCKERFILE: "./Dockerfile"
+    PG_HOST: 172.17.0.1
+    PG_SYSPAROL: postgres://postgres:manager@172.17.0.1/postgres
+    PG_CONNECT_STRING: postgres://astra_docker/astra@172.17.0.1/build
+    PG_CONNECT_STRING_ARX: postgres://astra_docker/astra@172.17.0.1/build
+    ENABLE_ORACLE: "0"
 
   before_script:
    - export CONTAINER_IMAGE="$CI_REGISTRY_IMAGE:${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"
@@ -37,11 +42,5 @@ build_noora:
 
   script:
     - docker build -t "${CONTAINER_IMAGE}" -f "${DOCKERFILE}" .
-    - docker run --rm "${CONTAINER_IMAGE}" ./buildFromScratch.sh conn/string --runtests
+    - docker run --rm "${CONTAINER_IMAGE}" ./buildFromScratch.sh no/ora --createtcl --createdb --runtests
     - docker push "${CONTAINER_IMAGE}"
-
-  artifacts:
-    name: "tclmonlog"
-    paths:
-      - src/tclmon.log
-    when: on_failure
