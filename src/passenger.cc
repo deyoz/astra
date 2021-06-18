@@ -3184,6 +3184,10 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
   if (Qry.GetFieldIndex("client_type")>=0)
     client_type = DecodeClientType(Qry.FieldAsString("client_type"));
   tid=Qry.FieldAsInteger("tid");
+  if (Qry.GetFieldIndex("excess_pc")>=0)
+    excess_pc = Qry.FieldAsInteger("excess_pc");
+  if (Qry.GetFieldIndex("excess_wt")>=0)
+    excess_wt = Qry.FieldAsInteger("excess_wt");
 
   baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
   return *this;
@@ -3208,6 +3212,10 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(DB::TQuery &Qry)
   if (Qry.GetFieldIndex("client_type")>=0)
     client_type = DecodeClientType(Qry.FieldAsString("client_type").c_str());
   tid=Qry.FieldAsInteger("tid");
+  if (Qry.GetFieldIndex("excess_pc")>=0)
+    excess_pc = Qry.FieldAsInteger("excess_pc");
+  if (Qry.GetFieldIndex("excess_wt")>=0)
+    excess_wt = Qry.FieldAsInteger("excess_wt");
 
   baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
   return *this;

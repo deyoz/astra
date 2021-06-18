@@ -888,6 +888,7 @@ class TTrferRoute : public std::vector<TTrferRouteItem>
   public:
     bool GetRoute(int grp_id,
                   TTrferRouteType route_type);
+    std::string makeLine() const;
 };
 
 struct TCkinRouteItem

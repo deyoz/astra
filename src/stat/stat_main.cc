@@ -28,6 +28,7 @@
 #include "stat_services.h"
 #include "stat_salon.h"
 #include "stat_zamar.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -1211,16 +1212,190 @@ void get_stat(const PointId_t& point_id)
   }
 }
 
+namespace {
+
+struct TrferGrpData
+{
+  CheckIn::TSimplePaxGrpItem grp;
+  std::optional<CheckIn::TSimplePaxItem> pax;
+  std::string trfer_route;
+  int pcs = 0;
+  int weight = 0;
+  int unchecked = 0;
+
+  static std::vector<TrferGrpData> load(const PointId_t& point_id);
+};
+
+std::vector<TrferGrpData> TrferGrpData::load(const PointId_t& point_id)
+{
+  CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS);
+  std::map<GrpId_t,std::string> trfer_route_map;
+  std::vector<TrferGrpData> result;
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX","PAX_GRP"}),
+        "SELECT "
+        "  pax.*, "
+        "  airp_arv, airp_dep, bag_refuse, class, class_grp, client_type, "
+        "  desk, excess_pc, excess_wt, hall, inbound_confirm, piece_concept, "
+        "  point_arv, point_dep, point_id_mark, pr_mark_norms, rollback_guaranteed, "
+        "  status, time_create, trfer_confirm, trfer_conflict, user_id "
+        "FROM pax_grp "
+        "LEFT OUTER JOIN pax ON (pax_grp.grp_id = pax.grp_id AND pax.refuse IS NULL) "
+        "WHERE point_dep = :point_id "
+        "AND pax_grp.status NOT IN ('E') ",
+        QParams() << QParam("point_id", otInteger, point_id.get()),
+        STDLOG);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    CheckIn::TSimplePaxGrpItem grp;
+    grp.fromDB(Qry.get());
+    TrferGrpData trfer_grp_data = { grp, std::nullopt, std::string() };
+    if (!Qry.get().FieldIsNULL("pax_id")) {
+      CheckIn::TSimplePaxItem pax;
+      pax.fromDB(Qry.get());
+      trfer_grp_data.pax = pax;
+    }
+    const GrpId_t grp_id(grp.id);
+    auto pos = trfer_route_map.find(grp_id);
+    if (pos == trfer_route_map.end()) {
+      TTrferRoute trfer_route;
+      if (!trfer_route.GetRoute(grp_id.get(), trtWithFirstSeg)) {
+        continue;
+      }
+      const std::string trfer_route_line = trfer_route.makeLine();
+      if (trfer_route_line.empty()) {
+        continue;
+      }
+      trfer_route_map.emplace(grp_id, trfer_route_line);
+      trfer_grp_data.trfer_route = trfer_route_line;
+    } else {
+      trfer_grp_data.trfer_route = pos->second;
+    }
+    trfer_grp_data.pcs = bag_reader.bagAmount(grp_id, std::nullopt);
+    trfer_grp_data.weight = bag_reader.bagWeight(grp_id, std::nullopt);
+    trfer_grp_data.unchecked = bag_reader.rkWeight(grp_id, std::nullopt);
+    result.push_back(trfer_grp_data);
+  }
+  return result;
+}
+
+struct TrferStatKey
+{
+  std::string trfer_route;
+  TClientType client_type;
+
+  bool operator < (const TrferStatKey& key) const
+  {
+    if (trfer_route != key.trfer_route) {
+      return trfer_route < key.trfer_route;
+    }
+    return client_type < key.client_type;
+  }
+};
+
+struct TrferStatData
+{
+  int f = 0;
+  int c = 0;
+  int y = 0;
+  int adult = 0;
+  int child = 0;
+  int baby = 0;
+  int child_wop = 0;
+  int baby_wop = 0;
+  int pcs = 0;
+  int weight = 0;
+  int unchecked = 0;
+  int excess_wt = 0;
+  int excess_pc = 0;
+
+  static void deleteByPointId(const PointId_t& point_id);
+  void save(const PointId_t& point_id, const TrferStatKey& key) const;
+};
+
+void TrferStatData::deleteByPointId(const PointId_t& point_id)
+{
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("TRFER_STAT"),
+        "DELETE FROM trfer_stat "
+        "WHERE point_id=:point_id",
+        QParams() << QParam("point_id", otInteger, point_id.get()),
+        STDLOG);
+  Qry.get().Execute();
+}
+
+void TrferStatData::save(const PointId_t& point_id, const TrferStatKey& key) const
+{
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("TRFER_STAT"),
+        "INSERT INTO trfer_stat ( "
+        "  point_id,trfer_route,client_type, "
+        "  f,c,y,adult,child,baby,child_wop,baby_wop, "
+        "  pcs,weight,unchecked,excess_wt,excess_pc "
+        ") VALUES ( "
+        "  :point_id,:trfer_route,:client_type, "
+        "  :f,:c,:y,:adult,:child,:baby,:child_wop,:baby_wop, "
+        "  :pcs,:weight,:unchecked,:excess_wt,:excess_pc "
+        ")",
+        QParams() << QParam("point_id", otInteger, point_id.get())
+                  << QParam("trfer_route", otString, key.trfer_route)
+                  << QParam("client_type", otString, EncodeClientType(key.client_type))
+                  << QParam("f", otInteger, f)
+                  << QParam("c", otInteger, c)
+                  << QParam("y", otInteger, y)
+                  << QParam("adult", otInteger, adult)
+                  << QParam("child", otInteger, child)
+                  << QParam("baby", otInteger, baby)
+                  << QParam("child_wop", otInteger, child_wop)
+                  << QParam("baby_wop", otInteger, baby_wop)
+                  << QParam("pcs", otInteger, pcs)
+                  << QParam("weight", otInteger, weight)
+                  << QParam("unchecked", otInteger, unchecked)
+                  << QParam("excess_wt", otInteger, excess_wt)
+                  << QParam("excess_pc", otInteger, excess_pc),
+        STDLOG);
+  Qry.get().Execute();
+}
+
+} // namespace
+
 void get_trfer_stat(const PointId_t& point_id)
 {
-  QParams QryParams;
-  QryParams << QParam("point_id", otInteger, point_id.get());
-  TCachedQuery Qry("BEGIN "
-                   "  statist.get_trfer_stat(:point_id); "
-                   "END;",
-                   QryParams);
+  TrferStatData::deleteByPointId(point_id);
 
-  Qry.get().Execute();
+  std::map<TrferStatKey,TrferStatData> trfer_stat_map;
+  const std::vector<TrferGrpData> trfer_items = TrferGrpData::load(point_id);
+  for (const TrferGrpData& trfer_item: trfer_items) {
+    const TrferStatKey key = { trfer_item.trfer_route, trfer_item.grp.client_type };
+    auto res = trfer_stat_map.emplace(key, TrferStatData{});
+    TrferStatData& data = res.first->second;
+    if (trfer_item.pax || (!trfer_item.pax && trfer_item.grp.cl.empty())) {
+      data.f += (trfer_item.grp.cl == EncodeClass(ASTRA::F) ? 1 : 0);
+      data.c += (trfer_item.grp.cl == EncodeClass(ASTRA::C) ? 1 : 0);
+      data.y += (trfer_item.grp.cl == EncodeClass(ASTRA::Y) ? 1 : 0);
+      if (trfer_item.pax) {
+        const CheckIn::TSimplePaxItem& pax = *trfer_item.pax;
+        data.adult += (pax.pers_type == ASTRA::adult ? 1 : 0);
+        data.child += (pax.pers_type == ASTRA::child ? 1 : 0);
+        data.baby  += (pax.pers_type == ASTRA::baby  ? 1 : 0);
+        data.child_wop += (pax.seats == 0 && pax.pers_type == ASTRA::child ? 1 : 0);
+        data.baby_wop  += (pax.seats == 0 && pax.pers_type == ASTRA::baby  ? 1 : 0);
+      }
+    }
+    if (trfer_item.grp.bag_refuse.empty()) {
+      data.excess_pc += (trfer_item.grp.excess_pc != ASTRA::NoExists ? trfer_item.grp.excess_pc : 0);
+      data.excess_wt += (trfer_item.grp.excess_wt != ASTRA::NoExists ? trfer_item.grp.excess_wt : 0);
+    }
+    data.pcs += trfer_item.pcs;
+    data.weight += trfer_item.weight;
+    data.unchecked += trfer_item.unchecked;
+  }
+
+  for (const auto& trfer_item: trfer_stat_map) {
+    const TrferStatKey& key = trfer_item.first;
+    const TrferStatData& data = trfer_item.second;
+    data.save(point_id, key);
+  }
 }
 
 void get_self_ckin_stat(const PointId_t& point_id)
@@ -1425,4 +1600,3 @@ void collectStatTask(const TTripTaskKey &task)
     ProgTrace(TRACE5,"Attention! %s execute time: %ld secs, point_id=%d",
                      __FUNCTION__, time_end-time_start, task.point_id);
 }
-

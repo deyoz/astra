@@ -1050,6 +1050,8 @@ class TSimplePaxGrpItem
     bool is_mark_norms;
     ASTRA::TClientType client_type;
     int tid;
+    int excess_pc;
+    int excess_wt;
     bool baggage_pc;      //!!!потом удалить
 
     TSimplePaxGrpItem() { clear(); }
@@ -1069,6 +1071,8 @@ class TSimplePaxGrpItem
       is_mark_norms=false;
       client_type = ASTRA::ctTypeNum;
       tid=ASTRA::NoExists;
+      excess_pc=ASTRA::NoExists;
+      excess_wt=ASTRA::NoExists;
 
       baggage_pc=false;
     }

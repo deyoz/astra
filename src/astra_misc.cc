@@ -1193,7 +1193,19 @@ bool TTrferRoute::GetRoute(int grp_id,
       item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   };
   return true;
-};
+}
+
+std::string TTrferRoute::makeLine() const
+{
+  std::string result;
+  for (const TTrferRouteItem& item: *this) {
+    if (!result.empty()) {
+      result += "-";
+    }
+    result += item.airp_arv;
+  }
+  return result;
+}
 
 std::string flight_view(int grp_id, int seg_no)
 {
