@@ -7,6 +7,7 @@ include(ts/pnl/pnl_ut_580_461.ts)
 include(ts/pax/checkin_macro.ts)
 include(ts/pax/et_emd_macro.ts)
 include(ts/pax/boarding_macro.ts)
+include(ts/fr_forms.ts)
 
 # meta: suite checkin
 
@@ -3791,9 +3792,96 @@ $(KICK_IN_AFTER_HTTP)
             <reg_no>1</reg_no>.*
             <reg_no>2</reg_no>.*
 
+#
+# Тест статистики Трансфер - Общая
+#
+
+$(exec_stage $(get point_dep1) Takeoff)
+
+!! capture=on
+$(RUN_GENERAL_STAT  $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21) Общая Трансфер)
 
 
-
-
-
-
+>> 
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...>
+    <form name='TrferFullStat'...>$(TrferFullStatForm)
+</form>
+    <airline>ЮТ</airline>
+    <grd>
+      <header>
+        <col width='50' align='0' sort='0'>Код а/к</col>
+        <col width='50' align='0' sort='0'>Код а/п</col>
+        <col width='75' align='1' sort='1'>Номер рейса</col>
+        <col width='50' align='0' sort='3'>Дата</col>
+        <col width='90' align='0' sort='0'>Направление</col>
+        <col width='75' align='1' sort='1'>Кол-во пасс.</col>
+        <col width='30' align='1' sort='1'>ВЗ</col>
+        <col width='30' align='1' sort='1'>РБ</col>
+        <col width='30' align='1' sort='1'>РМ</col>
+        <col width='80' align='1' sort='1'>Р/кладь (вес)</col>
+        <col width='50' align='1' sort='6'>БГ мест</col>
+        <col width='50' align='1' sort='6'>БГ вес</col>
+        <col width='40' align='1' sort='1'>Пл.м</col>
+        <col width='40' align='1' sort='1'>Пл.вес</col>
+      </header>
+      <rows>
+        <row>
+          <col>ЮТ</col>
+          <col>СОЧ</col>
+          <col>580</col>
+          <col>19.06.21</col>
+          <col>ВНК-РЩН</col>
+          <col>2</col>
+          <col>2</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>$(get point_dep1)</col>
+        </row>
+        <row>
+          <col>Итого:</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col>2</col>
+          <col>2</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </grd>
+    <form_data>
+      <variables>
+        <print_date>... (МОВ)</print_date>
+        <print_oper>PIKE</print_oper>
+        <print_term>МОВРОМ</print_term>
+        <use_seances>0</use_seances>
+        <test_server>1</test_server>
+        <cap_test>ТЕСТ</cap_test>
+        <page_number_fmt>Стр. %u из %u</page_number_fmt>
+        <short_page_number_fmt>Стр. %u</short_page_number_fmt>
+        <oper_info>Отчет сформирован ... (МОВ)
+оператором PIKE
+с терминала МОВРОМ</oper_info>
+        <skip_header>0</skip_header>
+        <kiosks>Киоски</kiosks>
+        <pax>Пас.</pax>
+        <mob>Моб.</mob>
+        <mobile_devices>Мобильные устройства</mobile_devices>
+        <caption>Трансферная сводка</caption>
+      </variables>
+    </form_data>
+  </answer>
+</term>

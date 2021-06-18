@@ -827,6 +827,13 @@ static std::string FP_getRandomBpTypeCode(const std::vector<std::string>& p)
     return code;
 }
 
+static std::string FP_exec_stage(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 2);
+    exec_stage(std::stoi(par.at(0)), DecodeStage(par.at(1).c_str()));
+    return std::string();
+}
+
 static std::string FP_settcl(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 2);
@@ -1537,6 +1544,7 @@ FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("get_elem_id", FP_getElemId);
 FP_REGISTER("get_random_bp_type", FP_getRandomBpTypeCode);
 FP_REGISTER("settcl", FP_settcl);
+FP_REGISTER("exec_stage", FP_exec_stage);
 FP_REGISTER("gettcl", FP_gettcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
