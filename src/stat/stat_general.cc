@@ -2032,7 +2032,7 @@ void RunFullStat(const TStatParams &params,
           Qry.SetVariable("ak",*i);
           GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
         };
-      }
+      };
     }
     else if (params.seance==seanceAirport)
     {
@@ -2044,10 +2044,9 @@ void RunFullStat(const TStatParams &params,
         {
           Qry.SetVariable("ap",*i);
           GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
-        }
-      }
-    }
-    else {
+        };
+      };
+    } else {
         GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
     }
 

@@ -2,6 +2,7 @@ include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/fr_forms.ts)
 include(ts/spp/read_trips_macro.ts)
+include(ts/pax/checkin_macro.ts)
 
 # meta: suite readarch
 
@@ -436,6 +437,25 @@ $(set pax_id1 $(get_pax_id $(get point_dep_UT_298) OZ OFER))
 $(set pax_id2 $(get_pax_id $(get point_dep_UT_190) OZ OFER))
 $(set pax_id3 $(get_pax_id $(get point_dep_UT_450) OZ OFER))
 
+$(NEW_UNACCOMP_REQUEST capture=off lang=EN hall=1 ""
+{$(NEW_UNACCOMP_SEGMENT $(get point_dep_UT_298) $(get point_arv_UT_298) СОЧ ПРХ)})
+
+$(set grp_id_unacc1 $(get_unaccomp_id $(get point_dep_UT_298) 1))
+
+$(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_UNACCOMP_SEGMENT $(get point_dep_UT_298) $(get point_arv_UT_298) СОЧ ПРХ
+                           $(get grp_id_unacc1) $(get_unaccomp_tid $(get grp_id_unacc1)))}
+{<value_bags/>
+<bags>
+$(BAG_WT 1 "" ЮТ pr_cabin=1 amount=1  weight=11  bag_pool_num=1)
+$(BAG_WT 2 "" ЮТ pr_cabin=0 amount=3  weight=24  bag_pool_num=1)
+</bags>
+<tags pr_print=\"0\">
+$(TAG 1 RUCH 1298401555 bag_num=2 color=СИ)
+$(TAG 2 RUCH 1298401556 bag_num=2 color=Ж)
+$(TAG 3 RUCH 0298401557 bag_num=2 color=О)
+</tags>}
+)
 
 !!
 $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT_298) ЮТ 298 СОЧ ПРХ OZ OFER 2985523437721
@@ -479,6 +499,30 @@ $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
           <class>Э</class>
           <document>32427293 UKR</document>
           <ticket_no>2985523437721</ticket_no>
+          <hall>Зал 1</hall>
+        </pax>
+        <pax>
+          <part_key>$(date_format %d.%m.%Y) 09:00:00</part_key>
+          <point_id>$(get point_dep_UT_298)</point_id>
+          <airline/>
+          <flt_no>0</flt_no>
+          <suffix/>
+          <trip>ЮТ298 СОЧ</trip>
+          <scd_out>$(date_format %d.%m.%Y) 10:15:00</scd_out>
+          <reg_no>0</reg_no>
+          <full_name>Багаж без сопровождения</full_name>
+          <bag_amount>3</bag_amount>
+          <bag_weight>24</bag_weight>
+          <rk_weight>11</rk_weight>
+          <excess>35</excess>
+          <tags>Ж1298401556, О0298401557, СИ1298401555</tags>
+          <grp_id>...</grp_id>
+          <airp_arv>ПРХ</airp_arv>
+          <status/>
+          <class/>
+          <seat_no/>
+          <document/>
+          <ticket_no/>
           <hall>Зал 1</hall>
         </pax>
       </rows>

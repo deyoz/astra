@@ -6,6 +6,7 @@
 #include "passenger.h"
 #include "report_common.h"
 #include "stat_utils.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #define NICKTRACE SYSTEM_TRACE
@@ -227,7 +228,8 @@ void ArxRunTrferPaxStat(
                 string pers_type = Qry.get().FieldAsString(col_pers_type);
                 int grp_id = Qry.get().FieldAsInteger(col_grp_id);
                 int bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
-                string tags = PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num, pr_lat).value_or("");
+                string tags = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key),
+                                               TReqInfo::Instance()->desk.lang).value_or("");
 
                 list<pair<TTripInfo, string> > seg_list;
                 getSegList(segments, seg_list);

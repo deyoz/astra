@@ -18,6 +18,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
+#include "baggage_ckin.h"
 #include "arx_daily_pg.h"
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -487,8 +488,8 @@ std::string baselStatPaidInfo(const TBaselStat & stat, TDateTime part_key, int p
        .def(gclass).def(gbag_refuse)
        .bind(":part_key", DateTimeToBoost(part_key)).bind(":point_id", point_id).bind(":grp_id",grp_id)
        .EXfet();
-    std::vector<dbo::ARX_BAG2> ref_bags = algo::filter(arx_bags, [&](const auto & bag)
-    {return PG_ARX::bag_pool_refused(bag.part_key, bag.grp_id, bag.bag_pool_num, gclass, gbag_refuse) == 0;});
+    std::vector<dbo::ARX_BAG2> ref_bags = algo::filter(arx_bags, [&](const dbo::ARX_BAG2 & bag)
+    {return CKIN::get_bag_pool_refused(GrpId_t(bag.grp_id), bag.bag_pool_num, gclass, gbag_refuse, bag.part_key) == 0;});
 
     ostringstream str;
     if(!ref_bags.empty()) {
@@ -574,8 +575,8 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
        .bind(":point_id", point_id)
        .exec();
     while(!cur.fen()) {
-        int arch_excess_wt = PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0);
-        std::string tags  = PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num,"RU").value_or("");
+        int arch_excess_wt = CKIN::get_excess_wt(GrpId_t(grp_id), pax_id, excess_wt, excess, bag_refuse, DateTimeToBoost(part_key)).value_or(0);
+        std::string tags  = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key), "RU").value_or("");
         TBaselStat stat;
         stat.point_id = point_id;
         stat.airp = operFlt.airp;
@@ -591,9 +592,9 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
         else
           stat.viewName = "ÅÄÉÄÜ ÅÖá ëéèêéÇéÜÑÖçàü";
         stat.viewName = stat.viewName.substr(0,130);
-        stat.viewPCT = PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
-        stat.viewWeight = PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
-        stat.viewCarryon = PG_ARX::get_rkWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
+        stat.viewPCT = CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
+        stat.viewWeight = CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
+        stat.viewCarryon = CKIN::get_rkWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
         stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
         stat.viewTag = tags.substr(0,100);
         pair<TDateTime, TDateTime> times(NoExists, NoExists);

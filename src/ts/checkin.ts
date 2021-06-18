@@ -2079,7 +2079,7 @@ $(CKIN_LIST_PAX $(get pax_id_chd1_1) 3 ……Š  …‚›‰ ‚Š ™(’461) ™(’461)
 $(CKIN_LIST_PAX $(get pax_id_chd2_1) 4 ……Š  ‚’‰ ‚Š ™(’461) ™(’461)  ... "" "" "4" "10" "11" ""   "Œ€0298103998, Œ€0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_inf1_1) 5 Œ‹€„……– …‚›‰ ‚Š ™(’461) ™(’461)  ""  0  "Œ" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_inf2_1) 6 Œ‹€„……– ‚’‰ ‚Š ™(’461) ™(’461)  ""  0  "Œ" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_adl3_1) 7 ‚‡‘‹›‰ ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" ""   "10" "100" "4" "104" "0103-104, 0000000001,009-010,099,101-102, 00105-106" $(get grp_id_adl3_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_adl3_1) 7 ‚‡‘‹›‰ ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" ""   "10" "100" "4" "104" "0103-104, 00105-106, 0000000001,009-010,099,101-102" $(get grp_id_adl3_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_chd3_1) 8 ……Š  ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_chd3_1) 12 1 $(get point_arv1) $(get uid))
     </passengers>
     <unaccomp_bag>
@@ -2101,7 +2101,7 @@ $(CKIN_LIST_PAX $(get pax_id_chd1_2) 3 ……Š  …‚›‰ ™ "" ""  ... "" "" "
 $(CKIN_LIST_PAX $(get pax_id_chd2_2) 4 ……Š  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "Œ€0298103998, Œ€0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_inf1_2) 5 Œ‹€„……– …‚›‰ ™ "" ""  ""  0  "Œ" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_inf2_2) 6 Œ‹€„……– ‚’‰ ™ "" ""  ""  0  "Œ" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
-$(CKIN_LIST_PAX $(get pax_id_adl3_2) 7 ‚‡‘‹›‰ ’…’ˆ‰ ™ "" ""  ... "" ""   "10" "100" "4" "" "0103-104, 0000000001,009-010,099,101-102, 00105-106" $(get grp_id_adl3_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_LIST_PAX $(get pax_id_adl3_2) 7 ‚‡‘‹›‰ ’…’ˆ‰ ™ "" ""  ... "" ""   "10" "100" "4" "" "0103-104, 00105-106, 0000000001,009-010,099,101-102" $(get grp_id_adl3_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_chd3_2) 8 ……Š  ’…’ˆ‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_chd3_2) 12 1 $(get point_arv2) $(get uid) 1)
     </passengers>
     <unaccomp_bag/>

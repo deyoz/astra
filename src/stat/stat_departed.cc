@@ -4,6 +4,7 @@
 #include "stat_common.h"
 #include "passenger.h"
 #include "stat_utils.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -105,9 +106,9 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
             // До
             << airp_arv_info.get(paxQry) << delim
             // Багаж мест
-             <<  PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0) << delim
+             <<  CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim
             // Багаж вес
-            << PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0) << delim;
+            << CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim;
         // Время регистрации
         TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
         if(evt != events.end())

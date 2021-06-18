@@ -3,6 +3,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "qrys.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -130,7 +131,7 @@ bool ArxValidateByAirp(const TDateTime& part_key, const int point_id,
     LogTrace5 << __func__ << " part_key: " << part_key << " point_id: " << point_id << " airp: " << airp;
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.user.access.airps().elems().empty()) {
-        std::optional<std::string> next_airp = PG_ARX::next_airp(DateTimeToBoost(part_key), point_id, point_num);
+        std::optional<std::string> next_airp = CKIN::next_airp(point_id, point_num, DateTimeToBoost(part_key));
         const auto& airps = reqInfo.user.access.airps().elems();
         if (reqInfo.user.access.airps().elems_permit())
         {

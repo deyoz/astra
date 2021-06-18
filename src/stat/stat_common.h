@@ -5,8 +5,7 @@
 #include "astra_utils.h"
 #include "db_tquery.h"
 #include <optional>
-#include "arx_daily_pg.h"
-#include <optional>
+#include "PgOraConfig.h"
 
 class TTripInfo;
 
@@ -320,7 +319,7 @@ private:
 inline std::string getMoveArxQuery()
 {
     std::string res;
-    if(ARX::READ_PG()) {
+    if(PgOra::Config("SP_PG_GROUP_ARX").readPostgres()) {
         res += " , (SELECT part_key, move_id FROM move_arx_ext \n"
                "    WHERE part_key >= :arx_trip_date_range AND part_key <= (:LastDate+ date_range * INTERVAL '1 day')) arx_ext \n";
     } else {

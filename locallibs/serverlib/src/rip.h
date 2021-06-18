@@ -49,6 +49,10 @@ public:
         return val_;
     }
 
+//    size_t hash() const {
+//        return std::hash<trait_t>()(val_);
+//    }
+
     static const char* name() {
         return trait_t::name();
     }
@@ -143,6 +147,14 @@ struct is_integral< BaseParameter< T, B > >
 };
 
 } // rip
+
+#define DECL_HASH(TypeName, BaseType) \
+namespace std { \
+template<> \
+struct hash<TypeName> { \
+public: \
+    size_t operator()(TypeName const& t) const { return std::hash<BaseType>()(t.get());} \
+}; } \
 
 // inner namespace rip_details is used to prevent ADL
 #define DECL_RIP(TypeName, BaseType) \

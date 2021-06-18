@@ -68,6 +68,7 @@
 #include "grp_db.h"
 #include "check_grp_unification.h"
 #include "tlg/typeb_db.h"
+#include "baggage_ckin.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/xml_stuff.h>
@@ -2458,10 +2459,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool check_pay_on_tckin_segs=false;
   if (with_rcpt_info) check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, operFlt);
 
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
   ostringstream sql;
   sql <<
     "SELECT "
-    "  reg_no,surname,name,pax_grp.airp_arv, "
+    "  bag_pool_num,reg_no,surname,name,pax_grp.airp_arv, "
     "  last_trfer.airline AS trfer_airline, "
     "  last_trfer.flt_no AS trfer_flt_no, "
     "  last_trfer.suffix AS trfer_suffix, "
@@ -2476,13 +2479,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
-    "  ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-    "  ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-    "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
     "  pax_grp.excess_wt AS excess_wt_raw, "
     "  pax_grp.piece_concept, "
-    "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
     "  mark_trips.airline AS airline_mark, "
     "  mark_trips.flt_no AS flt_no_mark, "
     "  mark_trips.suffix AS suffix_mark, "
@@ -2518,11 +2517,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
-
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
+
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
   TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
@@ -2531,6 +2529,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     createDefaults=true;
 
     int col_pax_id=Qry.FieldIndex("pax_id");
+    int col_bag_pool_num= Qry.FieldIndex("bag_pool_num");
     int col_reg_no=Qry.FieldIndex("reg_no");
     int col_surname=Qry.FieldIndex("surname");
     int col_name=Qry.FieldIndex("name");
@@ -2545,13 +2544,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_pers_type=Qry.FieldIndex("pers_type");
     int col_ticket_rem=Qry.FieldIndex("ticket_rem");
     int col_ticket_no=Qry.FieldIndex("ticket_no");
-    int col_bag_amount=Qry.FieldIndex("bag_amount");
-    int col_bag_weight=Qry.FieldIndex("bag_weight");
     int col_bag_refuse=Qry.FieldIndex("bag_refuse");
-    int col_rk_weight=Qry.FieldIndex("rk_weight");
     int col_excess_wt=Qry.FieldIndex("excess_wt");
     int col_piece_concept=Qry.FieldIndex("piece_concept");
-    int col_tags=Qry.FieldIndex("tags");
 
     int col_airline_mark=Qry.FieldIndex("airline_mark");
     int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
@@ -2575,6 +2570,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(;!Qry.Eof;Qry.Next())
     {
       int grp_id = Qry.FieldAsInteger(col_grp_id);
+      std::optional<int> bag_pool_num = std::nullopt;
+      if(!Qry.FieldIsNULL(col_bag_pool_num)) {
+          bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+      }
       int pax_id = Qry.FieldAsInteger(col_pax_id);
       int reg_no = Qry.FieldAsInteger(col_reg_no);
       int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
@@ -2661,14 +2660,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
       NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
-      NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
-      NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
-      NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
+
+      NewTextChild(paxNode,"bag_amount",bag_reader.bagAmount(GrpId_t(grp_id), bag_pool_num ),0);
+      NewTextChild(paxNode,"bag_weight",bag_reader.bagWeight(GrpId_t(grp_id), bag_pool_num),0);
+      NewTextChild(paxNode,"rk_weight",bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
                                             TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
-
-      NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
+      NewTextChild(paxNode,"tags",bag_reader.tags(GrpId_t(grp_id), bag_pool_num, reqInfo->desk.lang),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
 
       //коммерческий рейс
@@ -2764,11 +2763,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
     "  last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
-    "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
-    "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
+    "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
     "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
@@ -2800,7 +2796,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   node=NewTextChild(resNode,"unaccomp_bag");
   if (!Qry.Eof)
@@ -2830,15 +2825,15 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       TLastTCkinSegInfo tckinSegInfo(Qry);
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
-      NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
-      NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
-      NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
+      NewTextChild(paxNode,"bag_amount",bag_reader.bagAmountUnaccomp(GrpId_t(grp_id)),0);
+      NewTextChild(paxNode,"bag_weight",bag_reader.bagWeightUnaccomp(GrpId_t(grp_id)),0);
+      NewTextChild(paxNode,"rk_weight",bag_reader.rkWeightUnaccomp(GrpId_t(grp_id)),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(0),
                                             TBagKilos(Qry.FieldAsInteger("excess_wt")));
 
 
-      NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
+      NewTextChild(paxNode,"tags", bag_reader.tagsUnaccomp(GrpId_t(grp_id), reqInfo->desk.lang),"");
       if (with_rcpt_info)
       {
         string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, NoExists):
