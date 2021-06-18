@@ -42,5 +42,5 @@ build_noora:
 
   script:
     - docker build -t "${CONTAINER_IMAGE}" -f "${DOCKERFILE}" .
-    - docker run --rm "${CONTAINER_IMAGE}" ./buildFromScratch.sh no/ora --createtcl --createdb --runtests
+    - docker run --rm "${CONTAINER_IMAGE}" -e PG_CONNECT_STRING -e PG_CONNECT_STRING_ARX -e PG_SYSPAROL ./buildFromScratch.sh no/ora --createtcl --createdb --runtests
     - docker push "${CONTAINER_IMAGE}"
