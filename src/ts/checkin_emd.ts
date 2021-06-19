@@ -3831,7 +3831,7 @@ $(RUN_GENERAL_STAT  $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21) é°È
           <col>ûí</col>
           <col>ëéó</col>
           <col>580</col>
-          <col>19.06.21</col>
+          <col>$(date_format %d.%m.%y +1)</col>
           <col>Ççä-êôç</col>
           <col>2</col>
           <col>2</col>
