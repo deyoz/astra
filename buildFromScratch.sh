@@ -228,7 +228,7 @@ password=`echo ${CONNECT_STRING} | awk -F '/' '{print $2}' | awk -F '@' '{print 
 PG_CONNECT_STRING_AUTO="postgresql://${user}:$password@localhost/${user}"
 PG_CONNECT_STRING_ARX_AUTO="postgresql://${user}_arx:$password@localhost/${user}_arx"
 export PG_CONNECT_STRING=${PG_CONNECT_STRING:-$PG_CONNECT_STRING_AUTO}
-export PG_CONNECT_STRING_ARC=${PG_CONNECT_STRING_ARC:-$PG_CONNECT_STRING_ARX_AUTO}
+export PG_CONNECT_STRING_ARX=${PG_CONNECT_STRING_ARX:-$PG_CONNECT_STRING_ARX_AUTO}
 
 
 #echo MAKE_J=${MAKE_J} TEST_J=${TEST_J}
