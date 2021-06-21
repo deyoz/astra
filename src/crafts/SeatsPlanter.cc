@@ -35,7 +35,6 @@ struct ReseatRfiscData {
   enum EnumRFISC { doAdd, doDelete };
   int point_id;
   int pax_id;
-  int front_grp_id;
   TPaxSegRFISCKey del_rfisc, add_rfisc;
   TSeat del_seat, add_seat;
   void RFISCToXML( xmlNodePtr node,
@@ -50,8 +49,6 @@ struct ReseatRfiscData {
   void toXML( xmlNodePtr reqNode ) {
     RemoveNode( GetNode("rfiscs", reqNode) );
     xmlNodePtr node = NewTextChild( reqNode, "rfiscs");
-    SetProp( node, "point_id", point_id );
-    SetProp( node, "pax_id", pax_id );
     RFISCToXML( NewTextChild( node, "delete" ),
                 del_rfisc, del_seat );
     RFISCToXML( NewTextChild( node, "add" ),
@@ -66,8 +63,6 @@ struct ReseatRfiscData {
   }
   void fromXML( xmlNodePtr reqNode ) {
     xmlNodePtr node = NodeAsNode( "rfiscs", reqNode );
-    point_id = NodeAsInteger( "@point_id", node );
-    pax_id = NodeAsInteger( "@pax_id", node );
     RFISCFromXML( NodeAsNode( "delete", node), del_rfisc, del_seat );
     RFISCFromXML( NodeAsNode( "add", node), add_rfisc, add_seat );
   }
@@ -76,34 +71,44 @@ struct ReseatRfiscData {
 class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
   private:
     void doService( TPaxSegRFISCKey& rfisc,
-                    TPaidRFISCList& paidRFISC,
+                    TPaidRFISCListWithAuto& paidRFISC,
                     ReseatRfiscData::EnumRFISC operation ) {
       if ( rfisc.RFISC.empty() ) return;
       try {
         rfisc.getListItemByPaxId(pax_id,0,TServiceCategory::Other,__func__);
       }
       catch(EXCEPTIONS::EConvertError& e) {
-        tst();
+        LogTrace(TRACE5) << rfisc.traceStr();
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
       }
 
-      for ( TPaidRFISCList::iterator p=paidRFISC.begin(); p!=paidRFISC.end(); ++p ) {
+      bool existsAuto = false;
+      for ( TPaidRFISCListWithAuto::iterator p=paidRFISC.begin(); p!=paidRFISC.end(); ++p ) {
         LogTrace(TRACE5) << p->second.need_positive()
                          << "|" << p->second.paid_positive()
-                         << "|" << p->second.need << "|" << p->second.paid;
+                         << "|" << p->second.need << "|" << p->second.paid << "|" << p->first.is_auto_service()
+                         << "|" << p->first.RFISC << "|" << rfisc.RFISC;
+        if ( p->first.is_auto_service() && //если есть автоуслуга с тем же кодом, то ничего не делаем
+             p->first.RFISC == rfisc.RFISC ) {
+          existsAuto = true;
+          continue;
+        }
         if ( !p->second.need_positive() ||
              !p->second.paid_positive() ||
              (operation==ReseatRfiscData::EnumRFISC::doDelete &&
               p->second.need <= 0) )
           continue;
         if ( p->first == rfisc ) {
+          tst();
           p->second.service_quantity = p->second.service_quantity + (operation==ReseatRfiscData::EnumRFISC::doAdd?1:-1);
           if ( p->second.service_quantity == 0 )
             paidRFISC.erase(p);
           return;
         }
       }
-      if ( operation==ReseatRfiscData::EnumRFISC::doAdd ) { //не встретили услугу, тогда добавляем
+      if ( !existsAuto &&
+           operation==ReseatRfiscData::EnumRFISC::doAdd ) { //не встретили услугу, тогда добавляем
+        tst();
         TPaidRFISCItem item(TGrpServiceItem(rfisc,1));
         paidRFISC.insert( make_pair(rfisc,item));
       }
@@ -125,6 +130,21 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       }
       else return Qry.FieldAsInteger("hall");
     }
+    static void getFirstPaxIds( int grp_id, int pax_id,
+                                int& first_grp_id, int& first_pax_id,
+                                TCkinRoute& route ) {
+      route.clear();
+      route.getRoute(GrpId_t(grp_id),
+                     TCkinRoute::WithCurrent,
+                     TCkinRoute::OnlyDependent,
+                     TCkinRoute::WithoutTransit);
+      LogTrace(TRACE5) << pax_id << " " << grp_id << " " << route.empty();
+      const std::vector<PaxGrpRoute> paxRoute = PaxGrpRoute::load(PaxId_t(pax_id),0/*???*/,
+                                                                  GrpId_t(grp_id),
+                                                                  GrpId_t(route.empty()?grp_id:route.front().grp_id));
+      first_grp_id = paxRoute.empty()?grp_id:paxRoute.front().dest.grp_id.get();
+      first_pax_id = paxRoute.empty()?pax_id:paxRoute.front().dest.pax_id.get();
+    }
     xmlNodePtr createTCkinSavePaxQuery(xmlNodePtr reqNode,xmlNodePtr resNode) {
       //делаем doc запрос со всеми атрибутами - пультом, версией терминала и прочим
       LogTrace(TRACE5) << __func__;
@@ -137,25 +157,12 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       if (!pax.getByPaxId(pax_id))
         throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
       TCkinRoute route;
-      //!!!route.getRouteAfter(GrpId_t(pax.grp_id),
-      boost::optional<int> current_grp_num =
-      route.getRoute(GrpId_t(pax.grp_id),
-                     TCkinRoute::WithCurrent,
-                     TCkinRoute::OnlyDependent,
-                     TCkinRoute::WithoutTransit);
+      int first_grp_id, first_pax_id;
+      getFirstPaxIds(pax.grp_id, pax.id,
+                     first_grp_id, first_pax_id,
+                     route);
       LogTrace(TRACE5) << pax_id << " " << pax.grp_id << " " << route.empty();
-      const std::vector<PaxGrpRoute> paxRoute = PaxGrpRoute::load(PaxId_t(pax_id),0/*???*/,
-                                                                  GrpId_t(pax.grp_id),
-                                                                  GrpId_t(route.empty()?pax.grp_id:route.front().grp_id));
-/*      if ( route.empty() ) //???
-        throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");*/
-      tst();
-/*      LogTrace(TRACE5) << "dest pax_id " << paxRoute.front().dest.pax_id <<
-                          " grp_id " << paxRoute.front().dest.grp_id <<
-                          " seg_no " << paxRoute.front().dest.seg_no;
-      LogTrace(TRACE5) << "src pax_id " << paxRoute.front().src.pax_id <<
-                          " grp_id " << paxRoute.front().src.grp_id  <<
-                          " seg_no " << paxRoute.front().src.seg_no;*/
+      LogTrace(TRACE5) << first_grp_id << " " << first_pax_id;
       int trfer_num = 0; //!!! плохой поиск
       if (!route.empty())
       {
@@ -174,7 +181,7 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
             trfer_num++;
         }
       }
-      else //??? как так может быть? это из-за того, что стоит флаг TCkinRoute::OnlyDependent и выбираются рейсы сквозняка?
+      else //??? нет сквозняка
       {
         tst();
         CheckIn::TSimplePaxGrpItem grp;
@@ -192,15 +199,16 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
         g->toEmulXML((g==grps.begin())?emulChngNode:nullptr, segNode);
         NewTextChild(segNode,"passengers");
         if (g!=grps.begin()) continue;
-        //TGrpServiceListWithAuto svc; //это полный список услуг?
-        //svc.fromDB(g->id);
-        front_grp_id = paxRoute.empty()?pax.grp_id:paxRoute.front().dest.grp_id.get();
-        TPaidRFISCList paidRFISC;
-        //paidRFISC.fromDB(paxRoute.front().dest.grp_id);//это введено с терминала и оценено
-        paidRFISC.fromDB(paxRoute.empty()?pax.grp_id:paxRoute.front().dest.grp_id.get(),true); //это введено с терминала и оценено
+        TGrpServiceListWithAuto a;
+        a.fromDB(GrpId_t(first_grp_id));
+        LogTrace(TRACE5) << XMLTreeToText(emulChngNode->doc);
+        //TPaidRFISCList paidRFISC;
+        TPaidRFISCListWithAuto serviceList;
+        serviceList.fromDB(first_grp_id,true);
         //del_rfisc - эту услугу надо удалить, если она еще не оплачена
         //add_rfisc - эту услугу надо добавить, если еще нет такой вообще(не важно оплачана она или нет
-        add_rfisc.pax_id = paxRoute.empty()?pax_id:paxRoute.front().dest.pax_id.get();
+        add_rfisc.pax_id = first_pax_id;
+        del_rfisc.pax_id = first_pax_id;
         if ( route.empty() ) {
           TTripInfo fltInfo;
           fltInfo.getByPaxId(pax_id);
@@ -212,19 +220,20 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
           del_rfisc.airline = route.front().operFlt.airline;
         }
         add_rfisc.trfer_num = trfer_num;
-        add_rfisc.service_type = TServiceType::FlightRelated;
-        doService( add_rfisc,
-                   paidRFISC,
-                   ReseatRfiscData::EnumRFISC::doAdd );
-        del_rfisc.pax_id = paxRoute.empty()?pax_id:paxRoute.front().dest.pax_id.get();
         del_rfisc.trfer_num = trfer_num;
+
+        add_rfisc.service_type = TServiceType::FlightRelated;
         del_rfisc.service_type = TServiceType::FlightRelated;
+
+        doService( add_rfisc,
+                   serviceList,
+                   ReseatRfiscData::EnumRFISC::doAdd );
         doService( del_rfisc,
-                   paidRFISC,
+                   serviceList,
                    ReseatRfiscData::EnumRFISC::doDelete );
         //оплачена ли услуга? есть ли уже такая? кол-во?
         xmlNodePtr servsNode = NewTextChild( emulChngNode, "services" );
-        for ( auto& p : paidRFISC ) {
+        for ( auto& p : serviceList ) {
           /*if ( !p.second.need_positive()   ||
                !p.second.paid_positive() )
             continue;*/
@@ -233,6 +242,12 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
           s.toXML( itemNode=NewTextChild( servsNode, "item" ) );
           RemoveNode(GetNode("name_view",itemNode)); //этот тег лишний для SavePax
         }
+/*        for ( auto& p : autoService ) {
+          const Sirena::TPaxSegKey& s = static_cast<const Sirena::TPaxSegKey&>(p);
+          xmlNodePtr n = NewTextChild( servsNode, "item" );
+          //s.toXML( n );
+          //const Sirena::TPaxSegKey& s = static_cast<const Sirena::TPaxSegKey&>(p);
+        }*/
       }
       NewTextChild(emulChngNode, "agent_stat_period", NodeAsInteger("agent_stat_period",reqNode,-1));
       NodeSetContent(GetNode("hall",emulChngNode), getHall(reqNode));
@@ -240,8 +255,16 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       return emulChngNode;
     }
   public:
-    ReseatPaxRFISCServiceChanger(){}
-
+    ReseatPaxRFISCServiceChanger(xmlNodePtr reqNode){
+      point_id = NodeAsInteger("trip_id",reqNode);
+      pax_id = NodeAsInteger("pax_id",reqNode);
+    }
+    void getFirstPaxIds( int& first_grp_id, int& first_pax_id ) {
+      TCkinRoute route;
+      CheckIn::TSimplePaxGrpItem grp;
+      grp.getByPaxId(pax_id);
+      getFirstPaxIds( grp.id, pax_id, first_grp_id, first_pax_id, route );
+    }
     static bool isContinueServices( xmlNodePtr reqNode ) {
       return GetNode( "rfiscs", reqNode ) != nullptr;
     }
@@ -255,13 +278,13 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
     }
 
     static bool reseatRFISCDispatcher(xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
-                                      xmlNodePtr resNode, int& front_grp_id ) {
+                                      xmlNodePtr resNode ) {
       LogTrace(TRACE5) << __func__ << " isDoomedToWait " << isDoomedToWait();
       LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
       if (externalSysResNode)
         LogTrace(TRACE5) << "externalSysResNode " << XMLTreeToText(externalSysResNode->doc);
       LogTrace(TRACE5) << "answer " << XMLTreeToText(resNode->doc);
-      ReseatPaxRFISCServiceChanger r;
+      ReseatPaxRFISCServiceChanger r(reqNode);
       std::string value;
       AstraContext::GetContext(getContextName(), 0, value);
       LogTrace(TRACE5) << value;
@@ -269,7 +292,6 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       r.fromXML(doc.docPtr()->children);
       xmlNodePtr emulChngNode = r.createTCkinSavePaxQuery( reqNode, resNode);
       r.toXML(doc.docPtr()->children);
-      front_grp_id = r.front_grp_id;
       LogTrace(TRACE5) <<  doc.text();
       LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
       AstraContext::ClearContext(getContextName(),0);
@@ -285,7 +307,7 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       toXML( doc.docPtr()->children );
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
-      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode, front_grp_id );
+      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode );
     }
 
 };
@@ -687,7 +709,7 @@ private:
   }
 
   EnumSeatsProps checkRequeredServiceOnRfics( xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
-                                              xmlNodePtr resNode, int& front_grp_id ) {
+                                              xmlNodePtr resNode ) {
     LogTrace(TRACE5) << __func__;
     if ( reqNode == nullptr ||
          resNode == nullptr )
@@ -699,9 +721,7 @@ private:
          isCheckLayer( _layer_type ) &&
          GetTripSets(tsReseatRequiredRFISCService,fltInfo) &&
          !ReseatPaxRFISCServiceChanger::isContinueServices( reqNode ) ) {
-      ReseatPaxRFISCServiceChanger r;
-      r.point_id = _point_id;
-      r.pax_id = _pax_id;
+      ReseatPaxRFISCServiceChanger r(reqNode);
       getRFISC( currSeats.value(), r.del_rfisc, r.del_seat );
       getRFISC( newSeats.value().second, r.add_rfisc, r.add_seat );
       LogTrace(TRACE5) << r.del_rfisc.RFISC << "|" << r.add_rfisc.RFISC;
@@ -713,8 +733,6 @@ private:
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
       if ( !r.reseat( reqNode, externalSysResNode, resNode ) ) //если нет записи данных по пассажирским услугам, то надо выйти и ждать, иначе делаем запись пересадки
         return EnumSeatsProps::propExit;
-      front_grp_id = r.front_grp_id;
-      LogTrace(TRACE5) << front_grp_id;
       _resPropsSets.setFlag(propChangeRFISCService);
       LogTrace(TRACE5) << __func__ << " saving..";
     }
@@ -1314,7 +1332,6 @@ public:
     AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
     tst();
     MessageSaver savePaxMessage;
-    int front_grp_id;
 
     try {
       fromDB(); // начитка данных по пассажиру
@@ -1339,7 +1356,7 @@ public:
         return _resPropsSets;
       checkRequiredRfiscs();
       if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode,
-                                                                    resNode, front_grp_id ) ) //началось добавление или удаление услуги
+                                                                    resNode ) ) //началось добавление или удаление услуги
         return _resPropsSets;
       savePaxMessage.fromXML(resNode);
       doChangeSeats(whence);
@@ -1374,9 +1391,6 @@ public:
       FullUpdateToXML(reqNode,emulResNode);
       showErrorMessageAndRollback( ue.getLexemaData( ) );
     }
-    if (_resPropsSets.isFlag(propChangeRFISCService)) { //надо добавить ответ от SavePax
-      CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( emulResNode, "SavePax"), true);
-    }
     MessageSaver currMessage;
     currMessage.fromXML(resNode);
     if ( currMessage == savePaxMessage )
@@ -1387,10 +1401,20 @@ public:
     LogTrace(TRACE5) << doc.text();
     LogTrace(TRACE5) << XMLTreeToText(resNode->doc);
     AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
-    AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());
-    if ( isDoomedToWait() )
+    if ( isDoomedToWait() ) {
+      LogTrace(TRACE5) << __func__ << " isDoomedToWait return";
+      AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());
       return _resPropsSets;
-    AfterRefreshEMD(reqNode,resNode);
+    }
+    if (_resPropsSets.isFlag(propChangeRFISCService)) { //надо добавить ответ от SavePax
+      tst();
+      int front_grp_id, front_pax_id;
+      ReseatPaxRFISCServiceChanger(reqNode).getFirstPaxIds(front_grp_id,front_pax_id);
+      CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( resNode, "SavePax"), true);
+    }
+
+    //RemoveNode( resNode );
+//    CopyNode( resNode, GetNode( "answer", doc.docPtr()->children), true );
     return _resPropsSets;
   }
 };
@@ -1452,14 +1476,27 @@ void SitDownPlease( xmlNodePtr reqNode,
 void AfterRefreshEMD(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   LogTrace(TRACE5) << XMLTreeToText( resNode->doc );
+  LogTrace(TRACE5) << XMLTreeToText( reqNode->doc );
   std::string value;
   AstraContext::GetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,value);
-  AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
   LogTrace(TRACE5) << value;
   XMLDoc doc = createXmlDoc(value);
-  xmlDocPtr d = resNode->doc;
-  RemoveNode( resNode );
-  CopyNode( d->children, GetNode( "answer", doc.docPtr()->children), true );
+  int front_grp_id,front_pax_id;
+  ReseatPaxRFISCServiceChanger(reqNode).getFirstPaxIds(front_grp_id,front_pax_id);
+  CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( resNode, "SavePax"), true);
+  LogTrace(TRACE5) << XMLTreeToText( resNode->doc );
+  AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
+  //xmlDocPtr d = resNode->doc;
+  //RemoveNode( resNode );
+  //CopyNode( d->children, GetNode( "answer", doc.docPtr()->children), true );
+  LogTrace(TRACE5) << doc.docPtr()->children->name;
+  LogTrace(TRACE5) << resNode->name;
+  xmlNodePtr node = GetNode( "answer", doc.docPtr()->children)->children;
+  while ( node ) { //тело data + сообщение
+    CopyNode( resNode, node, true );
+    node = node->next;
+  }
+  LogTrace(TRACE5) << XMLTreeToText( resNode->doc );
 }
 
 /*
