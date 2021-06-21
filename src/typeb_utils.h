@@ -1133,12 +1133,14 @@ class TPRLOptions : public TMarkInfoOptions
             create_point = "CLOSE_CKIN";
             pax_state = "BRD";
             rbd = false;
+            xbag = false;
         }
     public:
         std::string version;
         std::string create_point;
         std::string pax_state;
         bool rbd;
+        bool xbag;
         TPRLOptions() { init(); }
         virtual ~TPRLOptions() {};
         virtual void clear()
@@ -1155,6 +1157,7 @@ class TPRLOptions : public TMarkInfoOptions
             create_point = NodeAsStringFast("create_point", node2, create_point.c_str());
             pax_state = NodeAsStringFast("pax_state", node2, pax_state.c_str());
             rbd = NodeAsBooleanFast("rbd", node2, rbd);
+            xbag = NodeAsBooleanFast("xbag", node2, xbag);
         }
         virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
         {
@@ -1183,6 +1186,11 @@ class TPRLOptions : public TMarkInfoOptions
                 if (cat=="RBD")
                 {
                     rbd = OptionsQry.FieldAsInteger("value") != 0;
+                    continue;
+                };
+                if (cat=="XBAG")
+                {
+                    xbag = OptionsQry.FieldAsInteger("value") != 0;
                     continue;
                 };
             }
@@ -1220,6 +1228,9 @@ class TPRLOptions : public TMarkInfoOptions
                 << endl
                 << s("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
                 << s(rbd)
+                << endl
+                << "XBAG: "
+                << s(xbag)
                 << endl;
             return s;
         };
@@ -1237,6 +1248,7 @@ class TPRLOptions : public TMarkInfoOptions
                     version == opt.version and
                     create_point == opt.create_point and
                     rbd == opt.rbd and
+                    xbag == opt.xbag and
                     pax_state == opt.pax_state;
             }
             catch(std::bad_cast&)
@@ -1254,6 +1266,7 @@ class TPRLOptions : public TMarkInfoOptions
                     version == opt.version and
                     create_point == opt.create_point and
                     rbd == opt.rbd and
+                    xbag == opt.xbag and
                     pax_state == opt.pax_state;
             }
             catch(std::bad_cast&)
@@ -1271,6 +1284,7 @@ class TPRLOptions : public TMarkInfoOptions
                 create_point = opt.create_point;
                 pax_state = opt.pax_state;
                 rbd = opt.rbd;
+                xbag = opt.xbag;
             }
             catch(std::bad_cast&) {};
         };

@@ -818,7 +818,7 @@ struct TWItem {
     TBagPieces excess_pc; // ØÆ™† ≠• ®·ØÆ´Ïß„•‚·Ô, ≠Æ ≠†Á®‚Î¢†•‚·Ô
     void get(int grp_id, int bag_pool_num);
     void get(int pax_id);
-    void ToTlg(vector<string> &body);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     TWItem():
         bagAmount(0),
         bagWeight(0),
@@ -1501,6 +1501,7 @@ namespace PRL_SPACE {
         int bg;
         TWItem W;
         TPRLTagList tags;
+        CheckIn::TGroupBagItem group_bag;
         TGRPItem() {
             pax_count = NoExists;
             written = false;
@@ -1510,11 +1511,12 @@ namespace PRL_SPACE {
 
     struct TGRPMap {
         TInfants &infants;
+        map<int, TPaidRFISCList> PaidRFISCList; // [grp_id]
         map<int, map<int, TGRPItem> > items; // [grp_id][bag_pool_num]
         int items_count;
         bool find(int grp_id, int bag_pool_num);
-        void get(int grp_id, int bag_pool_num);
-        void ToTlg(TypeB::TDetailCreateInfo &info, int grp_id, int bag_pool_num, vector<string> &body);
+        void get(TypeB::TDetailCreateInfo &info, int grp_id, int bag_pool_num);
+        void ToTlg(TypeB::TDetailCreateInfo &info, int grp_id, int pax_id, int bag_pool_num, vector<string> &body);
         TGRPMap(TInfants &ainfants): infants(ainfants), items_count(0) {};
     };
 
@@ -1568,11 +1570,11 @@ namespace PRL_SPACE {
         }
     };
 
-    void TGRPMap::ToTlg(TypeB::TDetailCreateInfo &info, int grp_id, int bag_pool_num, vector<string> &body)
+    void TGRPMap::ToTlg(TypeB::TDetailCreateInfo &info, int grp_id, int pax_id, int bag_pool_num, vector<string> &body)
     {
         TGRPItem &grp_map = items[grp_id][bag_pool_num];
+        ostringstream line;
         if(not(grp_map.W.bagAmount == 0 and grp_map.W.bagWeight == 0 and grp_map.W.rkWeight == 0)) {
-            ostringstream line;
             if(grp_map.pax_count > 1) {
                 line.str("");
                 line << ".BG/" << setw(3) << setfill('0') << grp_map.bg;
@@ -1580,8 +1582,30 @@ namespace PRL_SPACE {
             }
             if(!grp_map.written) {
                 grp_map.written = true;
-                grp_map.W.ToTlg(body);
+                grp_map.W.ToTlg(info, body);
                 grp_map.tags.ToTlg(info, body);
+            }
+        }
+        const auto paid_rfisc = PaidRFISCList.find(grp_id);
+        if(paid_rfisc == PaidRFISCList.end()) return;
+        for(const auto &i: grp_map.group_bag.bags) {
+            const auto &bag_item = i.second;
+            if(bag_item.pc) {
+                TPaxSegRFISCKey paid_rfisc_key(
+                        Sirena::TPaxSegKey(pax_id, 0),
+                        *bag_item.pc
+                        );
+                const auto paid_rfisc_idx = paid_rfisc->second.find(paid_rfisc_key);
+                if(
+                        paid_rfisc_idx == paid_rfisc->second.end() or
+                        not paid_rfisc_idx->second.paid
+                  ) continue;
+                line.str("");
+                line
+                    << ".R/XBAG/"
+                    << bag_item.pc->RFISC
+                    << "/" << bag_item.amount << "/" << bag_item.weight;
+                body.push_back(line.str());
             }
         }
     }
@@ -1598,7 +1622,7 @@ namespace PRL_SPACE {
         return result;
     }
 
-    void TGRPMap::get(int grp_id, int bag_pool_num)
+    void TGRPMap::get(TypeB::TDetailCreateInfo &info, int grp_id, int bag_pool_num)
     {
         if(find(grp_id, bag_pool_num)) return; // olready got
         TGRPItem item;
@@ -1614,6 +1638,16 @@ namespace PRL_SPACE {
         item.pax_count = Qry.get().FieldAsInteger(0);
         item.tags.get(grp_id, bag_pool_num);
         item.bg = ++items_count;
+
+        if(
+                info.optionsIs<TypeB::TPRLOptions>() and
+                info.optionsAs<TypeB::TPRLOptions>()->xbag
+          ) {
+            if(PaidRFISCList.find(grp_id) == PaidRFISCList.end())
+                PaidRFISCList[grp_id].fromDB(grp_id, true);
+            item.group_bag.fromDB(grp_id, bag_pool_num, false);
+        }
+
         items[grp_id][bag_pool_num] = item;
     }
 
@@ -1754,7 +1788,7 @@ namespace PRL_SPACE {
             iv->pnrs.ToTlg(info, body);
             iv->M.ToTlg(info, body);
             iv->firm_space_avail.ToTlg(info, body);
-            grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
+            grp_map->ToTlg(info, iv->grp_id, iv->pax_id, iv->bag_pool_num, body);
             iv->OList.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
         }
@@ -1880,7 +1914,7 @@ namespace PRL_SPACE {
                 pax.pnrs.get(pax.pnr_id);
                 if(!Qry.get().FieldIsNULL(col_subcls))
                     pax.subcls = Qry.get().FieldAsString(col_subcls);
-                grp_map->get(pax.grp_id, pax.bag_pool_num);
+                grp_map->get(info, pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
                 pax.pers_type = DecodePerson(Qry.get().FieldAsString(col_pers_type));
                 pax.reg_no = Qry.get().FieldAsInteger(col_reg_no);
@@ -2473,13 +2507,22 @@ class LineOverflow: public Exception {
         LineOverflow( ):Exception( "èÖêÖèéãçÖçàÖ ëíêéäà íÖãÖÉêÄååõ" ) { };
 };
 
-void TWItem::ToTlg(vector<string> &body)
+void TWItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     ostringstream buf;
     buf << ".W/K/" << bagAmount << '/' << bagWeight;
     if(rkWeight != 0)
         buf << '/' << rkWeight;
     body.push_back(buf.str());
+    if(
+            info.optionsIs<TypeB::TPRLOptions>() and
+            info.optionsAs<TypeB::TPRLOptions>()->xbag and
+            not excess_wt.zero()
+      ) {
+        buf.str("");
+        buf << ".R/XBAG/" << excess_wt.getQuantity();
+        body.push_back(buf.str());
+    }
 }
 
 void TWItem::get(int pax_id)
@@ -3119,7 +3162,7 @@ void TBTMGrpList::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, TF
         if(iv->NList.items.empty())
             continue;
         iv->NList.ToTlg(info, body);
-        iv->W.ToTlg(body);
+        iv->W.ToTlg(info, body);
         body.insert(body.end(), plist.begin(), plist.end());
     }
 }
@@ -5169,7 +5212,7 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             pax.rems.get(info, pax);
             if(pax.rems.items.empty())
                 continue;
-            grp_map->get(pax.grp_id, pax.bag_pool_num);
+            grp_map->get(info, pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
     }
@@ -5181,7 +5224,7 @@ void TTPLDest::PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body
         iv->name.ToTlg(info, body);
         iv->pnrs.ToTlg(info, body);
         iv->rems.ToTlg(info, body);
-        grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
+        grp_map->ToTlg(info, iv->grp_id, iv->pax_id, iv->bag_pool_num, body);
     }
 }
 
@@ -5408,7 +5451,7 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
                 pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
-            grp_map->get(pax.grp_id, pax.bag_pool_num);
+            grp_map->get(info, pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
     }
@@ -5429,7 +5472,7 @@ void TETLDest::PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body
         iv->name.ToTlg(info, body);
         iv->pnrs.ToTlg(info, body);
         iv->rems.ToTlg(info, body);
-        grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
+        grp_map->ToTlg(info, iv->grp_id, iv->pax_id, iv->bag_pool_num, body);
     }
 }
 
