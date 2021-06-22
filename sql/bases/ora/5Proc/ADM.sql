@@ -471,6 +471,7 @@ PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
                            vcreate_point  typeb_addr_options.value%TYPE,
                            vpax_state     typeb_addr_options.value%TYPE,
                            vrbd           typeb_addr_options.value%TYPE,
+                           vxbag          typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE);
 

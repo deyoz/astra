@@ -3142,6 +3142,7 @@ PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
                            vcreate_point  typeb_addr_options.value%TYPE,
                            vpax_state     typeb_addr_options.value%TYPE,
                            vrbd           typeb_addr_options.value%TYPE,
+                           vxbag          typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE)
 IS
@@ -3155,6 +3156,7 @@ BEGIN
                                 'CREATE_POINT', vcreate_point,
                                 'PAX_STATE',    vpax_state,
                                 'RBD',          vrbd,
+                                'XBAG',         vxbag,
                                                 default_value) AS value
     FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
          FULL OUTER JOIN
