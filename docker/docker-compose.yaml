@@ -2,6 +2,7 @@ version: "3"
 services:
     astra:
         image: gitlab.komtex:4567/dcs/astra:trunk
+        user: "${UID}:${GID}"
         build:
           context: ../
           dockerfile: docker/Dockerfile
@@ -10,7 +11,7 @@ services:
             - "57702:57702/tcp" # monitor
         command: ./docker/run_astra.sh
         volumes:
-            - "run:/opt/astra/run"
+            - "./run:/opt/astra/run"
         restart: always
         networks:
             - "astra-net"

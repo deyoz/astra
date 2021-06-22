@@ -1,4 +1,10 @@
 
+### Установка ID группы и пользователя от имени которого будет запуск внутри контейнера
+``` bash
+# cat .env
+UID=54323
+GID=54324
+```
 
 ### Инициализация директории run
 docker-compose -f docker/docker-compose.yaml run astra docker/init_run.sh

@@ -2,16 +2,10 @@ set_local UNDER_GDB 0
 set CSA_KEY 665
 #set_local GROUPS_TO_RUN [list astra_init3 astra_init2 astra_init8]
 set_local GROUPS_TO_RUN [list astra_init3]
-#set_local TIMER_NUM 6
 set_local REOPENLOGS 1
 set_local grp2_Inet(APORT) 58009
 set_local grp3_Jxt(APORT) 58005
 set_local monitor1(TCP_PORT) 57702
-#set_local monitor2(TCP_PORT) 27712
-#set_local CONNECT_STRING stand/rty@stand
-set_local CONNECT_STRING beta/beta@beta
-#set_local CONNECT_STRING test/astratst@stand
-#set_local CONNECT_STRING astra/astra@astra
 set_local LOG_LEVEL 20
 
 set OWN_POINT_ADDR BETADC
@@ -48,3 +42,38 @@ set USE_RSYSLOG 0
 set ONE_LOGGER 0
 set START_EMAIL_SENDER 0
 
+set_local TRUE_TIME_LOG_STYLE 1
+
+set SP_PG_GROUP_ET 3
+set SP_PG_GROUP_EMD 3
+set SP_PG_GROUP_CRS_SVC 3
+set SP_PG_GROUP_CRS_DOC 3
+set SP_PG_GROUP_JXTCONT 3
+set SP_PG_GROUP_IAPI 3
+set SP_PG_GROUP_IATCI 3
+set SP_PG_GROUP_WC 3
+set SP_PG_GROUP_WB 3
+set SP_PG_GROUP_SCHED 3
+set SP_PG_GROUP_SCHED_SEQ 0
+set SP_PG_GROUP_CONTEXT 3
+set SP_PG_GROUP_EDIFACT 3
+set SP_PG_GROUP_SPPCKIN 3
+set SP_PG_GROUP_FILE 3
+### only after cache_tables: set SP_PG_GROUP_FILE_CFG 0
+set SP_PG_GROUP_APPS 3
+set SP_PG_GROUP_ARX 3
+set SP_PG_GROUP_TLG_QUE 3
+set SP_PG_GROUP_HTML 3
+set SP_PG_GROUP_FR 3
+set SP_PG_GROUP_LIBTLG 3
+set SP_PG_GROUP_COMP_1 3
+set SP_PG_CONVERT_TABS 3
+set SP_PG_GROUP_FILE2 3
+set SP_PG_GROUP_PP_TRIP_TASK 3
+set SP_PG_GROUP_PP_TLG 3
+set SP_PG_GROUP_CRYPT 0
+set SP_PG_GROUP_CRS_PAX_1 3
+set SP_PG_GROUP_PAX_ALARMS 3
+set SP_PG_GROUP_DCS_BAG 3
+set SP_PG_GROUP_CRS_DATA 3
+set SP_PG_GROUP_BASETABLES 0
