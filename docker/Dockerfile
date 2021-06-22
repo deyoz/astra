@@ -42,10 +42,7 @@ COPY . /opt/astra/
 RUN echo "nameserver 10.1.90.138" > /etc/resolv.conf \
     && echo "search komtex sirena-travel.ru" >> /etc/resolv.conf \
     && ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --configlibs --buildlibs --configastra --buildastra \
-    && cp /opt/astra/src/astra /opt/astra/run \
-    && cp RUN_EXAMPLE/* /opt/astra/run/ \
-    && cp /opt/astra/locallibs/serverlib/src/dispatcher /opt/astra/run \
-    && cp /opt/astra/locallibs/serverlib/src/supervisor /opt/astra/run \
-    && mkdir /opt/astra/run/libs && find ./externallibs -maxdepth 3 -name '*.so*' -exec cp '{}' /opt/astra/run/libs/ \; \
-    && cp /opt/astra/locallibs/serverlib/*tcl /opt/astra/run \
-    && rm -rf /opt/astra/externallibs && rm -rf /opt/astra/locallibs && rm -rf /opt/astra/src
+    && find . -name '*.o' -exec rm '{}' \; \
+    && find . -name '*.a' -exec rm '{}' \;
+#\
+    #&& rm -rf /opt/astra/externallibs && rm -rf /opt/astra/locallibs && rm -rf /opt/astra/src

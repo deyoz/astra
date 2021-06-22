@@ -1,0 +1,28 @@
+version: "3"
+services:
+    astra:
+        image: gitlab.komtex:4567/dcs/astra:trunk
+        build:
+          context: ../
+          dockerfile: docker/Dockerfile
+        ports:
+            - "58005:58005/tcp" # jxt handler level_a
+            - "57702:57702/tcp" # monitor
+        command: ./docker/run_astra.sh
+        volumes:
+            - "run:/opt/astra/run"
+        restart: always
+        networks:
+            - "astra-net"
+
+        environment:
+            # ENABLE_ORACLE: 0
+            PG_CONNECT_STRING_ARX: postgres://astra_demo_arx:astra@172.17.0.1
+            PG_CONNECT_STRING: postgres://astra_demo:astra@172.17.0.1
+            PG_SYSPAROL: postgres://postgres:manager@172.17.0.1/postgres
+volumes:
+  run:
+
+networks:
+ astra-net:
+  driver: bridge

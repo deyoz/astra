@@ -1,0 +1,40 @@
+#!/bin/sh
+
+LocallibsSrc=$HOME/locallibs/serverlib/src
+
+SupervisorSrc=$LocallibsSrc/supervisor
+DispatcherSrc=$LocallibsSrc/dispatcher
+
+for i in supervisor dispatcher; do
+  if [ ! -x $LocallibsSrc/$i ] ; then
+  	echo No new $i found. Exiting.
+  	exit 2
+  fi
+done
+
+#aDIR=`dirname $PWD`
+aDIR=$PWD
+
+if [ $aDIR != $HOME/RUN ] ; then
+	echo $PWD - Wrong directory. Exiting.
+	exit 1
+fi
+
+for i in supervisor dispatcher; do
+  if [ ! -x ./$i ] ; then
+  	echo No previous $i found. Exiting.
+  	exit 2
+  fi
+done
+
+for i in supervisor dispatcher; do
+  cmp  -s $i $LocallibsSrc/$i
+  a=$?
+  if [ $a -eq 1 ] ; then
+  	mv $i $i.old
+  	cp -p $LocallibsSrc/$i ./$i
+  else
+  	echo $LocallibsSrc/$i and ./$i are the same.
+  fi
+done
+
