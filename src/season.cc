@@ -2838,6 +2838,12 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
 
   RQry.SQLText = sql;
   RQry.Execute();
+  if(!RQry.RowCount()) {
+      // ничего не нашли
+      tst();
+      return;
+  }
+
   int idx_rmove_id = RQry.FieldIndex("move_id");
   int idx_num = RQry.FieldIndex("num");
   int idx_airp = RQry.FieldIndex("airp");
