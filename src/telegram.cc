@@ -1273,6 +1273,8 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   DelQry.CreateVariable("id", otInteger, tlg_id);
 
   DB::TQuery UpdQry(sess, STDLOG);
+  UpdQry.SQLText =
+    "UPDATE tlg_out SET body=:body, completed=1 WHERE id=:id";
   UpdQry.CreateVariable("id", otInteger, tlg_id);
   UpdQry.CreateVariable("body", otString, tlg_body);
 
