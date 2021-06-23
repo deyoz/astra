@@ -1,6 +1,8 @@
 stages:
   - build
   - build_noora
+  - deploy
+  - deploy_db
 
 variables:
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_COMMIT_REF_SLUG
@@ -27,6 +29,8 @@ build:
 
 build_noora:
   stage: build
+  only:
+    - trunk
 
   variables:
     DOCKERFILE: "./docker/Dockerfile"
@@ -44,3 +48,27 @@ build_noora:
     - docker build -t "${CONTAINER_IMAGE}" -f "${DOCKERFILE}" .
     - docker run --rm -e PG_CONNECT_STRING -e PG_CONNECT_STRING_ARX -e PG_SYSPAROL "${CONTAINER_IMAGE}" ./buildFromScratch.sh no/ora --createtcl --createdb --runtests
     - docker push "${CONTAINER_IMAGE}"
+
+deploy:
+  stage: deploy
+  only:
+    - trunk
+  before_script:
+    - echo $ENV > /opt/astra/docker/.env
+  script:
+    - docker-compose -f ./docker/docker-compose.yaml up -d
+
+deploy-db:
+  stage: deploy-db
+  when: manual
+  environment:
+    name: trunk
+    action: stop
+  only:
+    - trunk
+  before_script:
+    - echo $ENV > /opt/astra/docker/.env
+  script:
+    - docker-compose -f ./docker/docker-compose.yaml stop
+    - docker-compose -f docker/docker-compose.yaml run --rm astra ./buildFromScratch.sh no/ora --createtcl --createdb
+    - docker-compose -f ./docker/docker-compose.yaml restart
