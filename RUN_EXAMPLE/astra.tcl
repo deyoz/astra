@@ -27,12 +27,6 @@ proc load_variables {} {
     if { [ file exists $lafter ] } {
         uplevel #0 [ list source $lafter ]
     }
-
-    set ldemo [ join [ lreplace  $l1 end end demo_local_after.tcl ] / ]
-
-    if { [ file exists $ldemo ] } {
-        uplevel #0 [ list source $ldemo ]
-    }
 }
 
 
