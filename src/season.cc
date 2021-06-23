@@ -3031,8 +3031,11 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     SQry.CreateVariable( "trip_id", otInteger, trip_id );
   SQry.Execute();
 
-  if ( !SQry.RowCount() )
-    throw AstraLocale::UserException( "MSG.NO_FLIGHTS_IN_SCHED" );
+  if ( !SQry.RowCount() ) {
+    // ничего не нашли
+    AstraLocale::showErrorMessage( "MSG.NO_FLIGHTS_IN_SCHED" );
+    return;
+  }
 
   int idx_trip_id = SQry.FieldIndex("trip_id");
   int idx_smove_id = SQry.FieldIndex("move_id");
