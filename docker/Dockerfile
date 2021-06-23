@@ -19,7 +19,7 @@ ENV BUILD_TESTS=1 \
         MY_LOCAL_CFLAGS="-g2 -O0" \
         LOCALCC=gcc-8 LOCALCXX=g++-8 \
         PG_HOST=${PG_HOST:-localhost} \
-        PG_SYSPAROL=postgres://etick_test:etick@$PG_HOST \
+        PG_SYSPAROL=postgres://astra_docker:astra@$PG_HOST \
         TZ=Europe/Moscow \
         LD_LIBRARY_PATH=/opt/astra/run/libs/
 

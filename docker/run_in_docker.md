@@ -26,3 +26,10 @@ docker-compose -f docker/docker-compose.yaml up -d
 docker-compose -f docker/docker-compose.yaml pull
 docker-compose -f docker/docker-compose.yaml up -d
  ```
+
+
+mv .env .env.1
+docker-compose run astra ./buildFromScratch.sh no/ora --createtcl --createdb
+mv .env.1 .env
+docker-compose  up -d
+Recreating astra_astra_1 ... done

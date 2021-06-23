@@ -59,9 +59,10 @@ deploy:
   only:
     - trunk
   before_script:
-    - echo $ENV > ./docker/.env
+    - cd /home/astra
   script:
-    - docker-compose -f ./docker/docker-compose.yaml up -d
+    - docker-compose up -d
+    - docker-compose logs
 
 deploy-db:
   stage: deploy-db
@@ -69,11 +70,19 @@ deploy-db:
   environment:
     name: trunk
     action: start
+  variables:
+    DOCKERFILE: "./docker/Dockerfile"
+    PG_HOST: 172.17.0.1
+    PG_SYSPAROL: postgres://postgres:manager@172.17.0.1/postgres
+    PG_CONNECT_STRING: postgres://astra_docker:astra@172.17.0.1
+    PG_CONNECT_STRING_ARX: postgres://astra_docker_arx:astra@172.17.0.1
+    ENABLE_ORACLE: "0"
   only:
     - trunk
   before_script:
-    - echo $ENV > ./docker/.env
+    - cd /home/astra
   script:
-    - docker-compose -f ./docker/docker-compose.yaml stop
-    - docker-compose -f docker/docker-compose.yaml run --rm astra ./buildFromScratch.sh no/ora --createtcl --createdb
-    - docker-compose -f ./docker/docker-compose.yaml restart
+    - docker-compose stop
+    - docker run --rm gitlab.komtex:4567/dcs/astra:trunk ./buildFromScratch.sh no/ora --createtcl --createdb
+    - docker-compose restart
+    - docker-compose logs
