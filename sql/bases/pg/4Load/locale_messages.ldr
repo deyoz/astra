@@ -549,8 +549,8 @@ BEGINDATA
 "MSG.CHECK_FLIGHT.ROUTE_NOT_SPECIFIED_FOR_RANGE"|"EN"|"No route is set for the range"|0|0|0
 "MSG.CHECK_FLIGHT.TIMES_SHIFT_BY_DATE"|"RU"|"Времена в маршруте заданы со сдвигом по дате"|0|0|
 "MSG.CHECK_FLIGHT.TIMES_SHIFT_BY_DATE"|"EN"|"Times en-route are set with the shift by date"|0|0|
-"MSG.CHECKIN.AVAILABLE_SEATS"|"RU"|"Доступных мест осталось [count%d]"|0|0|0
-"MSG.CHECKIN.AVAILABLE_SEATS"|"EN"|"Remaining available seats [count%d]"|0|0|0
+"MSG.CHECKIN.AVAILABLE_SEATS"|"RU"|"Доступных мест в классе [class%s] осталось [count%d]"|0|0|0
+"MSG.CHECKIN.AVAILABLE_SEATS"|"EN"|"Remaining available seats [count%d] in [class%s] class"|0|0|0
 "MSG.CHECKIN.BABY_WITH_SEATS_MORE_COUNT_BABY_FOR_SURNAME"|"RU"|"Кол-во РМ с местами превышает общее кол-во РМ для одной из указанных фамилий"|0|0|0
 "MSG.CRAFT.NOT_SET"|"RU"|"Не задан тип ВС"|0|0|
 "MSG.BR.SEATS"|"EN"|"pieces"|0|0|0
@@ -567,13 +567,13 @@ BEGINDATA
 "MSG.AIRP.DST_NOT_FOUND"|"RU"|"Не найден аэропорт назначения"|0|0|0
 "QST.PAX_HAS_PAID_SEATS.RESEAT"|"RU"|"Пассажир оплатил место. Пересадить пассажира?"|0|0|0
 "Первый ряд"|"EN"|"First row"|0|0|1
-"MSG.CHECKIN.BABY_WITH_SEATS_MORE_COUNT_BABY_FOR_SURNAME"|"EN"|"Number of RM with seats exceeds total number of RM for one of specified family names"|0|0|0
+"MSG.CHECKIN.BABY_WITH_SEATS_MORE_COUNT_BABY_FOR_SURNAME"|"EN"|"Number of INF with seats exceeds total number of INF for one of specified family names"|0|0|0
 "MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP"|"RU"|"Кол-во РМ без мест в группе превышает кол-во ВЗ"|0|0|0
-"MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP"|"EN"|"Number of RM without seats in group exceeds number of VZ"|0|0|0
+"MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP"|"EN"|"Number of INF without seats in group exceeds number of ADT"|0|0|0
 "MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY"|"RU"|"Кол-во РМ без мест превышает общее кол-во РМ"|0|0|0
-"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY"|"EN"|"Number of RM without seats exceeds total number of RM"|0|0|0
+"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY"|"EN"|"Number of INF without seats exceeds total number of INF"|0|0|0
 "MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY_FOR_SURNAME"|"RU"|"Кол-во РМ без мест превышает общее кол-во РМ для одной из указанных фамилий"|0|0|0
-"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY_FOR_SURNAME"|"EN"|"Number of RM without seats exceeds total number of RM for one of specified family names"|0|0|0
+"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY_FOR_SURNAME"|"EN"|"Number of INF without seats exceeds total number of INF for one of specified family names"|0|0|0
 "MSG.CHECKIN.BIRK_ALREADY_CHECKED"|"RU"|"Бирка [tag_type%s] [color%s][no%010.f] уже зарегистрирована."|0|0|0
 "MSG.CHECKIN.BIRK_ALREADY_CHECKED"|"EN"|"Tag [tag_type%s] [color%s][no%010.f] has been already checked-in"|0|0|0
 "MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES"|"RU"|"Кол-во бирок и мест багажа не совпадает"|0|0|0
@@ -639,8 +639,6 @@ BEGINDATA
 "MSG.CODE_ALREADY_USED_FOR_AIRPORT"|"RU"|"Значение поля '[field1%s]' [value%s] уже используется в поле '[field2%s]' для а/п [airp%s]"|0|0|0
 "MSG.CODE_ALREADY_USED_FOR_CITY"|"RU"|"Значение поля '[field1%s]' [value%s] уже используется в поле '[field2%s]' для города [city%s]"|0|0|0
 "MSG.CODE_ALREADY_USED_FOR_COUNTRY"|"RU"|"Значение поля '[field1%s]' [value%s] уже используется в поле '[field2%s]' для гос-ва [country%s]"|0|0|0
-"MSG.COMMERCE_FLIGHT_DEST_CLASS_NOT_IDENTICAL"|"RU"|"Коммерческий рейс, направление, класс пассажиров не совпадают"|0|0|1
-"MSG.COMMERCE_FLIGHT_DEST_CLASS_NOT_IDENTICAL"|"EN"|"Commercial flight, direction, and passenger class do not agree"|0|0|1
 "MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE"|"RU"|"Неизвестный код а/к [airline%s] коммерческого рейса [flight%s]"|0|0|0
 "MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE"|"EN"|"Unknown a/l [airline%s] code of commercial flight [flight%s]"|0|0|0
 "MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID"|"RU"|"Неверно указан суффикс [suffix%s] коммерческого рейса [flight%s]"|0|0|0
@@ -1145,6 +1143,8 @@ BEGINDATA
 "MSG.REPORT_SENDED_TO_PRINTER"|"EN"|"Report '[reportname%s]' is forwarded for printing"|0|0|1
 "MSG.REPORT_TEMPLATE_SAVED"|"RU"|"Шаблон отчета '[report_name%s]' сохранен"|0|0|1
 "MSG.REPORT_TEMPLATE_SAVED"|"EN"|"The report template '[report_name%s]' is saved"|0|0|1
+"MSG.TIMATIC.EXCHANGE_ERROR"|"RU"|"Timatic: ошибка обмена: [msg%s]"|0|0|0
+"MSG.TIMATIC.EXCHANGE_ERROR"|"EN"|"Timatic: exchange error: [msg%s]"|0|0|0
 "MSG.REQUEST.INVALID"|"RU"|"Неверный запрос"|0|0|0
 "MSG.REQUEST.INVALID"|"EN"|"Incorrect inquiry"|0|0|0
 "MSG.ROLE_EQUAL_NOT_COPY"|"RU"|"Роли совпадают. Копирование невозможно"|0|0|1
@@ -1175,8 +1175,8 @@ BEGINDATA
 "MSG.ROUTE_NOT_SPECIFIED_FOR_PERIOD"|"EN"|"No route is set for the period"|0|0|0
 "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS"|"RU"|"Нельзя отменить аэропорт [airp%s]. Есть зарегистрированные пассажиры."|0|0|0
 "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS"|"EN"|"Impossible to cancel airport [airp%s]. There are checked-in passengers."|0|4709994|0
-"MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS"|"RU"|"Нельзя удалить аэропорт [airp%s]. Есть зарегистрированные пассажиры."|0|0|0
-"MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS"|"EN"|"Impossible to delete the airport [airp%s]. There are checked-in passengers."|0|4709994|0
+"MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS"|"RU"|"Нельзя удалить аэропорт [airp%s]. Есть зарегистрированные пассажиры или экипаж."|0|0|0
+"MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS"|"EN"|"Impossible to delete the airport [airp%s]. There are checked-in passengers or crew."|0|4709994|0
 "MSG.SALE_POINT_CONSISTS_OF_8_LET_DIG"|"RU"|"Код пункта продаж должен состоять из 8 букв и цифр"|0|0|0
 "MSG.SALONS.ACCESS_DENIED"|"RU"|"Нет прав доступа к базовым компоновкам"|0|0|0
 "MSG.SALONS.ACCESS_DENIED"|"EN"|"No rights of accessing the basic arrangements"|0|0|0
@@ -1186,6 +1186,8 @@ BEGINDATA
 "MSG.SALONS.BLOCKS_CROSSING_ROWS"|"EN"|"There are intersections in the rows of cabin blocks"|0|0|1
 "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH"|"RU"|"Изменилась компоновка рейса. Все данные обновлены"|0|0|1
 "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH"|"EN"|"Flight layout has changed. All the data are renewed"|0|0|1
+"MSG.TIMATIC_CONNECT_ERROR"|"RU"|"Timatic: ошибка соединения."|0|0|0
+"MSG.TIMATIC_CONNECT_ERROR"|"EN"|"Timatic: connection error."|0|0|0
 "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA"|"RU"|"Изменена компоновка рейса. Обновите данные"|0|0|0
 "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA"|"EN"|"Flight seating has been changed. Refresh data"|0|0|0
 "MSG.SALONS.CROSSING_ROWS"|"RU"|"Есть пересечения в рядах салонов"|0|0|1
@@ -1258,6 +1260,7 @@ BEGINDATA
 "MSG.SEATS.SEAT_NO.PASSENGER_OWNER"|"EN"|"Seat belongs to passenger"|0|0|0
 "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL"|"RU"|"Указанные места недоступны"|0|0|0
 "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL"|"EN"|"Specified seats are not available"|0|0|0
+"MSG.KIOSK_ADDR.NOT_SET"|"RU"|"Не указан адрес киоска"|0|0|0
 "MSG.SEATS.SEATS_DIRECTION_NOT_SET"|"RU"|"Не задано направление рассадки"|0|0|0
 "MSG.SEATS.SEATS_DIRECTION_NOT_SET"|"EN"|"Accomodation direction has not been specified"|0|4709994|0
 "MSG.SEATS.SEATS_FINISHED"|"RU"|"Рассадка пассажиров завершена"|0|0|0
@@ -1367,6 +1370,8 @@ BEGINDATA
 "MSG.SAVING_SEASON_SCHED"|"EN"|"The seasonal schedule is being updated"|0|0|1
 "MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH"|"RU"|"Период поиска не должен превышать 1 месяца"|0|0|0
 "MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH"|"EN"|"The search period must not exceed 1 month"|0|0|0
+"MSG.KIOSK_ADDR.NOT_SET"|"EN"|"Kiosk's address not specified"|0|0|0
+"MSG.KIOSK_ID.NOT_SET"|"RU"|"Не указан Ид. киоска"|0|0|0
 "MSG.SEASON.EMPTY_PERIOD_FOR_ROUTE"|"RU"|"Для маршрута не задан период выполнения"|0|0|1
 "MSG.SEASON.EMPTY_PERIOD_FOR_ROUTE"|"EN"|"No period of performance is set for the route"|0|0|1
 "MSG.SEASON.FIRST_DATE_MORE_LAST_DATE"|"RU"|"Начальная дата периода больше конечной даты периода"|0|0|1
@@ -1414,6 +1419,8 @@ BEGINDATA
 "MSG.NOT_SET_CATEGORIES"|"RU"|"Не выбраны категории операции"|0|0|1
 "MSG.NOT_SET_CATEGORIES"|"EN"|"Operation categories not selected"|0|0|1
 "MSG.NOT_SET_CHECKIN_HALL"|"RU"|"Не указан зал регистрации"|0|0|1
+"MSG.KIOSK_ID.NOT_SET"|"EN"|"Kiosk Id not specified"|0|0|0
+"MSG.KIOSK_ADDR.MUST_BE_NULL"|"RU"|"Адрес киоска не может быть указан"|0|0|0
 "MSG.NOT_SET_CHECKIN_HALL"|"EN"|"Check-in lounge not specified"|0|4709994|1
 "MSG.NOT_SET_CONNECTING_SEG"|"RU"|"Пропущен стыковочный сегмент №[num%d]"|0|0|1
 "MSG.NOT_SET_CONNECTING_SEG"|"EN"|"Attaching segment No[num%d] is missing"|0|0|1
@@ -1433,8 +1440,8 @@ BEGINDATA
 "MSG.NOT_SET_PAY_FORM_CODE"|"EN"|"Payment mode code not specified"|0|0|1
 "MSG.NOT_SET_POINT_ARV"|"RU"|"Не указан пункт назначения"|0|0|0
 "MSG.NOT_SET_POINT_DEP"|"RU"|"Не указан пункт отправления"|0|0|0
-"MSG.NOT_SET_RANGE"|"RU"|"Не задан интервал поиска"|0|0|
-"MSG.NOT_SET_RANGE"|"EN"|"Search interval not set"|0|0|
+"MSG.KIOSK_ADDR.MUST_BE_NULL"|"EN"|"Kiosk's address can't be specified"|0|0|0
+"MSG.KIOSK_ID.MUST_BE_NULL"|"RU"|"Ид. киоска не может быть указан"|0|0|0
 "MSG.NOT_SET_RECEIPT_NUMBER"|"RU"|"Не указан номер квитанции"|0|0|1
 "CAP.M61.IN_CONNECTION_WITH"|"EN"|"Issued in connection with"|0|0|1
 "MSG.NOT_SET_RECEIPT_NUMBER"|"EN"|"Receipt number not specified"|0|0|1
@@ -1474,10 +1481,10 @@ BEGINDATA
 "MSG.PASSENGER.ALL_NOT_BOARDED"|"EN"|"All the passengers are disembarked"|0|0|0
 "MSG.PASSENGER.ALL_NOT_EXAMED"|"RU"|"Все пассажиры возвращены на досмотр"|0|0|0
 "MSG.PASSENGER.ALL_NOT_EXAMED"|"EN"|"All the passengers were returned for inspection"|0|0|0
-"MSG.PASSENGER.BOARDED_ALREADY"|"RU"|"Пассажир уже прошел посадку"|0|0|0
-"MSG.PASSENGER.BOARDED_ALREADY"|"EN"|"The passenger has already undergone boarding"|0|0|0
-"MSG.PASSENGER.BOARDING"|"RU"|"Пассажир прошел посадку"|0|0|0
-"MSG.PASSENGER.BOARDING"|"EN"|"The passenger underwent boarding"|0|0|0
+"MSG.KIOSK_ID.MUST_BE_NULL"|"EN"|"Kiosk Id can't be specified"|0|0|0
+"MSG.MSG.PASSENGER.CHANGE_SERVICE_UPDATE_PAX"|"RU"|"Изменены услуги. Требуется обновить информацию по пассажирам"|0|681846451|0
+"MSG.PASSENGER.CHANGE_SERVICE"|"RU"|"Изменены услуги. Возможно требуется оплата"|0|681846449|0
+"MSG.MSG.PASSENGER.CHANGE_SERVICE_UPDATE_PAX"|"EN"|"Изменены услуги. Требуется обновить информацию по пассажирам"|0|681846452|0
 "MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"|"RU"|"Изменения по пассажиру [surname%s] производились с другой стойки. Обновите данные"|0|0|0
 "MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"|"EN"|"The changes for passenger [surname%s] have been made at different check-in desk. Refresh data"|0|4709994|0
 "MSG.PASSENGER.CHANGED.REFRESH_DATA"|"RU"|"Данные пассажира изменены. Обновите информацию"|0|0|0
@@ -1490,20 +1497,15 @@ BEGINDATA
 "MSG.PASSENGER.COUNT_NOT_EQUAL_SEARCH_SPECIFY"|"EN"|"Number of passengers does not coincide with the one set in the search line"|0|0|1
 "MSG.PASSENGER.COUNT_WITH_SEATS_NOT_EQUAL_SEARCH_SPECIFY"|"RU"|"Кол-во пассажиров с местами не совпадает с заданным в строке поиска"|0|0|1
 "MSG.PASSENGER.COUNT_WITH_SEATS_NOT_EQUAL_SEARCH_SPECIFY"|"EN"|"Number of passengers with seats does not coincide with the one set in the search line"|0|0|1
-"MSG.PASSENGER.DEBARKED"|"RU"|"Пассажир высажен"|0|0|0
-"MSG.PASSENGER.DEBARKED"|"EN"|"The passenger is disembarked"|0|0|0
-"MSG.PASSENGER.EXAM"|"RU"|"Пассажир прошел досмотр"|0|0|0
-"MSG.PASSENGER.EXAM"|"EN"|"The passenger underwent inspection"|0|0|0
-"MSG.PASSENGER.EXAMED_ALREADY"|"RU"|"Пассажир уже прошел досмотр"|0|0|0
-"MSG.PASSENGER.EXAMED_ALREADY"|"EN"|"The passenger has already undergone the inspection"|0|0|0
+"MSG.PASSENGER.CHANGE_SERVICE"|"EN"|"Изменены услуги. Возможно требуется оплата"|0|681846450|0
 "MSG.PASSENGER.FOR_TYPE_INVALID_SEATS"|"RU"|"Для пассажира данного типа неверно указано кол-во мест"|0|0|1
 "MSG.PASSENGER.FOR_TYPE_INVALID_SEATS"|"EN"|"Number of seats for this type of passenger is specified incorrectly"|0|0|1
 "MSG.PASSENGER.FROM_FLIGHT"|"RU"|"Пассажир с рейса [flt%s]"|0|0|0
 "MSG.PASSENGER.FROM_FLIGHT"|"EN"|"Passenger from flight [flt%s]"|0|0|0
 "MSG.PASSENGER.FROM_OTHER_FLIGHT"|"RU"|"Пассажир с другого рейса"|0|0|0
 "MSG.PASSENGER.FROM_OTHER_FLIGHT"|"EN"|"Passenger from another flight"|0|0|0
-"MSG.PASSENGER_INFO"|"RU"|"Пассажир: [name%s] ([pers_type%s])"|0|0|1
-"MSG.PASSENGER_INFO"|"EN"|"Passenger: [name%s] ([pers_type%s])"|0|4141375|1
+"MSG.PASSENGER_INFO"|"RU"|"Пассажир: [name%s] ([pers_type%s])"|0|0|
+"MSG.PASSENGER_INFO"|"EN"|"Passenger: [name%s] ([pers_type%s])"|0|4141375|
 "MSG.PASSENGER.INVALID_BP_SEAT_NO"|"RU"|"Номер места, указанный в посадочном талоне, недействителен!"|0|0|0
 "MSG.PASSENGER.INVALID_BP_SEAT_NO"|"EN"|"The seat number given in the boarding pass is invalid!"|0|4709994|0
 "MSG.PASSENGER.INVALID_IDENTIFIER"|"RU"|"неверно указан идентификатор пассажира [ident%s]"|0|0|0
@@ -1518,15 +1520,15 @@ BEGINDATA
 "MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"|"EN"|"Changes on the passenger were carried out from another check-in desk. Renew the data"|0|4709994|0
 "MSG.PASSENGER.NOT_BAG_PAID"|"RU"|"Пассажир не оплатил багаж"|0|0|0
 "MSG.PASSENGER.NOT_BAG_PAID"|"EN"|"The passenger has not paid for the baggage"|0|0|0
-"MSG.PASSENGER.NOT_BOARDING"|"RU"|"Пассажир не прошел посадку"|0|0|
-"MSG.PASSENGER.NOT_BOARDING"|"EN"|"Passenger underwent no boarding procedure"|0|0|
+"MSG.PASSENGER.NOT_BOARDING"|"RU"|"Пассажир не прошел посадку"|0|0|1
+"MSG.PASSENGER.NOT_BOARDING"|"EN"|"Passenger underwent no boarding procedure"|0|0|1
 "MSG.PASSENGER.NOT_CHECKIN"|"RU"|"Пассажир не зарегистрирован"|0|0|0
 "MSG.PASSENGER.NOT_CHECKIN"|"EN"|"Passenger has not been checked-in"|0|0|0
 "MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST"|"RU"|"Пассажир не подтвержден с листа ожидания"|0|0|0
 "IATA-адрес"|"EN"|"IATA address"|0|0|0
 "MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST"|"EN"|"The passenger is not confirmed from the waiting list"|0|0|0
-"MSG.PASSENGER.NOT_EXAM"|"RU"|"Пассажир не прошел досмотр"|0|0|
-"MSG.PASSENGER.NOT_EXAM"|"EN"|"Passenger underwent no vetting"|0|0|
+"MSG.PASSENGER.NOT_EXAM"|"RU"|"Пассажир не прошел досмотр"|0|0|1
+"MSG.PASSENGER.NOT_EXAM"|"EN"|"Passenger underwent no vetting"|0|0|1
 "MSG.PASSENGER.NOT_FOUND"|"RU"|"Пассажир не найден"|0|0|0
 "MSG.PASSENGER.NOT_FOUND"|"EN"|"Passenger has not been found"|0|0|0
 "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA"|"RU"|"Пассажир не найден. Обновите информацию"|0|0|0
@@ -1545,16 +1547,14 @@ BEGINDATA
 "MSG.PASSENGER.NOT_THROW_CHECK"|"EN"|"No through check-in for this passenger"|0|0|1
 "MSG.PASSENGER.OTHER_FLIGHT"|"RU"|"Пассажир с другого рейса"|0|0|0
 "MSG.PASSENGER.OTHER_FLIGHT"|"EN"|"Passenger from another flight"|0|0|0
-"MSG.PASSENGER.RETURNED_EXAM"|"RU"|"Пассажир возвращен на досмотр"|0|0|0
-"MSG.PASSENGER.RETURNED_EXAM"|"EN"|"The passenger was returned for inspection"|0|0|0
 "MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO"|"RU"|"Номер места пассажира в салоне был изменен на [seat_no%s]."|0|0|0
 "MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO"|"EN"|"The passenger's seat number in the cabin was changed for"|0|0|0
 "MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED"|"RU"|"Номер места пассажира в салоне не определен."|0|0|0
 "MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED"|"EN"|"The passenger's seat number in the cabin not determined"|0|0|0
 "MSG.PASSENGERS.CHILD_COUNT_WO_SEATS_IN_GROUP_MUST_NOT_EXCEED_NUM_ADULTS"|"RU"|"Кол-во детей без мест в группе не должно превышать кол-во взрослых"|0|0|1
 "MSG.PASSENGERS.CHILD_COUNT_WO_SEATS_IN_GROUP_MUST_NOT_EXCEED_NUM_ADULTS"|"EN"|"Number of children without seats in the group should not exceed the number of adults"|0|0|1
-"MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL"|"RU"|"Коммерческий рейс, направление, класс пассажиров не совпадают"|0|0|1
-"MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL"|"EN"|"Marketing flight, direction, passenger class do not match"|0|4709994|1
+"MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL"|"RU"|"Коммерческий рейс, направление, класс пассажиров не совпадают"|0|0|
+"MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL"|"EN"|"Marketing flight, direction, passenger class do not match"|0|4709994|
 "MSG.PASSENGERS.FOUND_MORE.ADJUST_SEARCH_PARAMS"|"RU"|"Найдено более одного пассажира. Измените критерии поиска"|0|0|0
 "MSG.PASSENGERS.FOUND_MORE.ADJUST_SEARCH_PARAMS"|"EN"|"More than one passenger has been found. Change search criteria"|0|0|0
 "MSG.PASSENGERS.GROUP_CHANGED.REFRESH_DATA"|"RU"|"Данные по группе пассажиров изменены. Обновите данные"|0|0|0
@@ -2514,7 +2514,7 @@ BEGINDATA
 "Рег."|"EN"|"Reg."|0|0|0
 "Рег. №"|"EN"|"Reg. No"|0|0|1
 "Рег. №:"|"EN"|"Reg. No:"|0|0|1
-"Рег №"|"EN"|"Reg No"|0|0|1
+"Рег №"|"EN"|"Reg No"|0|0|
 "Рег. до"|"EN"|"Close"|0|0|1
 "Рег до"|"EN"|"Close"|0|0|1
 "Регион"|"EN"|"Region"|0|0|0
@@ -2791,7 +2791,7 @@ BEGINDATA
 "WRAP.INVALID_FIELD_VALUE"|"RU"|"Неверно указано значение поля '[fieldname%s]': [text%L]"|0|4510164|
 "WRAP.INVALID_FIELD_VALUE"|"EN"|"Field data '[fieldname%s]' are specified incorrectly: [text%L]"|0|4510164|
 "WRAP.PAX_DOCO.DETAILS"|"RU"|"Доп. документ подробно: [text%L]"|0|4572894|
-"WRAP.PAX_DOCO.DETAILS"|"EN"|"Доп. документ подробно: [text%L]"|0|4572894|
+"WRAP.PAX_DOCO.DETAILS"|"EN"|"Additional document details: [text%L]"|0|4572894|
 "CAP.PAX_DOCO.TYPE"|"RU"|"Тип документа"|0|4572894|
 "CAP.PAX_DOC.NATIONALITY"|"RU"|"Гражданство"|0|4495745|
 "CAP.PAX_DOC.NATIONALITY"|"EN"|"Passenger nationality"|0|4495745|
@@ -3004,6 +3004,7 @@ BEGINDATA
 "Категории багажа"|"EN"|"Baggage categories"|0|0|0
 "Категории пассажиров"|"EN"|"Passenger categories"|0|0|0
 "Категории пользователей (роли)"|"EN"|"User categories (roles)"|0|0|0
+"Текст сообщения"|"EN"|"Message text"|0|0|0
 "Категория информации / F2"|"EN"|"Info category / F2"|0|0|1
 "Категория операции"|"EN"|"Action category"|0|0|1
 "квартал"|"EN"|"quarter"|0|0|1
@@ -3113,7 +3114,7 @@ BEGINDATA
 "Лист ожидания"|"EN"|"Waiting list"|0|0|
 "Лит."|"EN"|"lett."|0|0|1
 "Литеры рейсов"|"EN"|"Flight statuses"|0|0|0
-"CAP.PAX_DOCO.DETAILS"|"EN"|"Доп. документ подробно"|0|4572894|1
+"CAP.PAX_DOCO.DETAILS"|"EN"|"Visa details"|0|4572894|1
 "Текстовый формат"|"EN"|"Text format"|0|4460224|1
 "CAP.PAX_DOCO.DETAILS"|"RU"|"Доп. документ подробно"|0|4572894|1
 "Личный номер"|"EN"|"Personal number"|0|0|0
@@ -3150,7 +3151,7 @@ BEGINDATA
 "На рейс"|"EN"|"To flight"|0|0|1
 "На рейс (регистрация)"|"EN"|"To flight (check-in)"|0|0|1
 "На рейс (телеграммы)"|"EN"|"To flight (telexes)"|0|4709994|1
-"Название"|"EN"|"Description"|0|0|
+"Название"|"EN"|"Name"|0|0|
 "Название BC"|"EN"|"AC type"|0|4709994|0
 "Название BC (лат.)"|"EN"|"AC type (LAT)"|0|4709994|0
 "Название а/к"|"EN"|"A/L name"|0|4709994|0
@@ -3165,6 +3166,7 @@ BEGINDATA
 "Название гос-ва"|"EN"|"Country"|0|4709994|0
 "Название гос-ва (лат.)"|"EN"|"Country (LAT)"|0|4709994|0
 "Название группы"|"EN"|"Group descr."|0|0|1
+"Текст сообщения (лат.)"|"EN"|"Message text (LAT)"|0|0|0
 "Название зала (лат.)"|"EN"|"Lounge name (LAT)"|0|0|0
 "Название категории"|"EN"|"Category name"|0|0|0
 "Название класса"|"EN"|"Class name"|0|0|0
@@ -3254,7 +3256,7 @@ BEGINDATA
 "Новый пароль:"|"EN"|"New password:"|0|0|1
 "Новый рейс / F7"|"EN"|"New flight / F7"|0|0|1
 "Новый сеанс"|"EN"|"New session"|0|0|1
-"Номер"|"EN"|"Number"|0|0|1
+"Номер"|"EN"|"Number"|0|0|
 "Номер билета"|"EN"|"Ticket No"|0|0|1
 "Номер документа"|"EN"|"Doc No"|0|0|1
 "Номер первого ряда"|"EN"|"First row No"|0|0|1
@@ -3317,7 +3319,6 @@ BEGINDATA
 "Откл."|"EN"|"Off"|0|0|
 "Открыть / Ctrl+F12"|"EN"|"Open / Ctrl+F12"|0|0|1
 "Открыть... / F2"|"EN"|"Open... / F2"|0|0|1
-"Отлож. подтв. ЭБ"|"EN"|"Delayed conf."|0|0|0
 "Отм"|"EN"|"Cancel"|0|0|1
 "Отм."|"EN"|"Can."|0|0|1
 "отм."|"EN"|"can."|0|0|1
@@ -3672,6 +3673,7 @@ BEGINDATA
 "MSG.CODE_ALREADY_USED_FOR_CITY"|"EN"|"The value of '[field1%s]' [value%s] field is already used in the '[field2%s]' field for city [city%s]"|0|0|0
 "MSG.CODE_ALREADY_USED_FOR_COUNTRY"|"EN"|"The value of '[field1%s]' [value%s] field is already used in the '[field2%s]' field for country [country%s]"|0|0|0
 "MSG.DESK_GRP_DOES_NOT_MEET_DESK"|"EN"|"The terminal group does not comply with the specified terminal"|0|0|0
+"QST.CONTINUE"|"EN"|"Continue?"|0|0|0
 "MSG.INVALID_DESK"|"EN"|"Invalid terminal name"|0|0|0
 "MSG.INVALID_FLIGHT_DAYS"|"EN"|"Invalid flight days '[days%s]'"|0|0|0
 "MSG.INVALID_FLT_NO_ARV"|"EN"|"Invalid number of arriving flight [flight%s]"|0|0|0
@@ -3697,6 +3699,7 @@ BEGINDATA
 "MSG.NO_PERM_MODIFY_AIRP_DEP"|"EN"|"No rights to change or delete the row with the departure airport [airp%s]"|0|0|0
 "MSG.NO_PERM_MODIFY_AIRP_DEP_AND_ARV"|"EN"|"No rights to change or delete the row with these departure and arrival airports"|0|0|0
 "MSG.NO_PERM_MODIFY_AIRPORT"|"EN"|"No rights to change or delete the row with the airport [airp%s]"|0|0|0
+"QST.CONTINUE"|"RU"|"Продолжить?"|0|0|0
 "MSG.NO_PERM_MODIFY_AL_AND_AL"|"EN"|"No rights to change or delete the row with the airline [airline%s] and [airline2%s]"|0|0|0
 "MSG.NO_PERM_MODIFY_AL_AND_INDEFINITE_AL"|"EN"|"No rights to change or delete the row with the airline [airline%s] and unspecified airline"|0|0|0
 "MSG.NO_PERM_MODIFY_AP_AND_AP"|"EN"|"No rights to change or delete the row with the airport [airp1%s] and [airp2%s]"|0|0|0
@@ -3883,7 +3886,7 @@ BEGINDATA
 "Следующий сег. / PgDn"|"EN"|"Next seg. / PgDn"|0|5979376|1
 "MSG.BEFORE_RECEIPT_PRINT_CLOSE_PAYMENT_FORMS"|"RU"|"Перед печатью квитанции необходимо было закрыть окно 'Форма оплаты'"|0|0|0
 "MSG.BP_TYPE_NOT_ASSIGNED_FOR_DESK"|"EN"|"Boarding pass form isn't assigned for kiosk"|0|0|0
-"MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH"|"RU"|"Выбрано слишком много строк. Показано [num%d] произвольных строк. Уточните критерии сбора статистики."|0|0|0
+"EVT.PAX_CONFIRMATION_REQUESTED"|"RU"|"Запрошено подтверждение: [text%s]"|0|0|0
 "CAP.PAX_DOCO.EXPIRY_DATE"|"RU"|"Дата окончания действия"|0|6027645|
 "CAP.PAX_DOCO.EXPIRY_DATE"|"EN"|"Document expiry date"|0|6027645|
 "Отпр. телеграммы"|"EN"|"Out. telegrams"|0|0|
@@ -3895,7 +3898,7 @@ BEGINDATA
 "Дата вылета"|"EN"|"Departure"|0|0|0
 "Объем (байт)"|"EN"|"Size (B)"|0|0|0
 "Статистика отправленных телеграмм"|"EN"|"Statistics sent telegrams"|0|0|0
-"MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH"|"EN"|"Too many lines are selected. [num%d] arbitrary lines are displayed. Clarify your criteria for statistics collection"|0|0|0
+"EVT.PAX_CONFIRMATION_REQUESTED"|"EN"|"Confirmation requested: [text%s]"|0|0|0
 "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT"|"RU"|"Изменение компоновки запрещено"|0|4300057|0
 "MSG.SALONS.SAVE_BASE_COMPON"|"RU"|"Перед разметкой сохраните базовую компоновку"|0|0|0
 "Web-тарификация"|"RU"|"Тарификация"|0|0|1
@@ -3910,6 +3913,7 @@ BEGINDATA
 "MSG.INVALID_COMPSECTIONS_FIRSTROW"|"RU"|"Неправильно задан первый ряд пассажирской зоны"|0|0|1
 "MSG.EMPTY_COMPSECTIONS_LASTROW"|"RU"|"Не задан последний ряд пассажирской зоны"|0|0|1
 "MSG.INVALID_COMPSECTIONS_LASTROW"|"RU"|"Неправильно задан последний ряд пассажирской зоны"|0|0|1
+"Подтверждение действий с пассажирами"|"EN"|"Actions confirmation with passengers"|0|0|0
 "MSG.DEVICE.INVALID_WEIGHING_FORMAT"|"RU"|"От весов получены данные неизвестного формата"|0|0|1
 "MSG.UNSPECIFIED_TAX_FOR_DECLARED_VALUE"|"RU"|"Не определен сбор за объявленную ценность"|0|0|1
 "MSG.UNSPECIFIED_TAX_FOR_DECLARED_VALUE"|"EN"|"No fee for declared value is determined"|0|0|1
@@ -4101,8 +4105,8 @@ BEGINDATA
 "MSG.ETICK.ENTER_IN_MAIN_WINDOW"|"EN"|"Necessary to enter e-ticket in the main check-in window"|0|4709994|1
 "WRAP.MESSAGEPRO"|"RU"|"[func%s]: [text%L], error=[err%d]"|0|6615573|
 "WRAP.MESSAGEPRO"|"EN"|"[func%s]: [text%L], error=[err%d]"|0|6615572|
-"WRAP.PASSENGER_INFO"|"RU"|"[pass%s][EOL] Рейс: [flight%s]"|0|0|1
-"WRAP.PASSENGER_INFO"|"EN"|"[pass%s][EOL] Flight: [flight%s]"|0|0|1
+"WRAP.PASSENGER_INFO"|"RU"|"[pass%s][EOL] Рейс: [flight%s]"|0|0|
+"WRAP.PASSENGER_INFO"|"EN"|"[pass%s][EOL] Flight: [flight%s]"|0|0|
 "WRAP.REMARK_ERROR"|"RU"|"Ошибка ремарки [rem_code%s]: [text%L]"|0|0|0
 "WRAP.REMARK_ERROR"|"EN"|"Remark error [rem_code%s]: [text%L]"|0|0|0
 "WRAP.SALONS.PARSE_ERROR"|"RU"|"Ошибка в строке: [row%-2.2d], позиции: [line%-2.2d]    [text%L]"|0|0|1
@@ -4231,8 +4235,8 @@ BEGINDATA
 "EVT.SET_TRANSIT_FLAG"|"EN"|"Flag transit [airp%s]"|0|681463910|0
 "EVT.CANCEL_TRANSIT_FLAG"|"RU"|"Отмена признака транзита [airp%s]"|0|681463910|0
 "EVT.CANCEL_TRANSIT_FLAG"|"EN"|"Transit flag deleting [airp%s]"|0|681463910|0
-"EVT.SET_CREW"|"RU"|"Ввод экипажа. В кабине: [cockpit%s], в салоне: [cabin%s], КВС: [commander%s]"|0|681463910|0
-"EVT.SET_CREW"|"EN"|"Crew data: cockpit crew: [cockpit%s], cabin crew: [cabin%s], captain: [commander%s]"|0|681463910|0
+"EVT.SET_CREW"|"RU"|"[owner%s]Ввод экипажа. В кабине: [cockpit%s], в салоне: [cabin%s], КВС: [commander%s]"|0|681463910|0
+"EVT.SET_CREW"|"EN"|"[owner%s]Crew data: cockpit crew: [cockpit%s], cabin crew: [cabin%s], captain: [commander%s]"|0|681463910|0
 "EVT.UNKNOWN"|"RU"|"не задано"|0|681463910|0
 "EVT.UNKNOWN"|"EN"|"not specified"|0|681463910|0
 "EVT.PTS_AGENT_LOADER"|"RU"|"Ввод инф. для документации. Агент СОПП: [pts_agent%s], грузчик: [loader%s]"|0|681463910|0
@@ -4330,20 +4334,6 @@ BEGINDATA
 "EVT.CANCEL_SEATS_RESERVATION_AFTER_WEB"|"EN"|"Seats [seat_view%s] reservation for passenger [pax_name%s] ([type%s]) cancelled after payment (WEB)"|0|681463910|0
 "EVT.CANCEL_PRELIMINARY_ASSIGNED_SEATS"|"RU"|"Пассажиру [pax_name%s] ([type%s]) отменены предварительно назначеные места [seat_view%s]"|0|681463910|0
 "EVT.CANCEL_PRELIMINARY_ASSIGNED_SEATS"|"EN"|"Seats [seat_view%s] pre-allocation for passenger [pax_name%s] ([type%s]) cancelled"|0|681463910|0
-"EVT.SET_MODE"|"RU"|"Установлен режим: [trans_reg%s] [block_trans%s] [trans%s]"|0|681463910|0
-"EVT.SET_MODE"|"EN"|"Mode '[trans_reg%s] [block_trans%s] [trans%s]' enabled"|0|681463910|0
-"EVT.WITHOUT_TRANS_REG"|"RU"|"без перерегистрации транзита,"|0|681463910|0
-"EVT.WITHOUT_TRANS_REG"|"EN"|"check-in at transit point required"|0|681463910|0
-"EVT.TRANS_REG"|"RU"|"перерегистрация транзита,"|0|681463910|0
-"EVT.TRANS_REG"|"EN"|"check-in at transit point not required"|0|681463910|0
-"EVT.WITHOUT_BLOCK_TRANS"|"RU"|"без ручной разметки транзита,"|0|681463910|0
-"EVT.WITHOUT_BLOCK_TRANS"|"EN"|"manual transit marking,"|0|681463910|0
-"EVT.BLOCK_TRANS"|"RU"|"ручная разметка транзита,"|0|681463910|0
-"EVT.BLOCK_TRANS"|"EN"|"without manual transit marking"|0|681463910|0
-"EVT.TRANS_FLIGHT"|"RU"|"транзитный рейс"|0|681463910|0
-"EVT.TRANS_FLIGHT"|"EN"|"transit flight"|0|681463910|0
-"EVT.NON_TRANS_FLIGHT"|"RU"|"не транзитный рейс"|0|681463910|0
-"EVT.NON_TRANS_FLIGHT"|"EN"|"non-transit flight"|0|681463910|0
 "EVT.CHANGED_PASSENGER_DATA"|"RU"|"[pax_name%s]. Изменены данные пассажира."|0|681463910|0
 "EVT.CHANGED_PASSENGER_DATA"|"EN"|"[pax_name%s]. Passenger data changed."|0|681463910|0
 "MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH"|"RU"|"Выбрано слишком много строк. Показано [num%d] произвольных строк. Уточните критерии поиска."|0|0|0
@@ -5030,6 +5020,7 @@ BEGINDATA
 "EVT.CHANGE_LITERA_LAND"|"RU"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Изменение литеры рейса на прилет"|0|681463910|0
 "EVT.CHANGE_LITERA_LAND"|"EN"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Inbound flight suffix change"|0|681463910|0
 "EVT.CHANGE_FLIGHT_ATTR_LAND"|"RU"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Изменение атрибутов рейса на прилет"|0|681463910|0
+"MSG.PRESEATING.ACCESS_DENIED"|"RU"|"Нет прав для предварительной рассадки и ее отмены"|0|0|0
 "EVT.CHANGE_FLIGHT_ATTR_LAND"|"EN"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Inbound flight attributes' change"|0|681463910|0
 "EVT.INIT_STAGES"|"RU"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Необходима инициализация шагов тех. графика"|0|681463910|0
 "EVT.INIT_STAGES"|"EN"|"[airl%s][flt_no%s][suffix%s] [airp%s]: Technological schedule stages should be initiated"|0|681463910|0
@@ -5146,10 +5137,10 @@ BEGINDATA
 "EVT.MODIFY_CRAFT_TYPE"|"EN"|"Aircraft type change to [craft%s], airport [airp%s]"|0|681463910|0
 "EVT.ASSIGNE_CRAFT_TYPE"|"RU"|"Назначение типа ВС [craft%s] порт [airp%s]"|0|681463910|0
 "EVT.ASSIGNE_CRAFT_TYPE"|"EN"|"Aircraft type [craft%s] assignment, airport [airp%s]"|0|681463910|0
-"EVT.MODIFY_BOARD_TYPE"|"RU"|"Изменение борта на [bort%s] порт [airp%s]"|0|681463910|0
-"EVT.MODIFY_BOARD_TYPE"|"EN"|"Aircraft registration number change to [bort%s], airport [airp%s]"|0|681463910|0
-"EVT.ASSIGNE_BOARD_TYPE"|"RU"|"Назначение борта [bort%s] порт [airp%s]"|0|681463910|0
-"EVT.ASSIGNE_BOARD_TYPE"|"EN"|"Aircraft registration number [bort%s] assignment, airport [airp%s]"|0|681463910|0
+"EVT.MODIFY_BOARD_TYPE"|"RU"|"[owner%s]Изменение борта на [bort%s] порт [airp%s]"|0|681463910|0
+"EVT.MODIFY_BOARD_TYPE"|"EN"|"[owner%s]Aircraft registration number change to [bort%s], airport [airp%s]"|0|681463910|0
+"EVT.ASSIGNE_BOARD_TYPE"|"RU"|"[owner%s]Назначение борта [bort%s] порт [airp%s]"|0|681463910|0
+"EVT.ASSIGNE_BOARD_TYPE"|"EN"|"[owner%s]Aircraft registration number [bort%s] assignment, airport [airp%s]"|0|681463910|0
 "EVT.TECHNOLOGY_STEPS_ASSIGNEMENT"|"RU"|"[flt%s] [airp%s]: Была вызвана процедура назначения шагов тех графика на рейс"|0|681463910|0
 "EVT.TECHNOLOGY_STEPS_ASSIGNEMENT"|"EN"|"[flt%s] [airp%s]: Procedure of  technological schedule stages assignment initiated"|0|681463910|0
 "EVT.SALONS.ASSIGNE_LAYOUT"|"RU"|"Была вызвана процедура автоматического назначения компоновки на рейс"|0|681463910|0
@@ -5173,12 +5164,12 @@ BEGINDATA
 "EVT.FLIGHT.NEW"|"EN"|"New flight creation: [flt%s]"|0|681463910|0
 "EVT.FLIGHT.MODIFY_ROUTE"|"RU"|"Изменение маршрута рейса: [flt%s]"|0|681463910|0
 "EVT.FLIGHT.MODIFY_ROUTE"|"EN"|"Flight route change: [flt%s]"|0|681463910|0
-"EVT.CARGO_MAIL_WEIGHT"|"RU"|"Направление [airp%s]: груз [cargo_weight%s] кг., почта [mail_weight%s] кг."|0|681463910|0
-"EVT.CARGO_MAIL_WEIGHT"|"EN"|"Destination airport [airp%s]: cargo [cargo_weight%s] kg, mail [mail_weight%s] kg"|0|681463910|0
-"EVT.MAX_COMMERCE_LOAD_UNKNOWN"|"RU"|"Макс. коммерческая загрузка: не задано"|0|681463910|0
-"EVT.MAX_COMMERCE_LOAD_UNKNOWN"|"EN"|"Maximum commercial payload: not specified"|0|681463910|0
-"EVT.MAX_COMMERCE_LOAD"|"RU"|"Макс. коммерческая загрузка: [weight%s] кг."|0|681463910|0
-"EVT.MAX_COMMERCE_LOAD"|"EN"|"Maximum commercial payload: [weight%s] kg"|0|681463910|0
+"EVT.CARGO_MAIL_WEIGHT"|"RU"|"[suffix%s]Направление [airp%s]: груз [cargo_weight%s] кг., почта [mail_weight%s] кг."|0|681463910|0
+"EVT.CARGO_MAIL_WEIGHT"|"EN"|"[suffix%s]Destination airport [airp%s]: cargo [cargo_weight%s] kg, mail [mail_weight%s] kg"|0|681463910|0
+"EVT.MAX_COMMERCE_LOAD_UNKNOWN"|"RU"|"[source%s]Макс. коммерческая загрузка: не задано"|0|681463910|0
+"EVT.MAX_COMMERCE_LOAD_UNKNOWN"|"EN"|"[source%s]Maximum commercial payload: not specified"|0|681463910|0
+"EVT.MAX_COMMERCE_LOAD"|"RU"|"[source%s]Макс. коммерческая загрузка: [weight%s] кг."|0|681463910|0
+"EVT.MAX_COMMERCE_LOAD"|"EN"|"[source%s]Maximum commercial payload: [weight%s] kg"|0|681463910|0
 "EVT.DESKS_NOT_ASSIGNED"|"RU"|"Не назначены стойки регистрации"|0|681463910|0
 "EVT.DESKS_NOT_ASSIGNED"|"EN"|"Check-in desks not assigned"|0|681463910|0
 "EVT.ASSIGNE_DESKS"|"RU"|"Назначены стойки регистрации: [names%s]"|0|681463910|0
@@ -5255,6 +5246,7 @@ BEGINDATA
 "EVT.DISP.DELETE_TAKEOFF_FACT"|"EN"|"Deleting actual departure for flight [flt%s]"|0|681463910|0
 "EVT.DELETE_DESK"|"RU"|"Удалены стойки регистрации: [names%s]"|0|681463910|0
 "EVT.DELETE_DESK"|"EN"|"Deleting assigned check-in desks [names%s]"|0|681463910|0
+"MSG.PRESEATING.ACCESS_DENIED"|"EN"|"No rights for pre-seating and it cancellations"|0|0|0
 "EVT.DELETE_GATE_ON_FLIGHT"|"RU"|"Удалены выходы на посадку: [names%s]"|0|681463910|0
 "EVT.DELETE_GATE_ON_FLIGHT"|"EN"|"Deleting assigned gates [names%s]"|0|681463910|0
 "EVT.PASSENGER.ALL_BOARDED"|"RU"|"Все пассажиры прошли посадку"|0|681463910|0
@@ -5269,24 +5261,22 @@ BEGINDATA
 "EVT.CHECKIN.TRANSFER_BAGGAGE_CANCEL"|"EN"|"Cancel transfer for passengers and luggage"|0|681463910|0
 "EVT.CHECKIN.TRANSFER_BAGGAGE_REGISTER"|"RU"|"Трансферный маршрут для багажа: [route%s]"|0|681463910|0
 "EVT.CHECKIN.TRANSFER_BAGGAGE_REGISTER"|"EN"|"Transfer route for luggage: [route%s]"|0|681463910|0
-"EVT.THROUGH_CHECKIN_CANCEL"|"RU"|"Отменена сквозная регистрация пассажиров и багажа"|0|681463910|0
-"EVT.THROUGH_CHECKIN_CANCEL"|"EN"|"Through check-in cancelled"|0|681463910|0
 "EVT.THROUGH_CHECKIN_PERFORMED"|"RU"|"Произведена сквозная регистрация по маршруту: [route%s]"|0|681463910|0
 "EVT.THROUGH_CHECKIN_PERFORMED"|"EN"|"Through check-in performed over the route: [route%s]"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Дублирование пассажиров на отправляющемся рейсе"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE"|"EN"|"Inbound transfer luggage not associated. Reason: Outbound flight data contain passengers' duplication"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Дублирование пассажиров на входящих рейсах"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound flights data contain passengers' duplication"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Неполный маршрут входящего трансферного багажа"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound luggage in transfer incomplete route"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Различные маршруты входящего трансферного багажа"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound transfer luggage comes from different routes"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Различные трансферные маршруты в регистрируемой группе пассажиров"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Different transfer routes for the passengers within checking-in group"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Несовпадение трансферных маршрутов входящего багажа и регистрируемой группы"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Routes of inbound luggage and checking-in group differ"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED"|"RU"|"Не привязан входящий трансферный багаж. Причина: Неизвестный вес трансферного багажа"|0|681463910|0
-"EVT.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED"|"EN"|"Inbound transfer luggage not associated. Reason: Transfer luggage weight unknown"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Дублирование пассажиров на отправляющемся рейсе"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE"|"EN"|"Inbound transfer luggage not associated. Reason: Outbound flight data contain passengers' duplication"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Дублирование пассажиров на входящих рейсах"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound flights data contain passengers' duplication"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE"|"RU"|"Не привязан входящий трансферный багаж. Причина: Неполный маршрут входящего трансферного багажа"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound luggage in transfer incomplete route"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Различные маршруты входящего трансферного багажа"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Inbound transfer luggage comes from different routes"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Различные трансферные маршруты в регистрируемой группе пассажиров"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Different transfer routes for the passengers within checking-in group"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER"|"RU"|"Не привязан входящий трансферный багаж. Причина: Несовпадение трансферных маршрутов входящего багажа и регистрируемой группы"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER"|"EN"|"Inbound transfer luggage not associated. Reason: Routes of inbound luggage and checking-in group differ"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED"|"RU"|"Не привязан входящий трансферный багаж. Причина: Неизвестный вес трансферного багажа"|0|681463910|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED"|"EN"|"Inbound transfer luggage not associated. Reason: Transfer luggage weight unknown"|0|681463910|0
 "EVT.CHECKIN_OPEN_FOR_INFO_SYS"|"RU"|"Открытие регистрации для системы информирования"|0|681463910|0
 "EVT.CHECKIN_OPEN_FOR_INFO_SYS"|"EN"|"Check-in open for the information system"|0|681463910|0
 "EVT.CHECKIN_CLOSE_FOR_INFO_SYS"|"RU"|"Закрытие регистрации для системы информирования"|0|681463910|0
@@ -5388,8 +5378,8 @@ BEGINDATA
 "EVT.TAGS"|"EN"|"tags"|0|681463910|0
 "EVT.PASSENGER.CHECKEDIN"|"RU"|"[pax_name%s] зарегистрирован[exam%s][board%s]. П/н: [airp%s][params%s]. Баг.нормы[airline%s]: [norm%s]"|0|681463910|0
 "EVT.PASSENGER.CHECKEDIN"|"EN"|"[pax_name%s] checked-in[exam%s][board%s]. Dest: [airp%s][params%s]. Baggage norm[airline%s]: [norm%s]"|0|681463910|0
-"EVT.CLASS_STATUS_SEAT_NO"|"RU"|", класс: [cls%s], статус: [status%s], место: [seat_no%s]"|0|681463910|0
-"EVT.CLASS_STATUS_SEAT_NO"|"EN"|", class: [cls%s], status: [status%s], seat number: [seat_no%s]"|0|681463910|0
+"EVT.CLASS_STATUS_SEAT_NO"|"RU"|", класс: [cls%s], статус: [status%s], место: [seat_no%s][agent_seat_no%s]"|0|681463910|0
+"EVT.CLASS_STATUS_SEAT_NO"|"EN"|", class: [cls%s], status: [status%s], seat number: [seat_no%s][agent_seat_no%s]"|0|681463910|0
 "EVT.STATUS"|"RU"|", статус: [status%s]"|0|681463910|0
 "EVT.STATUS"|"EN"|", status: [status%s]"|0|681463910|0
 "EVT.EXAMED"|"RU"|", прошел досмотр"|0|681463910|0
@@ -5440,14 +5430,9 @@ BEGINDATA
 "EVT.PAX.REG_ERROR"|"EN"|"Passenger [name%s] check-in error from PNL/ADL: [what%s]"|0|681463910|0
 "EVT.FOR_PULT_GRP"|"RU"|"для группы пультов '[desk_grp%s]'"|0|681463910|0
 "EVT.FOR_PULT_GRP"|"EN"|"for the terminal group '[desk_grp%s]'"|0|681463910|0
-"EVT.SET_MODE_WITHOUT_REG_TRANS_FLIGHT"|"RU"|"Установлен режим без перерегистрации транзита для транзитного рейса"|0|681463910|0
-"EVT.SET_MODE_WITHOUT_REG_TRANS_FLIGHT"|"EN"|"Mode 'Check-in at transit point not required for transit flight' enabled"|0|681463910|0
-"EVT.SET_MODE_WITH_REG_TRANS_FLIGHT"|"RU"|"Установлен режим перерегистрации транзита для транзитного рейса"|0|681463910|0
-"EVT.SET_MODE_WITH_REG_TRANS_FLIGHT"|"EN"|"Mode 'Check-in at transit point not required for transit flight' disabled"|0|681463910|0
-"EVT.SET_MODE_WITHOUT_REG_NON_TRANS_FLIGHT"|"RU"|"Установлен режим без перерегистрации транзита для нетранзитного рейса"|0|681463910|0
-"EVT.SET_MODE_WITHOUT_REG_NON_TRANS_FLIGHT"|"EN"|"Mode 'Check-in at transit point not required for non transit flight' enabled"|0|681463910|0
-"EVT.SET_MODE_WITH_REG_NON_TRANS_FLIGHT"|"RU"|"Установлен режим перерегистрации транзита для нетранзитного рейса"|0|681463910|0
-"EVT.SET_MODE_WITH_REG_NON_TRANS_FLIGHT"|"EN"|"Mode 'Check-in at transit point not required for non transit flight' disabled"|0|681463910|0
+"EVT.COMPON_LAYOUT_MODIFIED.LIBRA_BLOCK_CENT"|"RU"|"Изменена компоновка рейса, блокировка центровки по данным из центровки Либра:"|0|0|0
+"EVT.COMPON_LAYOUT_MODIFIED.LIBRA_BLOCK_CENT"|"EN"|"Изменена компоновка рейса, блокировка центровки по данным из центровки Либра:"|0|0|0
+"Ремарка LDM"|"EN"|"LDM Remark"|0|0|0
 "EVT.FLIGHT_MOOVED_TO_ARCHIVE"|"RU"|"Рейс перемещен в архив"|0|681463910|0
 "EVT.FLIGHT_MOOVED_TO_ARCHIVE"|"EN"|"Flight is transferred to archives"|0|681463910|0
 "EVT.COLLECT_STATISTIC"|"RU"|"Сбор статистики по рейсу"|0|681463910|0
@@ -5506,6 +5491,7 @@ BEGINDATA
 "Пересылка"|"EN"|"Forwarding"|0|0|0
 "Часовой регион"|"EN"|"Timezone area"|0|0|0
 "Формировать APIS / Ctrl+F6"|"EN"|"Generate API data / Ctrl+F6"|0|0|1
+"Ремарка LCI"|"EN"|"LCI Remark"|0|0|0
 "EVT.EMD_CHANGE_STATUS"|"EN"|"EMD status changed [doc_no%s]/[coupon_no%s]: [coupon_status%s]"|0|0|0
 "EVT.EMD_CHANGE_STATUS"|"RU"|"Изменен статус EMD [doc_no%s]/[coupon_no%s]: [coupon_status%s]"|0|0|0
 "Без монитора"|"EN"|"Without monitor"|0|0|0
@@ -5641,32 +5627,32 @@ BEGINDATA
 "Запрет киоск-рег."|"EN"|"Kiosk forbidden"|0|0|0
 "Запрет моб. рег."|"EN"|"Mob. forbidden"|0|0|0
 "CAP.DOC.SERVICES"|"EN"|"Services for the flight [flight%s]"|0|0|0
-"MSG.CHECKIN.AVAILABLE_JUMP_SEATS"|"EN"|"Доступных откидных мест осталось [count%d]"|0|0|0
+"MSG.CHECKIN.AVAILABLE_JUMP_SEATS"|"EN"|"Available jump seats count: [count%d]"|0|0|0
 "MSG.DUPLICATED_EMD_NUMBER_ON_SAME_SEG"|"RU"|"Номер EMD [emd_no%s] дублируется на том же сегменте"|0|0|1
 "CAP.DOC.PAX"|"RU"|"П"|0|0|0
 "CAP.DOC.PAX"|"EN"|"P"|0|0|0
 "MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED"|"EN"|"The terminal version does not support baggage issue on piece-concept. Use version 201509-0173355 or above"|0|0|0
 "MSG.PIECE_CONCEPT_PAYMENT_NOT_SUPPORTED_BY_DCS"|"EN"|"Baggage payment if piece concept is applied is not processed/accepted throught Astra DCS terminal"|0|0|0
-"MSG.ETICK.NOT_SUPPORTED_DUE_TO_CONTROL_METHOD"|"EN"|"Операция не поддерживается, т.к. используется контрольный метод при обмене с СЭБ"|0|0|0
+"MSG.ETICK.NOT_SUPPORTED_DUE_TO_CONTROL_METHOD"|"EN"|"Not allowed for control method"|0|0|0
 "MSG.FORBIDDEN_INSERT_RFIC"|"RU"|"Запрещен ввод RFIC с кодом [rfic%s]"|0|0|0
-"MSG.FORBIDDEN_INSERT_RFIC"|"EN"|"Запрещен ввод RFIC с кодом [rfic%s]"|0|0|0
+"MSG.FORBIDDEN_INSERT_RFIC"|"EN"|"RFIC with code  [rfic%s] not allowed"|0|0|0
 "MSG.CHECKIN.AVAILABLE_JUMP_SEATS"|"RU"|"Доступных откидных мест осталось [count%d]"|0|0|0
 "MSG.EMD.TICKET_NO_INVALID_CHARS"|"RU"|"Номер эл. документа содержит недопустимые символы"|0|0|0
 "MSG.EMD.TICKET_NO_INVALID_CHARS"|"EN"|"E-document contains invalid characters"|0|0|0
 "MSG.ETICK.FOR_PASSENGER_NOT_SET_TICK_AND_COUPON_NO"|"RU"|"Для пассажира должен быть указан номер эл. билета и купона"|0|0|0
-"MSG.ETICK.FOR_PASSENGER_NOT_SET_TICK_AND_COUPON_NO"|"EN"|"Для пассажира должен быть указан номер эл. билета и купона"|0|0|0
+"MSG.ETICK.FOR_PASSENGER_NOT_SET_TICK_AND_COUPON_NO"|"EN"|"ET and coupon number must be specified"|0|0|0
 "MSG.ETICK.NOT_FOUND_IN_PNL"|"RU"|"Эл. билет [etick%s] не найден в списке бронирования (PNL)"|0|0|0
-"MSG.ETICK.NOT_FOUND_IN_PNL"|"EN"|"Эл. билет [etick%s] не найден в списке бронирования (PNL)"|0|0|0
+"MSG.ETICK.NOT_FOUND_IN_PNL"|"EN"|"ET [etick%s] not found in PNL"|0|0|0
 "АПВ"|"EN"|"APD"|0|0|0
 "АПТ"|"EN"|"APT"|0|0|0
 "АПП"|"EN"|"APA"|0|0|0
 "MSG.ETICK.NOT_SUPPORTED_DUE_TO_CONTROL_METHOD"|"RU"|"Операция не поддерживается, т.к. используется контрольный метод при обмене с СЭБ"|0|0|0
 "MSG.ETICK.DUPLICATED_IN_PNL"|"RU"|"Эл. билет [etick%s] дублируется в списке бронирования (PNL)"|0|0|0
-"MSG.ETICK.DUPLICATED_IN_PNL"|"EN"|"Эл. билет [etick%s] дублируется в списке бронирования (PNL)"|0|0|0
+"MSG.ETICK.DUPLICATED_IN_PNL"|"EN"|"ET [etick%s]  Dupe in PNL"|0|0|0
 "MSG.ETICK.FLIGHT_IN_FINAL_STATUS_UNABLE_RECEIVE_CONTROL"|"RU"|"Невозможно получить контроль эл. билета [eticket%s]/[coupon%s]. Рейс закрыт"|0|0|0
-"MSG.ETICK.FLIGHT_IN_FINAL_STATUS_UNABLE_RECEIVE_CONTROL"|"EN"|"Невозможно получить контроль эл. билета [eticket%s]/[coupon%s]. Рейс закрыт"|0|0|0
+"MSG.ETICK.FLIGHT_IN_FINAL_STATUS_UNABLE_RECEIVE_CONTROL"|"EN"|"Can't obtain control of ET [eticket%s], cpn. [coupon%s]. Flight closed"|0|0|0
 "MSG.ETICK.UNABLE_RECEIVE_CONTROL"|"RU"|"Невозможно получить контроль эл. билета [eticket%s]/[coupon%s]"|0|0|0
-"MSG.ETICK.UNABLE_RECEIVE_CONTROL"|"EN"|"Невозможно получить контроль эл. билета [eticket%s]/[coupon%s]"|0|0|0
+"MSG.ETICK.UNABLE_RECEIVE_CONTROL"|"EN"|"ET Control Unavailable [eticket%s]/[coupon%s]"|0|0|0
 "MSG.TOO_MANY_CONNECTIONS"|"EN"|"Too many connections - need manual baggage tag"|0|0|0
 "MSG.INVALID_BAGGAGE_DEST"|"RU"|"Неверный пункт назначения багажа - требуется ручная багажная бирка"|0|0|0
 "MSG.INVALID_BAGGAGE_DEST"|"EN"|"Invalid baggage destination - need manual baggage tag"|0|0|0
@@ -5846,7 +5832,7 @@ BEGINDATA
 "Дата удаления"|"EN"|"Deletion date"|0|0|0
 "Профили А/К"|"EN"|"A/L Profiles"|0|0|
 "Профиль А/К"|"EN"|"A/L Profile"|0|0|0
-"MSG.SEATS.CHANGE_PAY_SEATS_DENIED"|"EN"|"Нет прав для изменения платного места пассажиру"|0|681820820|0
+"MSG.SEATS.CHANGE_PAY_SEATS_DENIED"|"EN"|"Insufficient rights for editing chargable seat"|0|681820820|0
 "MSG.SEATS.CHANGE_PAY_SEATS_DENIED"|"RU"|"Нет прав для изменения платного места пассажиру"|0|681820821|0
 "MSG.PAID_BAG.CALCULATION_AFTER_SAVE"|"RU"|"Расчет оплачиваемого багажа будет произведен после записи изменений"|0|0|1
 "MSG.PAID_BAG.CALCULATION_AFTER_SAVE"|"EN"|"Calculation of the payable baggage will be done upon saving the changes"|0|0|1
@@ -5879,8 +5865,6 @@ BEGINDATA
 "MSG.ACCESS.PROFILE.OPERATION.ON"|"RU"|"Доступ к операциям. Для профиля А/К ""[name%s]"" ([id%s]) вкл. операция ""[right%s]"""|0|0|0
 "MSG.ACCESS.PROFILE.OPERATION.ON"|"EN"|"Access to operations. Operation ""[right%s]"" on for A/L Profile ""[name%s]"" ([id%s])"|0|0|0
 "MSG.ACCESS.PROFILE.OPERATION.OFF"|"RU"|"Доступ к операциям. Для профиля А/К ""[name%s]"" ([id%s]) выкл. операция ""[right%s]"""|0|0|0
-"Список версий для формы:"|"EN"|"Version list for form:"|0|0|1
-"Список бланков для версии:"|"EN"|"Form list for version:"|0|0|1
 "MSG.ACCESS.PROFILE.OPERATION.OFF"|"EN"|"Access to operations. Operation ""[right%s]"" off for A/L Profile ""[name%s]"" ([id%s])"|0|0|0
 "Название зала"|"EN"|"Lounge name"|0|0|0
 "MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED"|"EN"|"Due to ticket number '[ticket_no%s]' weight concept is applied"|0|0|0
@@ -5900,43 +5884,35 @@ BEGINDATA
 "MSG.OPERATION_DENIED"|"EN"|"Denied: [right_name%s]"|0|0|0
 "MSG.FLIGHT_SCHEDULE.LOCKED"|"RU"|"Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление."|0|0|0
 "MSG.FLIGHT_SCHEDULE.LOCKED"|"EN"|"Seasonal schedule screen temporarily not available. Update in progress"|0|0|0
-"Владелец карты"|"EN"|"Владелец карты"|0|0|0
-"Название гостиницы"|"EN"|"Hotel name"|0|0|
+"Владелец карты"|"EN"|"Cardholder name"|0|0|0
+"Название гостиницы"|"EN"|"Hotel name"|0|0|0
 "Тип номера"|"EN"|"Room type"|0|0|1
-"MSG.UNPAID_SERVICE_EXISTS"|"RU"|"Есть неоплаченная услуга, Рег. №: [reg_no%d]"|0|0|0
-"MSG.UNPAID_SERVICE_EXISTS"|"EN"|"Есть неоплаченная услуга, Reg. No: [reg_no%d]"|0|0|0
+"MSG.UNPAID_SERVICE_EXISTS"|"RU"|"Есть неоплаченная услуга"|0|0|0
+"MSG.UNPAID_SERVICE_EXISTS"|"EN"|"Unpaid ancilary [reg_no%d]"|0|0|0
 "Завтрак"|"EN"|"Breakfast"|0|0|1
 "Обед"|"EN"|"Lunch"|0|0|1
 "Ужин"|"EN"|"Dinner"|0|0|1
-"MSG.COLLECT_STAT_INFO"|"RU"|"Заказанный отчет будет доступен для просмотра в разделе"|0|0|0
-"MSG.COLLECT_STAT_INFO"|"EN"|"The requested report will be available in ""Orders / F2"|0|0|0
+"MSG.COLLECT_STAT_INFO"|"RU"|"Заказанный отчет будет доступен для просмотра в разделе|0|0|0
+"MSG.COLLECT_STAT_INFO"|"EN"|"The requested report will be available in ""Orders / F2"".|0|0|0
 "MSG.CHECK_DOCO.INVALID_SUBTYPE"|"EN"|"Field data '[fieldname%s]' are specified incorrectly"|0|0|0
 "MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY"|"RU"|"Необходимо ввести код гос-ва в поле '[fieldname%s]'"|0|0|0
-"MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY"|"EN"|"Необходимо ввести код гос-ва в поле '[fieldname%s]'"|0|0|0
+"MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY"|"EN"|"Specify state code in the '[fieldname%s]' field"|0|0|0
 "MSG.CHECK_DOCO.INVALID_SUBTYPE"|"RU"|"Неверно указано значение поля '[fieldname%s]'"|0|0|0
-"MSG.KIOSK_ADDR.NOT_SET"|"RU"|"Не указан адрес киоска"|0|0|0
-"MSG.KIOSK_ADDR.NOT_SET"|"EN"|"Kiosk's address not specified"|0|0|0
-"MSG.KIOSK_ID.NOT_SET"|"RU"|"Не указан Ид. киоска"|0|0|0
-"MSG.KIOSK_ID.NOT_SET"|"EN"|"Kiosk Id not specified"|0|0|0
 "№ п/п"|"EN"|"#"|0|0|1
-"MSG.KIOSK_ADDR.MUST_BE_NULL"|"RU"|"Адрес киоска не может быть указан"|0|0|0
-"MSG.KIOSK_ADDR.MUST_BE_NULL"|"EN"|"Kiosk's address can't be specified"|0|0|0
-"MSG.KIOSK_ID.MUST_BE_NULL"|"RU"|"Ид. киоска не может быть указан"|0|0|0
-"MSG.KIOSK_ID.MUST_BE_NULL"|"EN"|"Kiosk Id can't be specified"|0|0|0
 "MSG.BEGIN_TIME_NOT_SET"|"EN"|"Initial time of the period not specified"|0|0|1
 "MSG.END_TIME_NOT_SET"|"RU"|"Не указано конечное время периода"|0|0|1
 "MSG.END_TIME_NOT_SET"|"EN"|"Final time of the period not specified"|0|0|1
 "QST.CANCEL_FILE_TRANSFER"|"RU"|"Прервать передачу отчета?"|0|0|1
 "QST.CANCEL_FILE_TRANSFER"|"EN"|"Cancel report transfer?"|0|0|1
-"Операции киосков саморегистрации"|"EN"|"Self-service check-in kiosks operations"|0|0|0
+"Операции киосков саморегистрации"|"EN"|"Self-service check-in kiosks operations"|0|0|
 "MSG.STAT_ORDERS.FILE_TRANSFER_ERROR"|"RU"|"Ошибка передачи отчета. Статус отчета [status%s]"|0|0|0
 "MSG.STAT_ORDERS.FILE_TRANSFER_ERROR"|"EN"|"File transfer error. The status of order is [status%s]"|0|0|0
 "MSG.STAT_ORDERS.CANT_DEL_RUNNING"|"RU"|"Невозможно удалить выполняющийся отчет"|0|0|0
 "MSG.STAT_ORDERS.CANT_DEL_RUNNING"|"EN"|"Impossible to delete running order."|0|0|0
 "MSG.STAT_ORDERS.ORDER_IS_EMPTY"|"RU"|"Отчет пустой"|0|0|0
 "MSG.STAT_ORDERS.ORDER_IS_EMPTY"|"EN"|"The order is empty"|0|0|0
-"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"RU"|"Размер отчетов превысил максимально допустимый ([max%s])"|0|0|0
-"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"EN"|"Reports size exceeded maximum allowed of [max%s]."|0|0|0
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"RU"|"Размер отчетов превысил максимально допустимый ([max%s]).|0|0|0
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"EN"|"Reports size exceeded maximum allowed of [max%s].|0|0|0
 "MSG.STAT_ORDERS.IS_RUNNING"|"RU"|"Заказанный ранее отчет находится в обработке.|0|0|0
 "MSG.STAT_ORDERS.IS_RUNNING"|"EN"|"An order created earlier is currently running.|0|0|0
 "MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"RU"|"Недостаточно памяти для создания отчета.|0|0|0
@@ -6000,7 +5976,7 @@ BEGINDATA
 "MSG.DIFFERENTE_PRICE"|"RU"|"Для цвета '[color%s]' заданы различные величины тарифов: [seat1%s] - [tariff1%s], [seat2%s] - [tariff2%s]"|0|0|0
 "MSG.DIFFERENTE_PRICE"|"EN"|"Colour '[color%s]' identifies different fare notions: [seat1%s] - [tariff1%s], [seat2%s] - [tariff2%s]"|0|0|0
 "Услуга"|"EN"|"Service"|0|0|0
-"Бренд"|"EN"|"Brand"|0|0|0
+"Бренд"|"EN"|"Brand"|0|0|
 "Бренды"|"EN"|"Brands"|0|0|0
 "Цвета тарифов"|"EN"|"Fares colouring"|0|0|0
 "Код тарифа"|"EN"|"Fare basis"|0|0|0
@@ -6032,13 +6008,13 @@ BEGINDATA
 "MSG.DUPLICATED_MCO_NUMBER"|"EN"|"MCO number [mco_no%s] is duplicated"|0|0|0
 "MSG.INFANT_CONFLICT"|"EN"|"Infant conflict"|0|0|0
 "MSG.REG_NUMBERS_ENDED_FOR_PASSENGER"|"RU"|"Невозможно сгенерировать рег. номер для пассажира"|0|0|0
-"MSG.REG_NUMBERS_ENDED_FOR_PASSENGER"|"EN"|"Невозможно сгенерировать рег. номер для пассажира"|0|0|0
+"MSG.REG_NUMBERS_ENDED_FOR_PASSENGER"|"EN"|"Unable to generate passenger sequence number"|0|0|0
 "MSG.REG_NUMBERS_ENDED_FOR_GROUP"|"RU"|"Невозможно сгенерировать рег. номера для группы. Попробуйте ее разбить"|0|0|0
-"MSG.REG_NUMBERS_ENDED_FOR_GROUP"|"EN"|"Невозможно сгенерировать рег. номера для группы. Попробуйте ее разбить"|0|0|0
+"MSG.REG_NUMBERS_ENDED_FOR_GROUP"|"EN"|"Unable to generate group sequence number. Need to separate."|0|0|0
 "MSG.UNIQ_NAME_NOT_FOUND"|"RU"|"Уникальное имя не найдено. Попробуйте уточнить номер ЭБ на edi-сегменте"|0|0|0
 "MSG.UNIQ_NAME_NOT_FOUND"|"EN"|"Unique name not found. Try to specify ET number on edi-segment"|0|0|0
 "MSG.PASSENGER.UNREGISTRATION_DENIAL_BRD"|"RU"|"Отмена регистрации запрещена, необходимо отменить посадку для данного пассажира"|0|0|0
-"MSG.PASSENGER.UNREGISTRATION_DENIAL_BRD"|"EN"|"Отмена регистрации запрещена, необходимо отменить посадку для данного пассажира"|0|0|0
+"MSG.PASSENGER.UNREGISTRATION_DENIAL_BRD"|"EN"|"Cancel check-in is prohibit, passenger need to be unboarded"|0|0|0
 "MSG.UPD_DOC_AND_VISA_SEPARATELY"|"RU"|"Обновление документа и визы по отдельности"|0|0|0
 "MSG.FQTV_NUM_ALREADY_PRESENT"|"RU"|"Номер ЧПСЖ уже существует"|0|0|0
 "MSG.FQTV_NUM_ALREADY_PRESENT"|"EN"|"FQTV number already present"|0|0|0
@@ -6133,7 +6109,7 @@ BEGINDATA
 "Не привязано EMD:"|"RU"|"Не привязано баг. EMD:"|0|0|1
 "Не привязано EMD:"|"EN"|"Unused bag. EMDs:"|0|0|1
 "Расчет багажа по количеству мест"|"RU"|"Система расчета багажа и услуги из ГРС"|0|0|1
-"Расчет багажа по количеству мест"|"EN"|"Система расчета багажа и услуги из ГРС"|0|0|1
+"Расчет багажа по количеству мест"|"EN"|"Baggage and service accounting by GDS"|0|681836130|1
 "Оплата / Shift+F5"|"EN"|"Payment / Shift+F5"|0|0|1
 "Номер док."|"EN"|"Doc. number"|0|0|1
 "Тип ваучера"|"EN"|"Voucher type"|0|0|
@@ -6141,28 +6117,28 @@ BEGINDATA
 "Ваучер"|"EN"|"Voucher"|0|0|1
 "Посадочный"|"EN"|"Boarding pass"|0|0|1
 "MSG.NEED_SELECT_TAB_SHEET_ONE_OF_TWO"|"RU"|"Необходимо выбрать '[tab1%s]' или '[tab2%s]'"|0|0|1
-"MSG.NEED_SELECT_TAB_SHEET_ONE_OF_TWO"|"EN"|"Необходимо выбрать '[tab1%s]' или '[tab2%s]'"|0|0|1
+"MSG.NEED_SELECT_TAB_SHEET_ONE_OF_TWO"|"EN"|"Select '[tab1%s]' or '[tab2%s]'"|0|0|1
 "EVT.ETICKET_CONTROL_RECEIVED"|"RU"|"Получен контроль эл. билета [ticket_no%s]/[coupon_no%s]"|0|0|0
-"EVT.ETICKET_CONTROL_RECEIVED"|"EN"|"Получен контроль эл. билета [ticket_no%s]/[coupon_no%s]"|0|0|0
+"EVT.ETICKET_CONTROL_RECEIVED"|"EN"|"Control obtained for ET [ticket_no%s], cpn. [coupon_no%s]"|0|0|0
 "Факт. вылет"|"EN"|"Actually dep."|0|0|
 "COMMON_TARIFF"|"RU"|"Стоимость"|0|0|1
-"COMMON_TARIFF"|"EN"|"Стоимость"|0|0|1
-"RFISC_TARIFF"|"EN"|"Тариф RFICS"|0|0|1
+"COMMON_TARIFF"|"EN"|"Cost"|0|0|1
+"RFISC_TARIFF"|"EN"|"RFISC tariff"|0|0|1
 "RFISC_TARIFF"|"RU"|"Тариф RFICS"|0|0|1
-"MSG.EMPTY_SECTIONS"|"EN"|"Не задано название зоны ВС"|0|0|1
+"MSG.EMPTY_SECTIONS"|"EN"|"Aircraft area is not defined"|0|0|1
 "MSG.EMPTY_SECTIONS"|"RU"|"Не задано название зоны ВС"|0|0|1
-"MSG.INVALID_SECTIONS_NAME"|"EN"|"Неправильно задано название зоны"|0|0|1
+"MSG.INVALID_SECTIONS_NAME"|"EN"|"Aircraft area specified incorrectly"|0|0|1
 "MSG.INVALID_SECTIONS_NAME"|"RU"|"Неправильно задано название зоны"|0|0|1
 "MSG.INVALID_WINGSECTIONS_FIRSTROW"|"RU"|"Неправильно задан первый ряд зоны крыльев ВС"|0|0|1
-"MSG.INVALID_WINGSECTIONS_FIRSTROW"|"EN"|"Неправильно задан первый ряд зоны крыльев ВС"|0|0|1
+"MSG.INVALID_WINGSECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft wing area is specified incorrectly"|0|0|1
 "MSG.INVALID_TAILSECTIONS_FIRSTROW"|"RU"|"Неправильно задан первый ряд зоны хвоста ВС"|0|0|1
-"MSG.INVALID_TAILSECTIONS_FIRSTROW"|"EN"|"Неправильно задан первый ряд зоны хвоста ВС"|0|0|1
+"MSG.INVALID_TAILSECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft tail area is specified incorrectly"|0|0|1
 "MSG.INVALID_NOSESECTIONS_FIRSTROW"|"RU"|"Неправильно задан первый ряд зоны носа ВС"|0|0|1
-"MSG.INVALID_NOSESECTIONS_FIRSTROW"|"EN"|"Неправильно задан первый ряд зоны носа ВС"|0|0|1
+"MSG.INVALID_NOSESECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft nose area is specified incorrectly"|0|0|1
 "MSG.EMPTY_WINGSECTIONS_LASTROW"|"RU"|"Не задан последний ряд зоны крыльев ВС"|0|0|1
-"MSG.EMPTY_WINGSECTIONS_LASTROW"|"EN"|"Не задан последний ряд зоны крыльев ВС"|0|0|1
+"MSG.EMPTY_WINGSECTIONS_LASTROW"|"EN"|"The last row of the aircraft wing area is not defined"|0|0|1
 "MSG.EMPTY_TAILSECTIONS_LASTROW"|"RU"|"Не задан последний ряд зоны хвоста ВС"|0|0|1
-"MSG.EMPTY_TAILSECTIONS_LASTROW"|"EN"|"Не задан последний ряд зоны хвоста ВС"|0|0|1
+"MSG.EMPTY_TAILSECTIONS_LASTROW"|"EN"|"The last row of the aircraft tail area is not defined"|0|0|1
 "MSG.EMPTY_NOSESECTIONS_LASTROW"|"RU"|"Не задан последний ряд зоны носа ВС"|0|0|1
 "EVT.TKN_ADDED_FOR_PASSENGER"|"RU"|"[pax_name%s]. Добавлен билет: [params%s]"|0|0|0
 "EVT.TKN_ADDED_FOR_PASSENGER"|"EN"|"[pax_name%s]. Ticket added: [params%s]"|0|0|0
@@ -6383,19 +6359,15 @@ BEGINDATA
 "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER_ON_SEG"|"EN"|"Baggage type [svc_key_view%s] is not applicable for passenger [pax_name%s] on segment [flight%s]"|0|0|
 "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER"|"EN"|"Baggage type [svc_key_view%s] is not applicable for passenger [pax_name%s]"|0|0|1
 "MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER_ON_SEG"|"EN"|"Cabin luggage type [svc_key_view%s] is not applicable for passenger [pax_name%s] on segment [flight%s]"|0|0|
-"EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN"|"RU"|"LCI: комм.загрузка: не задано"|0|0|0
-"EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN"|"EN"|"LCI: commercial payload: not specified"|0|0|0
-"EVT.LCI.MAX_COMMERCE_LOAD"|"RU"|"LCI: комм.загрузка: [weight%s] кг."|0|0|0
-"MSG.BAGGAGE_NORM_OF_THE_AIRLINE_APPLIES"|"EN"|"Для багажа применяется норма а/к [airline%s]"|0|0|0
+"MSG.BAGGAGE_NORM_OF_THE_AIRLINE_APPLIES"|"EN"|"[airline%s] airline's checked baggage allowance applies"|0|0|0
 "MSG.CARRY_ON_NORM_OF_THE_AIRLINE_APPLIES"|"RU"|"Для р/клади применяется норма а/к [airline%s]"|0|0|0
-"EVT.LCI.MAX_COMMERCE_LOAD"|"EN"|"LCI: commercial payload: [weight%s] kg"|0|0|0
 "MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER"|"EN"|"Cabin luggage type [svc_key_view%s] is not applicable for passenger [pax_name%s]"|0|0|1
 "MSG.SERVICE_NOT_AVAIL_FOR_PASSENGER_ON_SEG"|"EN"|"Service [svc_key_view%s] is not applicable for passenger [pax_name%s] on segment [flight%s]"|0|0|
 "MSG.SERVICE_NOT_AVAIL_FOR_PASSENGER"|"EN"|"Service [svc_key_view%s] is not applicable for passenger [pax_name%s]"|0|0|1
 "MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG"|"EN"|"Unaccompanied baggage type [svc_key_view%s] issue is not allowed on segment [flight%s]"|0|0|
 "MSG.UNACCOMP_BAGGAGE_NOT_AVAIL"|"EN"|"Unaccompanied baggage type [svc_key_view%s] issue is not allowed"|0|0|1
 "CAP.DOC.VOUCHERS"|"RU"|"Выпущенные ваучеры на рейсе [flight%s]"|0|0|0
-"MSG.CARRY_ON_NORM_OF_THE_AIRLINE_APPLIES"|"EN"|"Для р/клади применяется норма а/к [airline%s]"|0|0|0
+"MSG.CARRY_ON_NORM_OF_THE_AIRLINE_APPLIES"|"EN"|"[airline%s] airline's cabin baggage allowance applies"|0|0|0
 "CAP.TYPEB_OPTIONS.LDM.EXB"|"RU"|"EXB"|0|0|0
 "CAP.DOC.VOUCHERS"|"EN"|"Vouchers issued for the flight [flight%s]"|0|0|0
 "Всего:"|"EN"|"Total:"|0|0|0
@@ -6414,19 +6386,19 @@ BEGINDATA
 "MSG.WRONG_RFISC"|"EN"|"RFISC field is entered incorrectly"|0|0|0
 "MSG.WORKING_WITH_TABLE_PROHIBITED.USE_ACCESS_SCREEN"|"RU"|"Работа с таблицей запрещена. Используйте экран 'Доступ'"|0|0|0
 "MSG.WORKING_WITH_TABLE_PROHIBITED.USE_ACCESS_SCREEN"|"EN"|"Working with the table is prohibited. Use the 'Access' screen"|0|0|0
-"EVT.ALLOWED_JUMP_SEAT_CHECKIN"|"EN"|"Разрешена регистрация на откидные места (JMP)"|0|0|0
+"EVT.ALLOWED_JUMP_SEAT_CHECKIN"|"EN"|"Check-in on jump seats allowed (JUMP)"|0|0|0
 "EVT.ALLOWED_JUMP_SEAT_CHECKIN"|"RU"|"Разрешена регистрация на откидные места (JMP)"|0|0|0
 "EVT.NOT_ALLOWED_JUMP_SEAT_CHECKIN"|"RU"|"Запрещена регистрация на откидные места (JMP)"|0|0|0
-"EVT.NOT_ALLOWED_JUMP_SEAT_CHECKIN"|"EN"|"Запрещена регистрация на откидные места (JMP)"|0|0|0
-"Регистрация на откидные места (JMP)"|"EN"|"Регистрация на откидные места (JMP)"|0|0|1
+"EVT.NOT_ALLOWED_JUMP_SEAT_CHECKIN"|"EN"|"Check-in on jump seats not allowed (JUMP)"|0|0|0
+"Регистрация на откидные места (JMP)"|"EN"|"Jump seat check-in (JMP)"|0|0|1
 "MSG.NEED_TO_CANCEL_CKIN_FOR_PAX_ON_JUMP_SEATS"|"RU"|"Необходимо отменить регистрацию пассажирам на откидных местах"|0|0|0
 "EVT.JUMP_SEAT_CFG"|"RU"|"Кол-во откидных мест (JMP): [jmp_cfg%s]"|0|0|0
-"EVT.JUMP_SEAT_CFG"|"EN"|"Кол-во откидных мест (JMP): [jmp_cfg%s]"|0|0|0
+"EVT.JUMP_SEAT_CFG"|"EN"|"Jump seats count: [jmp_cfg%s]"|0|0|0
 "CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID"|"RU"|""".T"""|0|0|0
 "CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID"|"EN"|""".T"""|0|0|0
 "CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745"|"RU"|""".P"" RP1745"|0|0|0
 "CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745"|"EN"|""".P"" RP1745"|0|0|0
-"MSG.NEED_TO_CANCEL_CKIN_FOR_PAX_ON_JUMP_SEATS"|"EN"|"Необходимо отменить регистрацию пассажирам на откидных местах"|0|0|0
+"MSG.NEED_TO_CANCEL_CKIN_FOR_PAX_ON_JUMP_SEATS"|"EN"|"Cancel check-in for jumpseat passengers first"|0|0|0
 "MSG.DUPLICATED_DOC_NUMBER"|"EN"|"Document number [doc_no%s] is duplicate"|0|0|1
 "MSG.INVALID_SERVICE_QUANTITY"|"RU"|"Неверно указано кол-во оплаченных услуг"|0|0|1
 "удалить услугу"|"EN"|"remove service"|0|0|1
@@ -6460,55 +6432,53 @@ BEGINDATA
 "Типы услуг"|"EN"|"Type of services"|0|0|0
 "К опл."|"EN"|"Charge"|0|0|
 "Добавить / F7"|"EN"|"Add / F7"|0|0|1
-"MSG.NEED_TO_CANCEL_CKIN_FOR_ALL_PAX_ON_JUMP_SEATS"|"EN"|"Необходимо отменить регистрацию всем пассажирам на откидных местах"|0|0|0
+"MSG.NEED_TO_CANCEL_CKIN_FOR_ALL_PAX_ON_JUMP_SEATS"|"EN"|"Cancel check-in for all jumpseat passengers first"|0|0|0
 "Опл. кол-во"|"EN"|"Paid quantity"|0|0|1
 "EMD подробно / F6"|"EN"|"EMD in details / F6"|0|0|1
 "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT"|"RU"|"Пересадка невозможна. Пассажир с откидного места"|0|0|0
-"MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT"|"EN"|"Пересадка невозможна. Пассажир с откидного места"|0|0|0
+"MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT"|"EN"|"Reseating not allowed for jumpseat passengers"|0|0|0
 "MSG.NEED_TO_CANCEL_CKIN_FOR_ALL_PAX_ON_JUMP_SEATS"|"RU"|"Необходимо отменить регистрацию всем пассажирам на откидных местах"|0|0|0
 "Сег.1"|"EN"|"Seg.1"|0|0|0
 "Сег.2"|"EN"|"Seg.2"|0|0|0
 "Категория"|"EN"|"Category"|0|0|
-"MSG.ETICK.FLIGHT_IN_FINAL_STATUS_CHECKIN_DENIAL"|"EN"|"Регистрация эл. билета [etick%s] запрещена. Рейс закрыт"|0|0|0
+"MSG.ETICK.FLIGHT_IN_FINAL_STATUS_CHECKIN_DENIAL"|"EN"|"ET [etick%s] Check-in prohibit"|0|0|0
 "MSG.AIRLINE_OR_AIRPORT_REQUIRED"|"RU"|"Требуется обязательное заполнение одного из параметров А/к или А/п вылета"|0|0|0
 "MSG.AIRLINE_OR_AIRPORT_REQUIRED"|"EN"|"Filling one of the parameters ""A/L"" or ""A/P of departure"" is required"|0|0|0
-"MSG.KIOSKS_GRP.INVALID_INPUT"|"RU"|"Неверно указана группа кисоков"|0|0|1
-"MSG.KIOSKS_GRP.INVALID_INPUT"|"EN"|"Group of kiosks is specified incorrectly"|0|0|1
 "Комплекты выходной документации"|"EN"|"Output documentation"|0|0|0
 "Тип отчёта"|"EN"|"Type of report"|0|0|0
 "Кол-во копий"|"EN"|"Number of copies"|0|0|0
 "EVT.ETICKET_CONTROL_RETURNED"|"RU"|"Возвращен контроль эл. билета [ticket_no%s]/[coupon_no%s]. Статус: [disp_code%s]"|0|0|0
-"EVT.ETICKET_CONTROL_RETURNED"|"EN"|"Возвращен контроль эл. билета [ticket_no%s]/[coupon_no%s]. Статус: [disp_code%s]"|0|0|0
+"EVT.ETICKET_CONTROL_RETURNED"|"EN"|"Control returned for ET [ticket_no%s], cpn. [coupon_no%s]. Status: [disp_code%s]"|0|0|0
 "MSG.ETICK.FLIGHT_IN_FINAL_STATUS_CHECKIN_DENIAL"|"RU"|"Регистрация эл. билета [etick%s] запрещена. Рейс закрыт"|0|0|0
 "Напечатано копий"|"EN"|"Printed copies"|0|0|0
 "Задано копий"|"EN"|"Set of copies"|0|0|0
-"EVT.PAYMENT_AFTERPAY_ERROR"|"EN"|"Ошибка резервирования мест [seat_view%s] после оплаты (WEB)"|0|0|0
+"EVT.PAYMENT_AFTERPAY_ERROR"|"EN"|"Error seat reservation [seat_view%s] after payment (WEB)"|0|0|0
 "MSG.INVALID_WINGSECTIONS_LASTROW"|"RU"|"Неправильно задан последний ряд зоны крыльев ВС"|0|0|1
 "EVT.PAYMENT_AFTERPAY_ERROR"|"RU"|"Ошибка резервирования мест [seat_view%s] после оплаты (WEB)"|0|0|0
-"MSG.INVALID_TAILSECTIONS"|"EN"|"Неправильно заданы зоны хвоста ВС"|0|0|1
+"MSG.INVALID_TAILSECTIONS"|"EN"|"The tail area of the aircraft is specified incorrectly"|0|0|1
 "MSG.INVALID_TAILSECTIONS"|"RU"|"Неправильно заданы зоны хвоста ВС"|0|0|1
-"MSG.INVALID_NOSESECTIONS"|"EN"|"Неправильно заданы зоны носа ВС"|0|0|1
+"MSG.INVALID_NOSESECTIONS"|"EN"|"The nose area of the aircraft is specified incorrectly"|0|0|1
 "MSG.INVALID_NOSESECTIONS"|"RU"|"Неправильно заданы зоны носа ВС"|0|0|1
-"MSG.INVALID_WINGSECTIONS"|"EN"|"Неправильно заданы зоны крыльев ВС"|0|0|1
-"MSG.INVALID_WINGSECTIONS"|"RU"|"Неправильно заданы зоны крыльев ВС"|0|0|1
-"MSG.EMPTY_NOSESECTIONS_LASTROW"|"EN"|"Не задан последний ряд зоны носа ВС"|0|0|1
-"MSG.INVALID_WINGSECTIONS_LASTROW"|"EN"|"Неправильно задан последний ряд зоны крыльев ВС"|0|0|1
+"CAP.BRD.PAX_LIST"|"RU"|"Список пассажиров"|0|0|1
+"CAP.BRD.PAX_LIST"|"EN"|"List of passengers"|0|0|1
+"MSG.EMPTY_NOSESECTIONS_LASTROW"|"EN"|"The last row of the aircraft nose area is not defined"|0|0|1
+"MSG.INVALID_WINGSECTIONS_LASTROW"|"EN"|"The last row of the aircraft wing area is specified incorrectly"|0|0|1
 "MSG.INVALID_TAILSECTIONS_LASTROW"|"RU"|"Неправильно задан последний ряд зоны хвоста ВС"|0|0|1
-"MSG.INVALID_TAILSECTIONS_LASTROW"|"EN"|"Неправильно задан последний ряд зоны хвоста ВС"|0|0|1
+"MSG.INVALID_TAILSECTIONS_LASTROW"|"EN"|"The last row of the aircraft tail area is specified incorrectly"|0|0|1
 "MSG.INVALID_NOSESECTIONS_LASTROW"|"RU"|"Неправильно задан последний ряд зоны носа ВС"|0|0|1
-"MSG.INVALID_NOSESECTIONS_LASTROW"|"EN"|"Неправильно задан последний ряд зоны носа ВС"|0|0|1
+"MSG.INVALID_NOSESECTIONS_LASTROW"|"EN"|"The last row of the aircraft nose area is specified incorrectly"|0|0|1
 "QST.DELETE_INVALID_WINGSECTIONS"|"RU"|"Сохранение компоновки приведет к удаление зон крыла ВС. Сохранить компоновку?"|0|0|1
-"QST.DELETE_INVALID_WINGSECTIONS"|"EN"|"Сохранение компоновки приведет к удаление зон крыла ВС. Сохранить компоновку?"|0|0|1
+"QST.DELETE_INVALID_WINGSECTIONS"|"EN"|"Wing area will be removed, while saving layout. Continue?"|0|0|1
 "QST.DELETE_INVALID_TAILSECTIONS"|"RU"|"Сохранение компоновки приведет к удаление зон хвоста ВС. Сохранить компоновку?"|0|0|1
-"QST.DELETE_INVALID_TAILSECTIONS"|"EN"|"Сохранение компоновки приведет к удаление зон хвоста ВС. Сохранить компоновку?"|0|0|1
+"QST.DELETE_INVALID_TAILSECTIONS"|"EN"|"Tail area will be removed, while saving layout. Continue?"|0|0|1
 "QST.DELETE_INVALID_NOSESECTIONS"|"RU"|"Сохранение компоновки приведет к удаление зон носа ВС. Сохранить компоновку?"|0|0|1
-"QST.DELETE_INVALID_NOSESECTIONS"|"EN"|"Сохранение компоновки приведет к удаление зон носа ВС. Сохранить компоновку?"|0|0|1
+"QST.DELETE_INVALID_NOSESECTIONS"|"EN"|"Nose area will be removed, while saving layout. Continue?"|0|0|1
 "MSG.EMPTY_WINGSECTIONS_FIRSTROW"|"RU"|"Не задан первый ряд зоны крыла ВС"|0|0|1
-"MSG.EMPTY_WINGSECTIONS_FIRSTROW"|"EN"|"Не задан первый ряд зоны крыла ВС"|0|0|1
+"MSG.EMPTY_WINGSECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft wing area is not defined"|0|0|1
 "MSG.EMPTY_TAILSECTIONS_FIRSTROW"|"RU"|"Не задан первый ряд зоны хвоста ВС"|0|0|1
-"MSG.EMPTY_TAILSECTIONS_FIRSTROW"|"EN"|"Не задан первый ряд зоны хвоста ВС"|0|0|1
+"MSG.EMPTY_TAILSECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft tail area is not defined"|0|0|1
 "MSG.EMPTY_NOSESECTIONS_FIRSTROW"|"RU"|"Не задан первый ряд зоны носа ВС"|0|0|1
-"MSG.EMPTY_NOSESECTIONS_FIRSTROW"|"EN"|"Не задан первый ряд зоны носа ВС"|0|0|1
+"MSG.EMPTY_NOSESECTIONS_FIRSTROW"|"EN"|"The first row of the aircraft nose area is not defined"|0|0|1
 "MSG.ERROR_IN_REMOTE_DCS"|"RU"|"Ошибка обработки в удаленной DCS"|0|0|0
 "MSG.ERROR_IN_REMOTE_DCS"|"EN"|"Processing error in remote DCS"|0|0|0
 "MSG.DCS_CONNECT_ERROR"|"RU"|"Нет связи с удаленной DCS"|0|0|0
@@ -6523,25 +6493,25 @@ BEGINDATA
 "MSG.BI.ACCESS_DENIED"|"RU"|"Для пассажиров печать приглашений не требуется"|0|0|0
 "Бизнес зал"|"EN"|"Business hall"|0|0|
 "Багаж Услуги Shift+F4"|"EN"|"Baggage Services Shift+F4"|0|0|1
-"EVT.SEATS_RESERVATION_SELFCKIN"|"EN"|"Пассажиру [pax_name%s] ([type%s]) произведено резервирование мест: [seat_view%s]"|0|681821720|0
+"EVT.SEATS_RESERVATION_SELFCKIN"|"EN"|"Seats [seat_view%s] reserved for passenger [pax_name%s] ([type%s])"|0|681821720|0
 "Категории пользователей (роли): используйте экран 'Доступ'!"|"EN"|"User categories (roles): use the 'Access' screen!"|0|0|0
 "EVT.SEATS_RESERVATION_SELFCKIN"|"RU"|"Пассажиру [pax_name%s] ([type%s]) произведено резервирование мест: [seat_view%s]"|0|681821720|0
 "Управление доступом к операциям для категорий (ролей): используйте экран 'Доступ'!"|"EN"|"Control over access to operations for categories (roles): use the 'Access' screen!"|0|0|0
-"EVT.CANCEL_SEATS_RESERVATION_SELFCKIN"|"EN"|"Пассажиру [pax_name%s] ([type%s]) отменено резервирование мест: [seat_view%s]"|0|681821720|0
+"EVT.CANCEL_SEATS_RESERVATION_SELFCKIN"|"EN"|"Seat reservation for passenger [pax_name%s] ([type%s]) canceled: [seat_view%s]"|0|681821720|0
 "EVT.CANCEL_SEATS_RESERVATION_SELFCKIN"|"RU"|"Пассажиру [pax_name%s] ([type%s]) отменено резервирование мест: [seat_view%s]"|0|681821720|0
-"Резервирование места пассажира"|"EN"|"Резервирование места пассажира"|0|681821720|0
+"Резервирование места пассажира"|"EN"|"Passenger seat reservation"|0|681821720|0
 "Доступ к операциям для категорий (ролей): используйте экран 'Доступ'!"|"EN"|"Access to operations for categories (roles): use the 'Access' screen!"|0|0|0
 "Пользователи: используйте экран 'Доступ'!"|"EN"|"Users: use the 'Access' screen!"|0|0|0
 "Доступ к авиакомпаниям: используйте экран 'Доступ'!"|"EN"|"Access to air companies: use the 'Access' screen!"|0|0|0
 "Доступ к аэропортам: используйте экран 'Доступ'!"|"EN"|"Access to airports: use the 'Access' screen!"|0|0|0
 "Распределение категорий (ролей): используйте экран 'Доступ'!"|"EN"|"Distribution of categories (roles): use the 'Access' screen!"|0|0|0
 "MSG.NOT_SET_JMP_CFG"|"RU"|"Не указано кол-во откидных мест"|0|0|1
-"MSG.NOT_SET_JMP_CFG"|"EN"|"Не указано кол-во откидных мест"|0|0|1
+"MSG.NOT_SET_JMP_CFG"|"EN"|"Jump seats amount is not specified"|0|0|1
 "MSG.INVALID_JMP_CFG"|"RU"|"Неверно указано кол-во откидных мест"|0|0|1
-"MSG.INVALID_JMP_CFG"|"EN"|"Неверно указано кол-во откидных мест"|0|0|1
+"MSG.INVALID_JMP_CFG"|"EN"|"Jump seat amount is incorrect"|0|0|1
 "ВВЛ-ВВЛ"|"EN"|"DFL-DFL"|0|0|0
 "Виза / Shift+F5"|"RU"|"Доп. док. / Shift+F5"|0|0|1
-"CAP.PAX_DOCO.REQUIRED_FIELDS_IF_DOC_REQUIRED"|"EN"|"обязательные поля, если документ требуется"|0|0|1
+"CAP.PAX_DOCO.REQUIRED_FIELDS_IF_DOC_REQUIRED"|"EN"|"Mandatory field if document is required"|0|0|1
 "WRAP.PAX_ERROR.FULLNAME"|"RU"|"[fullname%s] [doctype%s]: [text%L]"|0|0|0
 "WRAP.PAX_ERROR.FULLNAME"|"EN"|"[fullname%s] [doctype%s]: [text%L]"|0|0|0
 "МВЛ-МВЛ"|"EN"|"IFL-IFL"|0|0|0
@@ -6559,15 +6529,15 @@ BEGINDATA
 "Плюс 1"|"EN"|"Plus 1"|0|0|
 "Ваучеры"|"EN"|"Vouchers"|0|0|
 "MSG.INCOMPATIBLE_SEGMENTS"|"RU"|"Сегменты полностью не совпадают с сегментами основного заказа"|0|0|0
-"MSG.INCOMPATIBLE_SEGMENTS"|"EN"|"Сегменты полностью не совпадают с сегментами основного заказа"|0|0|0
+"MSG.INCOMPATIBLE_SEGMENTS"|"EN"|"Segments fully mismatched with PNR segments"|0|0|0
 "MSG.DIFFERENT_CLASS"|"RU"|"Класс обслуживания отличается от класса обслуживания основного заказа"|0|0|0
-"MSG.DIFFERENT_CLASS"|"EN"|"Класс обслуживания отличается от класса обслуживания основного заказа"|0|0|0
+"MSG.DIFFERENT_CLASS"|"EN"|"Current class of service differs from PNR class"|0|0|0
 "MSG.DIFFERENT_MARK_FLIGHT"|"RU"|"Комм. рейс отличается от комм. рейса основного заказа"|0|0|0
-"MSG.DIFFERENT_MARK_FLIGHT"|"EN"|"Комм. рейс отличается от комм. рейса основного заказа"|0|0|0
+"MSG.DIFFERENT_MARK_FLIGHT"|"EN"|"The current commercial flight is different from the commercial flight of the main PNR order."|0|0|0
 "MSG.INCOMPATIBLE_FARE_CLASS"|"RU"|"Подкласс несовместим с подклассом основного заказа"|0|0|0
-"MSG.INCOMPATIBLE_FARE_CLASS"|"EN"|"Подкласс несовместим с подклассом основного заказа"|0|0|0
+"MSG.INCOMPATIBLE_FARE_CLASS"|"EN"|"Subclass mismatched with PNR subclass"|0|0|0
 "MSG.SEGMENTS_TRUNCATED"|"RU"|"В итоговый заказ попала только часть сегментов"|0|0|0
-"MSG.SEGMENTS_TRUNCATED"|"EN"|"В итоговый заказ попала только часть сегментов"|0|0|0
+"MSG.SEGMENTS_TRUNCATED"|"EN"|"The final order included only a part of the segments"|0|0|0
 "MSG.SEAT_NOT_AVLBL_IN_REQ_ZONE"|"EN"|"Seat not available in requested class/zone"|0|0|0
 "MSG.INVALID_SEAT_REQUEST"|"EN"|"Invalid seat request"|0|0|0
 "MSG.BAG_TAG_NUM_REQUIRED"|"RU"|"Требуется информация о номере багажной бирки"|0|0|0
@@ -6607,12 +6577,597 @@ BEGINDATA
 "MSG.TOO_MANY_CONNECTIONS"|"RU"|"Слишком много стыковок - требуется ручная багажная бирка"|0|0|0
 "MSG.UNEXPECTED_RUS_FIELD"|"RU"|"Запрос содержит недопустимые данные (Кириллица)"|0|0|0
 "MSG.UNEXPECTED_RUS_FIELD"|"EN"|"The request contains invalid data (Cyrillic)"|0|0|0
+"EVT.REM_DELETED_FOR_PASSENGER"|"RU"|"[pax_name%s]. Удалена ремарка: [rem_text%s]"|0|0|0
+"EVT.REM_DELETED_FOR_PASSENGER"|"EN"|"[pax_name%s]. Remark deleted: [rem_text%s]"|0|0|0
+"EVT.REM_ADDED_FOR_PASSENGER"|"RU"|"[pax_name%s]. Добавлена ремарка: [rem_text%s]"|0|0|0
+"EVT.REM_ADDED_FOR_PASSENGER"|"EN"|"[pax_name%s]. Remark added: [rem_text%s]"|0|0|0
+"EVT.REM_MODIFIED_FOR_PASSENGER"|"RU"|"[pax_name%s]. Изменена ремарка: [old_rem_text%s] -> [new_rem_text%s]"|0|0|0
+"EVT.REM_MODIFIED_FOR_PASSENGER"|"EN"|"[pax_name%s]. Remark changed: [old_rem_text%s] -> [new_rem_text%s]"|0|0|0
+"MSG.PASSENGER.JMP_BOARDED_DENIAL"|"RU"|"Для пассажира JMP посадка запрещена"|0|0|0
+"MSG.PASSENGER.JMP_BOARDED_DENIAL"|"EN"|"Boarding is denied for jump seat passenger"|0|0|0
+"MSG.CHANGE_SECTION_NOT_AVAILABLE_UPDATE_TERM"|"RU"|"Сохранение зон невозможно. Обновите версию терминала"|0|0|0
+"MSG.CHANGE_SECTION_NOT_AVAILABLE_UPDATE_TERM"|"EN"|"Сохранение зон невозможно. Обновите версию терминала"|0|0|0
+"MSG.COUNTRY_DEP_OR_ARV_MUST_MATCH_COUNTRY_CONTROL"|"EN"|"Departure or arrival country should match with controlled"|0|0|0
+"MSG.CHECKIN.TAG_NUMBER_ALREADY_CHECKED_ON_FLIGHT"|"RU"|"Бирка с номером [num%s] уже зарегистрирована на рейсе"|0|0|0
+"MSG.CHECKIN.TAG_NUMBER_ALREADY_CHECKED_ON_FLIGHT"|"EN"|"Bag tag number [num%s] is already checked in on the flight"|0|0|0
+"MSG.SBDO.INTERNAL_ERROR"|"RU"|"Ошибка приложения. Обратитесь к разработчикам"|0|0|0
+"MSG.SBDO.INTERNAL_ERROR"|"EN"|"Application error. Contact developers"|0|0|0
+"MSG.SBDO.PAX_NO_MATCH"|"RU"|"Пассажир не найден"|0|0|0
+"MSG.SBDO.PAX_NO_MATCH"|"EN"|"Passenger not found"|0|0|0
+"MSG.SBDO.INCORRECT_DATA_IN_XML"|"RU"|"Некорректные данные в запросе: [text%s]"|0|0|0
+"MSG.SBDO.INCORRECT_DATA_IN_XML"|"EN"|"Incorrect request data: [text%s]"|0|0|0
+"MSG.SBDO.BAG_TYPE_NOT_ALLOWED"|"RU"|"Недопустимый тип багажа"|0|0|0
+"MSG.SBDO.BAG_TYPE_NOT_ALLOWED"|"EN"|"Unallowable baggage type"|0|0|0
+"MSG.SBDO.NO_ANSWER_FROM_REMOTE_SYSTEM"|"RU"|"Сервис временно недоступен. Попробуйте повторить операцию позже"|0|0|0
+"MSG.SBDO.NO_ANSWER_FROM_REMOTE_SYSTEM"|"EN"|"Service is temporarily unavailable. Please, try again later"|0|0|0
+"MSG.SEATS.SEATS_WARNING_RFISC"|"RU"|"Внимание! Место платной категории!"|0|0|0
+"MSG.SEATS.SEATS_WARNING_RFISC"|"EN"|"Attention, payable seat!"|0|0|0
+"MSG.SBDO.BAG_TAG_NOT_FOUND"|"RU"|"Багажная бирка не найдена"|0|0|0
+"MSG.SBDO.BAG_TAG_NOT_FOUND"|"EN"|"Bag tag is not found"|0|0|0
+"MSG.SBDO.TAG_NOT_ACTIVATED"|"RU"|"Багаж еще не зарегистрирован"|0|0|0
+"MSG.SBDO.TAG_NOT_ACTIVATED"|"EN"|"Baggage is no checked in yet"|0|0|0
+"MSG.SBDO.TAG_WAS_DEACTIVATED"|"RU"|"Регистрация багажа отменена"|0|0|0
+"MSG.SBDO.TAG_WAS_DEACTIVATED"|"EN"|"Baggage check in cancelled"|0|0|0
+"MSG.SBDO.TAG_ALREADY_ACTIVATED"|"RU"|"Регистрация багажа уже произведена"|0|0|0
+"MSG.SBDO.TAG_ALREADY_ACTIVATED"|"EN"|"Baggage already checked in"|0|0|0
+"MSG.SBDO.TAG_ALREADY_DEACTIVATED"|"RU"|"Регистрация багажа уже отменена"|0|0|0
+"MSG.SBDO.TAG_ALREADY_DEACTIVATED"|"EN"|"Baggage check in has already been cancelled"|0|0|0
+"MSG.SBDO.WRONG_PAX_STATUS"|"RU"|"Регистрация пассажира отменена"|0|0|0
+"MSG.SBDO.WRONG_PAX_STATUS"|"EN"|"Passenger check in cancelled"|0|0|0
+"MSG.SBDO.TRFER_NO_CONFIRM"|"RU"|"Невозможно зарегистрировать багаж. Обратитесь на стойку регистрации"|0|0|0
+"MSG.SBDO.TRFER_NO_CONFIRM"|"EN"|"Baggage check in is unable. Please, proceed to check in desk"|0|0|0
+"MSG.SBDO.WRONG_CHECKIN_STATUS"|"RU"|"Невозможно зарегистрировать багаж. Регистрация закрыта"|0|0|0
+"MSG.SBDO.WRONG_CHECKIN_STATUS"|"EN"|"Baggage check in is unable. Check in closed"|0|0|0
+"MSG.SBDO.CONCEPT_UNKNOWN"|"RU"|"Невозможно зарегистрировать багаж. Обратитесь на стойку регистрации"|0|0|0
+"MSG.SBDO.CONCEPT_UNKNOWN"|"EN"|"Baggage check in is unable. Please, proceed to check in desk"|0|0|0
+"MSG.SBDO.WEIGHT_EXCEED"|"RU"|"Недопустимый вес багажа"|0|0|0
+"MSG.SBDO.WEIGHT_EXCEED"|"EN"|"Unallowable baggage weight"|0|0|0
+"MSG.SBDO.SERVICES_BECAME_PAID"|"RU"|"Невозможно зарегистрировать багаж. Обратитесь на стойку регистрации"|0|0|0
+"MSG.SBDO.SERVICES_BECAME_PAID"|"EN"|"Baggage check in is unable. Please, proceed to check in desk"|0|0|0
+"MSG.SBDO.BAGGAGE_ADD_NOT_ALLOWED"|"RU"|"Невозможно зарегистрировать багаж. Обратитесь на стойку регистрации"|0|0|0
+"MSG.SBDO.BAGGAGE_ADD_NOT_ALLOWED"|"EN"|"Baggage check in is unable. Please, proceed to check in desk"|0|0|0
+"MSG.SBDO.BAGGAGE_DEL_NOT_ALLOWED"|"RU"|"Невозможно удалить багаж. Обратитесь на стойку регистрации"|0|0|0
+"MSG.SBDO.BAGGAGE_DEL_NOT_ALLOWED"|"EN"|"Baggage can not be deleted.  Please, proceed to check in desk"|0|0|0
+"ID Сирена"|"EN"|"ID Sirena"|0|0|0
+"Номер заявки / договор"|"EN"|"Claim No / Agreement"|0|0|0
+"MSG.WRONG_CLIENT_ID"|"RU"|"Поле 'ID Cирена' должно быть в диапазоне 1..65535"|0|0|0
+"MSG.WRONG_CLIENT_ID"|"EN"|"'ID Sirena' field must be in range 1..65535"|0|0|0
+"MSG.EMD.PAID_ERROR_REFRESH_DATA"|"RU"|"Ошибка оплаты: [error%s],[code%s]. Обновите данные"|0|0|0
+"MSG.TIER_LEVEL_NOT_RECEIVED"|"RU"|"Уровень участия не получен"|0|0|0
+"MSG.TIER_LEVEL_NOT_RECEIVED"|"EN"|"Tier level not received"|0|0|0
+"MSG.EMD.PAID_ERROR_REFRESH_DATA"|"EN"|"Ошибка оплаты: [error%s],[code%s]. Обновите данные"|0|0|0
+"MSG.FORM_TOO_LONG"|"RU"|"В поле Шаблон формы больше 4000 символов"|0|0|0
+"MSG.FORM_TOO_LONG"|"EN"|"There are more than 4000 characters in Form template field"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS"|"RU"|"Не подтвержден трансферный маршрут. Необходимо обратиться на стойку регистрации"|0|0|0
+"MSG.FORM_DATA_TOO_LONG"|"RU"|"В поле Данные формы больше 4000 символов"|0|0|0
+"MSG.FORM_DATA_TOO_LONG"|"EN"|"There are more than 4000 characters in Form data field"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS"|"EN"|"Transfer route not confirmed. Proceed to check in desk"|0|0|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS"|"RU"|"Не привязан входящий трансферный багаж. Необходимо обратиться на стойку регистрации"|0|0|0
+"MSG.COUNTRY_DEP_OR_ARV_MUST_MATCH_COUNTRY_CONTROL"|"RU"|"Государство вылета или прилета должно совпадать с контролирующим"|0|0|0
+"EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS"|"EN"|"Inbound transfer luggage not associated. Proceed to check in desk"|0|0|0
+"MSG.CHECKIN.PNR_ADDR_REQUIRED"|"RU"|"Неизвестный номер PNR пассажира. Регистрация запрещена"|0|0|0
+"MSG.CHECKIN.PNR_ADDR_REQUIRED"|"EN"|"Unknown passenger PNR number. Check in is prohibited"|0|0|0
+"QST.INSERT_BLANK_EMDA"|"RU"|"Вставьте чистый бланк EMDA.[EOL]Печатать EMDA для пассажира [name%s] [emd_no%s]/[emd_coupon%d] ?"|0|0|1
+"QST.INSERT_BLANK_EMDA"|"EN"|"Insert a blank form of the EMDA.[EOL]Print EMDA for the passenger [name%s] [emd_no%s]/[emd_coupon%d] ?"|0|0|1
+"MSG.TIER_LEVEL_NOT_RECEIVED.TRY_SPECIFY_BIRTH_DATE"|"RU"|"Уровень участия не получен. Попробуйте указать дату рождения пассажира"|0|0|0
+"MSG.TIER_LEVEL_NOT_RECEIVED.TRY_SPECIFY_BIRTH_DATE"|"EN"|"Tier level not received. Passenger date of birth need to be specified"|0|0|0
+"EVT.PRINT_EMDA"|"RU"|"Напечатан EMDA для [full_name%s]. [emd_no%s]/[emd_coupon%s]"|0|0|0
+"EVT.PRINT_EMDA"|"EN"|"EMDA for [full_name%s] printed out. [emd_no%s]/[emd_coupon%s]"|0|0|0
+"Клиенты оплаты"|"EN"|"Payment clients"|0|0|0
 "WRAP.QRY_HANDLER_ERR"|"EN"|"Inquiry processing error: [text%s]"|0|0|0
+"MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_INFT"|"RU"|"Указанное место недоступно для пассажира с младенцем"|0|0|0
+"MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_INFT"|"EN"|"Seat is not available for a passenger with an INF"|0|0|0
+"MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM"|"EN"|"Changes cannot be saved. Update terminal version"|0|0|0
+"MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM"|"RU"|"Сохранение изменений невозможно. Обновите версию терминала"|0|0|0
+"Нет тарифа"|"EN"|"paid seats"|0|0|1
+"CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE"|"RU"|"факт.дата"|0|0|0
+"MSG.KOMPLEKT_SUPPORT"|"RU"|"[rpt%s] поддерживается начиная с версии [vers%s]"|0|0|0
+"MSG.KOMPLEKT_SUPPORT"|"EN"|"[rpt%s] is supporting starting from [vers%s]"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE"|"EN"|"Fact data"|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_SCD"|"RU"|"Фактическое время вылета отличается от планового времени"|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_BRD"|"RU"|"На рейсе есть пассажиры не прошедшие посадку"|0|0|0
+"WRAP.ERR_MSG.SOPP_SHOW_DIALOGS"|"RU"|"[msg%L][EOL]Сохранить изменения?"|0|0|0
+"WRAP.ERR_MSG.SOPP_SHOW_DIALOGS"|"EN"|"[msg%L][EOL]Save changes?"|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_EST"|"RU"|"Фактическое время вылета отличается от расчетного времени"|0|0|0
+"франч.рейс"|"EN"|"franchise flight"|0|0|0
+"Расписание и настройки рейсов Франчайзинг"|"EN"|"Franchise schedule and settings"|0|0|0
+"А/к Ф"|"EN"|"A/L F"|0|0|0
+"Рейс Ф"|"EN"|"Flight F"|0|0|0
+"Док. Пасс.м"|"EN"|"Doc pass"|0|0|0
+"Док. Багаж.в"|"EN"|"Doc bag"|0|0|0
+"MVT зад."|"EN"|"MVT dly"|0|0|0
+"MVT выл."|"EN"|"MVT dep"|0|0|0
+"MVT посад."|"EN"|"MVT arv"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL_RFISC_REQUIRED"|"RU"|"[service%s]: необходимо добавить услугу [rfiscs%s]"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL_RFISC_REQUIRED"|"EN"|"[service%s]: need to add service [rfiscs%s]"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL_RFISCS_REQUIRED"|"RU"|"[service%s]: необходимо добавить одну из услуг [rfiscs%s]"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL_RFISCS_REQUIRED"|"EN"|"[service%s]: need to add one of services [rfiscs%s]"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL"|"RU"|"[service%s]: операция невозможна"|0|0|0
+"MSG.DCS_SERVICE.NOT_AVAIL"|"EN"|"[service%s]:Impossible operation"|0|0|0
+"WRAP.REG_NO"|"RU"|"Рег. №: [reg_no%d]: [text%L]"|0|0|0
+"WRAP.REG_NO"|"EN"|"Reg. No: [reg_no%d]: [text%L]"|0|0|0
+"MSG.BP_PRINT_TERM_ONLY"|"RU"|"Печать посадочного талона производится только на стойке регистрации"|0|0|0
+"Стат. 'Ремарки'"|"EN"|"Remarks stat."|0|0|0
+"MSG.BP_PRINT_TERM_ONLY"|"EN"|"Printing boarding pass is allowed only at check-in counter"|0|0|0
+"EVT.IAPI_RESPONSE.BOARDING_NOT_PERMITTED"|"RU"|"Запрещена посадка для пассажира [pax_name%s] ([pers_type%s]). iAPI-ответ от страны [country%s]: [status%s]"|0|0|0
+"EVT.IAPI_RESPONSE.BOARDING_NOT_PERMITTED"|"EN"|"Boarding is denied for passenger [pax_name%s] ([pers_type%s]). iAPI - [country%s] country response: [status%s]"|0|0|0
+"EVT.IAPI_RESPONSE.BOARDING_PERMITTED"|"RU"|"Разрешена посадка для пассажира [pax_name%s] ([pers_type%s]). iAPI-ответ от страны [country%s]: [status%s]"|0|0|0
+"EVT.IAPI_RESPONSE.BOARDING_PERMITTED"|"EN"|"Boarding is allowed for passenger [pax_name%s] ([pers_type%s]). iAPI - [country%s] country response: [status%s]"|0|0|0
+"Пас. зона"|"EN"|"Cabin part"|0|681836131|1
+"EVT.IAPI_REQUEST.BOARDING_NOT_PERMITTED"|"RU"|"Запрещена посадка для пассажира [pax_name%s] ([pers_type%s]). iAPI-запрос от страны [country%s]: [status%s]"|0|0|0
+"EVT.IAPI_REQUEST.BOARDING_NOT_PERMITTED"|"EN"|"Boarding is denied for passenger [pax_name%s] ([pers_type%s]). iAPI - [country%s] country request: [status%s]"|0|0|0
+"EVT.IAPI_REQUEST.BOARDING_PERMITTED"|"RU"|"Разрешена посадка для пассажира [pax_name%s] ([pers_type%s]). iAPI-запрос от страны [country%s]: [status%s]"|0|0|0
+"EVT.IAPI_REQUEST.BOARDING_PERMITTED"|"EN"|"Boarding is allowed for passenger [pax_name%s] ([pers_type%s]). iAPI - [country%s] country request: [status%s]"|0|0|0
+"QST.PRINT_ALL_UNPRINTED_EMDA"|"RU"|"Печатать все неотпечатанные EMDA?"|0|0|1
+"Адреса и опции телеграмм ETL"|"EN"|"Addresses and options of ETL messages"|0|0|0
+"MSG.SBG_ERROR.FR1R"|"RU"|"Обратите внимание - 1 пассажир посажен, 1 пассажир вернулся"|0|0|0
+"MSG.SBG_ERROR.FR2P"|"RU"|"Обратите внимание - 2 пассажира посажены одновременно"|0|0|0
+"MSG.SBG_ERROR.CNXX"|"RU"|"Пассажир вошел с обратной стороны"|0|0|0
+"MSG.SBG_ERROR.FR1X"|"RU"|"1 пассажир посажен, 1 пассажир заходит с противоположной стороны"|0|0|0
+"MSG.SBG_ERROR.FR2X"|"RU"|"1 пассажир вернулся ко входу, 1 пассажир заходит с противоположной стороны"|0|0|0
+"MSG.SBG_ERROR.TODT"|"RU"|"Пассажир не прошел первый сенсор в отведенное время"|0|0|0
+"MSG.SBG_ERROR.TOND"|"RU"|"Пассажир не прошел последний сенсор в отведенное время"|0|0|0
+"MSG.SBG_ERROR.FR3X"|"RU"|"1 пассажир посажен, но вернулся через вход"|0|0|0
+"MSG.SBG_ERROR.TEHF"|"EN"|"A technical error happen in the SBG unit which requires technical assistance - flap related"|0|0|0
+"MSG.SBG_ERROR.CNXI"|"RU"|"Другой пассажир все еще в районе сенсора"|0|0|0
+"MSG.TLG.MANUAL_FWD_FORBIDDEN"|"RU"|"Данный тип телеграмм недоступен для ручной отправки"|0|0|0
+"MSG.TLG.MANUAL_FWD_FORBIDDEN"|"EN"|"Selected tlg type not allowed for manual creation"|0|0|0
+"MSG.SBG_ERROR.TEHS"|"EN"|"A technical error happen in the SBG unit which requires technical assistance - sensor related"|0|0|0
+"MSG.SBG_ERROR.FR3X"|"EN"|"1 pax boarded but returns to entrance"|0|0|0
+"MSG.SBG_ERROR.CNXI"|"EN"|"Another passenger is still in sensor area"|0|0|0
+"MSG.SBG_ERROR.CNXB"|"EN"|"Boarding was cancelled by passenger (left gate via entrance)"|0|0|0
+"MSG.ETICK.UNABLE_TO_DISPLAY_ET_ON_EDI_SEGMENT"|"EN"|"Unable to display ET on Edifact segment"|0|0|0
+"WRAP.REM_DCS_ERROR"|"RU"|"DCS [air_code%s]: [err_text%L]"|0|0|0
+"MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN"|"RU"|"Запрещено редактирование периода, полученного из SSM телеграммы"|0|0|
+"MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN"|"EN"|"Period editing which get from SSM telex is prohibited"|0|0|
+"WRAP.REM_DCS_ERROR"|"EN"|"DCS [air_code%s]: [err_text%L]"|0|0|0
+"Репринт"|"EN"|"Reprint"|0|0|
+"MSG.ETICK.UNABLE_TO_DISPLAY_ET_ON_EDI_SEGMENT"|"RU"|"Нет возможности отобразить ЭБ на Edifact сегменте"|0|0|0
+"MSG.INVALID_WINGSECTIONS"|"RU"|"Неправильно заданы зоны крыла ВС"|0|0|1
+"MSG.INVALID_WINGSECTIONS"|"EN"|"The wing area of the aircraft is specified incorrectly"|0|0|1
+"Зоны ВС"|"EN"|"Aircraft areas"|0|0|1
+"Конструктивные зоны"|"EN"|"Constructional areas"|0|0|1
+"MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO"|"EN"|"Registration number on the boarding pass is incorrect. Boarding pass is invalid!"|0|0|0
+"Настройки тревог АК"|"EN"|"A/L alarm settings"|0|0|0
+"MSG.SETS_ONLY_KIOSK_TYPE"|"RU"|"Настрока только для киосков саморегистрации"|0|0|0
+"MSG.SETS_ONLY_KIOSK_TYPE"|"EN"|"Setting only for self check-in kiosk"|0|0|0
+"MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO"|"RU"|"Неверный рег. номер в посадочном талоне. Tалон недействителен!"|0|0|0
+"Тревоги АК"|"EN"|"A/L alarms"|0|0|0
+"Название тревоги"|"EN"|"Alarm name"|0|0|0
+"Название тревоги (лат.)"|"EN"|"Alarm name (LAT)"|0|0|0
+"RFISC тлг"|"EN"|"RFISC tel."|0|0|0
+"MSG.ALARM_DOES_NOT_MEET_AIRLINE"|"RU"|"Тревога не соответствует а/к"|0|0|0
+"MSG.ALARM_DOES_NOT_MEET_AIRLINE"|"EN"|"Alarm not corresponding to airline"|0|0|0
+"MSG.WRONG_CLIENT_GATE"|"RU"|"Неверно указан выход на посадку. Выберите заново."|0|0|0
+"RFISC рег"|"EN"|"RFISC check-in"|0|0|0
+"MSG.WRONG_CLIENT_GATE"|"EN"|"Wrong gate is specified.  Select  it again."|0|0|0
+"QST.CONTINUE_RESEAT"|"EN"|"Continue re-accommodation?"|0|0|0
+"Изменения салона"|"EN"|"Cabin changes"|0|0|
+"Web-тариф"|"EN"|"Web fare"|0|0|0
+"Время операции"|"EN"|"Operation time"|0|0|0
+"Блокировка центровки"|"EN"|"Balance interlock"|0|0|0
+"Кресло"|"EN"|"Seat"|0|0|0
+"Место для курящих"|"EN"|"Smoking seats"|0|0|0
+"MSG.PASSENGER.RESEAT_TO_RFISC"|"EN"|"Seat is paid, payment required"|0|0|0
+"MSG.AIRPS_ISNULL_OR_REQUIRED"|"RU"|"Задайте или удалите значения в полях аэропорта вылета и прилета"|0|0|0
+"MSG.AIRPS_ISNULL_OR_REQUIRED"|"EN"|"Задайте или удалите значения в полях аэропорта вылета и прилета"|0|0|0
+"EVT.BAGGAGE_UNIT.PC"|"EN"|"pc"|0|0|0
+"MSG.UNACCOMP_BAGGAGE_THROUGH_CHECKIN_NOT_PERFORMED"|"EN"|"Through check-in for unaccompanied baggage is not available"|0|0|0
+"MSG.UNACCOMP_BAGGAGE_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"RU"|"Регистрация багажа без сопровождения запрещена из-за смены транзитного борта на сегменте [flight%s]"|0|0|0
+"Неудобные места"|"EN"|"Uncomfortable seats"|0|0|0
+"EVT.BAGGAGE_UNIT.KG"|"RU"|"кг"|0|0|0
+"MSG.PAX_ALREADY_CHECKED_IN.CHANGE_DENIED"|"RU"|"Пассажир уже зарегистрирован. Изменение запрещено"|0|0|0
+"Недоступные места"|"EN"|"Inaccessible seats"|0|0|0
+"Разметка RFISC"|"EN"|"RFISC marking"|0|0|0
+"Резервирование"|"EN"|"Reservation"|0|0|0
+"MSG.PAX_ALREADY_CHECKED_IN.CHANGE_DENIED"|"EN"|"Passenger is already checked-in. Changes denied"|0|0|0
+"MSG.PAX_HAS_BAG_NORM_FOR_PIECE_CONCEPT.CHANGE_DENIED"|"RU"|"У пассажира норма для системы расчета по количеству мест. Изменение запрещено"|0|0|0
+"MSG.PAX_HAS_BAG_NORM_FOR_PIECE_CONCEPT.CHANGE_DENIED"|"EN"|"Passenger have a piece concept baggage allowance. Changes denied"|0|0|0
+"EVT.PRELIMINARY_ASSIGNED_BAG_NORM"|"RU"|"Пассажиру [pax_name%s] ([type%s]) предварительно назначена багажная норма [norm%s]"|0|0|0
+"EVT.PRELIMINARY_ASSIGNED_BAG_NORM"|"EN"|"For passenger [pax_name%s] ([type%s]) pre-assigned baggage allowance [norm%s]"|0|0|0
+"EVT.CANCEL_PRELIMINARY_ASSIGNED_BAG_NORM"|"RU"|"Пассажиру [pax_name%s] ([type%s]) отменена предварительно назначенная багажная норма"|0|0|0
+"EVT.CANCEL_PRELIMINARY_ASSIGNED_BAG_NORM"|"EN"|"For passenger [pax_name%s] ([type%s]) pre-assigned baggage allowance is canceled"|0|0|0
+"EVT.BAGGAGE_UNIT.PC"|"RU"|"м"|0|0|0
+"EVT.BAGGAGE_UNIT.KG"|"EN"|"kg"|0|0|0
+"EVT.BAGGAGE_UNIT.LB"|"RU"|"ф"|0|0|0
+"EVT.BAGGAGE_UNIT.LB"|"EN"|"lb"|0|0|0
+"MSG.UNACCOMP_BAGGAGE_THROUGH_CHECKIN_NOT_PERFORMED"|"RU"|"Для багажа без сопровождения сквозная регистрация не производится"|0|0|0
+"MSG.UNACCOMP_BAGGAGE_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"EN"|"Unaccompanied baggage check-in is prohibit as transit aircraft is change at the segment [flight%s]"|0|0|0
+"MSG.SBG_ERROR.CNXB"|"RU"|"Пассажир отменил посадку (покинул SBG через зону входа)"|0|0|0
+"MSG.SBG_ERROR.TEHF"|"RU"|"В SBG произошла техническая ошибка, требующая проверки - створки"|0|0|0
+"Кол-во успешных запросов"|"EN"|"Success"|0|0|0
+"Кол-во ошибочных запросов"|"EN"|"Fail"|0|0|0
+"MSG.SBG_ERROR.TEHS"|"RU"|"В SBG произошла техническая ошибка, требующая проверки - сенсоры"|0|0|0
+"MSG.COUNTRY.CODE.ALREADY_SET"|"EN"|"Country code has already been entered"|0|0|1
+"MSG.LIST.MAX_SIZE_EXCEED"|"RU"|"Размер списка не может превышать [num%d]"|0|0|1
+"MSG.LIST.MAX_SIZE_EXCEED"|"EN"|"List size can not exceed [num%d]"|0|0|1
+"MSG.MIN_FIELD_VALUE"|"RU"|"Длина поля '[fieldname%s]' не может быть меньше [min%d] символов"|0|0|1
+"MSG.MIN_FIELD_VALUE"|"EN"|"Length of field '[fieldname%s]' can't be less than [min%d]"|0|0|1
+"MSG.MIN_NUM_VAL"|"RU"|"Значение поля не может быть меньше [num%d]"|0|0|1
+"MSG.MIN_NUM_VAL"|"EN"|"Field value can't be less than [num%d]"|0|0|1
+"MSG.MAX_NUM_VAL"|"RU"|"Значение поля не может быть больше [num%d]"|0|0|1
+"MSG.MAX_NUM_VAL"|"EN"|"Field value can't be more than [num%d]"|0|0|1
+"WRAP.PASSENGER.BOARDING2"|"RU"|"Пассажир [fullname%s] прошел посадку. [EOL][text%L]"|0|0|0
+"WRAP.PASSENGER.BOARDING2"|"EN"|"The passenger [fullname%s] underwent boarding. [EOL][text%L]"|0|0|0
+"WRAP.PASSENGER.NOT_BOARDING2"|"RU"|"Пассажир [fullname%s] не прошел посадку. [EOL][text%L]"|0|0|0
+"WRAP.PASSENGER.NOT_BOARDING2"|"EN"|"Passenger [fullname%s] underwent no boarding procedure. [EOL][text%L]"|0|0|0
+"MSG.TIMATIC.USER_ACCESS_DENIED"|"RU"|"Timatic: доступ запрещен для пользователя"|0|0|0
+"MSG.TIMATIC.USER_ACCESS_DENIED"|"EN"|"Timatic: access denied for user"|0|0|0
+"MSG.TIMATIC.ACCESS_DENIED"|"RU"|"Timatic: доступ запрещен"|0|0|0
+"MSG.TIMATIC.ACCESS_DENIED"|"EN"|"Timatic: access denied"|0|0|0
+"MSG.TIMATIC.MANUAL_MODE_NOT_ALLOWED"|"RU"|"Timatic: ручной режим запрещен"|0|0|0
+"MSG.TIMATIC.MANUAL_MODE_NOT_ALLOWED"|"EN"|"Timatic: manual mode denied"|0|0|0
+"EVT.TIMATIC.MANUAL_MODE"|"RU"|"Timatic: ручной режим, параметры запроса для [fullname%s]: [log%s]"|0|0|0
+"EVT.TIMATIC.MANUAL_MODE"|"EN"|"Timatic: manual mode, request parameters for [fullname%s]: [log%s]"|0|0|0
+"EVT.TIMATIC.INFO_MODE"|"RU"|"Timatic: справочный режим, параметры запроса: [log%s]"|0|0|0
+"EVT.TIMATIC.INFO_MODE"|"EN"|"Timatic: information mode, request parameters: [log%s]"|0|0|0
+"Рассадка на плат."|"EN"|"Seating for paid"|0|0|
+"MSG.MPS_PAYMENT_ERROR"|"RU"|"Ошибка платежной системы: [message%s] [code%s]"|0|0|0
+"MSG.MPS_PAYMENT_ERROR"|"EN"|"Ошибка платежной системы: [message%s] [code%s]"|0|0|0
+"MSG.COUNTRY.INVALID_SET_CLIENT"|"RU"|"Неправильно введен код страны"|0|0|1
+"MSG.COUNTRY.INVALID_SET_CLIENT"|"EN"|"Incorrect input of country code"|0|0|1
+"MSG.COUNTRY.CODE.ALREADY_SET"|"RU"|"Код страны уже введен"|0|0|1
 "CAP.DOC.KOMPLEKT"|"RU"|"Комплект документации"|0|0|0
-"CAP.DOC.KOMPLEKT"|"EN"|"Комплект документации"|0|0|0
+"CAP.DOC.KOMPLEKT"|"EN"|"Documentation package"|0|0|0
 "CAP.DOC.KOMPLEKT_HEADER"|"RU"|"Авиакомпания [airline%s] рейс [flight%s] [route%s]"|0|0|0
-"CAP.DOC.KOMPLEKT_HEADER"|"EN"|"Авиакомпания [airline%s] рейс [flight%s] [route%s]"|0|0|0
+"CAP.DOC.KOMPLEKT_HEADER"|"EN"|"Airline [airline%s] flight [flight%s] [route%s]"|0|0|0
 "MSG.KOMPLEKT_EMPTY"|"RU"|"КОМПЛЕКТ НЕ ЗАДАН"|0|0|0
-"MSG.KOMPLEKT_EMPTY"|"EN"|"КОМПЛЕКТ НЕ ЗАДАН"|0|0|0
+"MSG.KOMPLEKT_EMPTY"|"EN"|"Documentation package is not specified"|0|0|0
+"MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN"|"RU"|"Невозможно отобразить салон до регистрации"|0|0|0
+"MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN"|"EN"|"Unable to show seatmap before checkin"|0|0|0
+"EVT.PAX.SYNC_CABIN_CLASS_ERROR"|"RU"|"Ошибка при изменении класса пассажира [name%s]: [what%s]"|0|0|0
+"EVT.PAX.SYNC_CABIN_CLASS_ERROR"|"EN"|"Error due to passenger class change"|0|0|0
+"EVT.PASSENGER_DISEMBARKED_DUE_TO_CLASS_CHANGE"|"RU"|"Пассажир [name%s] из-за изменения класса высажен с места [seat%s]"|0|0|0
+"EVT.PASSENGER_DISEMBARKED_DUE_TO_CLASS_CHANGE"|"EN"|"Passenger [name%s] is unlocated from seat due to class change [seat%s]"|0|0|0
+"EVT.AGENT_SEAT_NO"|"RU"|"(запрошено агентом)"|0|0|0
+"EVT.AGENT_SEAT_NO"|"EN"|"(agent request)"|0|0|0
+"EVT.VO_FORM_INSERTED"|"EN"|"Voucher blank form '[name%s]' set."|0|0|0
+"EVT.VO_FORM_MODIFIED"|"RU"|"[old_form%s][new_form%s]"|0|0|0
+"EVT.VO_FORM_MODIFIED"|"EN"|"[old_form%s][new_form%s]"|0|0|0
+"EVT.VO_FORM_DELETED"|"RU"|"Отменен бланк ваучера '[old_name%s]'."|0|0|0
+"EVT.VO_FORM_DELETED"|"EN"|"Voucher blank form '[old_name%s]' cancelled."|0|0|0
+"MSG.PRINT.VO_UNAVAILABLE_FOR_THIS_DEVICE"|"RU"|"Печать ваучера на выбранный принтер не производится"|0|0|0
+"MSG.PRINT.VO_UNAVAILABLE_FOR_THIS_DEVICE"|"EN"|"Printout of the voucher is not carried out on the selected printer"|0|0|0
+"MSG.VO_NOT_AVAILABLE_FOR_CREW"|"RU"|"Для экипажа ваучер не печатается."|0|0|0
+"MSG.VO_NOT_AVAILABLE_FOR_CREW"|"EN"|"Voucher for crew is not printed."|0|0|0
+"MSG.VO_NOT_AVAILABLE_FOR_UNACC_BAGGAGE"|"RU"|"Для багажа без сопровождения ваучер не печатается."|0|0|0
+"MSG.VO_NOT_AVAILABLE_FOR_UNACC_BAGGAGE"|"EN"|"For baggage without accompaniment no voucher is printed"|0|0|0
+"MSG.BI_NOT_AVAILABLE_FOR_CREW"|"RU"|"Для экипажа бизнес приглашение не печатается."|0|0|0
+"MSG.BI_NOT_AVAILABLE_FOR_CREW"|"EN"|"Business Invitation for crew is not printed."|0|0|0
+"MSG.BI_NOT_AVAILABLE_FOR_UNACC_BAGGAGE"|"RU"|"Для багажа без сопровождения бизнес приглашение не печатается."|0|0|0
+"MSG.BI_NOT_AVAILABLE_FOR_UNACC_BAGGAGE"|"EN"|"For baggage without accompaniment no Business Invitation is printed"|0|0|0
+"MSG.VO_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS"|"RU"|"На рейс или класс не назначен бланк ваучера"|0|0|0
+"MSG.VO_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS"|"EN"|"No blank form of vouchers is appointed for the flight or class"|0|0|0
+"EVT.EMDA_FORM_INSERTED_FOR_CLASS"|"RU"|"Установлен бланк EMDA '[name%s]' для класса [cls%s]."|0|0|0
+"EVT.EMDA_FORM_INSERTED_FOR_CLASS"|"EN"|"EMDA blank form '[name%s]' set for class [cls%s]."|0|0|0
+"EVT.EMDA_FORM_INSERTED"|"RU"|"Установлен бланк EMDA '[name%s]'."|0|0|0
+"EVT.EMDA_FORM_INSERTED"|"EN"|"EMDA blank form '[name%s]' set."|0|0|0
+"EVT.EMDA_FORM_MODIFIED"|"RU"|"[old_form%s][new_form%s]"|0|0|0
+"EVT.EMDA_FORM_MODIFIED"|"EN"|"[old_form%s][new_form%s]"|0|0|0
+"EVT.EMDA_FORM_DELETED"|"RU"|"Отменен бланк EMDA '[old_name%s]'."|0|0|0
+"EVT.EMDA_FORM_DELETED"|"EN"|"EMDA blank form '[old_name%s]' cancelled."|0|0|0
+"MSG.PRINT.EMDA_UNAVAILABLE_FOR_THIS_DEVICE"|"RU"|"Печать EMDA на выбранный принтер не производится"|0|0|0
+"MSG.PRINT.EMDA_UNAVAILABLE_FOR_THIS_DEVICE"|"EN"|"Printout of the EMDA is not carried out on the selected printer"|0|0|0
+"MSG.EMDA_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS"|"RU"|"На рейс или класс не назначен бланк EMDA"|0|0|0
+"MSG.EMDA_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS"|"EN"|"No blank form of EMDA is appointed for the flight or class"|0|0|0
+"QST.INSERT_BLANK_VO_WO_SEG"|"RU"|"Вставьте чистый бланк ваучера.[EOL]Печатать ваучер для пассажира [name%s] (рег. №[regno%3.3d]) ?"|0|0|1
+"QST.INSERT_BLANK_VO_WO_SEG"|"EN"|"Insert a blank form of the voucher.[EOL]Print voucher for the passenger [name%s] (segNo.[segno%d], regNo.[regno%3.3d]) ?"|0|0|1
+"QST.INSERT_BLANK_VO_W_SEG"|"RU"|"Вставьте чистый бланк ваучера.[EOL]Печатать ваучер для пассажира [name%s] (сег. №[segno%d],рег. №[regno%3.3d]) ?"|0|0|1
+"QST.INSERT_BLANK_VO_W_SEG"|"EN"|"Insert a blank form of the voucher.[EOL]Print voucher for the passenger [name%s] (segNo.[segno%d], regNo.[regno%3.3d]) ?"|0|0|1
+"QST.INSERT_BLANK_VO_WO_SEG_N_REG"|"RU"|"Вставьте чистый бланк ваучера.[EOL]Печатать ваучер для пассажира [name%s]"|0|0|1
+"QST.INSERT_BLANK_VO_WO_SEG_N_REG"|"EN"|"Insert a blank form of the voucher.[EOL]Print voucher for the passenger [name%s]"|0|0|1
+"EVT.MPS_COMPLETED"|"RU"|"Оплата заказа [pnr%s] [order_id%s] прошла успешно"|0|0|0
+"MSG.MPS_CONNECT_ERROR"|"RU"|"Платежная система не отвечает"|0|0|0
+"MSG.MPS_CONNECT_ERROR"|"EN"|"Платежная система не отвечает"|0|0|0
+"MSG.MPS_PAYMENT"|"RU"|"Идет оплата через платежную систему"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.BRD"|"RU"|"Посадка"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.BRD"|"EN"|"Boarding"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.TRFER_IN"|"RU"|".I"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.TRFER_IN"|"EN"|".I"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.LONG_FLT_NO"|"RU"|"№ рейса"|0|0|0
+"CAP.TYPEB_OPTIONS.BSM.LONG_FLT_NO"|"EN"|"Flight No"|0|0|0
+"MSG.MPS_PAYMENT"|"EN"|"Идет оплата через платежную систему"|0|0|0
+"MSG.MPS_PAYMENT_GO"|"RU"|"Подождите идет процесс оплаты.."|0|0|1
+"MSG.MPS_PAYMENT_GO"|"EN"|"Подождите идет процесс оплаты.."|0|0|1
+"EVT.MPS_DO_PAYMENT"|"RU"|"Отправлен запрос в платежную систему: [pnr%s] [order_id%s] [cost%s] [currency%s]"|0|0|0
+"EVT.MPS_DO_PAYMENT"|"EN"|"Отправлен запрос в платежную систему: [pnr%s] [order_id%s] [cost%s] [currency%s]"|0|0|0
+"EVT.SWC_ORDER"|"RU"|"Оценка заказа [pnr%s]"|0|0|0
+"EVT.SWC_ORDER"|"EN"|"Оценка заказа [pnr%s]"|0|0|0
+"EVT.MPS_ERROR"|"RU"|"Оплата заказа [pnr%s] [order_id%s] завершилась ошибкой [error%s]"|0|0|0
+"EVT.MPS_ERROR"|"EN"|"Оплата заказа [pnr%s] [order_id%s] завершилась ошибкой [error%s]"|0|0|0
+"Бланки"|"EN"|"Forms"|0|0|1
+"Посадочные талоны"|"EN"|"Boarding passes"|0|0|1
+"Багажные квитанции"|"EN"|"Excess baggage tickets"|0|0|1
+"Приглашения"|"EN"|"Invitations"|0|0|1
+"Список приглашений"|"EN"|"Invitations list"|0|0|1
+"Список форм для приглашения:"|"EN"|"Invitation forms list:"|0|0|1
+"Список ваучеров"|"EN"|"Vouchers list"|0|0|1
+"Список форм для ваучера:"|"EN"|"Voucher forms list:"|0|0|1
+"Список EMDA"|"EN"|"EMDA list"|0|0|1
+"Список форм для EMDA:"|"EN"|"EMDA forms list:"|0|0|1
+"Список версий для формы:"|"EN"|"Versions list for a form:"|0|0|1
+"Список бланков для версии:"|"EN"|"Blanks list for a version:"|0|0|1
+"Бланки ваучеров а/к"|"EN"|"Airline's voucher forms"|0|0|0
+"Бланки ваучеров"|"EN"|"Voucher forms"|0|0|
+"Бланки ваучеров рейса"|"EN"|"Flight voucher forms"|0|0|
+"Бланки EMDA а/к"|"EN"|"Airline's EMDA forms"|0|0|0
+"Бланки EMDA"|"EN"|"EMDA forms"|0|0|
+"Бланки EMDA рейса"|"EN"|"Flight EMDA forms"|0|0|
+"Тест печати ваучера"|"EN"|"Voucher test printing"|0|0|1
+"Тест печати EMDA"|"EN"|"EMDA test printing"|0|0|1
+"EVT.VO_FORM_INSERTED_FOR_CLASS"|"RU"|"Установлен бланк ваучера '[name%s]' для класса [cls%s]."|0|0|0
+"EVT.VO_FORM_INSERTED_FOR_CLASS"|"EN"|"Voucher blank form '[name%s]' set for class [cls%s]."|0|0|0
+"EVT.VO_FORM_INSERTED"|"RU"|"Установлен бланк ваучера '[name%s]'."|0|0|0
+"MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_RFISC"|"RU"|"Предварительная рассадка на RFISC [code%s] запрещена"|0|0|0
+"MSG.APPS_OVERRIDE_COUNTRY_INVALID"|"RU"|"Для ремарки '[code%s]' требуется код государства"|0|0|0
+"MSG.APPS_OVERRIDE_COUNTRY_INVALID"|"EN"|"For remark '[code%s]' country code is required"|0|0|0
+"Настройка киосков"|"EN"|"Kiosk settings"|0|0|0
+"MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_RFISC"|"EN"|"Pre-seating on RFISC [code%s] is prohibited"|0|0|0
+"QST.PRINT_ALL_UNPRINTED_EMDA"|"EN"|"Print all non-printed EMDA?"|0|0|1
+"QST.REPRINT_EMDA"|"RU"|"Перепечатать EMDA пассажира?"|0|0|1
+"QST.REPRINT_EMDA"|"EN"|"Re-print the passenger's EMDA?"|0|0|1
+"Работа с услугами"|"EN"|"Services operation"|0|0|0
+"Типы тревог"|"EN"|"Alarm types"|0|0|0
+"Транспорты APIS"|"EN"|"APIS transport"|0|0|0
+"Форматы обмена с APPS"|"EN"|"APPS Exchange formats"|0|0|0
+"MSG.WAIT_PRINTING_EMDA"|"RU"|"Подождите, идет печать EMDA..."|0|0|1
+"MSG.WAIT_PRINTING_EMDA"|"EN"|"Wait, the EMDA is being printed..."|0|0|1
+"Контроль операций"|"EN"|"Operation control"|0|0|0
+"Типы операций"|"EN"|"Operation type"|0|0|0
+"Применить к группе пультов"|"EN"|"Apply to terminal groups"|0|0|0
+"Типы EMDA"|"EN"|"EMDA type"|0|0|0
+"Типы номеров"|"EN"|"Numbers type"|0|0|0
+"Адреса киосков саморегистрации"|"EN"|"Self check-in kiosk addresses"|0|0|0
+"Локализация киосков"|"EN"|"Kiosk localization"|0|0|0
+"Список алиасов"|"EN"|"Alias list"|0|0|0
+"Названия приложений"|"EN"|"Application name"|0|0|0
+"Клиенты киосков"|"EN"|"Kiosk clients"|0|0|0
+"Параметры работы киосков"|"EN"|"Kiosk operation parameters"|0|0|0
+"Список параметров работы киоска"|"EN"|"Kiosk operation parameters list"|0|0|0
+"Группы киосков"|"EN"|"Kiosk groups"|0|0|0
+"Названия групп киосков"|"EN"|"Kiosk groups name"|0|0|0
+"Языки перевода"|"EN"|"Translation languages"|0|0|0
+"Настройка оплаты"|"EN"|"Payment settings"|0|0|0
+"Типы оплаты"|"EN"|"Payment types"|0|0|0
+"Настройки модуля Печатные формы"|"EN"|"Printing forms module settings"|0|0|0
+"Авторегистрация услуг"|"EN"|"Services auto check-in"|0|0|0
+"Коды атрибутов кресел"|"EN"|"Seat attribute codes"|0|0|0
+"Список профильных прав для терминала"|"EN"|"Profile rights list for the terminal"|0|0|0
+"Адреса и опции телеграмм ETL для комм. рейсов"|"EN"|"Addresses and options of ETL message for comm. flights"|0|0|0
+"Адреса и опции телеграмм PIL"|"EN"|"Addresses and options of PIL messages"|0|0|0
+"Типы ваучеров"|"EN"|"Voucher types"|0|0|0
+"Интернет-продажа"|"EN"|"Online sale"|0|0|0
+"EVT.MANUAL_ABBR"|"EN"|"man."|0|0|0
+"EVT.MPS_COMPLETED"|"EN"|"Оплата заказа [pnr%s] [order_id%s] прошла успешно"|0|0|0
+"MSG.DESK_OWNERS_ADD.WRONG_DESK_PREFIX_LEN"|"RU"|"Длина поля 'Пульт' должна быть 4 символа"|0|0|0
+"MSG.DESK_OWNERS_ADD.WRONG_DESK_PREFIX_LEN"|"EN"|"'Terminal' field length must be 4 chars"|0|0|0
+"MSG.DESK_OWNERS_ADD.DESK_BEGIN_NUM_NOT_SET"|"RU"|"Не указано значение поля 'Пульт'"|0|0|0
+"MSG.DESK_OWNERS_ADD.DESK_BEGIN_NUM_NOT_SET"|"EN"|"Field data 'Terminal' not specified"|0|0|0
+"MSG.DESK_OWNERS_ADD.DESK_AMOUNT_NOT_SET"|"RU"|"Не указано значение поля 'Начальный номер'"|0|0|0
+"MSG.DESK_OWNERS_ADD.DESK_AMOUNT_NOT_SET"|"EN"|"Field data 'Starting num' not specified"|0|0|0
+"MSG.DESK_OWNERS_ADD.WRONG_INTERVAL"|"RU"|"Неверно указан диапазон пультов"|0|0|0
+"MSG.DESK_OWNERS_ADD.WRONG_INTERVAL"|"EN"|"Terminals interval is specified incorrectly"|0|0|0
+"MSG.MPS_COMPLETED"|"RU"|"Оплата заказа прошла успешно"|0|0|0
+"MSG.MPS_COMPLETED"|"EN"|"Оплата заказа прошла успешно"|0|0|0
+"MSG.MPS_CANCEL"|"RU"|"Процесс ожидания оплаты завершен"|0|0|0
+"EVT.TRANSIT_FLIGHT.SET"|"EN"|"Departure airport set as transit"|0|0|0
+"EVT.TRANSIT_FLIGHT.CANCEL"|"RU"|"А/п вылета рейса установлен в нетранзитный"|0|0|0
+"MSG.MPS_CANCEL"|"EN"|"Процесс ожидания оплаты завершен"|0|0|0
+"MSG.EMD.PAYMENT_IN_PROCESS_WAIT_AND_TRY_AGAIN"|"RU"|"Идет процесс оплаты. Повторите операцию"|0|0|0
+"Названия брендов"|"EN"|"Brand names"|0|0|0
+"EVT.TRANSIT_FLIGHT.CANCEL"|"EN"|"Departure airport set as non transit"|0|0|0
+"EVT.TRANSIT_REG.SET"|"RU"|"Установлен режим перерегистрации транзита, если а/п вылета транзитный"|0|0|0
+"CAP.AMOUNT"|"RU"|"Кол-во"|0|0|0
+"CAP.AMOUNT"|"EN"|"Amount"|0|0|0
+"Начальный номер"|"EN"|"Starting num"|0|0|0
+"Добавить пульты"|"EN"|"Add terminals"|0|0|0
+"MSG.PASSENGER.RESEAT_BREAK"|"RU"|"Пересадка не завершена"|0|0|0
+"MSG.PASSENGER.RESEAT_BREAK"|"EN"|"Пересадка не завершена"|0|0|0
+"EVT.MANUAL_ABBR"|"RU"|"руч."|0|0|0
+"EVT.TRANSIT_REG.SET"|"EN"|"Re-check-in transit passenger mode is set, if departure airport is transit"|0|0|0
+"EVT.TRANSIT_REG.CANCEL"|"RU"|"Отменен режим перерегистрации транзита"|0|0|0
+"EVT.TRANSIT_REG.CANCEL"|"EN"|"Re-check-in transit passenger mode is cancel"|0|0|0
+"EVT.TRANSIT_BORT_CHANGING.SET"|"RU"|"Производится смена борта, если а/п вылета транзитный"|0|0|0
+"EVT.TRANSIT_BORT_CHANGING.SET"|"EN"|"Aircraft change, if departure airport is transit"|0|0|0
+"EVT.TRANSIT_BORT_CHANGING.CANCEL"|"RU"|"Не производится смена борта, если а/п вылета транзитный"|0|0|0
+"EVT.TRANSIT_BORT_CHANGING.CANCEL"|"EN"|"Aircraft not change, if departure airport is transit"|0|0|0
+"EVT.TRANSIT_BRD_WITH_AUTOREG.SET"|"RU"|"Установлен режим посадки при авторегистрации транзита"|0|0|0
+"MSG.EMD.PAYMENT_IN_PROCESS_WAIT_AND_TRY_AGAIN"|"EN"|"Идет процесс оплаты. Повторите операцию"|0|0|0
+"Интервал"|"EN"|"Interval"|0|0|1
+"с"|"EN"|"from"|0|0|1
+"EVT.TRANSIT_BRD_WITH_AUTOREG.SET"|"EN"|"Boarding mode is set during transit auto check-in"|0|0|0
+"EVT.TRANSIT_BRD_WITH_AUTOREG.CANCEL"|"RU"|"Установлен режим раздельной авторегистрации и посадки транзита"|0|0|0
+"EVT.TRANSIT_BRD_WITH_AUTOREG.CANCEL"|"EN"|"Separate auto check-in and boarding mode is set for transit"|0|0|0
+"EVT.TRANSIT_BLOCKING.SET"|"RU"|"Установлен режим ручной разметки транзита в салоне"|0|0|0
+"EVT.TRANSIT_BLOCKING.SET"|"EN"|"Manual layout marking mode for transit is set"|0|0|0
+"EVT.TRANSIT_BLOCKING.CANCEL"|"RU"|"Отменен режим ручной разметки транзита в салоне"|0|0|0
+"EVT.TRANSIT_BLOCKING.CANCEL"|"EN"|"Manual layout marking mode for transit is cancel"|0|0|0
+"MSG.SELF_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"RU"|"Саморегистрация запрещена из-за смены транзитного борта на сегменте [flight%s]"|0|0|0
+"MSG.SELF_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"EN"|"Self check-in is prohibit as transit aircraft is change at the segment [flight%s]"|0|0|0
+"MSG.TCKIN_AND_TRFER_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"RU"|"Сквозная регистрация и оформление трансферного багажа запрещены из-за смены транзитного борта на сегменте [flight%s]"|0|0|0
+"MSG.TCKIN_AND_TRFER_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"EN"|"Through check-in and transfer luggage is prohibit as transit aircraft is change at the segment [flight%s]"|0|0|0
+"MSG.CREW_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"RU"|"Регистрация экипажа запрещена из-за смены транзитного борта на сегменте [flight%s]"|0|0|0
+"EVT.TRANSIT_FLIGHT.SET"|"RU"|"А/п вылета рейса установлен в транзитный"|0|0|0
 "MSG.MODIFICATION_NOT_POSSIBLE"|"RU"|"Модификация невозможна"|0|0|0
 "MSG.MODIFICATION_NOT_POSSIBLE"|"EN"|"Modification not possible"|0|0|0
+"С лок."|"EN"|"Loc. From"|0|0|0
+"По лок."|"EN"|"Loc. To"|0|0|0
+"RFISC на посадочном + свободный текст"|"EN"|"RFISC on BP + free text"|0|0|0
+"Баг. экипажа"|"EN"|"Crew bag"|0|0|0
+"EVT.TLG.LDM"|"RU"|"Телеграмма LDM:"|0|0|0
+"EVT.TLG.LDM"|"EN"|"LDM messages:"|0|0|0
+"Транслит."|"EN"|"Translit."|0|0|0
+"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST"|"RU"|"Пассажир [name%s] посажен вручную на место: [seat%s]. Работа с ЛО"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"EN"|"Transfer route not confirmed. Reason: Different transfer routes for the passengers within checking-in group"|0|0|0
+"Гос-во выдачи"|"EN"|"Issuing state"|0|0|0
+"Граж."|"EN"|"Nation"|0|0|0
+"Дата рож."|"EN"|"Date of birth"|0|0|0
+"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST"|"EN"|"Manual seat [seat%s] assignment for passenger [name%s]. Work with WL"|0|0|0
+"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST"|"RU"|"Пассажир [name%s] пересажен вручную. Новое место: [seat%s]. Работа с ЛО"|0|0|0
+"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST"|"EN"|"Manual allocated seat change for passenger [name%s]. Reallocated seat: [seat%s]. Work with WL"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER"|"RU"|"Не подтвержден трансферный маршрут. Причина: Различные трансферные маршруты в регистрируемой группе пассажиров"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TAG_INDEX"|"RU"|"Поле № не может быть больше 9"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TAG_INDEX"|"EN"|"Field Number value can't be more than 9"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_SMALL"|"RU"|"Длина не может быть больше 26"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_SMALL"|"EN"|"Field Length value can't be more than 26"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_BIG"|"RU"|"Длина не может быть больше 73"|0|0|0
+"MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_BIG"|"EN"|"Field Length value can't be more than 73"|0|0|0
+"Оконч. действия"|"EN"|"Expiry date"|0|0|0
+"Отчество"|"EN"|"Second Nm"|0|0|0
+"CAP.DOC.BDOCS"|"RU"|"Неполные DOCS рейса [flight%s]"|0|0|0
+"CAP.DOC.BDOCS"|"EN"|"Uncompleted DOCS for flight [flight%s]"|0|0|0
+"Документ из DOCS"|"EN"|"Document from DOCS"|0|0|0
+"EVT.ADD_BOARDING_GATES"|"RU"|"Добавлены выходы на посадку: [names%s]"|0|0|0
+"EVT.ADD_BOARDING_GATES"|"EN"|"Gates added: [names%s]"|0|0|0
+"EVT.ADD_DESKS"|"RU"|"Добавлены стойки регистрации: [names%s]"|0|0|0
+"EVT.ADD_DESKS"|"EN"|"Check-in desks added: [names%s]"|0|0|0
+"MSG.CREW_CKIN_DENIAL_DUE_TO_TRANSIT_BORT_CHANGING"|"EN"|"Crew check-in is prohibit as transit aircraft is change at the segment [flight%s]"|0|0|0
+"Смена борта, авторегистрация"|"EN"|"Aircraft change, auto check-in"|0|0|0
+"Смена борта, авторегистрация транзита"|"EN"|"Aircraft change, transit auto check-in"|0|0|1
+"Посадка при авторегистрации"|"EN"|"Boarding during auto check-in"|0|0|0
+"Посадка при авторегистрации транзита"|"EN"|"Boarding during transit auto check-in"|0|0|1
+"CAP.PNL_EDIT_FORM.CABIN_CLASS"|"EN"|"Service class code"|0|0|0
+"EVT.PRELIMINARY_ASSIGNED_CABIN_CLASS"|"RU"|"Пассажиру [pax_name%s] ([type%s]) предварительно назначен класс обслуживания [cls%s]"|0|0|0
+"QST.ABORT_CHANGE_INPUT"|"RU"|"Прервать ввод изменений?"|0|0|1
+"QST.ABORT_CHANGE_INPUT"|"EN"|"Abort changes?"|0|0|1
+"MSG.TERMINAL_NOT_MPS_POS_PAY"|"RU"|"Версия терминала не поддерживает оплату через МПС. Обновите версию"|0|0|0
+"EVT.AGENT_MPS_STOP_WAIT"|"EN"|"Агент не дождался ответа от МПС. Заказ [pnr%s]"|0|0|0
+"CAP.PNL_EDIT_FORM.CABIN_CLASS"|"RU"|"Код класса обслуживания"|0|0|0
+"EVT.PRELIMINARY_ASSIGNED_CABIN_CLASS"|"EN"|"For passenger [pax_name%s] pre-assigned class of service [cls%s]"|0|0|0
+"EVT.CANCEL_PRELIMINARY_ASSIGNED_CABIN_CLASS"|"RU"|"Пассажиру [pax_name%s] ([type%s]) отменен предварительно назначенный класс обслуживания"|0|0|0
+"Автотранзит"|"EN"|"Auto transit"|0|0|1
+"Все, кроме автотранзита"|"EN"|"All except auto transit"|0|0|1
+"EVT.CANCEL_PRELIMINARY_ASSIGNED_CABIN_CLASS"|"EN"|"For passenger [pax_name%s] pre-assigned class of service is canceled"|0|0|0
+"MSG.MPS_ERROR"|"EN"|"Ошибка оплаты: ""[msg%s]"""|0|0|0
+"MSG.MPS_ERROR"|"RU"|"Ошибка оплаты: ""[msg%s]"""|0|0|0
+"MSG.TERMINAL_NOT_MPS_POS_PAY"|"EN"|"Версия терминала не поддерживает оплату через МПС. Обновите версию"|0|0|0
+"EVT.AGENT_MPS_STOP_WAIT"|"RU"|"Агент не дождался ответа от МПС. Заказ [pnr%s]"|0|0|0
+"MPS_CANCEL_WAIT"|"RU"|"Не ждать ответа/ESC"|0|0|1
+"MPS_CANCEL_WAIT"|"EN"|"Не ждать ответа/ESC"|0|0|1
+"MSG.MPS_POS_INUSE"|"EN"|"ПОС-терминал занят. Выберите другое устройство"|0|0|0
+"EVT.PASSENGER.BOARDED_ALREADY"|"EN"|"Passenger [fullname%s]. Boarding attempt is retry!"|0|0|0
+"MSG.MPS_POS_INUSE"|"RU"|"ПОС-терминал занят. Выберите другое устройство"|0|0|0
+"MSG.MPS_POS_NOTSELECTED"|"EN"|"Выберите ПОС-терминал"|0|0|0
+"MSG.MPS_POS_NOTSELECTED"|"RU"|"Выберите ПОС-терминал"|0|0|0
+"MSG.MPS_POS_NOTSELECTED_OR_TIMEOUT"|"EN"|"ПОС-терминал не выбран или закончилось время захвата устройства"|0|0|0
+"MSG.MPS_POS_NOTSELECTED_OR_TIMEOUT"|"RU"|"ПОС-терминал не выбран или закончилось время захвата устройства"|0|0|0
+"Наш адрес H2H"|"EN"|"Our H2H address"|0|0|0
+"MSG.PASSENGER.BOARDED_ALREADY2"|"RU"|"Пассажир [fullname%s] уже прошел посадку"|0|0|0
+"MSG.PASSENGER.BOARDED_ALREADY2"|"EN"|"The passenger [fullname%s] has already undergone boarding"|0|0|0
+"MSG.PASSENGER.NOT_BOARDING2"|"RU"|"Пассажир [fullname%s] не прошел посадку"|0|0|0
+"MSG.PASSENGER.NOT_BOARDING2"|"EN"|"Passenger [fullname%s] underwent no boarding procedure"|0|0|0
+"Адрес H2H"|"EN"|"H2H address"|0|0|0
+"Таймаут"|"EN"|"Timeout"|0|0|0
+"MSG.PASSENGER.EXAMED_ALREADY2"|"RU"|"Пассажир [fullname%s] уже прошел досмотр"|0|0|0
+"MSG.PASSENGER.EXAMED_ALREADY2"|"EN"|"The passenger [fullname%s] has already undergone the inspection"|0|0|0
+"Транслит"|"EN"|"Translit"|0|0|0
+"Подверсия"|"EN"|"Subversion"|0|0|0
+"MSG.PASSENGER.NOT_EXAM2"|"RU"|"Пассажир [fullname%s] не прошел досмотр"|0|0|0
+"MSG.PASSENGER.NOT_EXAM2"|"EN"|"Passenger [fullname%s] underwent no vetting"|0|0|0
+"MSG.PASSENGER.BOARDING2"|"RU"|"Пассажир [fullname%s] прошел посадку"|0|0|0
+"MSG.PASSENGER.BOARDING2"|"EN"|"The passenger [fullname%s] underwent boarding"|0|0|0
+"MSG.PASSENGER.DEBARKED2"|"RU"|"Пассажир [fullname%s] высажен"|0|0|0
+"MSG.PASSENGER.DEBARKED2"|"EN"|"The passenger [fullname%s] is disembarked"|0|0|0
+"MSG.PASSENGER.EXAM2"|"RU"|"Пассажир [fullname%s] прошел досмотр"|0|0|0
+"MSG.PASSENGER.EXAM2"|"EN"|"The passenger [fullname%s] underwent inspection"|0|0|0
+"MSG.PASSENGER.RETURNED_EXAM2"|"RU"|"Пассажир [fullname%s] возвращен на досмотр"|0|0|0
+"MSG.PASSENGER.RETURNED_EXAM2"|"EN"|"The passenger [fullname%s] was returned for inspection"|0|0|0
+"EVT.PASSENGER.BOARDED_ALREADY"|"RU"|"Пассажир [fullname%s]. Повторная попытка посадки!"|0|0|0
+"Синтаксис"|"EN"|"Syntax"|0|0|0
+"Версия синтаксиса"|"EN"|"Syntax version"|0|0|0
+"Расш. адрес СЭБ/СЭД"|"EN"|"Ext. ETS/EDS address"|0|0|0
+"Расш. адрес DCS Астра"|"EN"|"Ext. DCS Astra address"|0|0|0
+"Профиль Edifact"|"EN"|"Edifact profile"|0|0|0
+"Расш. адрес сторонней DCS"|"EN"|"Ext. external DCS address"|0|0|0
+"А/к в DCS Астра"|"EN"|"A/L in the DCS Astra"|0|0|0
+"Рейс в DCS Астра"|"EN"|"Flight in the DCS Astra"|0|0|0
+"Профили Edifact"|"EN"|"Edifact profiles"|0|0|0
+"Маршрутизация Edifact"|"EN"|"Edifact routing"|0|0|0
+"MSG.CHECKIN.UNABLE_TO_CANCEL_INFANT_WITHOUT_PARENT"|"RU"|"Невозможно отменить регистрацию младенца без родителя"|0|0|0
+"MSG.CHECKIN.UNABLE_TO_CANCEL_INFANT_WITHOUT_PARENT"|"EN"|"Unable to cancel infant without parent"|0|0|0
+"MSG.SET_LEVEL_PERMIT"|"RU"|"Задайте ограничения доступа по авиакомпании или аэропорту"|0|0|0
+"MSG.SET_LEVEL_PERMIT"|"EN"|"Set access restrictions by airline or airport"|0|0|0
+"MSG.SEATS.NOT_AVAIL_AUTO_SEATS.BABY_ZONES"|"RU"|"Автоматическая рассадка невозможна. Рассадка пассажиров с РМ в одном блоке запрещена"|0|0|0
+"MSG.SEATS.NOT_AVAIL_AUTO_SEATS.BABY_ZONES"|"EN"|"Auto accommodation is impossible. INF accommodation in one block of seat is prohibited"|0|0|0
+"Нет тарифа"|"RU"|"Место платное"|0|0|1
+"MSG.PASSENGER.NOT_FOUND_BY_DOC_NUMBER"|"RU"|"Пассажир не найден по номеру документа [doc_no%s]"|0|0|0
+"WRAP.DEVICE.INVALID_SCAN_FORMAT"|"EN"|"Scanning of unknown format: [text%s]"|0|0|0
+"MSG.PASSENGER.NOT_FOUND_BY_DOC_NUMBER"|"EN"|"Passenger not found by document number [doc_no%s]"|0|0|0
+"WRAP.DEVICE.INVALID_SCAN_FORMAT"|"RU"|"Сканирование неизвестного формата: [text%s]"|0|0|0
+"MSG.TOO_LONG_SEARCH.ADJUST_SEARCH_PARAMS"|"RU"|"Слишком долгий поиск. Уточните критерии поиска."|0|0|0
+"MSG.TOO_LONG_SEARCH.ADJUST_SEARCH_PARAMS"|"EN"|"Search too long. Refine your search criteria"|0|0|0
+"Подкласс"|"EN"|"Subcls"|0|0|1
+"MSG.TIMEOUT_EXPIRED.UPDATE_TERM"|"RU"|"Превышен таймаут. Обновите версию терминала для работы с заказами"|0|0|0
+"MSG.MORE_THAN_ONE_CRITERION"|"RU"|"Задано более одного критерия"|0|0|0
+"MSG.MORE_THAN_ONE_CRITERION"|"EN"|"More than one criterion specified"|0|0|0
+"MSG.TIMEOUT_EXPIRED.UPDATE_TERM"|"EN"|"Timeout is exceeded. Update version of terminal for working with orders"|0|0|0
+"MSG.TOO_MANY_ROWS_SELECTED.UPDATE_TERM"|"RU"|"Выбрано слишком много строк. Обновите версию терминала для работы с заказами"|0|0|0
+"MSG.TOO_MANY_ROWS_SELECTED.UPDATE_TERM"|"EN"|"Too much lines are selected. Update version of terminal for working with orders"|0|0|0
+"Ид. киоска"|"EN"|"Kiosk ID"|0|0|0
+"MSG.PASSENGER.RESEAT_TO_RFISC"|"RU"|"Место платное, необходима оплата"|0|0|0
+"QST.CONTINUE_RESEAT"|"RU"|"Продолжить пересадку?"|0|0|0
+"MSG.CHECKIN.NOREC_NOT_ALLOWED"|"RU"|"Регистрация пассажиров не из списка PNL (NOREC) запрещена"|0|0|0
+"MSG.CHECKIN.NOREC_NOT_ALLOWED"|"EN"|"Check in passenger out of PNL list is denied"|0|0|0
+"MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM"|"RU"|"Печать пос. талона запрещена. Проблемы прохождения пограничного контроля"|0|0|0
+"MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM"|"EN"|"Boarding pass printing is denied. Border control pass problems."|0|0|0
+"Отчет / Ctrl+F9"|"EN"|"Report / Ctrl+F9"|0|0|1
+"Адрес киоска"|"EN"|"Kiosk addrs"|0|0|0
+"Тип оплаты"|"EN"|"Payment type"|0|0|0
+"Способ оплаты"|"EN"|"Payment method"|0|0|0
+"Способ оплаты (лат.)"|"EN"|"Payment method (lat.)"|0|0|0
+"Длина"|"EN"|"Length"|0|0|0
+"Право"|"EN"|"Right"|0|0|0
+"Тип пользователя"|"EN"|"User type"|0|0|0
+"Характеристики"|"EN"|"Properties"|0|0|0
+"Характеристики (лат.)"|"EN"|"Properties (lat.)"|0|0|0
+"В саморег."|"EN"|"At self checkin"|0|0|0
+"Контроль"|"EN"|"Control"|0|0|0
+"Предварительная рассадка"|"EN"|"Preliminary seating"|0|0|0
+"Транспорт"|"EN"|"Transport"|0|0|0
+"Реквизиты оплаты"|"EN"|"Payment details"|0|0|1
+"Тариф/Ctrl+F5"|"EN"|"Tariff / Ctrl + F5"|0|0|1
+"Перерасчет / F9"|"EN"|"Recalculation / F9"|0|0|1
+"MSG.EMD.WAIT_EVALUATION"|"RU"|"Подождите, идет расчет стоимости"|0|0|1
+"MSG.EMD.WAIT_EVALUATION"|"EN"|"Wait, cost calculation is in progress"|0|0|1
+"MSG.PRICE_SERVICES_NOT_CHOICE"|"RU"|"Не выбраны услуги для оплаты"|0|0|1
+"MSG.PRICE_SERVICES_NOT_CHOICE"|"EN"|"No payment services selected"|0|0|1
+"MSG.EMD.WAIT_PAID_COMMITING"|"RU"|"Подождите, идет оплата услуги"|0|0|1
+"MSG.EMD.WAIT_PAID_COMMITING"|"EN"|"Wait, service paying is procced"|0|0|1
+"MSG.PAYDOC_IS_EMPTY"|"RU"|"Введите реквизиты оплаты"|0|0|1
+"MSG.PAYDOC_IS_EMPTY"|"EN"|"Enter payment details"|0|0|1
+"MSG.ETICK.ERROR.TICKET_NOT FOUND"|"RU"|"Эл. билет не найден"|0|0|0
+"MSG.ETICK.ERROR.TICKET_NOT FOUND"|"EN"|"E-ticket not found"|0|0|0
+"MSG.REGNUM_NOT_SET_REPEAT_AVALUATION"|"RU"|"Номер заказа не задан. Повторите операцию оценки"|0|0|0
+"MSG.REGNUM_NOT_SET_REPEAT_AVALUATION"|"EN"|"Order number not specified. Repeat evaluation operation."|0|0|0
+"MSG.EMD.PAYDOC_NOT_SET"|"RU"|"Форма оплаты не задана"|0|0|0
+"MSG.EMD.PAYDOC_NOT_SET"|"EN"|"Payment form is not specified"|0|0|0
+"MSG.CLIENT_ID.NOT_DEFINE"|"RU"|"Ид. клиента оплаты не задан"|0|0|0
+"MSG.CLIENT_ID.NOT_DEFINE"|"EN"|"Customer ID payment is not specified"|0|0|0
+"MSG.EMD.NOT_EVALUATION_SETS"|"RU"|"Оплата на стойке запрещена"|0|0|0
+"MSG.EMD.NOT_EVALUATION_SETS"|"EN"|"Payment at the desk is prohibited"|0|0|0
+"MSG.EMD.NOT_COST_SETS"|"RU"|"Не сделана оценка. Произведите расчет стоимости"|0|0|0
+"MSG.EMD.NOT_COST_SETS"|"EN"|"No evaluation. Produce a cost calculation"|0|0|0
+"MSG.EMD.SERVICES_ALREADY_PAID"|"RU"|"Все услуги оплачены"|0|0|0
+"MSG.EMD.SERVICES_ALREADY_PAID"|"EN"|"All services paid"|0|0|0
+"MSG.SWC_CONNECT_ERROR"|"RU"|"Нет связи с сервером услуг"|0|0|0
+"MSG.SWC_CONNECT_ERROR"|"EN"|"Service server communication error"|0|0|0
+"MSG.EMD.NOT_SERVICES_CHOICE"|"RU"|"Не выбраны услуги для оплаты"|0|0|0
+"MSG.EMD.NOT_SERVICES_CHOICE"|"EN"|"No payment services selected"|0|0|0
+"MSG.EMD.PAID_FINISHED"|"RU"|"Оплата прошла успешно"|0|0|0
+"MSG.EMD.PAID_FINISHED"|"EN"|"Payment is well proceed."|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_BRD"|"EN"|"Non-boarded passengers on the flight"|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_EST"|"EN"|"Fact departure time differs from the estimated time"|0|0|0
+"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_SCD"|"EN"|"Fact departure time differs from planned time"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_TRUNCATED"|"RU"|"Трансферный маршрут не может быть подтвержден полностью. Необходимо обратиться на стойку регистрации"|0|0|0
+"EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_TRUNCATED"|"EN"|"Transfer route can not be fully confirmed. Proceed to check in desk"|0|0|0
+"CAP.LIBRA_BALANCE"|"RU"|"Центровка"|0|0|1
+"MSG.SBG_ERROR.FR1R"|"EN"|"Tail gate fraud, 1 pax boarded, 1 pax returned"|0|0|0
+"CAP.LIBRA_BALANCE"|"EN"|"W&&B"|0|0|1
+"CAP.PNL_EDIT_FORM.BAG_NORM"|"RU"|"Багажная норма (кг)"|0|0|0
+"CAP.PNL_EDIT_FORM.BAG_NORM"|"EN"|"Baggage allowance (kg)"|0|0|0
+"MSG.SBG_ERROR.TOND"|"EN"|"Passenger did not pass last sensor in time specified"|0|0|0
+"MSG.SBG_ERROR.FR2P"|"EN"|"Tail gate fraud, 2 pax boarded at same time"|0|0|0
+"MSG.SBG_ERROR.CNXX"|"EN"|"Passenger entered from opposite side"|0|0|0
+"MSG.SBG_ERROR.FR1X"|"EN"|"1 pax boarded, 1 pax crosses from opposite side"|0|0|0
+"MSG.SBG_ERROR.FR2X"|"EN"|"1 pax returns to entrance, 1 pax crosses from opposite side"|0|0|0
+"MSG.SBG_ERROR.TODT"|"EN"|"Passenger did not pass first sensor in time specified"|0|0|0
