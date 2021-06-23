@@ -1,16 +1,10 @@
 stages:
   - build
-  - build_noora
   - deploy
   - deploy-db
 
 variables:
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_COMMIT_REF_SLUG
-
-cache:
-  key: "$CI_COMMIT_REF_SLUG"
-  paths:
-    - externallibs/
 
 build:
   stage: build
@@ -26,6 +20,17 @@ build:
     paths:
       - src/tclmon.log
     when: on_failure
+
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - externallibs/
+
+  except:
+    changes:
+      - .gitlab-ci.yml
+      - docker/*
+
 
 build_noora:
   stage: build
@@ -54,7 +59,7 @@ deploy:
   only:
     - trunk
   before_script:
-    - echo $ENV > /opt/astra/docker/.env
+    - echo $ENV > ./docker/.env
   script:
     - docker-compose -f ./docker/docker-compose.yaml up -d
 
@@ -63,11 +68,11 @@ deploy-db:
   when: manual
   environment:
     name: trunk
-    action: stop
+    action: start
   only:
     - trunk
   before_script:
-    - echo $ENV > /opt/astra/docker/.env
+    - echo $ENV > ./docker/.env
   script:
     - docker-compose -f ./docker/docker-compose.yaml stop
     - docker-compose -f docker/docker-compose.yaml run --rm astra ./buildFromScratch.sh no/ora --createtcl --createdb
