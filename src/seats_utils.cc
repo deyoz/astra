@@ -215,7 +215,9 @@ bool NextSeatInRange(const TSeatRange &range, TSeat &seat)
   return true;
 };
 
-string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr_lat, int &seats)
+//calc_seats-вычислить по кол-ву мест или использовать входной параметр(salons)
+string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr_lat,
+                        int &seats, bool calc_seats)
 {
   //создаем сортированный массив TSeat
   vector<TSeat> iata_seats;
@@ -277,7 +279,8 @@ string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr
       res << "-" << r->second.row << r->second.line;
   };
 
-  seats=iata_seats.size()+not_iata_ranges.size();
+  if (calc_seats)
+    seats=iata_seats.size()+not_iata_ranges.size();
   if ( fmt != "list" && fmt != "one" && seats > 1 )
     res << "+" << seats-1;
   return res.str();

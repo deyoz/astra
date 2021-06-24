@@ -121,7 +121,8 @@ class TPassSeats: public std::set<TSeat,CompareSeat> {
 std::string GetSeatRangeView(const TSeatRanges &ranges,
                              const std::string &format,
                              bool pr_lat,
-                             int &seats);
+                             int &seats,
+                             bool calc_seats=true); //calc_seats-вычислить по кол-ву мест или использовать входной параметр(salons)
 
 std::string GetSeatRangeView(const TSeatRanges &ranges,
                              const std::string &format,

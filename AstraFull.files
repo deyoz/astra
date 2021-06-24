@@ -90,6 +90,8 @@ src/crafts/CraftCaches.сс
 src/crafts/CraftCaches.h
 src/crafts/SeatsPlanter.cc
 src/crafts/SeatsPlanter.h
+src/crafts/SeatsPax.cc
+src/crafts/SeatsPax.h
 src/crypt.cc
 src/crypt.h
 src/Depeches.cpp
