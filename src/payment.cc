@@ -995,9 +995,11 @@ bool PaymentInterface::GetReceiptFromDB(DB::TQuery &Qry, TBagReceipt &rcpt)
 
   //формы оплаты
   rcpt.pay_types.clear();
-  TQuery PayTypesQry(&OraSession);
+  DB::TQuery PayTypesQry(PgOra::getROSession("BAG_PAY_TYPES"), STDLOG);
   PayTypesQry.SQLText=
-    "SELECT * FROM bag_pay_types WHERE receipt_id=:receipt_id ORDER BY num";
+    "SELECT * FROM bag_pay_types "
+    "WHERE receipt_id=:receipt_id "
+    "ORDER BY num";
   PayTypesQry.CreateVariable("receipt_id",otInteger,Qry.FieldAsInteger("receipt_id"));
   PayTypesQry.Execute();
   TBagPayType payType;

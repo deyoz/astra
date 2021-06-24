@@ -66,7 +66,7 @@ namespace PgOra
                                         "PAX_SERVICE_LISTS", "GRP_SERVICE_LISTS", "SERVICE_LISTS",
                                         "SERVICE_LISTS_GROUP", "RFISC_LIST_ITEMS", "BAG_TYPE_LIST_ITEMS"} },
         { "SP_PG_GROUP_PAX_EVENTS",{ "PAX_EVENTS", "PAX_CUSTOM_ALARMS" } },
-        { "SP_PG_GROUP_BAG_RECEIPTS",{ "BAG_PREPAY", "BAG_RECEIPTS", "BAG_RCPT_KITS" } },
+        { "SP_PG_GROUP_BAG_RECEIPTS",{ "BAG_PREPAY", "BAG_RECEIPTS", "BAG_RCPT_KITS", "BAG_PAY_TYPES" } },
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
