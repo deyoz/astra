@@ -151,7 +151,7 @@ void readFromArx(Dates::DateTime_t part_key, int move_id, int point_id, const ve
 
 void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
     int point_id = NodeAsInteger("point_id",reqNode);
     TDateTime part_key = NoExists;
     if (GetNode( "part_key", reqNode )!=NULL) {
@@ -195,7 +195,6 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
     if (move_id != NoExists || !eventTypes.empty())
     {
-        Qry.Clear();
         ostringstream sql;
         if (part_key != NoExists) {
             readFromArx(DateTimeToBoost(part_key), move_id, point_id, eventTypes, logNode);
@@ -204,9 +203,9 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             if (move_id != NoExists)
             {
                 sql << "SELECT msg, time, id2 AS point_id, \n"
-                       "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
-                       "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-                       "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n"
+                       "   (CASE when type=:evtPax THEN id2 WHEN type=:evtPay THEN id2 ELSE -1 END) AS reg_no, \n"
+                       "   (CASE when type=:evtPax THEN id3 WHEN type=:evtPay THEN id3 ELSE -1 END) AS grp_id, \n"
+                       "   ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num \n"
                        "FROM events_bilingual \n"
                        "WHERE lang=:lang AND \n"
                        " type=:evtDisp AND id1=:move_id \n";
@@ -219,9 +218,9 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             if (!eventTypes.empty())
             {
                 sql << "SELECT msg, time, id1 AS point_id, \n"
-                       "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
-                       "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-                       "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n"
+                       "    (CASE when type=:evtPax THEN id2 WHEN type=:evtPay THEN id2 ELSE -1 END) AS reg_no, \n"
+                       "    (CASE when type=:evtPax THEN id3 WHEN type=:evtPay THEN id3 ELSE -1 END) AS grp_id, \n"
+                       "    ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num \n"
                        "FROM events_bilingual \n"
                        "WHERE lang=:lang AND \n";
                 sql << " type IN " << GetSQLEnum(eventTypes) << " AND id1=:point_id \n";
