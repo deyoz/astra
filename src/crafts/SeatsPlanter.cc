@@ -20,6 +20,7 @@
 #include "seat_number.h"
 #include "checkin.h"
 #include "astra_context.h"
+#include "SeatsPax.h"
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -405,7 +406,7 @@ public:
     }
   }
   void fromXML( xmlNodePtr reqNode ) {
-    LogTrace(TRACE5) << __func__;
+    LogTrace(TRACE5) << __func__ << " " << reqNode->name;
     if ( reqNode == nullptr ) return;
     xmlNodePtr node;
     _point_id = NodeAsInteger( "trip_id", reqNode );
@@ -414,10 +415,13 @@ public:
     _crcComp = NodeAsInteger( "comp_crc", reqNode, 0 );
     _tid = NodeAsInteger( "tid", reqNode );
     _tariffPaxId = (node=GetNode("tariff_pax_id", reqNode))?std::optional<int>(NodeAsInteger(node)):std::nullopt;
-    _layer_type = (node=GetNode("layer", reqNode))?std::optional<TCompLayerType>(DecodeCompLayerType(NodeAsString(node))):std::nullopt;
+    _layer_type = (node=GetNode("layer", reqNode))?
+                     std::optional<TCompLayerType>(DecodeCompLayerType(NodeAsString(node))):
+                     string("DeleteProtCkinSeat")==(const char*)reqNode->name?
+                       std::optional<TCompLayerType>(cltProtCkin):std::nullopt;
     _seat.emplace(TSeat(NodeAsString( "yname", reqNode, "" ),
                         NodeAsString( "xname", reqNode, "" )));
-    LogTrace(TRACE5) << "_seat " << ( _seat != std::nullopt );
+    LogTrace(TRACE5) << "_seat " << ( _seat != std::nullopt ) << " _layer_type null " << (_layer_type==std::nullopt);
     fromXMLClientSets(WAITLIST_SET,reqNode);
     fromXMLClientSets(QUESTION_RESEAT_SET,reqNode);
   }
@@ -428,6 +432,21 @@ public:
     return ( find_if( rems.begin(), rems.end(), [searchRems](const auto& item)
                         {return (find(searchRems.begin(), searchRems.end(), item.code) != searchRems.end());}) != rems.end() );
   }
+  void CheckResetLayer() {
+    LogTrace(TRACE5) << __func__;
+    if ( !_layer_type || _layer_type.value() != cltProtCkin ) return;
+    ASTRA::TCompLayerType v_layer_type = cltUnknown;
+    SEATSPAX::PaxListSeatNo::get( salonList, PaxId_t(_pax_id), "one", false, v_layer_type );
+    //терминал не умеет делать пересадку платного слоя, поэтому здесь идет расчет на основе тек. слоя места пассажира
+    if ( v_layer_type == cltProtAfterPay ||
+         v_layer_type == cltPNLAfterPay ) {
+      if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority(
+                    BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, v_layer_type ), flagCompLayerPriority ) <
+           BASIC_SALONS::TCompLayerTypes::Instance()->priority(
+                    BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, _layer_type.value() ), flagCompLayerPriority ) )
+        _layer_type.emplace( v_layer_type );
+    }
+  }
   void fromDB() {
     LogTrace(TRACE5) << __func__;
     currSeats.reset();
@@ -435,6 +454,7 @@ public:
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( _point_id,
                                                       _point_arv.value_or(ASTRA::NoExists) ),
                           "", _pax_id );
+    CheckResetLayer();
     std::set<SALONS2::TPlace*,SALONS2::CompareSeats> seats;
     SALONS2::TLayerPrioritySeat layerPrioritySeat = SALONS2::TLayerPrioritySeat::emptyLayer();
     salonList.getPaxLayer( _point_id, _pax_id, layerPrioritySeat, seats );
@@ -442,29 +462,21 @@ public:
       if ( !seats.empty() )
         currSeats.emplace( seats );
     }
+
     if ( layerPrioritySeat.layerType() != cltUnknown ) { //пересадка или назначение места
       curr_layer_type.emplace( layerPrioritySeat.layerType() );
-      //терминал не умеет делать пересадку платного слоя, поэтому здесь идет расчет на основе тек. слоя места пассажира
-      if ( curr_layer_type.value() == cltProtAfterPay ||
-           curr_layer_type.value() == cltPNLAfterPay ) {
-        if ( _layer_type && _layer_type.value() == cltProtCkin &&
-             BASIC_SALONS::TCompLayerTypes::Instance()->priority(
-                      BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, curr_layer_type.value() ), flagCompLayerPriority ) <
-             BASIC_SALONS::TCompLayerTypes::Instance()->priority(
-                      BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, _layer_type.value() ), flagCompLayerPriority ) )
-          _layer_type.emplace( curr_layer_type.value() );
-      }
       if ( !_layer_type  ) //слой в запросе не задан - тот же, что и текущий
         _layer_type.emplace( curr_layer_type.value() );
     }
-    if ( !_layer_type  ) {// ЛО ?
+    if ( !_layer_type  ) {// ЛО или DeleteProtLayer?
       grp = CheckIn::TSimplePaxGrpItem();
       tst();
-      if ( grp.value().getByPaxId(_pax_id) )
+      if ( grp.value().getByPaxId(_pax_id) ) //ЛО
         _layer_type.emplace(grp.value().getCheckInLayerType());
       else {
         grp.reset();
-        LogError(STDLOG) << "reseat: _layer_type type is not define!";
+        LogError(STDLOG) << "reseat: _layer_type is not defined!";
+        return; //пассажир не зарегистрирован
       }
     }
     LogTrace(TRACE5) << __func__ << " " <<_point_id << " " << _pax_id << " "
@@ -762,7 +774,9 @@ private:
       CheckIn::TPaxTknItem tkn;
       CheckIn::LoadCrsPaxTkn( _pax_id, tkn);
       passTariffs.get( fltInfo, mktFlight, tkn, pnr.value().airp_arv );
+      tst();
     }
+    LogTrace(TRACE5) << "_layer_type.value() == cltProtCkin" << (_layer_type.value() == cltProtCkin);
     for ( const auto& seat : newSeats.value().second ) {
       std::map<int, TRFISC,classcomp> vrfiscs;
       TRFISC rfisc;
@@ -866,7 +880,8 @@ private:
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
     }
     tst(); //!!!упростить
-    if ( layers.find( _layer_type.value() ) != layers.end() &&
+    if ( _layer_type &&
+         layers.find( _layer_type.value() ) != layers.end() &&
        (!( _layer_type.value() == cltProtCkin ||
              _layer_type.value() == cltProtSelfCkin ||
             ( !_clientSets.isFlag( flSetPayLayer ) && ( _layer_type.value() == cltPNLAfterPay ||
@@ -879,7 +894,7 @@ private:
          !isCheckLayer(_layer_type) )
      throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
     tst();
-    if ( curr_layer_type ) {
+    if ( curr_layer_type && _layer_type ) {
       if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, curr_layer_type.value() ),
                                                                 flagCompLayerPriority ) <
            BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, _layer_type.value() ),
@@ -1096,9 +1111,11 @@ private:
     PrmEnum seatPrmEnum("seat", "");
     if ( _seat_type == EnumSitDown::stDropseat ) {
       logSeats.clear(); //на всякий
-      for ( const auto &seat : currSeats.value() ) {
-        TSeat st(seat->yname,seat->xname);
-        logSeats.emplace_back( make_pair(TSeatRange(st,st), TRFISC() ) );
+      if ( currSeats ) {
+        for ( const auto &seat : currSeats.value() ) {
+          TSeat st(seat->yname,seat->xname);
+          logSeats.emplace_back( make_pair(TSeatRange(st,st), TRFISC() ) );
+        }
       }
     }
     for ( std::vector<std::pair<TSeatRange,TRFISC> >::iterator it=logSeats.begin(); it!=logSeats.end(); it++ ) {
@@ -1145,6 +1162,7 @@ private:
         }
         break;
       case EnumSitDown::stDropseat:
+        tst();
         if ( isCheckLayer( _layer_type ) )
           if (!logSeats.empty())
             reqinfo->LocaleToLog(_clientSets.isFlag( flSyncCabinClass )?"EVT.PASSENGER_DISEMBARKED_DUE_TO_CLASS_CHANGE":"EVT.PASSENGER_DISEMBARKED_MANUALLY",
@@ -1389,7 +1407,7 @@ public:
       toXML(reqNode,emulResNode);
     }
     catch( UserException& ue ) {
-      tst();
+      LogTrace(TRACE5) << ue.getLexemaData().lexema_id;
       AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id);
       if ( ue.getLexemaData().lexema_id == "return" ) {
         tst();
