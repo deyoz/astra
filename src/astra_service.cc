@@ -880,53 +880,61 @@ bool CreateCommonFileData( bool pr_commit,
   return res;
 }
 
-void createSofiFileDATA( int receipt_id )
+std::optional<PointId_t> getPointIdSet(const ReceiptId_t& receipt_id)
 {
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
-    "SELECT points.airline, points.flt_no, points.airp "
-    "FROM bag_receipts, points "
-    "WHERE bag_receipts.point_id=points.point_id AND "
-    "      bag_receipts.receipt_id=:receipt_id";
-  Qry.CreateVariable( "receipt_id", otInteger, receipt_id );
-    Qry.Execute();
-  string airline, airp;
-    int flt_no;
-    if ( !Qry.Eof ) {
-    airline = Qry.FieldAsString( "airline" );
-    airp = Qry.FieldAsString( "airp" );
-    if ( Qry.FieldIsNULL( "flt_no" ) )
-      flt_no = ASTRA::NoExists;
-    else
-      flt_no = Qry.FieldAsInteger( "flt_no" );
-    Qry.Clear();
-    Qry.SQLText =
+  DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText =
+      "SELECT point_id "
+      "FROM bag_receipts "
+      "WHERE receipt_id=:receipt_id";
+  Qry.CreateVariable("receipt_id", otInteger, receipt_id.get());
+  Qry.Execute();
+  if (!Qry.Eof) {
+    return PointId_t(Qry.FieldAsInteger("point_id"));
+  }
+  return {};
+}
+
+void createSofiFileDATA(int receipt_id)
+{
+  const std::optional<PointId_t> point_id = getPointIdSet(ReceiptId_t(receipt_id));
+  if (point_id) {
+    return;
+  }
+  TTripInfo flt;
+  if (!flt.getByPointId(point_id->get())) {
+    return;
+  }
+  const std::string& airline = flt.airline;
+  const std::string& airp = flt.airp;
+  const int flt_no = flt.flt_no;
+  DB::TQuery Qry(PgOra::getROSession({"FILE_PARAM_SETS", "DESKS"}),STDLOG);
+  Qry.SQLText =
       "SELECT DISTINCT point_addr FROM file_param_sets, desks "
       " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=1 AND "
       "       desks.code=file_param_sets.point_addr AND "
       "       ( airp IS NULL OR airp=:airp ) AND "
-          "       ( airline IS NULL OR airline=:airline ) AND "
-          "       ( flt_no IS NULL OR flt_no=:flt_no ) ";
-    Qry.CreateVariable( "type", otString, FILE_SOFI_TYPE );
-    Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-    Qry.CreateVariable( "airp", otString, airp );
-    Qry.CreateVariable( "airline", otString, airline );
-    if ( flt_no == ASTRA::NoExists )
-      Qry.CreateVariable( "flt_no", otInteger, FNull );
-    else
-      Qry.CreateVariable( "flt_no", otInteger, flt_no );
-    Qry.Execute();
-    string strflt_no;
-    if (  flt_no != ASTRA::NoExists )
-      strflt_no = IntToString( flt_no );
-    while ( !Qry.Eof ) {
-        CreateCommonFileData( false,
-                            Qry.FieldAsString("point_addr"),
-                            receipt_id, FILE_SOFI_TYPE, airp,
-                              airline, strflt_no );
-      Qry.Next();
-    }
-    }
+      "       ( airline IS NULL OR airline=:airline ) AND "
+      "       ( flt_no IS NULL OR flt_no=:flt_no ) ";
+  Qry.CreateVariable( "type", otString, FILE_SOFI_TYPE );
+  Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "airline", otString, airline );
+  if ( flt_no == ASTRA::NoExists )
+    Qry.CreateVariable( "flt_no", otInteger, FNull );
+  else
+    Qry.CreateVariable( "flt_no", otInteger, flt_no );
+  Qry.Execute();
+  string strflt_no;
+  if (  flt_no != ASTRA::NoExists )
+    strflt_no = IntToString( flt_no );
+  while ( !Qry.Eof ) {
+    CreateCommonFileData( false,
+                          Qry.FieldAsString("point_addr"),
+                          receipt_id, FILE_SOFI_TYPE, airp,
+                          airline, strflt_no );
+    Qry.Next();
+  }
 }
 
 /*void createAODBFileDATA( int point_id )

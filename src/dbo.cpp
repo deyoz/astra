@@ -47,6 +47,9 @@ std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryO
     }
     if(ops.for_update) {
         res << " for update";
+        if(!ops.for_update_of.empty()) {
+          res << " of " << ops.for_update_of;
+        }
     }
     return StrUtils::ToLower(res.str());
 }

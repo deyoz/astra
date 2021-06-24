@@ -181,7 +181,7 @@ namespace RCPT_PAX_NAME {
         return result;
     }
 
-    string get_pax_name(TQuery &Qry)
+    string get_pax_name(DB::TQuery &Qry)
     {
         string pax_name = (string)Qry.FieldAsString("surname") + " " + Qry.FieldAsString("name");
         vector<string> lex = split_pax_name(pax_name);
@@ -274,8 +274,6 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (dataNode==NULL)
     dataNode = NewTextChild(resNode, "data");
 
-  TQuery Qry(&OraSession);
-
   int pax_id=NoExists;
   int grp_id=NoExists;
   bool pr_unaccomp=false;
@@ -283,10 +281,28 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //сначала попробуем получить pax_id
   if (search_type==searchByReceiptNo)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT receipt_id,annul_date,point_id,grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
-      "FROM bag_receipts WHERE no=:no";
+    DB::TQuery Qry(PgOra::getROSession({"PAX", "BAG_RECEIPTS"}), STDLOG);
+    Qry.SQLText =
+        "SELECT receipt_id,annul_date,point_id,grp_id, "
+        "("
+        "SELECT pax_id "
+        "FROM pax "
+        "WHERE grp_id = bag_receipts.grp_id "
+        "ORDER BY "
+        "  CASE WHEN bag_pool_num IS NULL THEN 1 ELSE 0 END, "
+        "  CASE WHEN pers_type = 'ВЗ' THEN 0 "
+        "       WHEN pers_type = 'РБ' THEN 0 "
+        "       ELSE 1 END, "
+        "  CASE WHEN seats = 0 THEN 1 ELSE 0 END, "
+        "  CASE WHEN refuse IS NULL THEN 0 ELSE 1 END, "
+        "  CASE WHEN pers_type = 'ВЗ' THEN 0 "
+        "       WHEN pers_type = 'РБ' THEN 1 "
+        "       ELSE 2 END, "
+        "  reg_no "
+        "FETCH FIRST 1 ROWS ONLY "
+        ") AS pax_id "
+        "FROM bag_receipts "
+        "WHERE no=:no ";
     Qry.CreateVariable("no",otFloat,NodeAsFloat("receipt_no",reqNode));
     Qry.Execute();
     if (Qry.Eof)
@@ -311,7 +327,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (search_type==searchByRegNo)
   {
     int reg_no=NodeAsInteger("reg_no",reqNode);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
     Qry.SQLText=
       "SELECT pax.grp_id,pax.pax_id, pax.seats "
       "FROM pax_grp,pax "
@@ -343,11 +359,23 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
   if (search_type==searchByGrpId)
   {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG);
     Qry.SQLText=
-      "SELECT grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
-      "FROM pax_grp "
-      "WHERE grp_id=:grp_id";
+      "SELECT pax_id "
+      "FROM pax "
+      "WHERE grp_id = :grp_id "
+      "ORDER BY "
+      "  CASE WHEN bag_pool_num IS NULL THEN 1 ELSE 0 END, "
+      "  CASE WHEN pers_type = 'ВЗ' THEN 0 "
+      "       WHEN pers_type = 'РБ' THEN 0 "
+      "       ELSE 1 END, "
+      "  CASE WHEN seats = 0 THEN 1 ELSE 0 END, "
+      "  CASE WHEN refuse IS NULL THEN 0 ELSE 1 END, "
+      "  CASE WHEN pers_type = 'ВЗ' THEN 0 "
+      "       WHEN pers_type = 'РБ' THEN 1 "
+      "       ELSE 2 END, "
+      "  reg_no "
+      "FETCH FIRST 1 ROWS ONLY ";
     Qry.CreateVariable("grp_id",otInteger,NodeAsInteger("grp_id",reqNode));
     Qry.Execute();
     if (Qry.Eof)
@@ -373,9 +401,9 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   int point_dep;
 
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
   if (!(search_type==searchByReceiptNo && grp_id==NoExists))
   {
-    Qry.Clear();
     if (!pr_unaccomp)
     {
       Qry.SQLText=
@@ -481,33 +509,36 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (!pr_unaccomp)
   {
     string subcl;
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery QrySubclass(PgOra::getROSession("PAX"), STDLOG);
+    QrySubclass.SQLText=
       "SELECT DISTINCT subclass FROM pax "
-      "WHERE grp_id=:grp_id AND subclass IS NOT NULL";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-    if (!Qry.Eof)
+      "WHERE grp_id=:grp_id "
+      "AND subclass IS NOT NULL";
+    QrySubclass.CreateVariable("grp_id",otInteger,grp_id);
+    QrySubclass.Execute();
+    if (!QrySubclass.Eof)
     {
-      subcl=Qry.FieldAsString("subclass");
-      Qry.Next();
-      if (!Qry.Eof) subcl="";
+      subcl=QrySubclass.FieldAsString("subclass");
+      QrySubclass.Next();
+      if (!QrySubclass.Eof) subcl="";
     };
 
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery QryTicket(PgOra::getROSession("PAX"), STDLOG);
+    QryTicket.SQLText=
       "SELECT ticket_no FROM pax "
-      "WHERE grp_id=:grp_id AND refuse IS NULL AND ticket_no IS NOT NULL "
+      "WHERE grp_id=:grp_id "
+      "AND refuse IS NULL "
+      "AND ticket_no IS NOT NULL "
       "ORDER BY ticket_no";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
+    QryTicket.CreateVariable("grp_id",otInteger,grp_id);
+    QryTicket.Execute();
 
 
     string tickets,ticket,first_part;
-    for(;!Qry.Eof;Qry.Next())
+    for(;!QryTicket.Eof;QryTicket.Next())
     {
       if (!tickets.empty()) tickets+='/';
-      ticket=Qry.FieldAsString("ticket_no");
+      ticket=QryTicket.FieldAsString("ticket_no");
       if (ticket.size()<=2)
       {
         tickets+=ticket;
@@ -547,7 +578,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (!pr_unaccomp)
   {
     //загрузка главных пассажиров багажных пулов
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG);
     Qry.SQLText=
       "SELECT pax_id, bag_pool_num, surname, name, pers_type, seats, refuse "
       "FROM pax "
@@ -600,9 +631,9 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
 {
   if (dataNode==NULL) return;
 
-  TQuery Qry(&OraSession);
   if (pr_grp)
   {
+    DB::TQuery Qry(PgOra::getROSession("BAG_PREPAY"), STDLOG);
     xmlNodePtr node=NewTextChild(dataNode,"prepayment");
 
     //квитанции EMD, MCO
@@ -630,8 +661,8 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     }
 
     //квитанции предоплаты
-    Qry.Clear();
-    Qry.SQLText="SELECT * FROM bag_prepay WHERE grp_id=:grp_id";
+    Qry.SQLText="SELECT * FROM bag_prepay "
+                "WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id", otInteger, id);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
@@ -658,12 +689,13 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     };
   };
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
   if (pr_grp)
   {
     Qry.SQLText=
       "SELECT * FROM bag_receipts "
-      "WHERE grp_id=:grp_id ORDER BY issue_date";
+      "WHERE grp_id=:grp_id "
+      "ORDER BY issue_date";
     Qry.CreateVariable("grp_id", otInteger, id);
   }
   else
@@ -682,8 +714,8 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     GetReceiptFromDB(Qry,rcpt);
     xmlNodePtr rcptNode=NewTextChild(node,"receipt");
     PutReceiptToXML(rcpt,rcpt_id,pr_lat,rcptNode);
-  };
-};
+  }
+}
 
 int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
 {
@@ -759,44 +791,53 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     xmlNodePtr idNode=GetNodeFast("id",node);
 
     string old_aircode, old_no;
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    int receipt_id = ASTRA::NoExists;
     if (idNode!=NULL)
     {
         if (NodeAsInteger(idNode)==EMD_RCPT_ID )
           throw AstraLocale::UserException("MSG.UNABLE_CHANGE_DELETE_EMD");
 
-        Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
-        Qry.SQLText="SELECT * FROM bag_prepay WHERE receipt_id=:receipt_id";
+        DB::TQuery Qry(PgOra::getROSession("BAG_PREPAY"), STDLOG);
+        receipt_id = NodeAsInteger(idNode);
+        Qry.CreateVariable("receipt_id",otInteger,receipt_id);
+        Qry.SQLText="SELECT * FROM bag_prepay "
+                    "WHERE receipt_id=:receipt_id";
         Qry.Execute();
         if (Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
         old_aircode=Qry.FieldAsString("aircode");
         old_no=Qry.FieldAsString("no");
     }
-    else
-        Qry.CreateVariable("receipt_id",otInteger,FNull);
-
 
     if (!pr_del)
     {
         string aircode = NodeAsStringFast("aircode",node);
         string no = NodeAsStringFast("no",node);
 
-        if (idNode==NULL)
+        DB::TQuery Qry(PgOra::getRWSession("BAG_PREPAY"), STDLOG);
+        if (idNode==NULL) {
+            receipt_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
             Qry.SQLText=
-                "BEGIN "
-                "  SELECT cycle_id__seq.nextval INTO :receipt_id FROM dual; "
-                "  INSERT INTO bag_prepay "
-                "        (receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur) "
-                "  VALUES(:receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur); "
-                "END; ";
-        else
+                "INSERT INTO bag_prepay ("
+                "receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur "
+                ") VALUES("
+                ":receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur"
+                ") ";
+        } else {
             Qry.SQLText=
-                "UPDATE bag_prepay "
-                "SET no=:no,aircode=:aircode,ex_weight=:ex_weight, "
-                "    bag_type=:bag_type,value=:value,value_cur=:value_cur "
-                "WHERE receipt_id=:receipt_id AND grp_id=:grp_id";
-
+                "UPDATE bag_prepay SET "
+                "   no=:no,aircode=:aircode, "
+                "   ex_weight=:ex_weight, "
+                "   bag_type=:bag_type, "
+                "   value=:value,"
+                "   value_cur=:value_cur "
+                "WHERE receipt_id=:receipt_id "
+                "AND grp_id=:grp_id";
+        }
+        if (receipt_id == ASTRA::NoExists) {
+            Qry.CreateVariable("receipt_id",otInteger,FNull);
+        } else {
+            Qry.CreateVariable("receipt_id",otInteger,receipt_id);
+        }
         Qry.CreateVariable("grp_id",otInteger,grp_id);
         Qry.CreateVariable("no",otString,no);
         Qry.CreateVariable("aircode",otString,aircode);
@@ -817,7 +858,7 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (idNode!=NULL && Qry.RowsProcessed()<=0)
             throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
 
-        NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
+        NewTextChild(resNode,"receipt_id",receipt_id);
 
         std::string lexema_id;
         LEvntPrms params;
@@ -865,6 +906,7 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     else
     {
+        DB::TQuery Qry(PgOra::getRWSession("BAG_PREPAY"), STDLOG);
         Qry.SQLText=
             "DELETE FROM bag_prepay WHERE receipt_id=:receipt_id";
         Qry.Execute();
@@ -878,17 +920,17 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 //из базы в структуру
 bool PaymentInterface::GetReceiptFromDB(int id, TBagReceipt &rcpt)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT * FROM bag_receipts WHERE receipt_id=:id";
+  DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText="SELECT * FROM bag_receipts "
+              "WHERE receipt_id=:id";
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
 
   return GetReceiptFromDB(Qry,rcpt);
-};
+}
 
 //из базы в структуру
-bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
+bool PaymentInterface::GetReceiptFromDB(DB::TQuery &Qry, TBagReceipt &rcpt)
 {
   if (Qry.Eof) return false;
   rcpt.form_type=Qry.FieldAsString("form_type");
@@ -972,8 +1014,10 @@ bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
   rcpt.kit_items.clear();
   if (rcpt.kit_id!=NoExists)
   {
-    TQuery KitQry(&OraSession);
-    KitQry.SQLText="SELECT * FROM bag_rcpt_kits WHERE kit_id=:kit_id ORDER BY kit_num";
+    DB::TQuery KitQry(PgOra::getROSession("BAG_RCPT_KITS"), STDLOG);
+    KitQry.SQLText="SELECT * FROM bag_rcpt_kits "
+                   "WHERE kit_id=:kit_id "
+                   "ORDER BY kit_num";
     KitQry.CreateVariable("kit_id", otInteger, rcpt.kit_id);
     KitQry.Execute();
     for(int k=0;!KitQry.Eof;KitQry.Next(),k++)
@@ -992,26 +1036,23 @@ bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
 };
 
 //из структуры в базу
-int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int grp_id)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  SELECT cycle_id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
-    "  INSERT INTO bag_receipts "
-    "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
-    "         tickets,prev_no,airline,aircode,flt_no,suffix,scd_local_date,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
-    "         rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,remarks, "
-    "         issue_date,issue_place,issue_user_id,issue_desk,kit_id,kit_num,nds,nds_cur) "
-    "  VALUES(:receipt_id,:point_id,:grp_id,:status,:is_inter,:desk_lang,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
-    "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:scd_local_date,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
-    "         :rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:remarks, "
-    "         :issue_date,:issue_place,:issue_user_id,:issue_desk,:kit_id,:kit_num,:nds,:nds_cur); "
-    "END;";
-  Qry.CreateVariable("receipt_id",otInteger,FNull);
+void saveBagReceipts(const TBagReceipt &rcpt, int point_id, int grp_id, int receipt_id, int user_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText =
+    "INSERT INTO bag_receipts ( "
+    "receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
+    "tickets,prev_no,airline,aircode,flt_no,suffix,scd_local_date,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
+    "rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,remarks, "
+    "issue_date,issue_place,issue_user_id,issue_desk,kit_id,kit_num,nds,nds_cur "
+    ") VALUES( "
+    ":receipt_id,:point_id,:grp_id,:status,:is_inter,:desk_lang,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
+    ":tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:scd_local_date,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
+    ":rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:remarks, "
+    ":issue_date,:issue_place,:issue_user_id,:issue_desk,:kit_id,:kit_num,:nds,:nds_cur) ";
+  Qry.CreateVariable("receipt_id",otInteger,receipt_id);
+  Qry.CreateVariable("issue_date",otDate,NowUTC());
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.CreateVariable("status",otString,"П");
@@ -1022,10 +1063,11 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   Qry.CreateVariable("pax_name",otString,rcpt.pax_name);
   Qry.CreateVariable("pax_doc",otString,rcpt.pax_doc);
   Qry.CreateVariable("service_type",otInteger,rcpt.service_type);
-  if (rcpt.bag_type!=-1)
+  if (rcpt.bag_type!=-1) {
     Qry.CreateVariable("bag_type",otInteger,rcpt.bag_type);
-  else
+  } else {
     Qry.CreateVariable("bag_type",otInteger,FNull);
+  }
   Qry.CreateVariable("bag_name",otString,rcpt.bag_name);
   Qry.CreateVariable("tickets",otString,rcpt.tickets);
   Qry.CreateVariable("prev_no",otString,rcpt.prev_no);
@@ -1041,33 +1083,38 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
                                 Qry.CreateVariable("scd_local_date",otDate,rcpt.scd_local_date);
   Qry.CreateVariable("airp_dep",otString,rcpt.airp_dep);
   Qry.CreateVariable("airp_arv",otString,rcpt.airp_arv);
-  if (rcpt.ex_amount!=-1)
+  if (rcpt.ex_amount!=-1) {
     Qry.CreateVariable("ex_amount",otInteger,rcpt.ex_amount);
-  else
+  } else {
     Qry.CreateVariable("ex_amount",otInteger,FNull);
-  if (rcpt.ex_weight!=-1)
+  }
+  if (rcpt.ex_weight!=-1) {
     Qry.CreateVariable("ex_weight",otInteger,rcpt.ex_weight);
-  else
+  } else {
     Qry.CreateVariable("ex_weight",otInteger,FNull);
-  if (rcpt.value_tax!=-1.0)
+  }
+  if (rcpt.value_tax!=-1.0) {
     Qry.CreateVariable("value_tax",otFloat,rcpt.value_tax);
-  else
+  } else {
     Qry.CreateVariable("value_tax",otFloat,FNull);
+  }
   Qry.CreateVariable("rate",otFloat,rcpt.rate);
   Qry.CreateVariable("rate_cur",otString,rcpt.rate_cur);
-  if (rcpt.exch_rate!=-1)
+  if (rcpt.exch_rate!=-1) {
     Qry.CreateVariable("exch_rate",otInteger,rcpt.exch_rate);
-  else
+  } else {
     Qry.CreateVariable("exch_rate",otInteger,FNull);
-  if (rcpt.exch_pay_rate!=-1.0)
+  }
+  if (rcpt.exch_pay_rate!=-1.0) {
     Qry.CreateVariable("exch_pay_rate",otFloat,rcpt.exch_pay_rate);
-  else
+  } else {
     Qry.CreateVariable("exch_pay_rate",otFloat,FNull);
+  }
   Qry.CreateVariable("pay_rate_cur",otString,rcpt.pay_rate_cur);
   Qry.CreateVariable("remarks",otString,rcpt.remarks);
   Qry.CreateVariable("issue_date",otDate,rcpt.issue_date);
   Qry.CreateVariable("issue_place",otString,rcpt.issue_place);
-  Qry.CreateVariable("issue_user_id",otInteger,reqInfo->user.user_id);
+  Qry.CreateVariable("issue_user_id",otInteger,user_id);
   Qry.CreateVariable("issue_desk",otString,rcpt.issue_desk);
   if (rcpt.kit_id!=NoExists && rcpt.kit_num!=NoExists)
   {
@@ -1078,7 +1125,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   {
     Qry.CreateVariable("kit_id",otInteger,FNull);
     Qry.CreateVariable("kit_num",otInteger,FNull);
-  };
+  }
   if(rcpt.nds == NoExists) {
       Qry.CreateVariable("nds", otFloat, FNull);
       Qry.CreateVariable("nds_cur", otString, FNull);
@@ -1096,13 +1143,18 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
       throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", rcpt.no));
     else
       throw;
-  };
-  int receipt_id=Qry.GetVariableAsInteger("receipt_id");
+  }
+}
 
-  Qry.Clear();
+void saveBagPayTypes(const TBagReceipt &rcpt, int receipt_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("BAG_PAY_TYPES"), STDLOG);
   Qry.SQLText=
-    "INSERT INTO bag_pay_types(receipt_id,num,pay_type,pay_rate_sum,extra) "
-    "VALUES (:receipt_id,:num,:pay_type,:pay_rate_sum,:extra)";
+    "INSERT INTO bag_pay_types( "
+    "receipt_id,num,pay_type,pay_rate_sum,extra "
+    ") VALUES ( "
+    ":receipt_id,:num,:pay_type,:pay_rate_sum,:extra"
+    ")";
   Qry.CreateVariable("receipt_id",otInteger,receipt_id);
   Qry.DeclareVariable("num",otInteger);
   Qry.DeclareVariable("pay_type",otString);
@@ -1116,55 +1168,87 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     Qry.SetVariable("pay_rate_sum",i->pay_rate_sum);
     Qry.SetVariable("extra",i->extra);
     Qry.Execute();
-  };
+  }
+}
 
+void checkBagReceiptsDuplicates(const TBagReceipt &rcpt)
+{
+  DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText =
+    "SELECT receipt_id FROM bag_receipts "
+    "WHERE form_type=:form_type AND no=:no";
+  Qry.DeclareVariable("form_type", otString);
+  Qry.DeclareVariable("no", otFloat);
+  for(vector<TBagReceiptKitItem>::const_iterator i=rcpt.kit_items.begin();i!=rcpt.kit_items.end();++i)
+  {
+    if (i->form_type==rcpt.form_type && i->no==rcpt.no) continue;
+    Qry.SetVariable("form_type", i->form_type);
+    Qry.SetVariable("no", i->no);
+    Qry.Execute();
+    if (!Qry.Eof) {
+      throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", i->no));
+    }
+  }
+}
+
+void updateBagReceipts_KitNum(int receipt_id, int kit_num)
+{
+  DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText =
+    "UPDATE bag_receipts SET "
+    "kit_id=:receipt_id, "
+    "kit_num=:kit_num "
+    "WHERE receipt_id=:receipt_id";
+  Qry.CreateVariable("receipt_id", otInteger, receipt_id);
+  Qry.CreateVariable("kit_num", otInteger, kit_num);
+  Qry.Execute();
+}
+
+void saveBagRcptKits(const TBagReceipt &rcpt, int receipt_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("BAG_RCPT_KITS"), STDLOG);
+  Qry.SQLText=
+    "INSERT INTO bag_rcpt_kits( "
+    "kit_id, kit_num, form_type, no, aircode "
+    ") VALUES( "
+    ":receipt_id, :kit_num, :form_type, :no, :aircode "
+    ")";
+  Qry.CreateVariable("receipt_id", otInteger, receipt_id);
+  Qry.DeclareVariable("kit_num", otInteger);
+  Qry.DeclareVariable("form_type", otString);
+  Qry.DeclareVariable("no", otFloat);
+  Qry.DeclareVariable("aircode", otString);
+  int num=0;
+  for(vector<TBagReceiptKitItem>::const_iterator i=rcpt.kit_items.begin();i!=rcpt.kit_items.end();++i,num++)
+  {
+    Qry.SetVariable("kit_num", num);
+    Qry.SetVariable("form_type", i->form_type);
+    Qry.SetVariable("no", i->no);
+    Qry.SetVariable("aircode", i->aircode);
+    Qry.Execute();
+  }
+}
+
+int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int grp_id)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  const int user_id = reqInfo->user.user_id;
+  const int receipt_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+  saveBagReceipts(rcpt, point_id, grp_id, receipt_id, user_id);
+  saveBagPayTypes(rcpt, receipt_id);
+
+  //проверка дублирования номеров квитанций
   if (rcpt.kit_id==NoExists && rcpt.kit_num!=NoExists)
   {
-    //проверка дублирования номеров квитанций
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT receipt_id FROM bag_receipts WHERE form_type=:form_type AND no=:no";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("no", otFloat);
-    for(vector<TBagReceiptKitItem>::const_iterator i=rcpt.kit_items.begin();i!=rcpt.kit_items.end();++i)
-    {
-      if (i->form_type==rcpt.form_type && i->no==rcpt.no) continue;
-      Qry.SetVariable("form_type", i->form_type);
-      Qry.SetVariable("no", i->no);
-      Qry.Execute();
-      if (!Qry.Eof)
-        throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", i->no));
-    };
+    checkBagReceiptsDuplicates(rcpt);
 
     //надо добавить комплект в bag_rcpt_kits
-    Qry.Clear();
-    Qry.SQLText=
-      "INSERT INTO bag_rcpt_kits(kit_id, kit_num, form_type, no, aircode) "
-      "VALUES(:receipt_id, :kit_num, :form_type, :no, :aircode)";
-    Qry.CreateVariable("receipt_id", otInteger, receipt_id);
-    Qry.DeclareVariable("kit_num", otInteger);
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("no", otFloat);
-    Qry.DeclareVariable("aircode", otString);
-    int num=0;
-    for(vector<TBagReceiptKitItem>::const_iterator i=rcpt.kit_items.begin();i!=rcpt.kit_items.end();++i,num++)
-    {
-      Qry.SetVariable("kit_num", num);
-      Qry.SetVariable("form_type", i->form_type);
-      Qry.SetVariable("no", i->no);
-      Qry.SetVariable("aircode", i->aircode);
-      Qry.Execute();
-    };
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE bag_receipts SET kit_id=:receipt_id, kit_num=:kit_num WHERE receipt_id=:receipt_id";
-    Qry.CreateVariable("receipt_id", otInteger, receipt_id);
-    Qry.CreateVariable("kit_num", otInteger, rcpt.kit_num);
-    Qry.Execute();
-  };
+    saveBagRcptKits(rcpt, receipt_id);
+    updateBagReceipts_KitNum(receipt_id, rcpt.kit_num);
+  }
 
   return receipt_id;
-};
+}
 
 
 //из структуры в XML
@@ -1382,13 +1466,14 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
   xmlNodePtr rcptNode=NodeAsNode("receipt",reqNode);
 
   int grp_id=NoExists;
-  TQuery Qry(&OraSession);
   if (GetNode("kit_id",rcptNode)!=NULL)
   {
     //телеграмма из комплекта
     int kit_id=NodeAsInteger("kit_id",rcptNode);
-    Qry.Clear();
-    Qry.SQLText="SELECT * FROM bag_receipts WHERE kit_id=:kit_id AND rownum<2";
+    DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
+    Qry.SQLText="SELECT * FROM bag_receipts "
+                "WHERE kit_id=:kit_id "
+                "FETCH FIRST 1 ROWS ONLY ";
     Qry.CreateVariable("kit_id",otInteger,kit_id);
     Qry.Execute();
     if (Qry.Eof)
@@ -1428,7 +1513,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
   if (!route.GetRoute(grp_id, trtWithFirstSeg) || route.empty())
     throw AstraLocale::UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","MARK_TRIPS"}), STDLOG);
   Qry.SQLText=
     "SELECT point_dep, point_arv, pr_mark_norms, "
     "       mark_trips.airline AS airline_mark, "
@@ -1641,7 +1726,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 
   rcpt.annul_date=NoExists;
   rcpt.annul_desk="";
-};
+}
 
 void PaymentInterface::PutReceiptFields(const TBagReceipt &rcpt, bool pr_lat, xmlNodePtr node)
 {
@@ -1712,9 +1797,9 @@ void PaymentInterface::PutReceiptFields(int id, bool pr_lat, xmlNodePtr node)
 
   TBagReceipt rcpt;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT * FROM bag_receipts WHERE receipt_id=:id";
+  DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
+  Qry.SQLText="SELECT * FROM bag_receipts "
+              "WHERE receipt_id=:id";
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
   if (Qry.Eof)
@@ -1738,8 +1823,8 @@ void PaymentInterface::PutReceiptFields(int id, bool pr_lat, xmlNodePtr node)
       annul_str << getLocaleText("MSG.RECEIPT.REFUND") << " "
                 << DateTimeToStr(annul_date_local, (string)"ddmmmyy", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
     ReplaceTextChild(NodeAsNode("fields",node),"annul_str",annul_str.str());
-  };
-};
+  }
+}
 
 void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1804,7 +1889,6 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
 
   TBagReceipt rcpt;
-  TQuery Qry(&OraSession);
 
   int point_dep=NoExists;
   int grp_id=NoExists;
@@ -1832,8 +1916,9 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if (GetNode("point_dep",reqNode)==NULL)
     {
       //квитанция не привязана к группе
-      Qry.Clear();
-      Qry.SQLText="SELECT point_id FROM bag_receipts WHERE receipt_id=:receipt_id";
+      DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
+      Qry.SQLText="SELECT point_id FROM bag_receipts "
+                  "WHERE receipt_id=:receipt_id";
       Qry.CreateVariable("receipt_id",otInteger,*rcpt_id);
       Qry.Execute();
       if (Qry.Eof)
@@ -1846,11 +1931,15 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       point_dep=Qry.FieldAsInteger("point_id");
     };
 
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
     Qry.SQLText=
-        "UPDATE bag_receipts "
-        "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
-        "WHERE receipt_id=:receipt_id AND status=:old_status";
+        "UPDATE bag_receipts SET "
+        "status=:new_status, "
+        "annul_date=:annul_date, "
+        "annul_user_id=:user_id, "
+        "annul_desk=:desk "
+        "WHERE receipt_id=:receipt_id "
+        "AND status=:old_status";
     Qry.CreateVariable("receipt_id",otInteger,*rcpt_id);
     Qry.CreateVariable("old_status",otString,"П");
     Qry.CreateVariable("new_status",otString,new_status);
@@ -1922,11 +2011,15 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             //замена бланка
             rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
-            Qry.Clear();
+            DB::TQuery Qry(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
             Qry.SQLText=
-                "UPDATE bag_receipts "
-                "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
-                "WHERE receipt_id=:receipt_id AND status=:old_status";
+                "UPDATE bag_receipts SET "
+                "status=:new_status, "
+                "annul_date=:annul_date, "
+                "annul_user_id=:user_id, "
+                "annul_desk=:desk "
+                "WHERE receipt_id=:receipt_id "
+                "AND status=:old_status";
             Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
             Qry.CreateVariable("old_status",otString,"П");
             Qry.CreateVariable("new_status",otString,"З");

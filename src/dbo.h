@@ -48,6 +48,7 @@ struct QueryOps {
     std::string order_by;
     std::string fetch_first;
     bool        for_update = false;
+    std::string for_update_of;
 };
 
 DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo,
@@ -636,6 +637,13 @@ public:
     Query<Result> & for_update(bool condition = true)
     {
         m_ops.for_update = condition;
+        return *this;
+    }
+
+    Query<Result> & for_update_of(const std::string& of_condition)
+    {
+        m_ops.for_update = true;
+        m_ops.for_update_of = of_condition;
         return *this;
     }
 

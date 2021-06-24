@@ -1020,9 +1020,7 @@ void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t & part_
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
     dbo::Session session;
     std::vector<dbo::BAG_RECEIPTS> bag_receipts = session.query<dbo::BAG_RECEIPTS>()
-            .from("BAG_RECEIPTS left join BAG_RCPT_KITS on bag_receipts.kit_id = bag_rcpt_kits.kit_id AND "
-                 " bag_receipts.kit_num = bag_rcpt_kits.kit_num ")
-            .where("bag_receipts.point_id = :point_id")
+            .where("bag_receipts.point_id = :point_id ")
             .for_update(true)
             .setBind({{"point_id", point_id.get()}});
 
@@ -1071,11 +1069,10 @@ void deleteBagReceipts(const PointId_t& point_id)
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
     std::vector<dbo::BAG_RECEIPTS> bag_receipts;
     dbo::BAG_RECEIPTS bag;
-    auto cur = make_db_curs("select bag_receipts.receipt_id, bag_receipts.kit_id from BAG_RECEIPTS "
-                            " left join BAG_RCPT_KITS on bag_receipts.kit_id = bag_rcpt_kits.kit_id AND "
-                            " bag_receipts.kit_num = bag_rcpt_kits.kit_num "
-                            " WHERE bag_receipts.point_id = :point_id FOR UPDATE",
-                            PgOra::getRWSession({"BAG_RECEIPTS", "BAG_RCPT_KITS"}));
+    auto cur = make_db_curs("SELECT receipt_id, kit_id FROM bag_receipts "
+                            "WHERE point_id = :point_id "
+                            "FOR UPDATE",
+                            PgOra::getRWSession("BAG_RECEIPTS"));
     cur.def(bag.receipt_id).defNull(bag.kit_id, ASTRA::NoExists).bind(":point_id", point_id.get()).exec();
     while(!cur.fen()) {
         bag_receipts.push_back(bag);

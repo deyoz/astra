@@ -13,6 +13,7 @@
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_utils.h"
+#include "astra_main.h"
 //#include "astra_service.h"
 #include "file_queue.h"
 #define NICKNAME "DJEK"
@@ -71,45 +72,89 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
                      const std::string &point_addr, TFileDatas &fds )
 {
 	ProgTrace( TRACE5, "inparams.size()=%zu", inparams.size() );
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT TO_CHAR(bag_receipts.no) no,bag_receipts.form_type,bag_receipts.aircode,bag_receipts.issue_date, "
-    "      bag_receipts.pax_name,bag_receipts.tickets,bag_receipts.airp_dep,bag_receipts.airp_arv, "
-    "      bag_receipts.airline,bag_receipts.flt_no,bag_receipts.suffix,bag_receipts.grp_id,bag_receipts.ex_weight,  "
-    "      bag_receipts.rate,bag_receipts.rate_cur, "
-    "      bag_receipts.exch_rate,bag_receipts.exch_pay_rate,bag_receipts.pay_rate_cur, "
-    "      bag_receipts.ex_weight,bag_receipts.issue_user_id, bag_receipts.issue_desk, "
-    "      desks.code pult, desk_grp.city as sale_city,  "
-    "      points.scd_out, users2.descr, points.point_id point_id,  "
-    "      form_types.basic_type AS basic_form_type,form_types.validator "
-    "FROM bag_receipts, form_types, desks, desk_grp, pax_grp, points, users2  "
-    "WHERE bag_receipts.form_type=form_types.code AND "
-    "      receipt_id= :id AND  "
-    "      bag_receipts.service_type IN (1,2) AND "
-    "      bag_receipts.issue_desk=desks.code AND  "
-    "      desks.grp_id=desk_grp.grp_id AND  "
-    "      bag_receipts.grp_id=pax_grp.grp_id(+) AND  "
-    "      pax_grp.point_dep=points.point_id(+) AND  "
-    "      bag_receipts.issue_user_id=users2.user_id";
-	Qry.CreateVariable( "id", otInteger, receipt_id );
-	Qry.Execute();
-	if ( Qry.Eof )
-		return false;
-	int point_id = Qry.FieldAsInteger( "point_id" );
+  DB::TQuery QryReceipts(PgOra::getRWSession("BAG_RECEIPTS"), STDLOG);
+  QryReceipts.SQLText=
+    "SELECT "
+    + std::string(PgOra::supportsPg("BAG_RECEIPTS")
+                  ? "TO_CHAR(no) AS no, "
+                  : "CAST(no AS varchar) AS no, ") +
+    "form_type, aircode, issue_date, pax_name, tickets, airp_dep, airp_arv, "
+    "airline, flt_no, suffix, grp_id, ex_weight, rate, rate_cur, exch_rate, "
+    "exch_pay_rate, pay_rate_cur, ex_weight, issue_user_id, issue_desk "
+    "FROM bag_receipts  "
+    "WHERE receipt_id= :id "
+    "AND service_type IN (1,2)";
+  QryReceipts.CreateVariable( "id", otInteger, receipt_id );
+  QryReceipts.Execute();
+  if (QryReceipts.Eof) {
+    return false;
+  }
+
+  const std::string form_type_code = QryReceipts.FieldAsString("form_type");
+  const int issue_user_id = QryReceipts.FieldAsInteger("issue_user_id");
+  const std::string issue_desk = QryReceipts.FieldAsString("issue_desk");
+  const int grp_id = QryReceipts.FieldAsInteger("grp_id");
+
+  DB::TQuery QryFormTypes(PgOra::getRWSession("FORM_TYPES"), STDLOG);
+  QryFormTypes.SQLText=
+    "SELECT form_types.basic_type AS basic_form_type,form_types.validator "
+    "FROM form_types "
+    "WHERE form_types.code = :form_type ";
+  QryFormTypes.CreateVariable("form_type", otString, form_type_code);
+  QryFormTypes.Execute();
+  if (QryFormTypes.Eof) {
+    return false;
+  }
+  std::string basic_form_type = QryFormTypes.FieldAsString("basic_form_type");
+  const std::string validator = QryFormTypes.FieldAsString("validator");
+
+  DB::TQuery QryUsers(PgOra::getRWSession("USERS2"), STDLOG);
+  QryUsers.SQLText=
+    "SELECT 1 FROM users2 "
+    "WHERE user_id = :user_id ";
+  QryUsers.CreateVariable("user_id", otInteger, issue_user_id);
+  QryUsers.Execute();
+  if (QryUsers.Eof) {
+    return false;
+  }
+
+  DB::TQuery QryDesks(PgOra::getRWSession({"DESKS", "DESK_GRP"}), STDLOG);
+  QryDesks.SQLText=
+      "SELECT desks.code pult, desk_grp.city as sale_city  "
+      "FROM desks, desk_grp "
+      "WHERE desks.code = :issue_desk "
+      "AND desks.grp_id = desk_grp.grp_id ";
+  QryDesks.CreateVariable("issue_desk", otString, issue_desk);
+  QryDesks.Execute();
+  if (QryDesks.Eof) {
+    return false;
+  }
+  const std::string pult = QryDesks.FieldAsString("pult");
+  const std::string sale_city = QryDesks.FieldAsString("sale_city");
+
+  // TODO: !!! Проверить формат файла SOFI, т.к. point_id и scd_out могут быть не заполнены !!!
+  int point_id = 0;
+  TTripInfo flt;
+  if (flt.getByGrpId(grp_id)) {
+    point_id = flt.point_id;
+  }
+  const TDateTime scd_out = flt.scd_out;
 
   for(map<string,string>::iterator im = inparams.begin(); im != inparams.end(); im++) {
  	  if ( im->first == SOFI_AGENCY_PARAMS ) {
- 	    TQuery AgencyQry(&OraSession);
-      AgencyQry.Clear();
-      AgencyQry.SQLText=
-       "SELECT sale_points.agency FROM sale_desks, sale_points "
-       "WHERE sale_desks.code=:code AND sale_desks.validator=:validator AND "
-       " sale_points.code=sale_desks.sale_point AND sale_points.validator=sale_desks.validator";
-      AgencyQry.CreateVariable( "code", otString, Qry.FieldAsString( "issue_desk" ) );
-      AgencyQry.CreateVariable( "validator", otString, Qry.FieldAsString("validator") );
- 	    AgencyQry.Execute();
- 	    if (AgencyQry.Eof ||
- 	        im->second != AgencyQry.FieldAsString("agency")) return false;
+      DB::TQuery QryAgency(PgOra::getROSession({"SALE_DESKS", "SALE_POINTS"}), STDLOG);
+      QryAgency.SQLText =
+          "SELECT sale_points.agency "
+          "FROM sale_desks, sale_points "
+          "WHERE sale_desks.code=:code "
+          "AND sale_desks.validator=:validator "
+          "AND sale_points.code=sale_desks.sale_point "
+          "AND sale_points.validator=sale_desks.validator";
+      QryAgency.CreateVariable("code", otString, issue_desk);
+      QryAgency.CreateVariable("validator", otString, validator);
+      QryAgency.Execute();
+      if (QryAgency.Eof ||
+          im->second != QryAgency.FieldAsString("agency")) return false;
  	  	break;
  	  }
  	}
@@ -120,24 +165,23 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
 	//2 Служебная информация CHAR(X)
 	res << "_BAGGAGE_" << dlmt;
 	//3 Серия бланка Z, M, CHA, CБА CHAR(3)
-	string form_type = Qry.FieldAsString( "basic_form_type" );
-	if ( !form_type.empty() && form_type[ 0 ] == 'M' ) // replace lat M to rus M
-		form_type[ 0 ] = 'М';
-  res << setw(3) << form_type << dlmt;
+  if ( !basic_form_type.empty() && basic_form_type[ 0 ] == 'M' ) // replace lat M to rus M
+    basic_form_type[ 0 ] = 'М';
+  res << setw(3) << basic_form_type << dlmt;
   //4 Номер бланка NUMBER(10)
-  string no=Qry.FieldAsString( "no" );
+  string no=QryReceipts.FieldAsString( "no" );
   res << TrimString(no) << dlmt;
   //5 Расчетный код CHAR(3)
-  res<<Qry.FieldAsString( "aircode" ) << dlmt;
+  res<<QryReceipts.FieldAsString( "aircode" ) << dlmt;
 
-  string val = CityTZRegion( Qry.FieldAsString( "sale_city" ) );
-  TDateTime d = UTCToLocal( Qry.FieldAsDateTime( "issue_date" ), val );
+  string val = CityTZRegion( sale_city );
+  TDateTime d = UTCToLocal( QryReceipts.FieldAsDateTime( "issue_date" ), val );
   //6 Дата продажи CHAR(10) 10.10.2006
   res << DateTimeToStr( d, "dd.mm.yyyy") << dlmt;
 
  // surname & name
  {
-     string pax_name = Qry.FieldAsString( "pax_name" );
+     string pax_name = QryReceipts.FieldAsString( "pax_name" );
      TrimString(pax_name);
      string surname;
      string::size_type pos = pax_name.find(" ");
@@ -151,32 +195,32 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
      res<<dlmt; //6
  }
 
- string tickets=Qry.FieldAsString( "tickets" );
+ string tickets=QryReceipts.FieldAsString( "tickets" );
  res << TrimString(tickets) << dlmt;
 
- TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_dep"));
+ TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",QryReceipts.FieldAsString("airp_dep"));
  if ( row->city.empty() )
-   res<<Qry.FieldAsString("airp_dep"); //???4
+   res<<QryReceipts.FieldAsString("airp_dep"); //???4
  else
  	 res<<row->city; //???4
  res<<dlmt; //7
- row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
+ row=(TAirpsRow*)&base_tables.get("airps").get_row("code",QryReceipts.FieldAsString("airp_arv"));
  if ( row->city.empty() )
-   res<<Qry.FieldAsString("airp_arv"); //???4
+   res<<QryReceipts.FieldAsString("airp_arv"); //???4
  else
  	 res<<row->city; 	//???4
  res<<dlmt; //8
- res<<Qry.FieldAsString( "airline" );
+ res<<QryReceipts.FieldAsString( "airline" );
  res<<dlmt; //9
- res << setw(3) << setfill('0') << Qry.FieldAsInteger( "flt_no" )
-     << Qry.FieldAsString( "suffix" );
+ res << setw(3) << setfill('0') << QryReceipts.FieldAsInteger( "flt_no" )
+     << QryReceipts.FieldAsString( "suffix" );
  res<<dlmt; //10
- val = AirpTZRegion( Qry.FieldAsString("airp_dep") );
- d = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), val );
+ val = AirpTZRegion( QryReceipts.FieldAsString("airp_dep") );
+ d = UTCToLocal( scd_out, val );
  res<<DateTimeToStr( d, "dd.mm.yyyy");
  res<<dlmt; //11
  res << setprecision(2);
- res<<Qry.FieldAsInteger( "ex_weight" );
+ res<<QryReceipts.FieldAsInteger( "ex_weight" );
  res<<dlmt; //12
 
  //короче, баклан
@@ -198,14 +242,14 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  //однако кое-какую информацию ты все равно должен взять отдельным запросом
 
 
- string rate_cur=Qry.FieldAsString("rate_cur");
- string pay_rate_cur=Qry.FieldAsString("pay_rate_cur");
+ string rate_cur=QryReceipts.FieldAsString("rate_cur");
+ string pay_rate_cur=QryReceipts.FieldAsString("pay_rate_cur");
  double pay_rate;
  if (rate_cur!=pay_rate_cur)
-   pay_rate = Qry.FieldAsFloat( "rate" ) * Qry.FieldAsFloat( "exch_pay_rate" ) /
-              Qry.FieldAsInteger( "exch_rate" );
+   pay_rate = QryReceipts.FieldAsFloat( "rate" ) * QryReceipts.FieldAsFloat( "exch_pay_rate" ) /
+              QryReceipts.FieldAsInteger( "exch_rate" );
  else
-   pay_rate = Qry.FieldAsFloat( "rate" );
+   pay_rate = QryReceipts.FieldAsFloat( "rate" );
 
  ostringstream buf;
  buf << std::fixed << setprecision(2) << pay_rate;
@@ -214,15 +258,15 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<dlmt; //13
 
  buf.str("");
- buf<<pay_rate*Qry.FieldAsInteger( "ex_weight" ); //???12.3
+ buf<<pay_rate*QryReceipts.FieldAsInteger( "ex_weight" ); //???12.3
  res<<buf.str(); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
  res<<dlmt<<setprecision(0);
- res<<Qry.FieldAsString( "pult" );
+ res<<pult;
  res<<dlmt; //15
  res<<dlmt; //15
  TFileData fd;
  fd.file_data = res.str();
- createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), point_addr, fd.params );
+ createFileParamsSofi( point_id, receipt_id, pult, point_addr, fd.params );
  if ( !fd.file_data.empty() )
 	fds.push_back( fd );
  return !fds.empty();

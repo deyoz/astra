@@ -2099,14 +2099,13 @@ void PaidBagViewToXML(const TPaidBagViewMap &paid_view,
 
 string GetBagRcptStr(int grp_id, int pax_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-
   int main_pax_id=NoExists;
   if (pax_id!=NoExists)
   {
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.SQLText=
-      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_pax_id FROM dual";
+      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_p1ax_id FROM dual";
     Qry.Execute();
     if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
   };
@@ -2119,12 +2118,20 @@ string GetBagRcptStr(int grp_id, int pax_id)
     for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
       if (i->trfer_num==0 && i->wt) rcpts.push_back(i->doc_no); //!!!почему только trfer_num=0?
 
-    Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-      rcpts.push_back(Qry.FieldAsString("no"));
+    DB::TQuery QryPrepay(PgOra::getROSession("BAG_PREPAY"), STDLOG);
+    QryPrepay.CreateVariable("grp_id", otInteger, grp_id);
+    QryPrepay.SQLText="SELECT no FROM bag_prepay "
+                      "WHERE grp_id=:grp_id";
+    QryPrepay.Execute();
+    for(;!QryPrepay.Eof;QryPrepay.Next()) {
+      rcpts.push_back(QryPrepay.FieldAsString("no"));
+    }
 
-    Qry.SQLText="SELECT form_type,no FROM bag_receipts WHERE grp_id=:grp_id AND annul_date IS NULL";
+    DB::TQuery Qry(PgOra::getROSession("BAG_RECEIPTS"), STDLOG);
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.SQLText="SELECT form_type,no FROM bag_receipts "
+                "WHERE grp_id=:grp_id "
+                "AND annul_date IS NULL";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -2142,10 +2149,10 @@ string GetBagRcptStr(int grp_id, int pax_id)
     {
       sort(rcpts.begin(),rcpts.end());
       return ::GetBagRcptStr(rcpts);
-    };
-  };
+    }
+  }
   return "";
-};
+}
 
 bool BagPaymentCompleted(int grp_id, int *value_bag_count)
 {
@@ -2182,16 +2189,17 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
 
   if (paid_bag.empty() && value_bag.empty()) return true;
 
-  TQuery KitQry(&OraSession);
-  KitQry.Clear();
+  DB::TQuery KitQry(PgOra::getROSession({"BAG_RCPT_KITS", "BAG_RECEIPTS"}), STDLOG);
   KitQry.SQLText=
-    "SELECT bag_rcpt_kits.kit_id "
-    "FROM bag_rcpt_kits, bag_receipts "
-    "WHERE bag_rcpt_kits.kit_id=bag_receipts.kit_id(+) AND "
-    "      bag_rcpt_kits.kit_num=bag_receipts.kit_num(+) AND "
-    "      bag_receipts.annul_date(+) IS NULL AND "
-    "      bag_rcpt_kits.kit_id=:kit_id AND "
-    "      bag_receipts.kit_id IS NULL";
+      "SELECT bag_rcpt_kits.kit_id "
+      "FROM bag_rcpt_kits "
+      "WHERE bag_rcpt_kits.kit_id = :kit_id "
+      "AND NOT EXISTS ("
+      "  SELECT 1 FROM bag_receipts "
+      "  WHERE bag_receipts.kit_id = bag_rcpt_kits.kit_id "
+      "  AND bag_receipts.kit_num = bag_rcpt_kits.kit_num "
+      "  AND bag_receipts.annul_date IS NULL "
+      ")";
   KitQry.DeclareVariable("kit_id", otInteger);
 
   if (!paid_bag.empty())

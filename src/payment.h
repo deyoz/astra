@@ -129,7 +129,7 @@ public:
   //из базы в структуру
   bool GetReceiptFromDB(int id, TBagReceipt &rcpt);
   //из базы в структуру
-  bool GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt);
+  bool GetReceiptFromDB(DB::TQuery &Qry, TBagReceipt &rcpt);
   //из XML в структуру
   void GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt);
 
