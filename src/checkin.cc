@@ -7685,12 +7685,13 @@ void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 
 //////////// для системы информирования
-
-void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void CheckInInterface::OpenDESKInfo(xmlNodePtr reqNode,
+                                    xmlNodePtr resNode,
+                                    const std::string& work_mode)
 {
-    int open = NodeAsInteger("Open",reqNode);
-    int point_id = NodeAsInteger( "point_id", reqNode );
-    ProgTrace( TRACE5, "Open=%d", open );
+  int open = NodeAsInteger("Open",reqNode);
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  ProgTrace( TRACE5, "Open=%d", open );
   TQuery Qry(&OraSession);
   Qry.SQLText =
    "UPDATE trip_stations SET start_time=DECODE(:open, 1, system.UTCSYSDATE, NULL) "
@@ -7698,12 +7699,17 @@ void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "open", otInteger, open );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
-  Qry.CreateVariable( "work_mode", otString, "Р" );
+  Qry.CreateVariable( "work_mode", otString, work_mode );
   Qry.Execute();
   if ( open == 1 )
     TReqInfo::Instance()->LocaleToLog("EVT.CHECKIN_OPEN_FOR_INFO_SYS", evtFlt, point_id);
   else
     TReqInfo::Instance()->LocaleToLog("EVT.CHECKIN_CLOSE_FOR_INFO_SYS", evtFlt, point_id);
+}
+
+void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  CheckInInterface::OpenDESKInfo( reqNode, resNode, "Р" );
 }
 
 void CheckInInterface::GetTCkinFlights(const TTripInfo &operFlt,
