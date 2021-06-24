@@ -27,12 +27,15 @@ public:
      AddEvent("LoadPaxAPIS",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::SavePaxAPIS);
      AddEvent("SavePaxAPIS",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::OpenBrdInfo);
+     AddEvent("OpenBrdInfo",evHandle);
   };
 
   void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void OpenBrdInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
