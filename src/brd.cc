@@ -31,6 +31,7 @@
 #include "telegram.h"
 #include "pax_calc_data.h"
 #include "pax_confirmations.h"
+#include "checkin.h"
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -1994,6 +1995,14 @@ void BrdInterface::SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   GetPax(reqNode, resNode);
 };
+
+//////////// для системы информирования
+
+void BrdInterface::OpenBrdInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  CheckInInterface::OpenDESKInfo( reqNode, resNode, "П" );
+}
+
 
 
 

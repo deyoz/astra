@@ -1056,7 +1056,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
 /* попросили убрать работу с табло 24.10.1018 Feature #33436*/
 /* попросили добавить работу с табло 15.07.2020 Feature #38290*/
-   if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
+  if (reqInfo->desk.airp == "ВНК" &&
+       (reqInfo->screen.name == "AIR.EXE"||reqInfo->screen.name == "BRDBUS.EXE"))
   {
     TQuery Qryh( &OraSession );
     Qryh.Clear();
@@ -1065,10 +1066,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.CreateVariable( "desk", otString, reqInfo->desk.code );
-    Qryh.CreateVariable( "work_mode", otString, "Р" );
+    Qryh.CreateVariable( "work_mode", otString, (reqInfo->screen.name == "AIR.EXE")?"Р":"П" );
     Qryh.Execute();
     if (!Qryh.Eof)
-      NewTextChild( node, "start_check_info", (int)!Qryh.FieldIsNULL( "start_time" ) );
+      NewTextChild( node, (reqInfo->screen.name == "AIR.EXE")?"start_check_info":"start_brd_info", (int)!Qryh.FieldIsNULL( "start_time" ) );
   };
 
   if (reqInfo->screen.name == "AIR.EXE" ||

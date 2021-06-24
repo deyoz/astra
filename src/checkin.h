@@ -227,6 +227,10 @@ public:
                            const std::map<int, CheckIn::TTransferItem> &trfer,
                            const bool get_trfer_permit_only,
                            std::map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > &trfer_segs);
+  //информационное табло
+  static void OpenDESKInfo(xmlNodePtr reqNode,
+                           xmlNodePtr resNode,
+                           const std::string& work_mode);
 
   static CheckInInterface* instance();
 };
