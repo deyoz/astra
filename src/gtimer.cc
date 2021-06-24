@@ -30,7 +30,7 @@ bool checkPrDel(const int point_id)
     return true;
 }
 
-bool isClientStage(const int point_id, const TStage stage, int& pr_permit)
+bool isClientStage(const int point_id, const TStage stage, bool& pr_permit)
 {
     DbCpp::CursCtl cur = make_db_curs(
        "SELECT COALESCE(pr_permit, 0) "
@@ -44,18 +44,44 @@ bool isClientStage(const int point_id, const TStage stage, int& pr_permit)
     );
 
     cur.stb()
-       .defNull(pr_permit, 0)
+       .defNull(pr_permit, false)
        .bind(":point_id", point_id)
        .bind(":stage_id", int(stage))
        .exfet();
 
     if (DbCpp::ResultCode::NoDataFound == cur.err()) {
-        pr_permit = 0;
+        pr_permit = false;
         return false;
     }
 
     // это не клиентский шаг.
     return true;
+}
+
+bool isCkinClientStageReadyToUpdate(const int point_id, const TStage stage)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT COALESCE(MAX(pr_upd_stage),0) "
+       "FROM trip_ckin_client, ckin_client_stages "
+       "WHERE point_id = :point_id "
+         "AND trip_ckin_client.client_type = ckin_client_stages.client_type "
+         "AND stage_id = :stage_id",
+        PgOra::getROSession({"CKIN_CLIENT_STAGES", "TRIP_CKIN_CLIENT"})
+    );
+
+    bool pr_upd_stage;
+
+    cur.stb()
+       .bind(":point_id", point_id)
+       .bind(":stage_id", int(stage))
+       .def(pr_upd_stage)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
+    }
+
+    return pr_upd_stage;
 }
 
 std::map<TStage, bool> getClientStagePermits(const int point_id)
@@ -73,7 +99,7 @@ std::map<TStage, bool> getClientStagePermits(const int point_id)
     std::map<TStage, bool> result;
 
     while (!cur.fen()) {
-        int pr_permit = false;
+        bool pr_permit = false;
         if (isClientStage(point_id, TStage(stage_id), pr_permit)) {
             result.insert({TStage(stage_id), pr_permit});
         }
@@ -135,7 +161,7 @@ TStage getCurrStage(const int point_id, const TStage_Type stageType, const std::
 
     while (!cur.fen()) {
         const auto iterator = stagePermitMap.find(TStage(target_stage));
-        int pr_permit = stagePermitMap.end() != iterator
+        bool pr_permit = stagePermitMap.end() != iterator
           ? iterator->second
           : 1;
 
@@ -223,7 +249,7 @@ void setTripStageTime(const int point_id, const TStage stage, const Dates::DateT
            "WHEN NOT MATCHED THEN "
            "INSERT (point_id, stage_id, scd, est, act, pr_auto, pr_manual) "
            "VALUES(:point_id,:stage_id,:act,NULL,:act, "    "0, "      "1)",
-        PgOra::getROSession("TRIP_STAGES")
+        PgOra::getRWSession("TRIP_STAGES")
     );
 
     cur.stb()
@@ -242,17 +268,13 @@ bool execStage(const int point_id, const TStage stage, Dates::DateTime_t& act)
     Dates::DateTime_t utc = Dates::second_clock::universal_time();
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT cond_stage, num, CASE cond_stage WHEN 0 THEN :utc WHEN 99 THEN NULL ELSE act END act "
-       "FROM trip_stages, "
-       "(SELECT cond_stage, num "
-          "FROM trip_stages, graph_rules "
-         "WHERE trip_stages.point_id = :point_id AND "
-               "trip_stages.stage_id = :stage_id AND "
-               "graph_rules.target_stage = :stage_id AND "
-               "graph_rules.next = 1) "
-         "WHERE trip_stages.point_id(+) = :point_id AND "
-               "trip_stages.stage_id(+) = cond_stage "
-       "ORDER BY num, act DESC",
+       "SELECT cond_stage, num, CASE cond_stage WHEN 0 THEN :utc WHEN 99 THEN NULL ELSE act END "
+       "FROM trip_stages JOIN graph_rules "
+          "ON graph_rules.target_stage = trip_stages.stage_id "
+       "WHERE graph_rules.next = 1 "
+         "AND trip_stages.point_id = :point_id "
+         "AND trip_stages.stage_id = :stage_id "
+       "ORDER BY 2, 3 DESC",
         PgOra::getROSession({"TRIP_STAGES","GRAPH_RULES"})
     );
 
@@ -281,7 +303,7 @@ bool execStage(const int point_id, const TStage stage, Dates::DateTime_t& act)
             result = true;
             old_num = num;
         }
-        int pr_permit;
+        bool pr_permit;
         if (result && dbo::isNull(condAct) // нет факта выполнения, проверка на web-шаг
          && (!isClientStage(point_id, TStage(cond_stage), pr_permit) || pr_permit)) {
             result = false;
@@ -301,6 +323,74 @@ bool execStage(const int point_id, const TStage stage, Dates::DateTime_t& act)
     sync_trip_final_stages(point_id);
 
     return true;
+}
+
+void setTripStageEst(const int point_id, const TStage stage, const Dates::DateTime_t est)
+{
+    make_db_curs(
+       "UPDATE trip_stages SET est = :est "
+       "WHERE point_id = :point_id "
+         "AND stage_id = :stage_id",
+        PgOra::getRWSession("TRIP_STAGES"))
+       .stb()
+       .bind(":est", est)
+       .bind(":point_id", point_id)
+       .bind(":stage_id", int(stage))
+       .exec();
+}
+
+void updateStageEstTime(const int point_id, Dates::DateTime_t& stage_est, Dates::DateTime_t& stage_scd)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT stage_id, scd, est FROM trip_stages "
+       "WHERE point_id = :point_id "
+         "AND pr_manual = 0",
+        PgOra::getROSession("TRIP_STAGES")
+    );
+
+    int stage_id;
+    Dates::DateTime_t scd;
+    Dates::DateTime_t est;
+
+    cur.stb()
+       .bind(":point_id", point_id)
+       .def(stage_id)
+       .defNull(scd, Dates::not_a_date_time)
+       .defNull(est, Dates::not_a_date_time)
+       .exec();
+
+    bool pr_first = true;
+
+    Dates::DateTime_t new_scd;
+    Dates::DateTime_t new_est;
+
+    while (!cur.fen()) {
+        bool pr_permit;
+        if (!isClientStage(point_id, TStage(stage_id), pr_permit)) {
+            pr_permit = true;
+        } else if (pr_permit) {
+            pr_permit = isCkinClientStageReadyToUpdate(point_id, TStage(stage_id));
+        }
+        if (pr_permit == true) {
+            Dates::DateTime_t aux_est = dbo::isNotNull(est)
+             ? est
+             : scd;
+            aux_est += stage_est - stage_scd;
+            if (pr_first) {
+                pr_first = false;
+                new_est = aux_est;
+                new_scd = scd;
+            }
+            setTripStageEst(point_id, TStage(stage_id), aux_est);
+        }
+    }
+    if (pr_first) {
+        stage_scd = new_scd;
+        stage_est = new_est;
+    } else {
+        stage_scd = Dates::DateTime_t(Dates::not_a_date_time);
+        stage_est = Dates::DateTime_t(Dates::not_a_date_time);
+    }
 }
 
 } // namespace gtimer

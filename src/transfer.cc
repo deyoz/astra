@@ -2851,7 +2851,7 @@ void GetNextTrferCheckedFlts(const int id, const TIdType id_type, std::set<int>&
 {
     point_ids.clear();
 
-    DB::TQuery Qry(PgOra::getRWSession({"TRANSFER", "TRFER_TRIPS", "TRIP_STAGES", "PAX_GRP"}), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"TRANSFER", "TRFER_TRIPS", "TRIP_STAGES", "PAX_GRP"}), STDLOG);
     Qry.SQLText = TIdType::idFlt == id_type
      ? "SELECT trfer_trips.point_id_spp "
        "FROM transfer, trfer_trips, trip_stages, pax_grp "

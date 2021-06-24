@@ -5106,65 +5106,22 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             t2 = id->est_out;
         }
       if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
-          ProgTrace( TRACE5, "trip_stages delay=%s", DateTimeToStr(t2-t1).c_str() );
-          Qry.Clear();
-          Qry.SQLText =
-           "DECLARE "
-           "  CURSOR cur IS "
-           "   SELECT stage_id,scd,est FROM trip_stages "
-           "    WHERE point_id=:point_id AND pr_manual=0; "
-           "curRow			cur%ROWTYPE;"
-           "vpr_permit 	ckin_client_sets.pr_permit%TYPE;"
-           "vpr_first		NUMBER:=1;"
-           "new_scd			points.scd_out%TYPE;"
-           "new_est			points.scd_out%TYPE;"
-           "BEGIN "
-           "  FOR curRow IN cur LOOP "
-           "   IF gtimer.IsClientStage(:point_id,curRow.stage_id,vpr_permit) = 0 THEN "
-           "     vpr_permit := 1;"
-           "    ELSE "
-           "     IF vpr_permit!=0 THEN "
-           "       SELECT NVL(MAX(pr_upd_stage),0) INTO vpr_permit "
-           "        FROM trip_ckin_client,ckin_client_stages "
-           "       WHERE point_id=:point_id AND "
-           "             trip_ckin_client.client_type=ckin_client_stages.client_type AND "
-           "             stage_id=curRow.stage_id; "
-           "     END IF;"
-           "   END IF;"
-           "   IF vpr_permit!=0 THEN "
-           "    curRow.est := NVL(curRow.est,curRow.scd)+(:vest-:vscd);"
-           "    IF vpr_first != 0 THEN "
-           "      vpr_first := 0; "
-           "      new_est := curRow.est; "
-           "      new_scd := curRow.scd; "
-           "    END IF; "
-           "    UPDATE trip_stages SET est=curRow.est WHERE point_id=:point_id AND stage_id=curRow.stage_id;"
-           "   END IF;"
-           "  END LOOP;"
-           "  IF vpr_first != 0 THEN "
-           "   :vscd := NULL;"
-           "   :vest := NULL;"
-           "  ELSE "
-           "   :vscd := new_scd;"
-           "   :vest := new_est;"
-           "  END IF;"
-           "END;";
-          Qry.CreateVariable( "point_id", otInteger, id->point_id );
-          Qry.CreateVariable( "vscd", otDate, t1 );
-          Qry.CreateVariable( "vest", otDate, t2 );
-          Qry.Execute();
-        double f;
-        if ( !Qry.VariableIsNULL( "vscd" ) ) {
-          t1 = Qry.GetVariableAsDateTime( "vscd" );
-          t2 = Qry.GetVariableAsDateTime( "vest" );
+        ProgTrace( TRACE5, "trip_stages delay=%s", DateTimeToStr(t2-t1).c_str() );
+        Dates::DateTime_t stage_scd = DateTimeToBoost(t1);
+        Dates::DateTime_t stage_est = DateTimeToBoost(t2);
+        gtimer::updateStageEstTime(id->point_id, stage_est, stage_scd);
+        if (dbo::isNotNull(stage_scd)) {
+          t1 = BoostToDateTime(stage_scd);
+          t2 = BoostToDateTime(stage_est);
           t1 = t2-t1;
           if ( t1 < 0 ) {
+            double f;
             modf( t1, &f );
             reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
                                  << PrmDate("time", fabs(t1), "hh:nn") << PrmElem<std::string>("airp", etAirp, id->airp),
                                  evtGraph, id->point_id);
-          }
-          if ( t1 >= 0 ) {
+          } else if ( t1 >= 0 ) {
+            double f;
             modf( t1, &f );
             if ( t1 ) {
               reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")

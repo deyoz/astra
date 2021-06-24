@@ -22,6 +22,7 @@
 #include "code_convert.h"
 #include "flt_settings.h"
 #include "crafts/ComponCreator.h"
+#include "gtimer.h"
 
 #include "serverlib/perfom.h"
 
@@ -1179,60 +1180,17 @@ void TPoints::WriteDest( TPointsDest &dest )
   }
   if ( dest.events.isFlag( dmChangeStageESTTime ) ) {
     ProgTrace( TRACE5, "trip_stages delay=%s", DateTimeToStr(dest.stage_est-dest.stage_scd).c_str() );
-    Qry.Clear();
-    Qry.SQLText =
-      "DECLARE "
-      "  CURSOR cur IS "
-      "   SELECT stage_id,scd,est FROM trip_stages "
-      "    WHERE point_id=:point_id AND pr_manual=0; "
-      "curRow			cur%ROWTYPE;"
-      "vpr_permit 	ckin_client_sets.pr_permit%TYPE;"
-      "vpr_first		NUMBER:=1;"
-      "new_scd			points.scd_out%TYPE;"
-      "new_est			points.scd_out%TYPE;"
-      "BEGIN "
-      "  FOR curRow IN cur LOOP "
-      "   IF gtimer.IsClientStage(:point_id,curRow.stage_id,vpr_permit) = 0 THEN "
-      "     vpr_permit := 1;"
-      "    ELSE "
-      "     IF vpr_permit!=0 THEN "
-      "       SELECT NVL(MAX(pr_upd_stage),0) INTO vpr_permit "
-      "        FROM trip_ckin_client,ckin_client_stages "
-      "       WHERE point_id=:point_id AND "
-      "             trip_ckin_client.client_type=ckin_client_stages.client_type AND "
-      "             stage_id=curRow.stage_id; "
-      "     END IF;"
-      "   END IF;"
-      "   IF vpr_permit!=0 THEN "
-      "    curRow.est := NVL(curRow.est,curRow.scd)+(:vest-:vscd);"
-      "    IF vpr_first != 0 THEN "
-      "      vpr_first := 0; "
-      "      new_est := curRow.est; "
-      "      new_scd := curRow.scd; "
-      "    END IF; "
-      "    UPDATE trip_stages SET est=curRow.est WHERE point_id=:point_id AND stage_id=curRow.stage_id;"
-      "   END IF;"
-      "  END LOOP;"
-      "  IF vpr_first != 0 THEN "
-      "   :vscd := NULL;"
-      "   :vest := NULL;"
-      "  ELSE "
-      "   :vscd := new_scd;"
-      "   :vest := new_est;"
-      "  END IF;"
-      "END;";
-    Qry.CreateVariable( "point_id", otInteger, dest.point_id );
-    Qry.CreateVariable( "vscd", otDate, dest.stage_scd );
-    Qry.CreateVariable( "vest", otDate, dest.stage_est );
-    Qry.Execute();
-    if ( Qry.VariableIsNULL( "vscd" ) ) {
+    Dates::DateTime_t stage_scd = DateTimeToBoost(dest.stage_scd);
+    Dates::DateTime_t stage_est = DateTimeToBoost(dest.stage_est);
+    gtimer::updateStageEstTime(dest.point_id, stage_est, stage_scd);
+    if (dbo::isNull(stage_scd)) {
       dest.events.clearFlag( dmChangeStageESTTime );
       dest.stage_scd = ASTRA::NoExists;
       dest.stage_est = ASTRA::NoExists;
     }
     else {
-      dest.stage_scd = Qry.GetVariableAsDateTime( "vscd" );
-      dest.stage_est = Qry.GetVariableAsDateTime( "vest" );
+      dest.stage_scd = BoostToDateTime(stage_scd);
+      dest.stage_est = BoostToDateTime(stage_est);
       double t1, f;
       t1 = dest.stage_est-dest.stage_scd;
       if ( t1 < 0 ) {
@@ -1240,8 +1198,7 @@ void TPoints::WriteDest( TPointsDest &dest )
         TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
                              << PrmDate("time", fabs(t1), "hh:nn") << PrmElem<std::string>("airp", etAirp, dest.airp),
                              evtGraph, dest.point_id);
-      }
-      if ( t1 >= 0 ) {
+      } else if ( t1 >= 0 ) {
         modf( t1, &f );
         if ( t1 ) {
           TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
