@@ -51,7 +51,7 @@ std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryO
           res << " of " << ops.for_update_of;
         }
     }
-    return StrUtils::ToLower(res.str());
+    return res.str();
 }
 
 std::string firstTableFrom(const std::string& from)

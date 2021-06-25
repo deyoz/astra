@@ -2676,6 +2676,7 @@ src/ts/pnl/pnl_ut_c7y56.ts
 src/ts/print_bp.ts
 src/ts/print_bt.ts
 src/ts/rcv_uac.ts
+src/ts/readarch.ts
 src/ts/secure_flight_usa.ts
 src/ts/self_checkin.ts
 src/ts/sirena_exchange_macro.ts
