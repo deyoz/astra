@@ -1,6 +1,7 @@
 #include "cache_callbacks.h"
 #include "exceptions.h"
 #include "stl_utils.h"
+#include "PgOraConfig.h"
 
 #include <serverlib/algo.h>
 
@@ -163,7 +164,6 @@ size_t& SelectedRows::currentFieldIdx()
   return currentFieldIdx_;
 }
 
-
 SelectedRows::SelectedRows(const std::map<std::string, size_t>& fieldIndexes,
                            const std::optional<int>& tid) :
   fieldIndexes_(fieldIndexes), tid_(tid)
@@ -296,7 +296,96 @@ RefreshStatus SelectedRows::status() const
     return CacheTable::RefreshStatus::ClearAll; // все удалили
 }
 
+Row::Row(const std::map<std::string, std::string>& fields)
+{
+  fields_=algo::transform( fields, [](const auto& i) { return make_pair(upperc(i.first), i.second); } );
 }
+
+std::string& Row::fieldValue(const std::string& name, const std::string& whence)
+{
+  const auto i=fields_.find(upperc(name));
+  if (i==fields_.end())
+    throw Exception("%s: wrong field '%s'", whence.c_str(), name.c_str());
+
+  return i->second;
+}
+
+const std::string& Row::fieldValue(const std::string& name, const std::string& whence) const
+{
+  const auto i=fields_.find(upperc(name));
+  if (i==fields_.end())
+    throw Exception("%s: wrong field '%s'", whence.c_str(), name.c_str());
+
+  return i->second;
+}
+
+Row& Row::setFromString(const std::string& name, const std::string& value)
+{
+  fieldValue(name, __func__)=value;
+
+  return *this;
+}
+
+Row& Row::setFromInteger(const std::string& name, const std::optional<int>& value)
+{
+  fieldValue(name, __func__)=value?IntToString(value.value()):"";
+
+  return *this;
+}
+
+Row& Row::setFromBoolean(const std::string& name, const std::optional<bool>& value)
+{
+  fieldValue(name, __func__)=value?IntToString((int)value.value()):"";
+
+  return *this;
+}
+
+std::string Row::getAsString(const std::string& name) const
+{
+  return fieldValue(name, __func__);
+}
+
+std::optional<int> Row::getAsInteger(const std::string& name) const
+{
+  string value=fieldValue(name, __func__);
+  if (value.empty()) return std::nullopt;
+
+  int i;
+  if (StrToInt( value.c_str(), i ) == EOF)
+    throw EConvertError("%s: cannot convert field '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return i;
+}
+
+std::optional<bool> Row::getAsBoolean(const std::string& name) const
+{
+  string value=fieldValue(name, __func__);
+  if (value.empty()) return std::nullopt;
+
+  int i;
+  if (StrToInt( value.c_str(), i ) == EOF)
+    throw EConvertError("%s: cannot convert field '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return i!=0;
+}
+
+void setRowId(const std::string& fieldName,
+              const TCacheUpdateStatus status,
+              std::optional<CacheTable::Row>& newRow)
+{
+  if (status==usInserted)
+    newRow.value().setFromInteger(fieldName, PgOra::getSeqNextVal("id__seq"));
+}
+
+RowId_t getRowId(const std::string& fieldName,
+                 const std::optional<CacheTable::Row>& oldRow,
+                 const std::optional<CacheTable::Row>& newRow)
+{
+  return RowId_t((oldRow?oldRow.value():newRow.value()).getAsInteger(fieldName).value());
+}
+
+
+} //namespace CacheTable
 
 CacheTableCallbacks::~CacheTableCallbacks()
 {

@@ -90,6 +90,9 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     UpdateSQL  = callbacks->updateSql();
     DeleteSQL  = callbacks->deleteSql();
     dbSessionObjectNames = callbacks->dbSessionObjectNames();
+    insertImplemented  = callbacks->insertImplemented();
+    updateImplemented  = callbacks->updateImplemented();
+    deleteImplemented  = callbacks->deleteImplemented();
   }
   else
   {
@@ -99,6 +102,9 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     UpdateSQL  = Qry.FieldAsString("update_sql");
     DeleteSQL  = Qry.FieldAsString("delete_sql");
     dbSessionObjectNames = {"ORACLE"};
+    insertImplemented  = !InsertSQL.empty();
+    updateImplemented  = !UpdateSQL.empty();
+    deleteImplemented  = !DeleteSQL.empty();
   }
   Logging = Qry.FieldAsInteger("logging") != 0;
   KeepLocally = Qry.FieldAsInteger("keep_locally") != 0;
@@ -862,10 +868,15 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild(dataNode, "keep_locally", KeepLocally );
     NewTextChild(dataNode, "keep_deleted_rows", KeepDeletedRows );
 
-    bool user_depend = VariableExists("SYS_user_id", getSQLVariables(SelectSQL)) ||
-                       VariableExists("SYS_user_id", getSQLVariables(RefreshSQL));
+    if (callbacks)
+      NewTextChild( dataNode, "user_depend", (int)callbacks->userDependence() );
+    else
+    {
+      bool user_depend = VariableExists("SYS_user_id", getSQLVariables(SelectSQL)) ||
+                         VariableExists("SYS_user_id", getSQLVariables(RefreshSQL));
 
-    NewTextChild( dataNode, "user_depend", (int)user_depend );
+      NewTextChild( dataNode, "user_depend", (int)user_depend );
+    }
 
     if(pr_irefresh)
         XMLInterface(dataNode);
@@ -880,9 +891,9 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
     NewTextChild(ifaceNode, "title", AstraLocale::getLocaleText(  Title ) );
     NewTextChild(ifaceNode, "CanRefresh", !RefreshSQL.empty());
-    NewTextChild(ifaceNode, "CanInsert", !(InsertSQL.empty() || (!InsertRight)));
-    NewTextChild(ifaceNode, "CanUpdate", !(UpdateSQL.empty() || (!UpdateRight)));
-    NewTextChild(ifaceNode, "CanDelete", !(DeleteSQL.empty() || (!DeleteRight)));
+    NewTextChild(ifaceNode, "CanInsert", insertImplemented && InsertRight);
+    NewTextChild(ifaceNode, "CanUpdate", updateImplemented && UpdateRight);
+    NewTextChild(ifaceNode, "CanDelete", deleteImplemented && DeleteRight);
 
     if(not FChildTables.empty()) {
         xmlNodePtr tablesNode = NewTextChild(ifaceNode, "child_tables");
@@ -1455,11 +1466,50 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                                         << enum1 << enum2, EventType);
 }
 
+void TCacheTable::HandleDBErrors(const EOracleError &e)
+{
+  LogTrace(TRACE5) << e.what();
+  switch( e.Code ) {
+    case    1: throw AstraLocale::UserException("MSG.UNIQUE_CONSTRAINT_VIOLATED");
+    case 1400:
+    case 1407: throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+    case 2291: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_PARENT_KEY_NOT_FOUND");
+    case 2292: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_CHILD_RECORD_FOUND");
+    default: throw e;
+  }
+}
+
+void TCacheTable::ApplyUpdatesHandmade(const TCacheUpdateStatus status)
+{
+  if (!callbacks) return;
+  //это изменение обрабатывается вручную
+  for(const TRow& row : table)
+  {
+    if ( row.status != status ) continue;
+
+    std::optional<CacheTable::Row> oldRow, newRow;
+    PrepareRows(row, status, oldRow, newRow);
+
+    callbacks->beforeApplyingRowChanges(status, oldRow, newRow);
+
+    try
+    {
+      callbacks->onApplyingRowChanges(status, oldRow, newRow);
+    }
+    catch(const EOracleError &e)
+    {
+      HandleDBErrors(e);
+    }
+
+    callbacks->afterApplyingRowChanges(status, oldRow, newRow);
+  }
+}
+
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
   parse_updates(GetNode("rows", reqNode));
 
-  int NewVerData = -1;
+  std::optional<int> NewVerData;
 
   if(OnBeforeApplyAll)
       try {
@@ -1474,44 +1524,41 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           throw;
       }
 
-  for(int i = 0; i < 3; i++) {
+  for(const TCacheUpdateStatus status : {usDeleted, usModified, usInserted})
+  {
     string sql;
-    TCacheUpdateStatus status;
     TCacheQueryType query_type;
-    switch(i) {
-      case 0:
+    switch(status) {
+      case usDeleted:
           sql = DeleteSQL;
-          status = usDeleted;
           query_type = cqtDelete;
           break;
-      case 1:
+      case usModified:
           sql = UpdateSQL;
-          status = usModified;
           query_type = cqtUpdate;
           break;
-      case 2:
+      case usInserted:
           sql = InsertSQL;
-          status = usInserted;
           query_type = cqtInsert;
+          break;
+      default:
           break;
     }
     if (!sql.empty()) {
-      std::set<std::string> vars=getSQLVariables(sql);
-      bool tidExists = VariableExists("TID", vars);
-      if ( tidExists && NewVerData < 0 ) {
-        NewVerData = PgOra::getSeqNextVal("tid__seq");
-      }
       FieldsForLogging fieldsForLogging;
-      DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+      ASSERT(PgOra::areRWSessionsEqual(dbSessionObjectNames));
+      DB::TQuery Qry(PgOra::getRWSession(dbSessionObjectNames.front()), STDLOG);
       Qry.SQLText = sql;
+
+      std::set<std::string> vars=getSQLVariables(sql);
       CreateSysVariables(vars, Qry, fieldsForLogging);
-      DeclareVariables( vars, Qry ); //заранее создаем все переменные
-      if ( tidExists ) {
-        Qry.DeclareVariable( "tid", otInteger );
-        Qry.SetVariable( "tid", NewVerData );
-        fieldsForLogging.set("tid", IntToString(NewVerData));
-        ProgTrace( TRACE5, "NewVerData=%d", NewVerData );
+      if (VariableExists("TID", vars)) {
+        if (!NewVerData) NewVerData = PgOra::getSeqNextVal("tid__seq");
+        CreateSysVariable("tid", NewVerData.value(), vars, Qry, fieldsForLogging);
       }
+
+      DeclareVariables( vars, Qry ); //заранее создаем все переменные
+
       bool firstRow=true;
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ )
       {
@@ -1536,7 +1583,13 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                 throw;
             }
 
-        SetVariables( *iv, vars, Qry, fieldsForLogging );
+        std::optional<CacheTable::Row> oldRow, newRow;
+        PrepareRows(*iv, status, oldRow, newRow);
+
+        if (callbacks)
+          callbacks->beforeApplyingRowChanges(status, oldRow, newRow);
+
+        SetVariables(oldRow, newRow, Qry, fieldsForLogging);
         try {
             LogTrace(TRACE5) << "cache qry: " << Qry.SQLText;
             fieldsForLogging.trace();
@@ -1551,15 +1604,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
             throw UserException(EOracleError2UserException(str));
           }
           else {
-            LogTrace(TRACE5) << E.what();
-            switch( E.Code ) {
-              case 1: throw AstraLocale::UserException("MSG.UNIQUE_CONSTRAINT_VIOLATED");
-              case 1400:
-              case 1407: throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
-              case 2291: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_PARENT_KEY_NOT_FOUND");
-              case 2292: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_CHILD_RECORD_FOUND");
-              default: throw;
-            }
+            HandleDBErrors(E);
           } /* end else */
         } /* end try */
         if(OnAfterApply)
@@ -1574,8 +1619,14 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                 ProgError(STDLOG, "OnAfterApply failed: something unexpected");
                 throw;
             }
+        if (callbacks)
+          callbacks->afterApplyingRowChanges(status, oldRow, newRow);
       } /* end for */
     } /* end if */
+    else
+    {
+      ApplyUpdatesHandmade(status);
+    }
   } /* end for  0..2 */
 
   if(OnAfterApplyAll)
@@ -1653,12 +1704,55 @@ void TCacheTable::DeclareVariables(const std::set<string> &vars, DB::TQuery& Qry
   DeclareVariablesFromParams(vars, SQLParams, Qry);
 }
 
+void TCacheTable::PrepareRows(const TRow &row,
+                              const TCacheUpdateStatus status,
+                              std::optional<CacheTable::Row>& oldRow,
+                              std::optional<CacheTable::Row>& newRow)
+{
+  oldRow=std::nullopt;
+  newRow=std::nullopt;
+  for(int i = 0; i < 2; ++i)
+  {
+    if ((i==0 && status==usDeleted) ||
+        (i!=0 && status==usInserted)) continue;
+
+    std::map<std::string, std::string> values;
+    int Idx=0;
+    for(const TCacheField2& f : FFields) {
+      values.emplace(f.Name, i==0?row.cols[Idx]:row.old_cols[Idx]);
+      ++Idx;
+    }
+
+    (i==0?newRow:oldRow).emplace(values);
+  }
+}
+
+void TCacheTable::SetVariables(const std::optional<CacheTable::Row>& oldRow,
+                               const std::optional<CacheTable::Row>& newRow,
+                               DB::TQuery& Qry, FieldsForLogging& fieldsForLogging)
+{
+  for(int i = 0; i < 2; ++i)
+  {
+    const std::optional<CacheTable::Row>& row = (i==0?newRow:oldRow);
+    if (!row) continue;
+
+    for(const TCacheField2& f : FFields) {
+      for(const string& varName : f.varNames[i])
+      {
+        string value(row.value().getAsString(f.Name));
+        SetVariable(varName, f.cacheConvertType(), value, Qry);
+        fieldsForLogging.set(varName, value);
+      }
+    }
+  }
+}
+
 void TCacheTable::SetVariables(const TRow &row, const std::set<std::string> &vars,
                                DB::TQuery& Qry, FieldsForLogging& fieldsForLogging)
 {
   string value;
   int Idx=0;
-  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
+  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); ++iv, ++Idx) {
     for(int i = 0; i < 2; i++) {
       if(!iv->varNames[i].empty()) { /* есть индекс переменной */
         if(i == 0)
@@ -1701,9 +1795,9 @@ void TCacheTable::getPerms( )
 
   Forbidden = SelectRight && !userRights.permitted(SelectRight.value());
   ReadOnly = Forbidden ||
-             ((InsertSQL.empty() || !InsertRight || !userRights.permitted(InsertRight.value())) &&
-              (UpdateSQL.empty() || !UpdateRight || !userRights.permitted(UpdateRight.value())) &&
-              (DeleteSQL.empty() || !DeleteRight || !userRights.permitted(DeleteRight.value())));
+             ((!insertImplemented || !InsertRight || !userRights.permitted(InsertRight.value())) &&
+              (!updateImplemented || !UpdateRight || !userRights.permitted(UpdateRight.value())) &&
+              (!deleteImplemented || !DeleteRight || !userRights.permitted(DeleteRight.value())));
 }
 
 static set<int> tlg_out_point_ids;

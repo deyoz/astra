@@ -35,7 +35,6 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList, ftUTF,
                       ftUnknown, NumFieldType};
-enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
     cecNone,
@@ -190,12 +189,18 @@ class TCacheTable {
         std::unique_ptr<CacheTableCallbacks> callbacks;
         TParams Params, SQLParams;
         std::string Title;
+
         std::string SelectSQL;
         std::string RefreshSQL;
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
         std::list<std::string> dbSessionObjectNames;
+
+        bool insertImplemented;
+        bool updateImplemented;
+        bool deleteImplemented;
+
         ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;
@@ -235,6 +240,13 @@ class TCacheTable {
         void CreateSysVariables(std::set<std::string> &vars, DB::TQuery& Qry,
                                 FieldsForLogging& fieldsForLogging);
         void DeclareVariables(const std::set<std::string> &vars, DB::TQuery& Qry);
+        void PrepareRows(const TRow &row,
+                         const TCacheUpdateStatus status,
+                         std::optional<CacheTable::Row>& oldRow,
+                         std::optional<CacheTable::Row>& newRow);
+        void SetVariables(const std::optional<CacheTable::Row>& oldRow,
+                          const std::optional<CacheTable::Row>& newRow,
+                          DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void SetVariables(const TRow &row, const std::set<std::string> &vars,
                           DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void parse_updates(xmlNodePtr rowsNode);
@@ -252,6 +264,8 @@ class TCacheTable {
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
+        void ApplyUpdatesHandmade(const TCacheUpdateStatus status);
+        void HandleDBErrors(const EOracleError &e);
         bool changeIfaceVer();
         std::string code();
         std::optional<int> dataVersion() const;

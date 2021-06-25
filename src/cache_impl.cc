@@ -33,6 +33,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
 namespace CacheTable
 {
 
+bool GrpBagTypesOutdated::userDependence() const {
+  return false;
+}
+
 void GrpBagTypesOutdated::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
 {
   DB::TQuery Qry(PgOra::getROSession({"BAG_TYPE_LIST_ITEMS",
@@ -110,6 +114,10 @@ void GrpBagTypesOutdated::onSelectOrRefresh(const TParams& sqlParams, CacheTable
   }
 }
 
+bool GrpBagTypes::userDependence() const {
+  return false;
+}
+
 void GrpBagTypes::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
 {
   DB::TQuery Qry(PgOra::getROSession({"BAG_TYPE_LIST_ITEMS",
@@ -169,6 +177,10 @@ struct GrpRfiscItem
 typedef std::vector<GrpRfiscItem> GrpRfiscItems;
 
 } // namespace
+
+bool GrpRfiscOutdated::userDependence() const {
+  return false;
+}
 
 void GrpRfiscOutdated::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
 {
@@ -288,6 +300,10 @@ void GrpRfiscOutdated::onSelectOrRefresh(const TParams& sqlParams, CacheTable::S
   }
 }
 
+bool GrpRfisc::userDependence() const {
+  return false;
+}
+
 void GrpRfisc::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
 {
   DB::TQuery Qry(PgOra::getROSession({"RFISC_LIST_ITEMS",
@@ -330,6 +346,9 @@ void GrpRfisc::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedR
 
 //FileTypes
 
+bool FileTypes::userDependence() const {
+  return false;
+}
 std::string FileTypes::selectSql() const {
   return "SELECT code, name FROM file_types WHERE code NOT IN ('BSM', 'HTTP_TYPEB') ORDER BY code";
 }
@@ -339,6 +358,9 @@ std::list<std::string> FileTypes::dbSessionObjectNames() const {
 
 //Airlines
 
+bool Airlines::userDependence() const {
+  return false;
+}
 std::string Airlines::selectSql() const {
   return "SELECT id, code, code_lat, code_icao, code_icao_lat, name, name_lat, short_name, short_name_lat, aircode, city, tid, pr_del "
          "FROM airlines ORDER BY code";
@@ -353,6 +375,9 @@ std::list<std::string> Airlines::dbSessionObjectNames() const {
 
 //Airps
 
+bool Airps::userDependence() const {
+  return false;
+}
 std::string Airps::selectSql() const {
   return "SELECT id, code, code_lat, code_icao, code_icao_lat, city, city AS city_name, name, name_lat, tid, pr_del "
          "FROM airps ORDER BY code";
@@ -367,6 +392,9 @@ std::list<std::string> Airps::dbSessionObjectNames() const {
 
 //TripTypes
 
+bool TripTypes::userDependence() const {
+  return false;
+}
 std::string TripTypes::selectSql() const {
   return "SELECT id, code, code_lat, name, name_lat, pr_reg, tid, pr_del FROM trip_types ORDER BY code";
 }
@@ -379,6 +407,9 @@ std::list<std::string> TripTypes::dbSessionObjectNames() const {
 
 //TripSuffixes
 
+bool TripSuffixes::userDependence() const {
+  return false;
+}
 std::string TripSuffixes::selectSql() const {
   return "SELECT code,code_lat FROM trip_suffixes ORDER BY code";
 }
@@ -388,6 +419,9 @@ std::list<std::string> TripSuffixes::dbSessionObjectNames() const {
 
 //TermProfileRights
 
+bool TermProfileRights::userDependence() const {
+  return false;
+}
 std::string TermProfileRights::selectSql() const {
   return "select airline, airp, right_id, 1 user_type "
          "from airline_profiles ap, profile_rights pr "
@@ -400,6 +434,9 @@ std::list<std::string> TermProfileRights::dbSessionObjectNames() const {
 
 //PrnFormsLayout
 
+bool PrnFormsLayout::userDependence() const {
+  return false;
+}
 std::string PrnFormsLayout::selectSql() const {
   return
    "select "

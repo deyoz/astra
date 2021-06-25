@@ -6,8 +6,10 @@
 
 #include "xml_unit.h"
 #include "db_tquery.h"
+#include "hist.h"
 
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
+enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 
 struct TParam {
     std::string Value;
@@ -93,6 +95,33 @@ class SelectedRows
     RefreshStatus status() const;
 };
 
+class Row
+{
+  private:
+    std::map<std::string, std::string> fields_;
+    std::string& fieldValue(const std::string& name, const std::string& whence);
+    const std::string& fieldValue(const std::string& name, const std::string& whence) const;
+  public:
+    Row(const std::map<std::string, std::string>& fields);
+
+    Row& setFromString (const std::string& name, const std::string& value);
+    Row& setFromInteger(const std::string& name, const std::optional<int>& value);
+    Row& setFromBoolean(const std::string& name, const std::optional<bool>& value);
+
+    std::string getAsString(const std::string& name) const;
+    std::optional<int> getAsInteger(const std::string& name) const;
+    std::optional<bool> getAsBoolean(const std::string& name) const;
+};
+
+void setRowId(const std::string& fieldName,
+              const TCacheUpdateStatus status,
+              std::optional<CacheTable::Row>& newRow);
+
+RowId_t getRowId(const std::string& fieldName,
+                 const std::optional<CacheTable::Row>& oldRow,
+                 const std::optional<CacheTable::Row>& newRow);
+
+
 }
 
 class CacheTableCallbacks
@@ -105,7 +134,20 @@ class CacheTableCallbacks
     virtual std::string deleteSql() const =0;
     virtual std::list<std::string> dbSessionObjectNames() const =0;
     virtual void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const =0;
+    virtual bool userDependence() const =0;
 
+    virtual bool insertImplemented() const { return !insertSql().empty(); }
+    virtual bool updateImplemented() const { return !updateSql().empty(); }
+    virtual bool deleteImplemented() const { return !deleteSql().empty(); }
+    virtual void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const =0;
+    virtual void onApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<CacheTable::Row>& oldRow,
+                                      const std::optional<CacheTable::Row>& newRow) const =0;
+    virtual void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const =0;
     virtual ~CacheTableCallbacks();
 };
 
@@ -117,6 +159,15 @@ class CacheTableReadonly : public CacheTableCallbacks
     std::string updateSql() const { return ""; }
     std::string deleteSql() const { return ""; }
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
 };
 
 class CacheTableReadonlyHandmade : public CacheTableCallbacks
@@ -128,6 +179,41 @@ class CacheTableReadonlyHandmade : public CacheTableCallbacks
     std::string updateSql() const { return ""; }
     std::string deleteSql() const { return ""; }
     std::list<std::string> dbSessionObjectNames() const { return {}; }
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
+};
+
+class CacheTableWritable : public CacheTableCallbacks
+{
+  public:
+    std::string refreshSql() const { return ""; }
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const {}
+};
+
+class CacheTableWritableHandmade : public CacheTableCallbacks
+{
+  public:
+    std::string refreshSql() const { return ""; }
+    std::string insertSql() const { return ""; }
+    std::string updateSql() const { return ""; }
+    std::string deleteSql() const { return ""; }
+    std::list<std::string> dbSessionObjectNames() const { return {}; }
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
 };
 
 
