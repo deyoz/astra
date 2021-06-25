@@ -2,6 +2,7 @@
 #include "PgOraConfig.h"
 #include "astra_elems.h"
 #include "astra_types.h"
+#include "cache_access.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -21,6 +22,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="FILE_TYPES")          return new CacheTable::FileTypes;
   if (cacheCode=="TERM_PROFILE_RIGHTS") return new CacheTable::TermProfileRights;
   if (cacheCode=="PRN_FORMS_LAYOUT")    return new CacheTable::PrnFormsLayout;
+  if (cacheCode=="CRYPT_SETS")          return new CacheTable::CryptSets;
   if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
@@ -463,4 +465,85 @@ std::list<std::string> PrnFormsLayout::dbSessionObjectNames() const {
   return {"PRN_FORMS_LAYOUT"};
 }
 
+//CryptSets
+
+bool CryptSets::userDependence() const {
+  return true;
 }
+
+void CryptSets::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
+
+  Qry.SQLText="SELECT id, desk_grp_id, desk, pr_crypt "
+              "FROM crypt_sets ORDER BY desk_grp_id";
+
+  Qry.Execute();
+
+
+  if (Qry.Eof) return;
+
+  ViewAccess<DeskGrpId_t> deskGrpViewAccess;
+  ViewAccess<DeskCode_t> deskViewAccess;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxDeskGrpId=Qry.FieldIndex("desk_grp_id");
+  int idxDesk=Qry.FieldIndex("desk");
+  int idxPrCrypt=Qry.FieldIndex("pr_crypt");
+  for(; !Qry.Eof; Qry.Next())
+  {
+    DeskGrpId_t deskGrpId(Qry.FieldAsInteger(idxDeskGrpId));
+    if (!deskGrpViewAccess.check(deskGrpId)) continue;
+
+    if (!Qry.FieldIsNULL(idxDesk))
+    {
+      DeskCode_t deskCode(Qry.FieldAsString(idxDesk));
+      if (!deskViewAccess.check(deskCode)) continue;
+    }
+
+    rows.setFromInteger(Qry, idxId)
+        .setFromInteger(deskGrpId.get())
+        .setFromString (ElemIdToNameLong(etDeskGrp, deskGrpId.get()))
+        .setFromString (Qry, idxDesk)
+        .setFromBoolean(Qry, idxPrCrypt)
+        .addRow();
+  }
+
+}
+
+std::string CryptSets::insertSql() const {
+  return "INSERT INTO crypt_sets(id, desk_grp_id, desk, pr_crypt) "
+         "VALUES(:id, :desk_grp_id, :desk, :pr_crypt)";
+}
+std::string CryptSets::updateSql() const {
+  return "UPDATE crypt_sets "
+         "SET desk_grp_id=:desk_grp_id, desk=:desk, pr_crypt=:pr_crypt "
+         "WHERE id=:OLD_id";
+}
+std::string CryptSets::deleteSql() const {
+  return "DELETE FROM crypt_sets WHERE id=:OLD_id";
+}
+std::list<std::string> CryptSets::dbSessionObjectNames() const {
+  return {"CRYPT_SETS"};
+}
+
+void CryptSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkDeskAndDeskGrp("desk", "desk_grp_id", newRow);
+  checkNotNullDeskGrpAccess("desk_grp_id", oldRow, newRow);
+  checkNullableDeskAccess("desk", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void CryptSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("crypt_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+} //namespace CacheTable
+

@@ -1,47 +1,17 @@
 # meta: suite crypt
 
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
 
 $(init_term)
-$(set_user_time_type LocalAirp PIKE)
 
 !! capture=on
-<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='cache' ver='1' opr='PIKE' screen='MAINDCS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <cache_apply>
-      <params>
-        <code>CRYPT_SETS</code>
-        <interface_ver>$(cache_iface_ver CRYPT_SETS)</interface_ver>
-        <data_ver>-1</data_ver>
-      </params>
-      <rows>
-        <row index='0' status='modified'>
-          <col index='0'>
-            <old>35249</old>
-            <new>35249</new>
-          </col>
-          <col index='1'>
-            <old>1</old>
-            <new>1</new>
-          </col>
-          <col index='2'>
-            <old/>
-            <new/>
-          </col>
-          <col index='3'>
-            <old>МОВЖЕК</old>
-            <new>МОВЖЕК</new>
-          </col>
-          <col index='4'>
-            <old>0</old>
-            <new>1</new>
-          </col>
-        </row>
-      </rows>
-    </cache_apply>
-  </query>
-</term>
+$(cache PIKE RU CRYPT_SETS $(cache_iface_ver CRYPT_SETS) ""
+  update OLD_ID:35249       id:35249
+         Old_desk_grp_id:1  desk_grp_id:1
+         old_desk:МОВЖЕК    desk:МОВЖЕК
+         old_pr_crypt:0     pr_crypt:1)
+
 >>
 <?xml version='1.0' encoding='CP866'?>
 <term>
