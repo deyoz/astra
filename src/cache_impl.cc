@@ -22,6 +22,12 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="FILE_TYPES")          return new CacheTable::FileTypes;
   if (cacheCode=="TERM_PROFILE_RIGHTS") return new CacheTable::TermProfileRights;
   if (cacheCode=="PRN_FORMS_LAYOUT")    return new CacheTable::PrnFormsLayout;
+  if (cacheCode=="GRAPH_STAGES")        return new CacheTable::GraphStages;
+  if (cacheCode=="GRAPH_STAGES_WO_INACTIVE") return new CacheTable::GraphStagesWithoutInactive;
+  if (cacheCode=="STAGE_SETS")          return new CacheTable::StageSets;
+  if (cacheCode=="GRAPH_TIMES")         return new CacheTable::GraphTimes;
+  if (cacheCode=="STAGE_NAMES")         return new CacheTable::StageNames;
+  if (cacheCode=="SOPP_STAGE_STATUSES") return new CacheTable::SoppStageStatuses;
   if (cacheCode=="CRYPT_SETS")          return new CacheTable::CryptSets;
   if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
 #ifndef ENABLE_ORACLE
@@ -463,6 +469,202 @@ std::string PrnFormsLayout::selectSql() const {
 }
 std::list<std::string> PrnFormsLayout::dbSessionObjectNames() const {
   return {"PRN_FORMS_LAYOUT"};
+}
+
+//GraphStages
+
+bool GraphStages::userDependence() const {
+  return false;
+}
+std::string GraphStages::selectSql() const {
+  return "SELECT stage_id,name,name_lat,time,pr_auto "
+         "FROM graph_stages "
+         "WHERE stage_id>0 AND stage_id<99 "
+         "ORDER BY stage_id";
+}
+std::list<std::string> GraphStages::dbSessionObjectNames() const {
+  return {"GRAPH_STAGES"};
+}
+
+//GraphStagesWithoutInactive
+
+bool GraphStagesWithoutInactive::userDependence() const {
+  return false;
+}
+std::string GraphStagesWithoutInactive::selectSql() const {
+  return "SELECT stage_id,name,name_lat "
+         "FROM graph_stages "
+         "WHERE stage_id>0 "
+         "ORDER BY stage_id";
+}
+std::list<std::string> GraphStagesWithoutInactive::dbSessionObjectNames() const {
+  return {"GRAPH_STAGES"};
+}
+
+//StageSets
+
+bool StageSets::userDependence() const {
+  return true;
+}
+std::string StageSets::selectSql() const {
+  return
+   "SELECT stage_id, stage_id AS stage_name, airline, airp, pr_auto, id "
+   "FROM stage_sets "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirportsOrNull) +
+   "ORDER BY airline, airp, stage_id";
+}
+std::string StageSets::insertSql() const {
+  return "INSERT INTO stage_sets(stage_id, airline, airp, pr_auto, id) "
+         "VALUES(:stage_id, :airline, :airp, :pr_auto, :id)";
+}
+std::string StageSets::updateSql() const {
+  return "UPDATE stage_sets "
+         "SET stage_id=:stage_id, airline=:airline, airp=:airp, pr_auto=:pr_auto "
+         "WHERE id=:OLD_id";
+}
+std::string StageSets::deleteSql() const {
+  return "DELETE FROM stage_sets WHERE id=:OLD_id";
+}
+std::list<std::string> StageSets::dbSessionObjectNames() const {
+  return {"STAGE_SETS"};
+}
+
+void StageSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkNotNullStageAccess("stage_id", "airline", "airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void StageSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("stage_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//GraphTimes
+
+bool GraphTimes::userDependence() const {
+  return true;
+}
+std::string GraphTimes::selectSql() const {
+  return
+   "SELECT id, stage_id, stage_id AS stage_name, airline, airp, craft, trip_type, time "
+   "FROM graph_times "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirportsOrNull) +
+   "ORDER BY airline, airp, craft, trip_type, stage_id";
+}
+std::string GraphTimes::insertSql() const {
+  return "INSERT INTO graph_times(id, stage_id, airline, airp, craft, trip_type, time) "
+         "VALUES(:id, :stage_id, :airline, :airp, :craft, :trip_type, :time)";
+}
+std::string GraphTimes::updateSql() const {
+  return "UPDATE graph_times "
+         "SET stage_id=:stage_id, airline=:airline, airp=:airp, craft=:craft, trip_type=:trip_type, time=:time "
+         "WHERE id=:OLD_id";
+}
+std::string GraphTimes::deleteSql() const {
+  return "DELETE FROM graph_times WHERE id=:OLD_id";
+}
+std::list<std::string> GraphTimes::dbSessionObjectNames() const {
+  return {"GRAPH_TIMES"};
+}
+
+void GraphTimes::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  checkNotNullStageAccess("stage_id", "airline", "airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void GraphTimes::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("graph_times").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//StageNames
+
+bool StageNames::userDependence() const {
+  return true;
+}
+std::string StageNames::selectSql() const {
+  return
+   "SELECT stage_id, stage_id AS stage_name, airp, name, name_lat, id "
+   "FROM stage_names "
+   "WHERE " + getSQLFilter("airp", AccessControl::PermittedAirports) +
+   "ORDER BY airp, stage_id";
+}
+std::string StageNames::insertSql() const {
+  return "INSERT INTO stage_names(stage_id, airp, name, name_lat, id) "
+         "VALUES(:stage_id, :airp, :name, :name_lat, :id)";
+}
+std::string StageNames::updateSql() const {
+  return "UPDATE stage_names "
+         "SET stage_id=:stage_id, airp=:airp, name=:name, name_lat=:name_lat "
+         "WHERE id=:OLD_id";
+}
+std::string StageNames::deleteSql() const {
+  return "DELETE FROM stage_names WHERE id=:OLD_id";
+}
+std::list<std::string> StageNames::dbSessionObjectNames() const {
+  return {"STAGE_NAMES"};
+}
+
+void StageNames::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void StageNames::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("stage_names").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//SoppStageStatuses
+
+bool SoppStageStatuses::userDependence() const {
+  return false;
+}
+
+void SoppStageStatuses::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  auto cur=make_db_curs("SELECT stage_id, stage_type, status, status_lat "
+                        "FROM stage_statuses "
+                        "ORDER BY stage_type, stage_id",
+                        PgOra::getROSession("STAGE_STATUSES"));
+
+  int stageId, stageType;
+  std::string status, statusLat;
+  cur.def(stageId)
+     .def(stageType)
+     .def(status)
+     .defNull(statusLat, "")
+     .exec();
+
+  bool isLangRu=TReqInfo::Instance()->desk.lang==AstraLocale::LANG_RU;
+
+  while (!cur.fen())
+  {
+    rows.setFromInteger(stageId)
+        .setFromInteger(stageType)
+        .setFromString(isLangRu?status:(statusLat.empty()?status:statusLat))
+        .addRow();
+  }
 }
 
 //CryptSets
