@@ -532,8 +532,8 @@ void CryptSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                          std::optional<CacheTable::Row>& newRow) const
 {
   checkDeskAndDeskGrp("desk", "desk_grp_id", newRow);
-  checkNotNullDeskGrpAccess("desk_grp_id", oldRow, newRow);
   checkNullableDeskAccess("desk", oldRow, newRow);
+  checkNotNullDeskGrpAccess("desk_grp_id", oldRow, newRow);
 
   setRowId("id", status, newRow);
 }

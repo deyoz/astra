@@ -224,7 +224,7 @@ template<>
 void ViewAccess<DeskCode_t>::downloadPermissions()
 {
   ostringstream sql;
-  sql << "SELECT DISTINCT desks.grp_id FROM desk_grp, desks, desk_owners "
+  sql << "SELECT DISTINCT desks.code FROM desk_grp, desks, desk_owners "
          "WHERE desk_grp.grp_id=desks.grp_id AND "
          "      desks.code=desk_owners.desk AND "
          "      desk_owners.airline IS NOT NULL AND "
@@ -267,7 +267,7 @@ void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
     DeskGrpId_t deskGrpId(valueOpt.value());
 
     if (!Access(deskGrpId).check(deskGrpId))
-      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":"MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP");
+      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":"MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP"); //!!! хорошо бы в сообщении выводить название группы
   }
 }
 
