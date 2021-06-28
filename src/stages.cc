@@ -710,23 +710,39 @@ TMapStatuses loadStageStatuses()
 
 TGraph_Level loadGraphLevel()
 {
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT target_stage, level "
-                  "FROM (SELECT target_stage, cond_stage "
-                        "FROM graph_rules "
-                        "WHERE next = 1) a "
-                  "START WITH cond_stage = 0 "
-                  "CONNECT BY PRIOR target_stage = cond_stage";
-    Qry.Execute();
+    DbCpp::CursCtl cur = make_db_curs(
+        PgOra::supportsPg("GRAPH_RULES")
+         ? "WITH RECURSIVE tree AS ("
+               "SELECT target_stage, cond_stage, 1 AS level, CAST (target_stage AS text) || ',' || CAST (cond_stage AS text) AS path "
+               "FROM graph_rules "
+               "WHERE next = 1 "
+               "AND cond_stage = 0 "
+               "UNION ALL "
+               "SELECT graph_rules.target_stage, graph_rules.cond_stage, level + 1, path || ' ' || CAST (graph_rules.target_stage AS text) || ',' || CAST (graph_rules.cond_stage AS text) "
+               "FROM tree "
+               "JOIN graph_rules ON tree.target_stage = graph_rules.cond_stage "
+               "WHERE next = 1) "
+           "SELECT target_stage, level FROM tree "
+           "ORDER BY path "
+         : "SELECT target_stage, level "
+           "FROM (SELECT target_stage, cond_stage "
+                 "FROM graph_rules "
+                 "WHERE next = 1) "
+           "START WITH cond_stage = 0 "
+           "CONNECT BY PRIOR target_stage = cond_stage",
+        PgOra::getROSession("GRAPH_RULES")
+    );
+
+    int stage_id;
+    int level;
+    cur.def(stage_id)
+       .def(level)
+       .exec();
 
     TGraph_Level result;
 
-    while ( !Qry.Eof ) {
-        TStage_Level gl;
-        gl.stage = (TStage)Qry.FieldAsInteger( "target_stage" );
-        gl.level = Qry.FieldAsInteger( "level" );
-        result.push_back( gl );
-        Qry.Next();
+    while (!cur.fen()) {
+        result.push_back({TStage(stage_id), level});
     }
 
     return result;

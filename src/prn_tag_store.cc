@@ -982,6 +982,28 @@ void TPrnTagStore::TRemInfo::Init(int point_id)
     }
 }
 
+void loadTripStageEstScd(const int point_id, TStage stage, Dates::DateTime_t& est, Dates::DateTime_t& scd)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT est, scd "
+       "FROM trip_stages "
+       "WHERE point_id = :point_id "
+         "AND stage_id = :stage_id",
+        PgOra::getROSession("TRIP_STAGES")
+    );
+
+    cur.stb()
+       .defNull(est, Dates::not_a_date_time)
+       .def(scd)
+       .bind(":point_id", point_id)
+       .bind(":stage_id", int(stage))
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
+    }
+}
+
 void TPrnTagStore::TBrdInfo::Init(int point_id)
 {
     if(point_id == NoExists) {
@@ -989,30 +1011,21 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
         return;
     }
     if(brd_from == NoExists) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "begin "
-            "   select nvl( est, scd ) into :brd_from from trip_stages where point_id = :point_id and stage_id = :brd_open_stage_id; "
-            "   select est, scd into :brd_to_est, :brd_to_scd from trip_stages where point_id = :point_id and stage_id = :brd_close_stage_id; "
-            "end; ";
-        Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
-        Qry.CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
-        Qry.DeclareVariable("brd_from", otDate);
-        Qry.DeclareVariable("brd_to_est", otDate);
-        Qry.DeclareVariable("brd_to_scd", otDate);
-        try {
-            Qry.Execute();
-        } catch(EOracleError &E) {
-            if(E.Code == 1403)
-                throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
-            else
-                throw;
+        Dates::DateTime_t aux_est;
+        Dates::DateTime_t aux_scd;
+
+        loadTripStageEstScd(point_id, sOpenBoarding, aux_est, aux_scd);
+        if (dbo::isNotNull(aux_est)) {
+            brd_from = BoostToDateTime(aux_est);
+        } else {
+            brd_from = BoostToDateTime(aux_scd);
         }
-        brd_from = Qry.GetVariableAsDateTime("brd_from");
-        if(not Qry.VariableIsNULL("brd_to_est"))
-            brd_to_est = Qry.GetVariableAsDateTime("brd_to_est");
-        brd_to_scd = Qry.GetVariableAsDateTime("brd_to_scd");
+
+        loadTripStageEstScd(point_id, sCloseBoarding, aux_est, aux_scd);
+        if (dbo::isNotNull(aux_est)) {
+            brd_to_est = BoostToDateTime(aux_est);
+        }
+        brd_to_scd = BoostToDateTime(aux_scd);
     }
 }
 

@@ -137,14 +137,35 @@ TStage getCurrStage(const int point_id, const TStage_Type stageType, const std::
     std::map<TStage, bool> stagePermitMap = getClientStagePermits(point_id);
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT target_stage, level "
-       "FROM "
-         "(SELECT target_stage, cond_stage, act "
-          "FROM graph_rules, trip_stages "
-          "WHERE trip_stages.stage_id = graph_rules.target_stage "
-            "AND point_id = :point_id AND next = 1) "
-       "START WITH cond_stage = 0 AND act IS NOT NULL "
-       "CONNECT BY PRIOR target_stage = cond_stage AND act IS NOT NULL",
+        PgOra::supportsPg("GRAPH_RULES")
+         ? "WITH RECURSIVE tree AS ("
+               "WITH aux AS ("
+                   "SELECT target_stage, cond_stage "
+                   "FROM graph_rules "
+                   "JOIN trip_stages "
+                   "ON graph_rules.target_stage = trip_stages.stage_id "
+                   "WHERE graph_stages.next = 1 "
+                   "AND trip_stages.stage_id = :stage_id "
+                   "AND trip_stages.act IS NOT NULL) "
+               "SELECT target_stage, cond_stage, 1 AS level, target_stage::text || ',' || cond_stage::text AS path "
+               "FROM aux "
+               "WHERE cond_stage = 0 "
+               "UNION ALL "
+               "SELECT aux.target_stage, aux.cond_stage, level + 1, path || ' ' || aux.target_stage::text || ',' || aux.cond_stage::text "
+               "FROM tree "
+               "JOIN aux ON tree.target_stage = aux.cond_stage) "
+           "SELECT target_stage, level FROM tree "
+           "ORDER BY path"
+         : "SELECT target_stage, level "
+           "FROM "
+             "(SELECT target_stage, cond_stage "
+              "FROM graph_rules, trip_stages "
+              "WHERE trip_stages.stage_id = graph_rules.target_stage "
+                "AND next = 1 "
+                "AND point_id = :point_id "
+                "AND act IS NOT NULL) "
+           "START WITH cond_stage = 0 "
+           "CONNECT BY PRIOR target_stage = cond_stage",
         PgOra::getROSession({"GRAPH_RULES", "TRIP_STAGES"})
     );
 

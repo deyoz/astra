@@ -4735,11 +4735,18 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
 
       if ( !old_dest.pr_reg && id->pr_reg && id->pr_del != -1 ) {
-        Qry.Clear();
-        Qry.SQLText = "SELECT COUNT(*) c FROM trip_stages WHERE point_id=:point_id AND rownum<2";
-        Qry.CreateVariable( "point_id", otInteger, id->point_id );
-        Qry.Execute();
-        init_trip_stages = !Qry.FieldAsInteger( "c" );
+        bool hasPointId = false;
+
+        make_db_curs(PgOra::supportsPg("TRIP_STAGES")
+         ? "SELECT EXISTS (SELECT 1 FROM trip_stages WHERE point_id = :point_id)"
+         : "SELECT COUNT(*) FROM trip_stages WHERE point_id = :point_id AND rownum = 1",
+            PgOra::getROSession("TRIP_STAGES"))
+           .stb()
+           .bind(":point_id", id->point_id)
+           .def(hasPointId)
+           .exfet();
+
+        init_trip_stages = !hasPointId;
         ProgTrace( TRACE5, "init_trip_stages=%d", init_trip_stages );
       }
       else
@@ -7299,8 +7306,7 @@ void addTripCkinClient(
     const bool         pr_upd_stage,
     const int          desk_grp_id)
 {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getRWSession("TRIP_CKIN_CLIENT"), STDLOG);
     Qry.SQLText=
         "INSERT INTO trip_ckin_client("
                 "point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id) "
