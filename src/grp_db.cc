@@ -166,7 +166,7 @@ bool existsTransfer(PointId_t point_id)
         "SELECT 1 FROM TRANSFER "
         "WHERE POINT_ID_TRFER = :point_id "
         "FETCH FIRST 1 ROWS ONLY ",
-        PgOra::getRWSession("TRFER_TRIPS"));
+        PgOra::getRWSession("TRANSFER"));
   cur.stb()
       .bind(":point_id", point_id.get())
       .EXfet();
@@ -184,7 +184,7 @@ bool existsTCkinSegments(PointId_t point_id)
         "SELECT 1 FROM TCKIN_SEGMENTS "
         "WHERE POINT_ID_TRFER = :point_id "
         "FETCH FIRST 1 ROWS ONLY ",
-        PgOra::getRWSession("TRFER_TRIPS"));
+        PgOra::getRWSession("TCKIN_SEGMENTS"));
   cur.stb()
       .bind(":point_id", point_id.get())
       .EXfet();
