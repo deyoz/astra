@@ -1,0 +1,28 @@
+LOAD DATA
+INFILE *
+INTO TABLE graph_stages
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+stage_id
+,name
+,time
+,pr_auto
+,name_lat
+,pr_airp_stage
+)
+BEGINDATA
+26|"Открытие kiosk-регистрации"|1440|1|"Kiosk check-in opening"|0
+36|"Закрытие kiosk-регистрации"|120|1|"Kiosk check-in closing"|0
+31|"Запрет отмены web-регистрации"|50|1|"Ban of the cancel web check-in"|0
+0|"Неактивен"|0|0|"Inactive"|1
+10|"Подготовка к регистрации"|420|0|"Preparation for check-in"|1
+20|"Открытие регистрации"|181|0|"Check-in opening"|1
+30|"Закрытие регистрации"|40|0|"Check-in closing"|1
+40|"Готовность ВС к посадке"|45|0|"Aircraft readiness for boarding"|1
+50|"Окончание посадки (оформление докум.)"|25|0|"Boarding (doc. processing) completion"|1
+70|"Откат трапа"|15|0|"Rollback stairs"|1
+99|"Вылет"|0|0|"Departure"|1
+25|"Открытие web-регистрации"|1440|1|"Web check-in opening"|0
+35|"Закрытие web-регистрации"|180|0|"Web check-in closing"|0

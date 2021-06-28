@@ -1,0 +1,33 @@
+LOAD DATA
+INFILE *
+INTO TABLE STAGE_STATUSES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+stage_id
+,stage_type
+,status
+,status_lat
+)
+BEGINDATA
+26|5|"Регистрация"|"Check-in"
+36|5|"Окончание"|"Completion"
+0|1|"Неактивен"|"Inactive"
+10|1|"Подготовка"|"Preparation"
+20|1|"Регистрация"|"Check-in"
+30|1|"Окончание"|"Completion"
+50|1|"Закрыт"|"Closed"
+99|1|"Вылетел"|"Departed"
+0|2|"Посадки нет"|"No boarding"
+40|2|"Посадка"|"Boarding"
+50|2|"Посадка завершена"|"Boarding completed"
+99|2|"Вылетел"|"Departed"
+0|3|"Не готов к посадке"|"Not ready landing"
+40|3|"Готов к посадке"|"Ready landing"
+70|3|"Трап убран"|"Airstairs removed"
+99|3|"Вылетел"|"Departed"
+25|4|"Регистрация"|"Check-in"
+35|4|"Окончание"|"Completion"
+25|6|"Отмена разрешена"|
+31|6|"Отмена запрещена"|

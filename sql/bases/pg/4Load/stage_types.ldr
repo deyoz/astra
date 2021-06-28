@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE STAGE_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,name
+,name_lat
+)
+BEGINDATA
+5|"Kiosk-регистрация"|"Kioks check-in"
+1|"Регистрация"|"Check-in"
+2|"Посадка"|"Boarding"
+3|"ВС"|"Aircraft"
+4|"Web-регистрация"|"Web check-in"
+6|"Отмена web-регистрации"|"Web check-in cancellation"
