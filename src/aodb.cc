@@ -1582,7 +1582,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     Set_AODB_overload_alarm( point_id, overload_alarm );
     TTripStages trip_stages( point_id );
     // обновление времен технологического графика
-    DB::TQuery updEst(PgOra::getRWSession("TRIP_STAGES"), STDLOG)
+    DB::TQuery updEst(PgOra::getRWSession("TRIP_STAGES"), STDLOG);
     updEst.SQLText =
         "UPDATE trip_stages SET est=COALESCE(:scd,est) "
         " WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
