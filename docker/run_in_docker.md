@@ -1,35 +1,30 @@
 
-### Установка ID группы и пользователя от имени которого будет запуск внутри контейнера
+### ╨г╤Б╤В╨░╨╜╨╛╨▓╨║╨░ ID ╨│╤А╤Г╨┐╨┐╤Л ╨╕ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П ╨╛╤В ╨╕╨╝╨╡╨╜╨╕ ╨║╨╛╤В╨╛╤А╨╛╨│╨╛ ╨▒╤Г╨┤╨╡╤В ╨╖╨░╨┐╤Г╤Б╨║ ╨▓╨╜╤Г╤В╤А╨╕ ╨║╨╛╨╜╤В╨╡╨╣╨╜╨╡╤А╨░
 ``` bash
 # cat .env
 UID=54323
 GID=54324
 ```
 
-### Инициализация директории run
+### ╨Ш╨╜╨╕╤Ж╨╕╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П ╨┤╨╕╤А╨╡╨║╤В╨╛╤А╨╕╨╕ run
 docker-compose -f docker/docker-compose.yaml run astra docker/init_run.sh
 
-### Создание БД (требуется выполнить единожды)
+### ╨б╨╛╨╖╨┤╨░╨╜╨╕╨╡ ╨С╨Ф (╤В╤А╨╡╨▒╤Г╨╡╤В╤Б╤П ╨▓╤Л╨┐╨╛╨╗╨╜╨╕╤В╤М ╨╡╨┤╨╕╨╜╨╛╨╢╨┤╤Л)
 
 ``` bash
+mv .env .env.1
 docker-compose -f docker/docker-compose.yaml run astra ./buildFromScratch.sh no/ora --createtcl --createdb
+mv .env.1 .env
 ```
 
-### Запуск Астры
+### ╨Ч╨░╨┐╤Г╤Б╨║ ╨Р╤Б╤В╤А╤Л
 ``` bash
 docker-compose -f docker/docker-compose.yaml pull
 docker-compose -f docker/docker-compose.yaml up -d
  ```
 
-### Обновление Астры
+### ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╨Р╤Б╤В╤А╤Л
 ``` bash
 docker-compose -f docker/docker-compose.yaml pull
 docker-compose -f docker/docker-compose.yaml up -d
  ```
-
-
-mv .env .env.1
-docker-compose run astra ./buildFromScratch.sh no/ora --createtcl --createdb
-mv .env.1 .env
-docker-compose  up -d
-Recreating astra_astra_1 ... done
