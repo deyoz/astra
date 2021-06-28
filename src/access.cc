@@ -108,7 +108,7 @@ int deleteProfileRights(int profile_id, int right_id)
         "SELECT id FROM profile_rights "
         "WHERE profile_id=:profile_id AND right_id=:right_id "
         "FOR UPDATE ",
-        params << QParam("id", otInteger),
+        params,
         STDLOG);
   Qry.get().Execute();
 
