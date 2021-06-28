@@ -1,10 +1,11 @@
 CREATE OR REPLACE FUNCTION TRIP_STAGES__TRG__FUNCTION() RETURNS TRIGGER AS $TRIP_STAGES__TRG__FUNCTION$
 BEGIN
-  IF new.pr_auto = 1 AND new.act IS NULL AND new.ignore_auto = 0 THEN
-     new.time_auto_not_act := COALESCE(new.est, new.scd);
-  ELSE
-     new.time_auto_not_act := NULL;
-  END IF;
+   IF new.pr_auto = 1 AND new.act IS NULL AND new.ignore_auto = 0 THEN
+      new.time_auto_not_act := COALESCE(new.est, new.scd);
+   ELSE
+      new.time_auto_not_act := NULL;
+   END IF;
+   RETURN NEW;
 END;
 $TRIP_STAGES__TRG__FUNCTION$ LANGUAGE plpgsql;
 

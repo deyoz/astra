@@ -1065,8 +1065,8 @@ void setMaxCommerce(const int point_id, const int max_commerce)
    "WHERE point_id = :point_id",
     PgOra::getRWSession("TRIP_SETS"))
    .stb()
-   .bind("max_commerce", max_commerce)
-   .bind("point_id", point_id)
+   .bind(":max_commerce", max_commerce)
+   .bind(":point_id", point_id)
    .exec();
 }
 
@@ -1077,7 +1077,7 @@ void setNullMaxCommerce(const int point_id)
    "WHERE point_id = :point_id",
     PgOra::getRWSession("TRIP_SETS"))
    .stb()
-   .bind("point_id", point_id)
+   .bind(":point_id", point_id)
    .exec();
 }
 
@@ -1582,47 +1582,47 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     Set_AODB_overload_alarm( point_id, overload_alarm );
     TTripStages trip_stages( point_id );
     // обновление времен технологического графика
-    Qry.Clear();
-    Qry.SQLText =
-        "UPDATE trip_stages SET est=NVL(:scd,est) "
+    DB::TQuery updEst(PgOra::getRWSession("TRIP_STAGES"), STDLOG)
+    updEst.SQLText =
+        "UPDATE trip_stages SET est=COALESCE(:scd,est) "
         " WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
+    updEst.CreateVariable( "point_id", otInteger, point_id );
+    updEst.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
     if ( fl.checkin_beg != NoExists )
-      Qry.CreateVariable( "scd", otDate, fl.checkin_beg );
+      updEst.CreateVariable( "scd", otDate, fl.checkin_beg );
     else
-      Qry.CreateVariable( "scd", otDate, FNull );
+      updEst.CreateVariable( "scd", otDate, FNull );
     err++;
-    Qry.Execute();
-    if ( Qry.RowsProcessed() > 0 ) {
+    updEst.Execute();
+    if ( updEst.RowsProcessed() > 0 ) {
       if ( fl.checkin_beg != NoExists && trip_stages.time( sOpenCheckIn ) != fl.checkin_beg )
         reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenCheckIn, airp)
                              << PrmDate("est_time", fl.checkin_beg, "hh:nn dd.mm.yy (UTC)"),
                              evtGraph, point_id, sOpenCheckIn );
     }
     err++;
-    Qry.SetVariable( "stage_id", sCloseCheckIn );
+    updEst.SetVariable( "stage_id", sCloseCheckIn );
     if ( fl.checkin_end  != NoExists )
-      Qry.SetVariable( "scd", fl.checkin_end );
+      updEst.SetVariable( "scd", fl.checkin_end );
     else
-      Qry.SetVariable( "scd", FNull );
+      updEst.SetVariable( "scd", FNull );
     err++;
-    Qry.Execute();
-    if ( Qry.RowsProcessed() > 0 ) {
+    updEst.Execute();
+    if ( updEst.RowsProcessed() > 0 ) {
       if ( fl.checkin_end != NoExists && trip_stages.time( sCloseCheckIn ) != fl.checkin_end )
         reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseCheckIn, airp)
                              << PrmDate("est_time", fl.checkin_end, "hh:nn dd.mm.yy (UTC)"),
                              evtGraph, point_id, sCloseCheckIn );
     }
     err++;
-    Qry.SetVariable( "stage_id", sOpenBoarding );
+    updEst.SetVariable( "stage_id", sOpenBoarding );
     if ( fl.boarding_beg  != NoExists )
-      Qry.SetVariable( "scd", fl.boarding_beg );
+      updEst.SetVariable( "scd", fl.boarding_beg );
     else
-      Qry.SetVariable( "scd", FNull );
+      updEst.SetVariable( "scd", FNull );
     err++;
-    Qry.Execute();
-    if ( Qry.RowsProcessed() > 0 ) {
+    updEst.Execute();
+    if ( updEst.RowsProcessed() > 0 ) {
       if ( fl.boarding_beg != NoExists && trip_stages.time( sOpenBoarding ) != fl.boarding_beg )
         reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenBoarding, airp)
                              << PrmDate("est_time", fl.boarding_beg, "hh:nn dd.mm.yy (UTC)"),
@@ -1635,14 +1635,14 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( fl.est != NoExists && fl.scd != fl.est ) { // задержка != 0
         fl.boarding_end += fl.est - fl.scd; // добавляем к плановому времени окончания посадки задержку по вылету
       }
-      Qry.SetVariable( "stage_id", sCloseBoarding );
+      updEst.SetVariable( "stage_id", sCloseBoarding );
       if ( fl.boarding_end != NoExists )
-        Qry.SetVariable( "scd", fl.boarding_end );
+        updEst.SetVariable( "scd", fl.boarding_end );
       else
-        Qry.SetVariable( "scd", FNull );
+        updEst.SetVariable( "scd", FNull );
       err++;
-      Qry.Execute();
-      if ( Qry.RowsProcessed() > 0 ) {
+      updEst.Execute();
+      if ( updEst.RowsProcessed() > 0 ) {
         if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
           reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseBoarding, airp)
                                << PrmDate("est_time", fl.boarding_end, "hh:nn dd.mm.yy (UTC)"),
