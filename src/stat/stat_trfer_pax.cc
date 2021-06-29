@@ -367,9 +367,6 @@ void RunTrferPaxStat(
             int point_id = Qry.get().FieldAsInteger(col_point_id);
             TTripInfo flt;
             flt.getByPointId(point_id);
-            if (flt.pr_del >= 0) {
-                continue;
-            }
             if(not params.ap.empty() && flt.airp != params.ap) {
                 continue;
             }
