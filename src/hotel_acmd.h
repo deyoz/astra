@@ -50,8 +50,6 @@ struct THotelAcmdPaxItem {
 struct THotelAcmdPax
 {
     private:
-        int GetVar(TQuery &Qry, int idx);
-        void SetVar(TQuery &Qry, const std::string &name, int val);
         void SetBoolLogParam(LEvntPrms &params, const std::string &name, int val);
     public:
         int point_id;

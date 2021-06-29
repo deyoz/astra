@@ -19,6 +19,8 @@ DECL_RIP(TlgId_t,      int);
 
 DECL_RIP(ReceiptId_t,    int);
 
+DECL_RIP(HotelId_t,    int);
+
 DECL_RIP_RANGED(PaxId_t, int,    1, 2000000000);
 DECL_RIP_RANGED(RegNo_t, int, -999, 999);
 DECL_RIP_RANGED(SegNo_t, int,    1, 9);

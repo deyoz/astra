@@ -62,13 +62,17 @@ void TPaxList::fromDB(int point_id)
     }
 
     // паксы введенные вручную
-    TCachedQuery freePaxQry("select * from hotel_acmd_free_pax where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery freePaxQry(
+          PgOra::getROSession("HOTEL_ACMD_FREE_PAX"),
+          "SELECT * FROM hotel_acmd_free_pax "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     freePaxQry.get().Execute();
     for(; not freePaxQry.get().Eof; freePaxQry.get().Next()) {
         TPaxListItem item;
         item.pax_id = freePaxQry.get().FieldAsInteger("pax_id");
-        item.pers_type = DecodePerson(freePaxQry.get().FieldAsString("pers_type"));
+        item.pers_type = DecodePerson(freePaxQry.get().FieldAsString("pers_type").c_str());
         item.full_name = freePaxQry.get().FieldAsString("full_name");
         items[item.pax_id] = item;
     }
@@ -83,7 +87,7 @@ void THotelAcmdPax::SetBoolLogParam(LEvntPrms &params, const string &name, int v
         params << PrmBool(name, val);
 }
 
-int THotelAcmdPax::GetVar(TQuery &Qry, int idx)
+static int GetVar(DB::TQuery &Qry, int idx)
 {
     int result = NoExists;
     if(not Qry.FieldIsNULL(idx))
@@ -91,99 +95,121 @@ int THotelAcmdPax::GetVar(TQuery &Qry, int idx)
     return result;
 }
 
-void THotelAcmdPax::SetVar(TQuery &Qry, const string &name, int val)
+PaxId_t saveHotelAcmdFreePax(const PointId_t& point_id, const std::string& full_name,
+                             const ASTRA::TPerson pers_type)
 {
-    if(val == NoExists)
-        Qry.SetVariable(name.c_str(), FNull);
-    else
-        Qry.SetVariable(name.c_str(), val);
+    const PaxId_t new_pax_id(PgOra::getSeqNextVal_int("PAX_ID"));
+    DB::TCachedQuery Qry(
+        PgOra::getRWSession("HOTEL_ACMD_FREE_PAX"),
+        "INSERT INTO hotel_acmd_free_pax ( "
+        "   pax_id, "
+        "   point_id, "
+        "   full_name, "
+        "   pers_type "
+        ") VALUES ( "
+        "   :pax_id, "
+        "   :point_id, "
+        "   :full_name, "
+        "   :pers_type "
+        ") ",
+        QParams()
+        << QParam("pax_id", otInteger, new_pax_id.get())
+        << QParam("point_id", otInteger, point_id.get())
+        << QParam("full_name", otString, full_name)
+        << QParam("pers_type", otString, EncodePerson(pers_type)),
+        STDLOG);
+    Qry.get().Execute();
+    return new_pax_id;
+}
+
+std::optional<HotelId_t> getHotelId(const PaxId_t& pax_id)
+{
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("HOTEL_ACMD_PAX"),
+        "SELECT hotel_id FROM hotel_acmd_pax "
+        "WHERE pax_id = :pax_id ",
+        QParams() << QParam("pax_id", otInteger, pax_id.get()),
+        STDLOG);
+  Qry.get().Execute();
+  if (Qry.get().Eof) {
+    return {};
+  }
+  return HotelId_t(Qry.get().FieldAsInteger("hotel_id"));
+}
+
+void deleteHotelAcmdPax(const PaxId_t& pax_id)
+{
+    DB::TCachedQuery Qry(
+        PgOra::getRWSession("HOTEL_ACMD_PAX"),
+        "DELETE FROM hotel_acmd_pax "
+        "WHERE pax_id = :pax_id ",
+        QParams() << QParam("pax_id", otInteger, pax_id.get()),
+        STDLOG);
+    Qry.get().Execute();
+}
+
+void saveHotelAcmdPax(const PaxId_t& pax_id, const PointId_t& point_id, const HotelId_t& hotel_id,
+                      int room_type, int breakfast, int dinner, int supper)
+{
+    QParams params;
+    params << QParam("pax_id", otInteger, pax_id.get())
+           << QParam("point_id", otInteger, point_id.get())
+           << QParam("hotel_id", otInteger, hotel_id.get())
+           << QParam("room_type", otInteger, room_type, QParam::NullOnEmpty)
+           << QParam("breakfast", otInteger, breakfast, QParam::NullOnEmpty)
+           << QParam("dinner", otInteger, dinner, QParam::NullOnEmpty)
+           << QParam("supper", otInteger, supper, QParam::NullOnEmpty);
+
+    DB::TCachedQuery updQry(
+        PgOra::getRWSession("HOTEL_ACMD_PAX"),
+        "UPDATE hotel_acmd_pax SET "
+        "    point_id = :point_id, "
+        "    hotel_id = :hotel_id, "
+        "    room_type = :room_type, "
+        "    breakfast = :breakfast, "
+        "    dinner = :dinner, "
+        "    supper = :supper "
+        "WHERE "
+        "    pax_id = :pax_id ",
+        params,
+        STDLOG);
+    updQry.get().Execute();
+    if (updQry.get().RowsProcessed() == 0) {
+        DB::TCachedQuery insQry(
+            PgOra::getRWSession("HOTEL_ACMD_PAX"),
+            "INSERT INTO hotel_acmd_pax ( "
+            "    pax_id, "
+            "    point_id, "
+            "    hotel_id, "
+            "    room_type, "
+            "    breakfast, "
+            "    dinner, "
+            "    supper "
+            ") VALUES ( "
+            "    :pax_id, "
+            "    :point_id, "
+            "    :hotel_id, "
+            "    :room_type, "
+            "    :breakfast, "
+            "    :dinner, "
+            "    :supper "
+            ") ",
+            params,
+            STDLOG);
+        insQry.get().Execute();
+    }
 }
 
 void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
 {
-    TCachedQuery newPaxQry(
-            "begin "
-            "   select pax_id.nextval INTO :pax_id FROM dual; "
-            "   insert into hotel_acmd_free_pax ( "
-            "      pax_id, "
-            "      point_id, "
-            "      full_name, "
-            "      pers_type "
-            "   ) values ( "
-            "      :pax_id, "
-            "      :point_id, "
-            "      :full_name, "
-            "      :pers_type "
-            "   ); "
-            "end; ",
-            QParams()
-            << QParam("pax_id", otInteger)
-            << QParam("point_id", otInteger)
-            << QParam("full_name", otString)
-            << QParam("pers_type", otString));
-
-    TCachedQuery delQry(
-            "begin "
-            "  begin "
-            "    select hotel_id into :hotel_id from hotel_acmd_pax where pax_id = :pax_id; "
-            "    delete from hotel_acmd_pax where pax_id = :pax_id; "
-            "  exception "
-            "       when no_data_found then null; "
-            "  end; "
-            "end; ",
-            QParams()
-            << QParam("pax_id", otInteger)
-            << QParam("hotel_id", otInteger));
-
-    TCachedQuery insQry(
-            "begin "
-            "   insert into hotel_acmd_pax ( "
-            "       pax_id, "
-            "       point_id, "
-            "       hotel_id, "
-            "       room_type, "
-            "       breakfast, "
-            "       dinner, "
-            "       supper "
-            "   ) values ( "
-            "       :pax_id, "
-            "       :point_id, "
-            "       :hotel_id, "
-            "       :room_type, "
-            "       :breakfast, "
-            "       :dinner, "
-            "       :supper "
-            "   ); "
-            "exception "
-            "   when dup_val_on_index then "
-            "       update hotel_acmd_pax set "
-            "           point_id = :point_id, "
-            "           hotel_id = :hotel_id, "
-            "           room_type = :room_type, "
-            "           breakfast = :breakfast, "
-            "           dinner = :dinner, "
-            "           supper = :supper "
-            "       where "
-            "           pax_id = :pax_id; "
-            "end; ",
-        QParams()
-            << QParam("pax_id", otInteger)
-            << QParam("point_id", otInteger)
-            << QParam("hotel_id", otInteger)
-            << QParam("room_type", otInteger)
-            << QParam("breakfast", otInteger)
-            << QParam("dinner", otInteger)
-            << QParam("supper", otInteger));
     TPaxList pax_list;
     pax_list.fromDB(point_id);
     for(map<int, THotelAcmdPaxItem>::iterator pax = items.begin();
             pax != items.end(); pax++) {
         if(pax->second.pax_id == NoExists) {
-            newPaxQry.get().SetVariable("point_id", pax->second.point_id);
-            newPaxQry.get().SetVariable("full_name", pax->second.full_name);
-            newPaxQry.get().SetVariable("pers_type", EncodePerson(pax->second.pers_type));
-            newPaxQry.get().Execute();
-            pax->second.pax_id = newPaxQry.get().GetVariableAsInteger("pax_id");
+            pax->second.pax_id = saveHotelAcmdFreePax(PointId_t(pax->second.point_id),
+                                                      pax->second.full_name,
+                                                      pax->second.pers_type).get();
             inserted_paxes.push_back(make_pair(pax->second.idx, pax->second.pax_id));
         }
 
@@ -195,26 +221,19 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             grp_id = ckin_pax.grp_id;
         }
 
-
         if(pax->second.hotel_id == NoExists) {
-            delQry.get().SetVariable("pax_id", pax->second.pax_id);
-            delQry.get().Execute();
-            if(not delQry.get().VariableIsNULL("hotel_id")) {
+            const std::optional<HotelId_t> hotel_id = getHotelId(PaxId_t(pax->second.pax_id));
+            if (hotel_id) {
+                deleteHotelAcmdPax(PaxId_t(pax->second.pax_id));
                 LEvntPrms params;
                 params << PrmSmpl<std::string>("full_name", pax->second.full_name);
-                params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, delQry.get().GetVariableAsInteger("hotel_id")));
+                params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, hotel_id->get()));
                 TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD_ANNUL", params, ASTRA::evtPax, point_id, reg_no, grp_id);
             }
         } else {
-            insQry.get().SetVariable("pax_id", pax->second.pax_id);
-            insQry.get().SetVariable("point_id", pax->second.point_id);
-            insQry.get().SetVariable("hotel_id", pax->second.hotel_id);
-            SetVar(insQry.get(), "room_type", pax->second.room_type);
-            SetVar(insQry.get(), "breakfast", pax->second.breakfast);
-            SetVar(insQry.get(), "dinner", pax->second.dinner);
-            SetVar(insQry.get(), "supper", pax->second.supper);
-            insQry.get().Execute();
-
+            saveHotelAcmdPax(PaxId_t(pax->second.pax_id), PointId_t(pax->second.point_id),
+                             HotelId_t(pax->second.hotel_id), pax->second.room_type,
+                             pax->second.breakfast, pax->second.dinner, pax->second.supper);
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", pax->second.full_name);
             params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, pax->second.hotel_id));
@@ -255,8 +274,12 @@ void THotelAcmdPax::fromXML(xmlNodePtr reqNode)
 void THotelAcmdPax::fromDB(int point_id)
 {
     this->point_id = point_id;
-    TCachedQuery Qry("select * from hotel_acmd_pax where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("HOTEL_ACMD_PAX"),
+          "SELECT * FROM hotel_acmd_pax "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_point_id = Qry.get().FieldIndex("point_id");
@@ -304,30 +327,38 @@ void TAcmdDate::toDB()
     TTripInfo info;
     info.getByPointId(point_id);
 
-    TCachedQuery Qry(
-            "begin "
-            "   insert into hotel_acmd_dates ( "
-            "       point_id, "
-            "       acmd_date_from, "
-            "       acmd_date_to "
-            "   ) values ( "
-            "       :point_id, "
-            "       :acmd_date_from, "
-            "       :acmd_date_to "
-            "   ); "
-            "exception "
-            "   when dup_val_on_index then "
-            "       update hotel_acmd_dates set "
-            "           acmd_date_from = :acmd_date_from, "
-            "           acmd_date_to = :acmd_date_to "
-            "       where "
-            "           point_id = :point_id; "
-            "end; ",
-            QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("acmd_date_from", otDate, LocalToUTC(acmd_date_from, AirpTZRegion(info.airp)))
-            << QParam("acmd_date_to", otDate, LocalToUTC(acmd_date_to, AirpTZRegion(info.airp))));
-    Qry.get().Execute();
+    QParams params;
+    params << QParam("point_id", otInteger, point_id)
+           << QParam("acmd_date_from", otDate, LocalToUTC(acmd_date_from, AirpTZRegion(info.airp)))
+           << QParam("acmd_date_to", otDate, LocalToUTC(acmd_date_to, AirpTZRegion(info.airp)));
+
+    DB::TCachedQuery updQry(
+          PgOra::getRWSession("HOTEL_ACMD_DATES"),
+          "UPDATE hotel_acmd_dates SET "
+          "    acmd_date_from = :acmd_date_from, "
+          "    acmd_date_to = :acmd_date_to "
+          "WHERE "
+          "    point_id = :point_id ",
+          params,
+          STDLOG);
+    updQry.get().Execute();
+
+    if (updQry.get().RowsProcessed() == 0) {
+      DB::TCachedQuery insQry(
+            PgOra::getRWSession("HOTEL_ACMD_DATES"),
+            "INSERT INTO hotel_acmd_dates ( "
+            "    point_id, "
+            "    acmd_date_from, "
+            "    acmd_date_to "
+            ") VALUES ( "
+            "    :point_id, "
+            "    :acmd_date_from, "
+            "    :acmd_date_to "
+            ") ",
+            params,
+            STDLOG);
+      insQry.get().Execute();
+    }
 }
 
 void TAcmdDate::fromXML(xmlNodePtr node)
@@ -365,14 +396,17 @@ void TAcmdDate::toXML(xmlNodePtr node)
 void TAcmdDate::fromDB(int apoint_id)
 {
     point_id = apoint_id;
-    TCachedQuery Qry("select * from hotel_acmd_dates where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("HOTEL_ACMD_DATES"),
+          "SELECT * FROM hotel_acmd_dates "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         acmd_date_from = Qry.get().FieldAsDateTime("acmd_date_from");
         acmd_date_to = Qry.get().FieldAsDateTime("acmd_date_to");
     }
-
 }
 
 void HotelAcmdInterface::Print(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
