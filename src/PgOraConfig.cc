@@ -249,7 +249,12 @@ namespace PgOra
         bool result = group.empty() ? false
                                     : Config(group).writePostgres();
         LogTrace(TRACE6) << __func__ << ": result=" << result;
+#ifdef ENABLE_ORACLE
         return result;
+#else
+        LogWarning(STDLOG) << "Force PG support for obj: " << objectName;
+        return true;
+#endif
     }
 
     DbCpp::Session& getROSession(const std::string& objectName)
