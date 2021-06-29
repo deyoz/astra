@@ -1149,9 +1149,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   string dev_model, sess_type, fmt_type, client_dev_model, client_sess_type, client_fmt_type;
   const char* dev_model_sql=
       "SELECT DISTINCT dev_fmt_opers.op_type AS op_type, "
-      "                dev_model_sess_fmt.dev_model,"
-      "                dev_model_sess_fmt.sess_type,"
-      "                dev_model_sess_fmt.fmt_type"
+      "                dev_model_sess_fmt.dev_model, "
+      "                dev_model_sess_fmt.sess_type, "
+      "                dev_model_sess_fmt.fmt_type "
       "FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers "
       "WHERE dev_sess_modes.term_mode=:term_mode AND "
       "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
