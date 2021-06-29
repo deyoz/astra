@@ -4515,17 +4515,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   bool insert = ( move_id == NoExists );
   if ( insert ) {
-    TQuery Qry(&OraSession);
+    move_id = PgOra::getSeqNextVal_int("MOVE_ID");
+    DB::TQuery Qry(PgOra::getRWSession("MOVE_REF"), STDLOG);
   /* необходимо сделать проверку на не существование рейса*/
     Qry.SQLText =
-     "BEGIN "\
-     " SELECT move_id.nextval INTO :move_id from dual; "\
-     " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, :reference FROM dual; "\
-     "END;";
-    Qry.DeclareVariable( "move_id", otInteger );
-    Qry.CreateVariable( "reference", otString, reference );
+"INSERT INTO move_ref(move_id,reference) VALUES (:move_id, :reference)";
+    Qry.CreateVariable( "move_id",   otInteger, move_id );
+    Qry.CreateVariable( "reference", otString,  reference );
     Qry.Execute();
-    move_id = Qry.GetVariableAsInteger( "move_id" );
   }
   else {
     TFlights flights;
@@ -6886,46 +6883,50 @@ void updateTransitIfNeeded(const TAdvTripInfo& flt, bool new_pr_tranzit)
 void set_trip_sets(const TAdvTripInfo &flt)
 {
   /*очистка настроек рейса*/
-  TQuery Qry(&OraSession);
-  TQuery InsQry(&OraSession);
+  DB::TQuery DelBpQry(PgOra::getRWSession("TRIP_BP"), STDLOG);
+  DelBpQry.SQLText="DELETE FROM trip_bp WHERE point_id=:point_id ";
+  DelBpQry.CreateVariable("point_id", otInteger, flt.point_id);
+  DelBpQry.Execute();
 
-  Qry.Clear();
+  DB::TQuery DelBtQry(PgOra::getRWSession("TRIP_BT"), STDLOG);
+  DelBtQry.SQLText="DELETE FROM trip_bt WHERE point_id=:point_id ";
+  DelBtQry.CreateVariable("point_id", otInteger, flt.point_id);
+  DelBtQry.Execute();
+
+  DB::TQuery DelHallQry(PgOra::getRWSession("TRIP_HALL"), STDLOG);
+  DelHallQry.SQLText="DELETE FROM trip_hall WHERE point_id=:point_id ";
+  DelHallQry.CreateVariable("point_id", otInteger, flt.point_id);
+  DelHallQry.Execute();
+
+  //посадочные талоны и бизенес приглашения
+  DB::TQuery InsBpQry(PgOra::getRWSession("TRIP_BP"), STDLOG);
+  InsBpQry.SQLText=
+    "INSERT INTO trip_bp(point_id, class, bp_type, op_type) "
+    "VALUES(:point_id, :class, :bp_type, :op_type) ";
+  InsBpQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsBpQry.DeclareVariable("class", otString);
+  InsBpQry.DeclareVariable("bp_type", otString);
+  InsBpQry.DeclareVariable("op_type", otString);
+
+  DB::TQuery Qry(PgOra::getROSession("BP_SET"), STDLOG);
   Qry.SQLText=
-    "BEGIN "
-    "  DELETE FROM trip_bp WHERE point_id=:point_id; "
-    "  DELETE FROM trip_bt WHERE point_id=:point_id; "
-    "  DELETE FROM trip_hall WHERE point_id=:point_id; "
-    "END;";
-  Qry.CreateVariable("point_id", otInteger, flt.point_id);
-  Qry.Execute();
+"SELECT"
+"   class, bp_type,"
+"   (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+"    CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+"    CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
+"FROM bp_set "
+"WHERE op_type = :op_type AND "
+"      (airline IS NULL OR airline = :airline) AND "
+"      (flt_no IS NULL OR flt_no = :flt_no) AND "
+"      (airp_dep IS NULL OR airp_dep = :airp_dep) "
+"ORDER BY class, priority DESC";
 
-  Qry.Clear();
   Qry.CreateVariable("airline", otString, flt.airline);
   Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
   Qry.CreateVariable("airp_dep", otString, flt.airp);
-
-  //посадочные талоны и бизенес приглашения
-  InsQry.Clear();
-  InsQry.SQLText=
-    "INSERT INTO trip_bp(point_id, class, bp_type, op_type) "
-    "VALUES(:point_id, :class, :bp_type, :op_type) ";
-  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
-  InsQry.DeclareVariable("class", otString);
-  InsQry.DeclareVariable("bp_type", otString);
-  InsQry.DeclareVariable("op_type", otString);
-
-  Qry.SQLText=
-    "SELECT class,bp_type, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM bp_set "
-    "WHERE op_type=:op_type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY class,priority DESC ";
   Qry.DeclareVariable("op_type", otString);
+
   for(int pass=0; pass<4; pass++)
   {
 
@@ -6971,10 +6972,10 @@ void set_trip_sets(const TAdvTripInfo &flt)
       string bp_type=Qry.FieldAsString("bp_type");
       if (pr_first || prev_cl!=cl)
       {
-        InsQry.SetVariable("class", cl);
-        InsQry.SetVariable("bp_type", bp_type);
-        InsQry.SetVariable("op_type", DevOperTypes().encode(op_type));
-        InsQry.Execute();
+        InsBpQry.SetVariable("class", cl);
+        InsBpQry.SetVariable("bp_type", bp_type);
+        InsBpQry.SetVariable("op_type", DevOperTypes().encode(op_type));
+        InsBpQry.Execute();
 
         ostringstream msg;
         string lexema_id;
@@ -6997,18 +6998,18 @@ void set_trip_sets(const TAdvTripInfo &flt)
   Qry.DeleteVariable("op_type");
 
   //багажные бирки
-  InsQry.Clear();
-  InsQry.SQLText=
+  DB::TQuery InsBtQry(PgOra::getRWSession("TRIP_BT"), STDLOG);
+  InsBtQry.SQLText=
     "INSERT INTO trip_bt(point_id, tag_type) "
     "VALUES(:point_id, :tag_type) ";
-  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
-  InsQry.DeclareVariable("tag_type", otString);
+  InsBtQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsBtQry.DeclareVariable("tag_type", otString);
 
   Qry.SQLText=
     "SELECT tag_type, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+    "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+    "        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
     "FROM bt_set "
     "WHERE (airline IS NULL OR airline=:airline) AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
@@ -7019,8 +7020,8 @@ void set_trip_sets(const TAdvTripInfo &flt)
   if (!Qry.Eof)
   {
     string tag_type=Qry.FieldAsString("tag_type");
-    InsQry.SetVariable("tag_type", tag_type);
-    InsQry.Execute();
+    InsBtQry.SetVariable("tag_type", tag_type);
+    InsBtQry.Execute();
 
     TReqInfo::Instance()->LocaleToLog("EVT.BT_FORM_INSERTED", LEvntPrms()
                                       << PrmElem<string>("name", etBTType, tag_type, efmtNameLong),
@@ -7028,20 +7029,20 @@ void set_trip_sets(const TAdvTripInfo &flt)
   };
 
   //залы
-  InsQry.Clear();
-  InsQry.SQLText=
+  DB::TQuery InsHallQry(PgOra::getRWSession("TRIP_HALL"), STDLOG);
+  InsHallQry.SQLText=
     "INSERT INTO trip_hall(point_id, type, hall, pr_misc) "
     "VALUES(:point_id, :type, :hall, :pr_misc) ";
-  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
-  InsQry.DeclareVariable("type", otInteger);
-  InsQry.DeclareVariable("hall", otInteger);
-  InsQry.DeclareVariable("pr_misc", otInteger);
+  InsHallQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsHallQry.DeclareVariable("type", otInteger);
+  InsHallQry.DeclareVariable("hall", otInteger);
+  InsHallQry.DeclareVariable("pr_misc", otInteger);
 
   Qry.SQLText=
     "SELECT type,hall,pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+    "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+    "        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
     "FROM hall_set "
     "WHERE (airline IS NULL OR airline=:airline) AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
@@ -7059,11 +7060,11 @@ void set_trip_sets(const TAdvTripInfo &flt)
     bool pr_misc=Qry.FieldAsInteger("pr_misc")!=0;
     if (pr_first || prev_type!=type || prev_hall!=hall)
     {
-      InsQry.SetVariable("type", type);
-      hall!=NoExists?InsQry.SetVariable("hall", hall):
-                     InsQry.SetVariable("hall", FNull);
-      InsQry.SetVariable("pr_misc", (int)pr_misc);
-      InsQry.Execute();
+      InsHallQry.SetVariable("type", type);
+      hall!=NoExists?InsHallQry.SetVariable("hall", hall):
+                     InsHallQry.SetVariable("hall", FNull);
+      InsHallQry.SetVariable("pr_misc", (int)pr_misc);
+      InsHallQry.Execute();
 
       if (type==tsBrdWithReg || type==tsExamWithBrd)
       {
@@ -7109,19 +7110,19 @@ void set_trip_sets(const TAdvTripInfo &flt)
   differSetList.toDB(flt.point_id);
 
   //платная регистрация
-  InsQry.Clear();
-  InsQry.SQLText=
+  DB::TQuery InsTpcQry(PgOra::getRWSession("TRIP_PAID_CKIN"), STDLOG);
+  InsTpcQry.SQLText=
     "INSERT INTO trip_paid_ckin(point_id, pr_permit, prot_timeout) "
     "VALUES(:point_id, :pr_permit, :prot_timeout) ";
-  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
-  InsQry.DeclareVariable("pr_permit", otInteger);
-  InsQry.DeclareVariable("prot_timeout", otInteger);
+  InsTpcQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsTpcQry.DeclareVariable("pr_permit", otInteger);
+  InsTpcQry.DeclareVariable("prot_timeout", otInteger);
 
   Qry.SQLText=
     "SELECT pr_permit,prot_timeout, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+    "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+    "        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
     "FROM paid_ckin_sets "
     "WHERE (airline IS NULL OR airline=:airline) AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
@@ -7137,10 +7138,10 @@ void set_trip_sets(const TAdvTripInfo &flt)
     prot_timeout=Qry.FieldIsNULL("prot_timeout")?NoExists:Qry.FieldAsInteger("prot_timeout");
   };
 
-  InsQry.SetVariable("pr_permit", (int)pr_permit);
-  prot_timeout!=NoExists?InsQry.SetVariable("prot_timeout", prot_timeout):
-                         InsQry.SetVariable("prot_timeout", FNull);
-  InsQry.Execute();
+  InsTpcQry.SetVariable("pr_permit", (int)pr_permit);
+  prot_timeout!=NoExists?InsTpcQry.SetVariable("prot_timeout", prot_timeout):
+                         InsTpcQry.SetVariable("prot_timeout", FNull);
+  InsTpcQry.Execute();
 
   if (pr_permit)
   {
@@ -7164,7 +7165,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
       params << PrmSmpl<string>("params" , "");
     TReqInfo::Instance()->LocaleToLog("EVT.TRIP_CKIN", params, evtFlt, flt.point_id);
   };
-};
+}
 
 
 
@@ -7335,45 +7336,78 @@ void set_flight_sets(int point_id, int f, int c, int y)
      flights.Get( point_id, ftAll );
      flights.Lock(__FUNCTION__);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery PQry(PgOra::getROSession("POINTS"), STDLOG);
+  PQry.SQLText=
     "SELECT airline, flt_no, suffix, airp, scd_out, "
     "       point_id, point_num, first_point, pr_tranzit "
     "FROM points "
     "WHERE point_id=:point_id AND pr_del>=0";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  TAdvTripInfo flt(Qry);
+  PQry.CreateVariable("point_id", otInteger, point_id);
+  PQry.Execute();
+  if (PQry.Eof) return;
+  TAdvTripInfo flt(PQry);
 
   TTripSetList().initDB(point_id, f, c, y);
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT client_types.code AS client_type, "
-    "       ckin_client_sets.desk_grp_id, "
-    "       NVL(ckin_client_sets.pr_permit,0) AS pr_permit, "
-    "       NVL(ckin_client_sets.pr_waitlist,0) AS pr_waitlist, "
-    "       NVL(ckin_client_sets.pr_tckin,0) AS pr_tckin, "
-    "       NVL(ckin_client_sets.pr_upd_stage,0) AS pr_upd_stage, "
-    "       NVL(ckin_client_sets.priority,0) AS priority "
-    "FROM client_types, "
-    " (SELECT client_type, "
-    "         desk_grp_id, "
-    "         pr_permit, "
-    "         pr_waitlist, "
-    "         pr_tckin, "
-    "         pr_upd_stage, "
-    "         DECODE(airline,NULL,0,8)+ "
-    "         DECODE(flt_no,NULL,0,2)+ "
-    "         DECODE(airp_dep,NULL,0,4) AS priority "
-    "  FROM ckin_client_sets "
-    "  WHERE (airline IS NULL OR airline=:airline) AND "
-    "        (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
-    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) " //!!!ctMobile
-    "ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
+  auto& sess = PgOra::getROSession({"CLIENT_TYPES", "CKIN_CLIENT_SETS"});
+  DB::TQuery Qry(sess, STDLOG);
+  if(sess.isOracle()) {
+      Qry.SQLText=
+"SELECT client_types.code AS client_type, "
+"       ckin_client_sets.desk_grp_id, "
+"       NVL(ckin_client_sets.pr_permit,0) AS pr_permit, "
+"       NVL(ckin_client_sets.pr_waitlist,0) AS pr_waitlist, "
+"       NVL(ckin_client_sets.pr_tckin,0) AS pr_tckin, "
+"       NVL(ckin_client_sets.pr_upd_stage,0) AS pr_upd_stage, "
+"       NVL(ckin_client_sets.priority,0) AS priority "
+"FROM client_types, "
+" (SELECT client_type, "
+"         desk_grp_id, "
+"         pr_permit, "
+"         pr_waitlist, "
+"         pr_tckin, "
+"         pr_upd_stage, "
+"         DECODE(airline,NULL,0,8)+ "
+"         DECODE(flt_no,NULL,0,2)+ "
+"         DECODE(airp_dep,NULL,0,4) AS priority "
+"  FROM ckin_client_sets "
+"  WHERE (airline IS NULL OR airline=:airline) AND "
+"        (flt_no IS NULL OR flt_no=:flt_no) AND "
+"        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
+"WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) " //!!!ctMobile
+"ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
+  } else {
+    Qry.SQLText=
+"SELECT "
+"  client_types.code AS client_type, "
+"  ckin_client_sets.desk_grp_id, "
+"  coalesce(ckin_client_sets.pr_permit, 0) AS pr_permit, "
+"  coalesce(ckin_client_sets.pr_waitlist, 0) AS pr_waitlist, "
+"  coalesce(ckin_client_sets.pr_tckin, 0) AS pr_tckin, "
+"  coalesce(ckin_client_sets.pr_upd_stage, 0) AS pr_upd_stage, "
+"  coalesce(ckin_client_sets.priority, 0) AS priority "
+"FROM client_types"
+"  LEFT OUTER JOIN ("
+"     SELECT"
+"       client_type,"
+"       desk_grp_id,"
+"       pr_permit,"
+"       pr_waitlist,"
+"       pr_tckin,"
+"       pr_upd_stage,"
+"       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+"        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+"        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority"
+"     FROM ckin_client_sets"
+"     WHERE ((airline IS NULL OR airline = :airline)"
+"     AND (flt_no IS NULL OR flt_no = :flt_no)"
+"     AND (airp_dep IS NULL OR airp_dep = :airp_dep))"
+"            ) AS ckin_client_sets"
+"              ON client_types.code = ckin_client_sets.client_type"
+"          WHERE code IN (:ctWeb, :ctKiosk)"
+"          ORDER BY client_types.code, ckin_client_sets.desk_grp_id, priority DESC";
+  }
+
   Qry.CreateVariable("airline", otString, flt.airline);
   Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
   Qry.CreateVariable("airp_dep", otString, flt.airp);
@@ -7385,7 +7419,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
   int prev_desk_grp_id=NoExists;
   for(;!Qry.Eof;Qry.Next())
   {
-    TClientType client_type=DecodeClientType(Qry.FieldAsString("client_type"));
+    TClientType client_type=DecodeClientType(Qry.FieldAsString("client_type").c_str());
     int desk_grp_id=Qry.FieldIsNULL("desk_grp_id")?NoExists:Qry.FieldAsInteger("desk_grp_id");
     bool pr_permit=Qry.FieldAsInteger("pr_permit")!=0;
     bool pr_waitlist=Qry.FieldAsInteger("pr_waitlist")!=0;

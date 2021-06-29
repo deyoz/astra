@@ -153,7 +153,7 @@ bool TTripInfo::getByPointId ( const TDateTime part_key,
 bool TTripInfo::getByPointId ( const int point_id,
                                const FlightProps &props )
 {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry( PgOra::getROSession("POINTS"), STDLOG );
     Qry.SQLText =
       "SELECT " + selectedFields() +
       "FROM points "
@@ -543,7 +543,7 @@ bool TAdvTripInfo::getByPointId ( const TDateTime part_key,
 
 bool TAdvTripInfo::getByPointId(const int point_id, const FlightProps &props)
 {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry( PgOra::getROSession("POINTS"), STDLOG );
     Qry.SQLText =
     "SELECT " + selectedFields() +
     "FROM points "
@@ -747,9 +747,8 @@ void TTripRoute::GetRoute(TDateTime part_key,
                           bool pr_tranzit,
                           bool after_current,
                           TTripRouteType1 route_type1,
-                          TTripRouteType2 route_type2,
-                          TQuery& Qry)
-{
+                          TTripRouteType2 route_type2)
+{   
     tst();
   clear();
   ostringstream sql;
@@ -766,8 +765,8 @@ void TTripRoute::GetRoute(TDateTime part_key,
   sql << " WHERE " << routeFilterConditions(after_current, route_type1, route_type2);
 
   LogTrace5 << " RESULT QUERY: " << sql.str();
-  Qry.Clear();
-  Qry.SQLText= sql.str().c_str();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+  Qry.SQLText= sql.str();
 
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
@@ -839,14 +838,13 @@ void TAdvTripRoute::GetArxRoute(TDateTime part_key,
 }
 
 void TAdvTripRoute::GetRoute(TDateTime part_key,
-                          int point_id,
-                          int point_num,
-                          int first_point,
-                          bool pr_tranzit,
-                          bool after_current,
-                          TTripRouteType1 route_type1,
-                          TTripRouteType2 route_type2,
-                          TQuery& Qry)
+                             int point_id,
+                             int point_num,
+                             int first_point,
+                             bool pr_tranzit,
+                             bool after_current,
+                             TTripRouteType1 route_type1,
+                             TTripRouteType2 route_type2)
 {
   clear();
   ostringstream sql;
@@ -861,8 +859,8 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
 
   sql << " WHERE " << routeFilterConditions(after_current, route_type1, route_type2);
 
-  Qry.Clear();
-  Qry.SQLText= sql.str().c_str();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+  Qry.SQLText= sql.str();
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
@@ -944,7 +942,7 @@ bool TTripRoute::GetRoute(TDateTime part_key,
            Qry.FieldAsInteger("point_num"),
            Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
            Qry.FieldAsInteger("pr_tranzit")!=0,
-           after_current,route_type1,route_type2,Qry);
+           after_current,route_type1,route_type2);
   return true;
 }
 
@@ -1000,7 +998,7 @@ bool TAdvTripRoute::GetRoute(TDateTime part_key,
            Qry.FieldAsInteger("point_num"),
            Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
            Qry.FieldAsInteger("pr_tranzit")!=0,
-           after_current,route_type1,route_type2,Qry);
+           after_current,route_type1,route_type2);
   return true;
 }
 
@@ -1010,7 +1008,7 @@ bool TTripBase::GetRouteAfter(TDateTime part_key,
                                TTripRouteType2 route_type2)
 {
   return GetRoute(part_key,point_id,true,route_type1,route_type2);
-};
+}
 
 bool TTripBase::GetRouteBefore(TDateTime part_key,
                                 int point_id,
@@ -1018,7 +1016,7 @@ bool TTripBase::GetRouteBefore(TDateTime part_key,
                                 TTripRouteType2 route_type2)
 {
   return GetRoute(part_key,point_id,false,route_type1,route_type2);
-};
+}
 
 //возвращает истину, когда рейс найден, но не факт, что есть маршрут
 void TTripBase::GetRouteAfter(TDateTime part_key,
@@ -1029,22 +1027,21 @@ void TTripBase::GetRouteAfter(TDateTime part_key,
                                TTripRouteType1 route_type1,
                                TTripRouteType2 route_type2)
 {
-  TQuery Qry(&OraSession);
+
   GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
-           true,route_type1,route_type2,Qry);
-};
+           true,route_type1,route_type2);
+}
 
 void TTripBase::GetRouteAfter(const TAdvTripInfo& fltInfo,
                               TTripRouteType1 route_type1,
                               TTripRouteType2 route_type2)
 {
-  TQuery Qry(&OraSession);
   GetRoute(NoExists,
            fltInfo.point_id,
            fltInfo.point_num,
            fltInfo.first_point,
            fltInfo.pr_tranzit,
-           true,route_type1,route_type2,Qry);
+           true,route_type1,route_type2);
 }
 
 void TTripBase::GetRouteBefore(TDateTime part_key,
@@ -1055,23 +1052,21 @@ void TTripBase::GetRouteBefore(TDateTime part_key,
                                 TTripRouteType1 route_type1,
                                 TTripRouteType2 route_type2)
 {
-  TQuery Qry(&OraSession);
   GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
-           false,route_type1,route_type2,Qry);
+           false,route_type1,route_type2);
 }
 
 void TTripBase::GetRouteBefore(const TAdvTripInfo& fltInfo,
                                TTripRouteType1 route_type1,
                                TTripRouteType2 route_type2)
 {
-  TQuery Qry(&OraSession);
   GetRoute(NoExists,
            fltInfo.point_id,
            fltInfo.point_num,
            fltInfo.first_point,
            fltInfo.pr_tranzit,
-           false,route_type1,route_type2,Qry);
-};
+           false,route_type1,route_type2);
+}
 
 void TTripRoute::GetNextAirp(TDateTime part_key,
                              int point_id,
@@ -1083,11 +1078,10 @@ void TTripRoute::GetNextAirp(TDateTime part_key,
 {
   item.Clear();
   clear();
-  TQuery Qry(&OraSession);
   GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
-           true,trtNotCurrent,route_type2,Qry);
+           true,trtNotCurrent,route_type2);
   if (!empty()) item=front();
-};
+}
 
 bool TTripRoute::GetNextAirp(TDateTime part_key,
                              int point_id,
@@ -1098,7 +1092,7 @@ bool TTripRoute::GetNextAirp(TDateTime part_key,
   if (!GetRoute(part_key,point_id,true,trtNotCurrent,route_type2)) return false;
   if (!empty()) item=front();
   return true;
-};
+}
 
 void TTripRoute::GetPriorAirp(TDateTime part_key,
                               int point_id,
@@ -1110,11 +1104,10 @@ void TTripRoute::GetPriorAirp(TDateTime part_key,
 {
   item.Clear();
   clear();
-  TQuery Qry(&OraSession);
   GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
-           false,trtNotCurrent,route_type2,Qry);
+           false,trtNotCurrent,route_type2);
   if (!empty()) item=back();
-};
+}
 
 bool TTripRoute::GetPriorAirp(TDateTime part_key,
                               int point_id,
@@ -1125,7 +1118,7 @@ bool TTripRoute::GetPriorAirp(TDateTime part_key,
   if (!GetRoute(part_key,point_id,false,trtNotCurrent,route_type2)) return false;
   if (!empty()) item=back();
   return true;
-};
+}
 
 string TTripRoute::GetStr() const
 {
@@ -2082,9 +2075,10 @@ void GetMktFlights(const TTripInfo &operFltInfo, TSimpleMktFlights &simpleMktFli
   if (operFltInfo.scd_out==NoExists) return;
   TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  auto& sess = PgOra::getROSession("CODESHARE_SETS");
+  DB::TQuery Qry(sess, STDLOG);
+  if(sess.isOracle()) {
+    Qry.SQLText=
     "SELECT airline_mark, flt_no_mark, suffix_mark "
     "FROM codeshare_sets "
     "WHERE airline_oper=:airline AND flt_no_oper=:flt_no AND airp_dep=:airp_dep AND "
@@ -2093,6 +2087,17 @@ void GetMktFlights(const TTripInfo &operFltInfo, TSimpleMktFlights &simpleMktFli
     "      (last_date IS NULL OR last_date>:scd_local) AND "
     "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 "
     "ORDER BY flt_no_mark, suffix_mark, airline_mark";
+  } else {
+    Qry.SQLText=
+    "SELECT airline_mark, flt_no_mark, suffix_mark "
+    "FROM codeshare_sets "
+    "WHERE airline_oper=:airline AND flt_no_oper=:flt_no AND airp_dep=:airp_dep AND "
+    "      (suffix_oper IS NULL AND :suffix IS NULL OR suffix_oper=:suffix) AND "
+    "      first_date<=:scd_local AND "
+    "      (last_date IS NULL OR last_date>:scd_local) AND "
+    "      (days IS NULL OR position(CAST(:wday AS varchar) IN days) <> 0) AND pr_del=0 "
+    "ORDER BY flt_no_mark, suffix_mark, airline_mark";
+  }
   Qry.CreateVariable("airline",otString,operFltInfo.airline);
   Qry.CreateVariable("flt_no",otInteger,operFltInfo.flt_no);
   Qry.CreateVariable("suffix",otString,operFltInfo.suffix);

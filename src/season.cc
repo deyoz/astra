@@ -817,25 +817,22 @@ void CreateSPP( TDateTime localdate )
   throwOnScheduleLock();
 
   TPersWeights persWeights;
-  TQuery MIDQry(&OraSession);
+  DB::TQuery MIDQry(PgOra::getRWSession("MOVE_REF"), STDLOG);
   MIDQry.SQLText =
-   "BEGIN "\
-   " SELECT move_id.nextval INTO :move_id from dual; "\
-   " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
-   "END;";
-  MIDQry.DeclareVariable( "move_id", otInteger );
+"INSERT INTO move_ref(move_id,reference) VALUES (:move_id, :reference)";
+
+  MIDQry.DeclareVariable( "move_id",   otInteger );
+  MIDQry.CreateVariable( "reference", otString,  FNull);
   /* необходимо сделать проверку на не существование рейса */
   TBaseTable &TripTypes = base_tables.get("TRIP_TYPES");
 
-  TQuery PQry(&OraSession);
+
+  DB::TQuery PQry(PgOra::getRWSession("POINTS"), STDLOG);
   PQry.SQLText =
-   "BEGIN "\
-   " SELECT point_id.nextval INTO :point_id FROM dual; "
    " INSERT INTO points(point_id,move_id,point_num,airp,airp_fmt,pr_tranzit,first_point,airline,airline_fmt,"
-   "                    flt_no,suffix,suffix_fmt,craft,craft_fmt,scd_in,scd_out,trip_type,litera,pr_del,tid,pr_reg) "\
-   " SELECT :point_id,:move_id,:point_num,:airp,:airp_fmt,:pr_tranzit,:first_point,:airline,:airline_fmt,"\
-   "        :flt_no,:suffix,:suffix_fmt,:craft,:craft_fmt,:scd_in,:scd_out,:trip_type,:litera,:pr_del,cycle_tid__seq.nextval,:pr_reg FROM dual; "\
-   "END;";
+   "                    flt_no,suffix,suffix_fmt,craft,craft_fmt,scd_in,scd_out,trip_type,litera,pr_del,tid,pr_reg) "
+   " VALUES (:point_id,:move_id,:point_num,:airp,:airp_fmt,:pr_tranzit,:first_point,:airline,:airline_fmt,"
+   "         :flt_no,:suffix,:suffix_fmt,:craft,:craft_fmt,:scd_in,:scd_out,:trip_type,:litera,:pr_del,:tid,:pr_reg)";
   PQry.DeclareVariable( "point_id", otInteger );
   PQry.DeclareVariable( "move_id", otInteger );
   PQry.DeclareVariable( "point_num", otInteger );
@@ -855,6 +852,7 @@ void CreateSPP( TDateTime localdate )
   PQry.DeclareVariable( "trip_type", otString );
   PQry.DeclareVariable( "litera", otString );
   PQry.DeclareVariable( "pr_del", otInteger );
+  PQry.DeclareVariable( "tid",    otInteger);
   PQry.DeclareVariable( "pr_reg", otInteger );
 
   TSpp spp;
@@ -899,8 +897,10 @@ void CreateSPP( TDateTime localdate )
         continue;
       }
 
+      int move_id = PgOra::getSeqNextVal_int("MOVE_ID");
+      MIDQry.SetVariable( "move_id", move_id );
       MIDQry.Execute();
-      int move_id = MIDQry.GetVariableAsInteger( "move_id" );
+
       PQry.SetVariable( "move_id", move_id );
 
       bool pr_tranzit;
@@ -999,9 +999,12 @@ void CreateSPP( TDateTime localdate )
           if ( r == im->second.dests.end() )
             pr_reg = 0;
         }
-        PQry.SetVariable( "pr_reg", pr_reg );
+
+        point_id = PgOra::getSeqNextVal_int("POINT_ID");
+        PQry.SetVariable( "point_id", point_id);
+        PQry.SetVariable( "tid",      PgOra::getSeqNextVal_int("CYCLE_TID__SEQ") );
+        PQry.SetVariable( "pr_reg",   pr_reg );
         PQry.Execute();
-        point_id = PQry.GetVariableAsInteger( "point_id" );
         if (!pr_tranzit)
           first_point=point_id;
         ProgTrace( TRACE5, "new line into points with point_id=%d", point_id );
@@ -3649,25 +3652,27 @@ void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 TDoubleTrip::TDoubleTrip( )
 {
-    Qry = new TQuery( &OraSession );
+    Qry.reset(new DB::TQuery(PgOra::getROSession("POINTS"), STDLOG));
     Qry->SQLText =
      "SELECT point_id, scd_in, scd_out FROM points "
-     " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
-     "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
-     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
-     "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";
+     " WHERE airline=:airline AND flt_no=:flt_no AND COALESCE(suffix,' ')=COALESCE(:suffix,' ') AND "
+     "       move_id!=:move_id AND airp=:airp AND pr_del<>-1 AND "
+     "       ( scd_in BETWEEN :scd_in_min AND :scd_in_max OR "
+     "         scd_out BETWEEN :scd_out_min AND :scd_out_max )";
   Qry->DeclareVariable( "move_id", otInteger );
   Qry->DeclareVariable( "airp", otString );
   Qry->DeclareVariable( "airline", otString );
   Qry->DeclareVariable( "flt_no", otInteger );
   Qry->DeclareVariable( "suffix", otString );
-  Qry->DeclareVariable( "scd_in", otDate );
-  Qry->DeclareVariable( "scd_out", otDate );
+  Qry->DeclareVariable( "scd_in_min", otDate );
+  Qry->DeclareVariable( "scd_in_max", otDate );
+  Qry->DeclareVariable( "scd_out_min", otDate );
+  Qry->DeclareVariable( "scd_out_max", otDate );
 }
 
 bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
-                              string suffix, string airp,
-                              TDateTime scd_in, TDateTime scd_out,
+                            string suffix, string airp,
+                            TDateTime scd_in, TDateTime scd_out,
                             int &point_id )
 {
   point_id = NoExists;
@@ -3680,14 +3685,21 @@ bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
     Qry->SetVariable( "suffix", suffix );
     Qry->SetVariable( "airline", airline );
     Qry->SetVariable( "airp", airp );
-    if ( scd_in > NoExists )
-      Qry->SetVariable( "scd_in", scd_in );
-    else
-        Qry->SetVariable( "scd_in", FNull );
-    if ( scd_out > NoExists )
-        Qry->SetVariable( "scd_out", scd_out );
-    else
-        Qry->SetVariable( "scd_out", FNull );
+    if ( scd_in > NoExists ) {
+      Qry->SetVariable( "scd_in_min", scd_in-2 );
+      Qry->SetVariable( "scd_in_max", scd_in+2 );
+    } else {
+      Qry->SetVariable( "scd_in_min", FNull );
+      Qry->SetVariable( "scd_in_max", FNull );
+    }
+    if ( scd_out > NoExists ) {
+      Qry->SetVariable( "scd_out_min", scd_out-2 );
+      Qry->SetVariable( "scd_out_max", scd_out+2 );
+    }
+    else {
+      Qry->SetVariable( "scd_out_min", FNull );
+      Qry->SetVariable( "scd_out_max", FNull );
+    }
     Qry->Execute();
     bool res = false;
   double local_scd_in,local_scd_out,d1;
@@ -3729,7 +3741,6 @@ bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
 
 TDoubleTrip::~TDoubleTrip()
 {
-    delete Qry;
 }
 
 //Вопросы:

@@ -165,7 +165,7 @@ void TPersWeights::getRules( const TDateTime &scd_utc, const std::string &airlin
 void TPersWeights::getRules( int point_id, PersWeightRules &weights )
 {
   weights.Clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline,bort,craft,scd_out FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -275,36 +275,37 @@ void PersWeightRules::write( int point_id )
   if ( fligths.empty() )
     throw Exception( "Flight not found" );
   fligths.Lock(__FUNCTION__);
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "DELETE trip_pers_weights WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery DelQry(PgOra::getRWSession("TRIP_PERS_WEIGHTS"), STDLOG);
+  DelQry.SQLText =
+    "DELETE FROM trip_pers_weights WHERE point_id=:point_id";
+  DelQry.CreateVariable( "point_id", otInteger, point_id );
+  DelQry.Execute();
+
+  DB::TQuery InsQry(PgOra::getRWSession("TRIP_PERS_WEIGHTS"), STDLOG);
+  InsQry.SQLText =
     "INSERT INTO trip_pers_weights(point_id,class,subclass,male,female,child,infant)"
     " VALUES(:point_id,:class,:subclass,:male,:female,:child,:infant)";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "subclass", otString );
-  Qry.DeclareVariable( "male", otInteger );
-  Qry.DeclareVariable( "female", otInteger );
-  Qry.DeclareVariable( "child", otInteger );
-  Qry.DeclareVariable( "infant", otInteger );
+  InsQry.CreateVariable( "point_id", otInteger, point_id );
+  InsQry.DeclareVariable( "class", otString );
+  InsQry.DeclareVariable( "subclass", otString );
+  InsQry.DeclareVariable( "male", otInteger );
+  InsQry.DeclareVariable( "female", otInteger );
+  InsQry.DeclareVariable( "child", otInteger );
+  InsQry.DeclareVariable( "infant", otInteger );
   ProgTrace( TRACE5, "weights.size()=%zu", weights.size() );
   std::string lexema_id = "EVT.PERS_WEIGHTS";
   PrmEnum prmenum("weights", ", ");
   for ( std::vector<ClassesPersWeight>::iterator i=weights.begin(); i!=weights.end(); i++ ) {
-    Qry.SetVariable( "class", i->cl );
-    Qry.SetVariable( "subclass", i->subcl );
-    Qry.SetVariable( "male", i->male );
+    InsQry.SetVariable( "class", i->cl );
+    InsQry.SetVariable( "subclass", i->subcl );
+    InsQry.SetVariable( "male", i->male );
     if ( i->female == ASTRA::NoExists )
-      Qry.SetVariable( "female", FNull );
+      InsQry.SetVariable( "female", FNull );
     else
-      Qry.SetVariable( "female", i->female );
-    Qry.SetVariable( "child", i->child );
-    Qry.SetVariable( "infant", i->infant );
-    Qry.Execute();
+      InsQry.SetVariable( "female", i->female );
+    InsQry.SetVariable( "child", i->child );
+    InsQry.SetVariable( "infant", i->infant );
+    InsQry.Execute();
     if ( !i->cl.empty() ) {
       PrmLexema lexema("", "EVT.PERS_WEIGHTS_CLASS");
       lexema.prms << PrmElem<std::string>("cl", etClass, i->cl);

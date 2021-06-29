@@ -279,13 +279,13 @@ std::string AddDays( std::string days, int delta );
 class TDoubleTrip
 {
   private:
-     TQuery *Qry;
+     std::unique_ptr<DB::TQuery> Qry;
   public:
      TDoubleTrip();
      ~TDoubleTrip();
      bool IsExists( int move_id, std::string airline, int flt_no,
-                      std::string suffix, std::string airp,
-                          TDateTime scd_in, TDateTime scd_out,
+                    std::string suffix, std::string airp,
+                    TDateTime scd_in, TDateTime scd_out,
                     int &point_id );
 };
 

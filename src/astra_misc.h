@@ -283,7 +283,8 @@ class TTripInfo
     };
   public:
     void fromArxPoint(const dbo::Arx_Points &arx_point);
-    static bool match(TQuery &Qry, const FlightProps& props)
+    template<class TQueryT>
+    static bool match(TQueryT &Qry, const FlightProps& props)
     {
       if (props.cancellation()==FlightProps::NotCancelled && Qry.FieldAsInteger("pr_del")!=0) return false;
       if (props.checkin_ability()==FlightProps::WithCheckIn && Qry.FieldAsInteger("pr_reg")==0) return false;
@@ -463,6 +464,11 @@ class TAdvTripInfo : public TTripInfo
     };
     using TTripInfo::Init;
     virtual void Init( TQuery &Qry )
+    {
+      TTripInfo::Init(Qry);
+      init(Qry);
+    };
+    virtual void Init( DB::TQuery &Qry )
     {
       TTripInfo::Init(Qry);
       init(Qry);
@@ -672,8 +678,7 @@ private:
                 bool pr_tranzit,
                 bool after_current,
                 TTripRouteType1 route_type1,
-                TTripRouteType2 route_type2,
-                TQuery& Qry) = 0;
+                TTripRouteType2 route_type2) = 0;
   virtual bool GetRoute(TDateTime part_key,
                 int point_id,
                 bool after_current,
@@ -724,8 +729,7 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
                   bool pr_tranzit,
                   bool after_current,
                   TTripRouteType1 route_type1,
-                  TTripRouteType2 route_type2,
-                  TQuery& Qry);
+                  TTripRouteType2 route_type2);
     void GetArxRoute(TDateTime part_key,
                      int point_id,
                      int point_num,
@@ -797,8 +801,7 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                   bool pr_tranzit,
                   bool after_current,
                   TTripRouteType1 route_type1,
-                  TTripRouteType2 route_type2,
-                  TQuery& Qry);
+                  TTripRouteType2 route_type2);
 
     void GetArxRoute(TDateTime part_key,
                         int point_id,

@@ -2801,11 +2801,11 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
 void FlightPoints::Get( int vpoint_dep )
 {
   clear();
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
-      "SELECT point_num,first_point,pr_tranzit,airp,pr_del "
+    "SELECT point_num,first_point,pr_tranzit,airp,pr_del "
     " FROM points "
-    " WHERE point_id=:point_id AND pr_del!=-1";
+    " WHERE point_id=:point_id AND pr_del != -1";
   Qry.CreateVariable( "point_id", otInteger, vpoint_dep );
   Qry.Execute();
   if ( Qry.Eof )
@@ -2868,12 +2868,12 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
 {
   std::vector<int> pnts;
   if ( flightType == ftAll ) {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
     "SELECT p2.point_id FROM points p1, points p2 "
     " WHERE p1.point_id=:point_id AND "
     "       p2.move_id=p1.move_id AND "
-    "       p2.pr_del !=-1";
+    "       p2.pr_del != -1";
     Qry.DeclareVariable( "point_id", otInteger );
     for ( std::vector<int>::const_iterator ipoint=points.begin();
           ipoint!=points.end(); ipoint++ ) {
@@ -2952,9 +2952,15 @@ const boost::posix_time::ptime start_abs(boost::posix_time::time_from_string("20
 void TFlights::Lock(const std::string &from)
 {
   set<int,std::less<int> > points;
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  auto& sess = PgOra::getRWSession("POINTS");
+  DB::TQuery Qry( sess, STDLOG );
+  if(sess.isOracle()) {
+    Qry.SQLText =
     "SELECT point_id, points_lock__seq.nextval AS lock_id FROM points WHERE point_id=:point_id FOR UPDATE";
+  } else {
+    Qry.SQLText =
+    "SELECT point_id, NEXTVAL('points_lock__seq') AS lock_id FROM points WHERE point_id=:point_id FOR UPDATE";
+  }
   Qry.DeclareVariable( "point_id", otInteger );
   for( TFlights::iterator iflight=begin();
        iflight!=end(); iflight++ ) {

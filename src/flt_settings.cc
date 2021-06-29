@@ -21,13 +21,12 @@ bool GetTripSets( const TTripSetType setType,
   if (!(setType>=0 && setType<100))
     throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
 
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("MISC_SET"), STDLOG);
   Qry.SQLText=
     "SELECT pr_misc, "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+    "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+    "        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
     "FROM misc_set "
     "WHERE type=:type AND "
     "      (airline IS NULL OR airline=:airline) AND "
@@ -170,7 +169,7 @@ TTripSetList& TTripSetList::fromXML(xmlNodePtr node, const bool pr_tranzit, cons
 
 const TTripSetList& TTripSetList::initDB(int point_id, int f, int c, int y) const
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
 
   ostringstream sql;
   sql << "INSERT INTO trip_sets "
@@ -200,7 +199,7 @@ const TTripSetList& TTripSetList::initDB(int point_id, int f, int c, int y) cons
   };
   sql << ") ";
 
-  Qry.SQLText=sql.str().c_str();
+  Qry.SQLText=sql.str();
   Qry.CreateVariable("point_id", otInteger, point_id);
   f!=NoExists?Qry.CreateVariable("f", otInteger, f):
               Qry.CreateVariable("f", otInteger, FNull);
@@ -389,7 +388,9 @@ TTripSetList& TTripSetList::fromDB(int point_id)
   };
   sql << " FROM trip_sets WHERE point_id=:point_id";
 
-  TCachedQuery SetsQry(sql.str(), QParams() << QParam("point_id", otInteger, point_id));
+  DB::TCachedQuery SetsQry(PgOra::getROSession("TRIP_SETS"), sql.str(),
+                           QParams() << QParam("point_id", otInteger, point_id),
+                           STDLOG);
   SetsQry.get().Execute();
   if (SetsQry.get().Eof) return *this;
   for(const auto& i : _settingTypes)
@@ -427,9 +428,9 @@ TTripSetList& TTripSetList::getTransitSets(const TTripInfo &flt, boost::optional
   pr_tranzit=boost::none;
 
   auto cur=make_db_curs("SELECT pr_tranzit, pr_reg, bort_changing, brd_with_autoreg, "
-                     "       DECODE(airline,NULL,0,8)+ "
-                     "       DECODE(flt_no,NULL,0,2)+ "
-                     "       DECODE(airp_dep,NULL,0,4) AS priority "
+                     "   (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+                     "    CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+                     "    CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
                      "FROM tranzit_set "
                      "WHERE (airline IS NULL OR airline=:airline) AND "
                      "      (flt_no IS NULL OR flt_no=:flt_no) AND "

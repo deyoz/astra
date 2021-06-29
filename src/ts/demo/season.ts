@@ -75,9 +75,18 @@ $(EDIT_SEASON_TRIP PIKE $(get trip_id1))
         </trip>
       </trips>
 
+!! capture=on
+$(GET_SPP PIKE "25.06.2021 00:00:00")
+
+>> lines=auto
+    <command>
+      <message lexema_id='MSG.DATA_SAVED'...
+    </command>
+
 # выход из системы
 !! capture=on
 $(logoff PIKE)
 
 >> lines=auto
       <message lexema_id='MSG.WORK_SEANCE_FINISHED' code='0'>...
+
