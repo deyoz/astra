@@ -7277,11 +7277,14 @@ static void putTripStages(int point_id)
     boost::optional<int> timeBeforeScdOut=initProps.getTimeBeforeScdOut(stageId);
     if (!timeBeforeScdOut) timeBeforeScdOut=GraphQry.FieldAsInteger("time");
 
-    TDateTime scd=flt.scd_out!=NoExists?flt.scd_out-timeBeforeScdOut.get()/1440.0:NoExists;
+    if (flt.scd_out == NoExists) {
+        throw Exception( "putTripStages: flt.scd_out == NoExists" );
+    }
+
+    TDateTime scd = flt.scd_out - timeBeforeScdOut.get() / 1440.0;
 
     InsQry.SetVariable("stage_id", (int)stageId);
-    scd!=NoExists?InsQry.SetVariable("scd", scd):
-                  InsQry.SetVariable("scd", FNull);
+    InsQry.SetVariable("scd", scd);
     InsQry.SetVariable("pr_auto", (int)autoAttribute.get());
     InsQry.Execute();
 

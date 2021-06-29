@@ -312,12 +312,10 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
    ? "INSERT INTO trip_stages( point_id, stage_id, scd, est, act, pr_auto, "     "pr_manual, ignore_auto) "
                      "VALUES (:point_id,:stage_id,:scd,:est,:act, "    "0,:insert_pr_manual,:ignore_auto) "
      "ON CONFLICT(point_id, stage_id) "
-     "DO UPDATE trip_stages "
+     "DO UPDATE "
      "SET est = :est, act = :act, "
-         "pr_auto = CASE :pr_auto WHEN -1 THEN pr_auto ELSE :pr_auto END, "
-         "pr_manual = CASE :pr_manual WHEN -1 THEN pr_manual ELSE :pr_manual END "
-     "WHERE point_id = :point_id "
-       "AND stage_id = :stage_id"
+         "pr_auto = CASE :pr_auto WHEN -1 THEN excluded.pr_auto ELSE :pr_auto END, "
+         "pr_manual = CASE :pr_manual WHEN -1 THEN excluded.pr_manual ELSE :pr_manual END"
    : "BEGIN "
          "UPDATE trip_stages "
          "SET est = :est, act = :act, "
@@ -590,7 +588,7 @@ std::vector<TStage_name> loadGraphStages()
        "UNION "
        "SELECT stage_id, name, name_lat, airp FROM stage_names "
        "ORDER BY stage_id, airp",
-        PgOra::getROSession("GRAPH_STAGES")
+        PgOra::getROSession({"GRAPH_STAGES", "STAGE_NAMES"})
     );
 
     int stage_id;
@@ -1424,7 +1422,7 @@ void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto )
     );
 
     cur.stb()
-       .bind(":ignore_auto", ignore_auto)
+       .bind(":ignore_auto", int(ignore_auto))
        .bind(":point_id", point_id)
        .exec();
 
