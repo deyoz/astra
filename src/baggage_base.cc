@@ -846,13 +846,17 @@ void BagTypeToDB(DB::TQuery &Qry, const std::string& bag_type, const std::string
 
 int get_max_tckin_num(int grp_id)
 {
-  TCachedQuery Qry("SELECT seg_no FROM tckin_segments WHERE grp_id=:grp_id AND pr_final<>0",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("TCKIN_SEGMENTS"),
+        "SELECT seg_no FROM tckin_segments "
+        "WHERE grp_id=:grp_id AND pr_final<>0",
+        QParams() << QParam("grp_id", otInteger, grp_id),
+        STDLOG);
   Qry.get().Execute();
-  if (!Qry.get().Eof)
+  if (!Qry.get().Eof) {
     return Qry.get().FieldAsInteger("seg_no");
-  else
-    return 0;
+  }
+  return 0;
 }
 
 

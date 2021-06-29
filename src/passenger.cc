@@ -3534,8 +3534,7 @@ map<SegNo_t, T> getTCkinInfo(const PaxId_t& paxId)
 {
   map<SegNo_t, T> result;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText=
     "SELECT pax.*, tckin_pax_grp.seg_no "
     "FROM pax, tckin_pax_grp, "

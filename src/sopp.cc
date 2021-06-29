@@ -3157,11 +3157,13 @@ struct TSegBSMInfo
 };
 
 void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
-                   TQuery &PaxQry, TQuery &DelQry,
                    map<int/*point_id*/,TSegBSMInfo> &BSMsegs,
                    set<int/*point_id*/> &nextTrferSegs )
 {
   int point_id=fltInfo.point_id;
+
+  TQuery DelQry(&OraSession);
+  TQuery PaxQry(&OraSession);
 
   const char* pax_sql=
     "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd,status "
@@ -3291,11 +3293,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   map<int/*point_id*/,TSegBSMInfo> BSMsegs;
   set<int> nextTrferSegs;
 
-  TQuery DelQry(&OraSession);
-  TQuery PaxQry(&OraSession);
-
-  TQuery TCkinQry(&OraSession);
-  TCkinQry.Clear();
+  DB::TQuery TCkinQry(PgOra::getROSession({"TCKIN_PAX_GRP", "PAX_GRP", "POINTS"}), STDLOG);
   TCkinQry.SQLText=
     "SELECT points.point_id,points.airline,points.flt_no,points.suffix, "
     "       points.airp,points.scd_out, "
@@ -3395,12 +3393,12 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
           map<int,TAdvTripInfo>::const_iterator f=segs.find(g->first);
           if (f==segs.end()) throw Exception("DeletePassengers: f==segs.end()");
 
-          DeletePaxGrp( f->second, g->second, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
+          DeletePaxGrp( f->second, g->second, true, BSMsegs, nextTrferSegs);
         };
       };
     };
 
-    DeletePaxGrp( fltInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs, nextTrferSegs);
+    DeletePaxGrp( fltInfo, grp_id, filter.inbound_point_dep!=NoExists, BSMsegs, nextTrferSegs);
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты

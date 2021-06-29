@@ -674,9 +674,14 @@ void createXMLTrferPaxStat(
 
 string segListFromDB(int tckin_id)
 {
-    TCachedQuery Qry(
-            "select grp_id from tckin_pax_grp where tckin_id = :tckin_id AND tckin_pax_grp.transit_num=0 order by seg_no",
-            QParams() << QParam("tckin_id", otInteger, tckin_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("TCKIN_PAX_GRP"),
+          "SELECT grp_id FROM tckin_pax_grp "
+          "WHERE tckin_id = :tckin_id "
+          "AND tckin_pax_grp.transit_num=0 "
+          "ORDER BY seg_no",
+          QParams() << QParam("tckin_id", otInteger, tckin_id),
+          STDLOG);
     Qry.get().Execute();
     ostringstream result;
     for(; not Qry.get().Eof; Qry.get().Next()) {

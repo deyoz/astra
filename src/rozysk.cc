@@ -420,25 +420,30 @@ void get_route_not_rus(int point_dep, int point_arv, TRow &r)
 
 void get_transfer_route(int grp_id, TRow &r)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.SQLText = "SELECT grp_id FROM transfer WHERE grp_id=:grp_id AND rownum<2";
-  Qry.Execute();
-  if (!Qry.Eof)
+  DB::TQuery QryTransfer(PgOra::getROSession("TRANSFER"), STDLOG);
+  QryTransfer.SQLText = "SELECT grp_id FROM transfer "
+                        "WHERE grp_id=:grp_id "
+                        "FETCH FIRST 1 ROWS ONLY";
+  QryTransfer.CreateVariable("grp_id", otInteger, grp_id);
+  QryTransfer.Execute();
+  if (!QryTransfer.Eof)
   {
     r.transfer_route=true;
     return;
   };
-  Qry.SQLText = "SELECT grp_id FROM tckin_segments WHERE grp_id=:grp_id AND rownum<2";
-  Qry.Execute();
-  if (!Qry.Eof)
+  DB::TQuery QrySegments(PgOra::getROSession("TCKIN_SEGMENTS"), STDLOG);
+  QrySegments.SQLText = "SELECT grp_id FROM tckin_segments "
+                        "WHERE grp_id=:grp_id "
+                        "FETCH FIRST 1 ROWS ONLY";
+  QrySegments.CreateVariable("grp_id", otInteger, grp_id);
+  QrySegments.Execute();
+  if (!QrySegments.Eof)
   {
     r.transfer_route=true;
     return;
-  };
+  }
   r.transfer_route=false;
-};
+}
 
 const char* pax_sql=
   "SELECT "

@@ -4010,7 +4010,7 @@ void CheckServicePayment(int grp_id,
 
   if (!curr_payment) return;
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PaxASVCList::GetSession(PaxASVCList::oneWithTknByGrpId), STDLOG);
   Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
@@ -7435,9 +7435,8 @@ void CheckInInterface::BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode)
 
   xmlNodePtr node=NewTextChild(tckinNode,"tckin_segments");
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery Qry(PgOra::getROSession({"TCKIN_SEGMENTS", "TRFER_TRIPS"}), STDLOG);
+  Qry.SQLText =
     "SELECT airline, flt_no, suffix, scd AS scd_out, "
     "       airp_dep AS airp, airp_arv, seg_no "
     "FROM tckin_segments,trfer_trips "
@@ -7454,7 +7453,7 @@ void CheckInInterface::BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode)
     xmlNodePtr segNode=NewTextChild(node,"segment");
     SetProp(segNode, "num", seg_no);
     NewTextChild(segNode, "flight_short", flt.flight_view());
-  };
+  }
 }
 
 void CheckInInterface::SaveTagPacks(xmlNodePtr node)

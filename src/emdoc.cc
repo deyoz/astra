@@ -20,94 +20,6 @@ using namespace AstraEdifact;
 namespace PaxASVCList
 {
 
-std::string getPaxsSQL(const TListType ltype)
-{
-  ostringstream sql;
-
-  for(int pass=0; pass<2; pass++)
-  {
-    if (pass==0)
-      sql << "  (SELECT e.pax_id, e.transfer_num, e.emd_no, e.emd_coupon \n";
-    else
-      sql << "   SELECT e.pax_id, 0 AS transfer_num, e.emd_no, e.emd_coupon \n";
-    if (ltype==unboundByPointId ||
-        ltype==unboundByPaxId)
-      sql << "        , pax_grp.point_dep AS point_id, pax.grp_id\n";
-    if (ltype==allWithTknByPointId ||
-        ltype==oneWithTknByGrpId ||
-        ltype==oneWithTknByPaxId)
-      sql << "        , pax_grp.point_dep AS point_id, \n"
-             "          pax.grp_id, pax.surname, pax.name, pax.pers_type, pax.reg_no, \n"
-             "          pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm, \n"
-             "          pax.pr_brd, pax.refuse \n";
-    if (ltype==unboundByPointId ||
-        ltype==unboundByPaxId ||
-        ltype==allWithTknByPointId)
-    {
-      if (pass==0)
-      sql << "   FROM pax_grp, pax, pax_emd e \n";
-      else
-      sql << "   FROM pax_grp, pax, pax_asvc e \n";
-
-      sql << "   WHERE pax_grp.grp_id=pax.grp_id AND \n"
-             "         pax.pax_id=e.pax_id AND \n";
-      if (ltype==unboundByPointId ||
-          ltype==allWithTknByPointId)
-      sql << "         pax_grp.point_dep=:id AND \n";
-      if (ltype==unboundByPaxId)
-      sql << "         pax.pax_id=:id AND \n";
-
-      sql << "         pax_grp.status NOT IN ('E') AND \n"
-             "         pax.refuse IS NULL \n";
-
-    }
-
-    if (ltype==allByPaxId)
-    {
-      if (pass==0)
-      sql << "   FROM pax_emd e \n";
-      else
-      sql << "   FROM pax_asvc e \n";
-
-      sql << "   WHERE pax_id=:id \n";
-    }
-
-    if (ltype==allByGrpId)
-    {
-      if (pass==0)
-      sql << "   FROM pax, pax_emd e \n";
-      else
-      sql << "   FROM pax, pax_asvc e \n";
-
-      sql << "   WHERE pax.pax_id=e.pax_id AND pax.grp_id=:id \n";
-    }
-
-    if (ltype==oneWithTknByGrpId ||
-        ltype==oneWithTknByPaxId)
-    {
-      if (pass==0)
-      sql << "   FROM pax, pax_grp, pax_emd e \n";
-      else
-      sql << "   FROM pax, pax_grp, pax_asvc e \n";
-
-      sql << "   WHERE pax.pax_id=e.pax_id AND \n"
-             "         pax_grp.grp_id=pax.grp_id AND \n"
-             "         e.emd_no=:emd_no AND e.emd_coupon=:emd_coupon AND \n";
-      if (ltype==oneWithTknByGrpId)
-      sql << "         pax.grp_id=:grp_id \n";
-      if (ltype==oneWithTknByPaxId)
-      sql << "         pax.pax_id=:pax_id \n";
-    }
-
-    if (pass==0)
-      sql << "   UNION \n";
-    else
-      sql << "  ) paxs \n";
-  }
-
-  return sql.str();
-}
-
 string GetSQL_ASVC(const TListType ltype)
 {
   ostringstream sql;
@@ -115,128 +27,390 @@ string GetSQL_ASVC(const TListType ltype)
   if (ltype==asvcByGrpIdWithoutEMD ||
       ltype==asvcByPaxIdWithoutEMD)
   {
-    sql << "SELECT c.pax_id, \n"
-           "       0 AS transfer_num, \n"
-           "       c.emd_no, \n"
-           "       c.emd_coupon, \n"
-           "       c.rfic, \n"
-           "       c.rfisc, \n"
-           "       c.service_quantity, \n"
-           "       c.ssr_code, \n"
-           "       c.service_name, \n"
-           "       c.emd_type, \n"
-           "       c.emd_no AS emd_no_base \n"
-           "FROM pax, pax_asvc c \n"
-           "WHERE pax.pax_id=c.pax_id AND \n"
-           "      c.emd_type IS NULL AND \n"
-           "      c.emd_no IS NULL AND \n"
-           "      c.emd_coupon IS NULL AND \n";
+    sql << "SELECT c.pax_id, "
+           "       0 AS transfer_num, "
+           "       c.emd_no, "
+           "       c.emd_coupon, "
+           "       c.rfic, "
+           "       c.rfisc, "
+           "       c.service_quantity, "
+           "       c.ssr_code, "
+           "       c.service_name, "
+           "       c.emd_type, "
+           "       c.emd_no AS emd_no_base "
+           "FROM pax, pax_asvc c "
+           "WHERE pax.pax_id=c.pax_id AND "
+           "      c.emd_type IS NULL AND "
+           "      c.emd_no IS NULL AND "
+           "      c.emd_coupon IS NULL AND ";
     if (ltype==asvcByGrpIdWithoutEMD)
-      sql << "      pax.grp_id=:id \n";
+      sql << "      pax.grp_id=:id ";
     if (ltype==asvcByPaxIdWithoutEMD)
-      sql << "      pax.pax_id=:id \n";
-    sql << "UNION ALL \n";
+      sql << "      pax.pax_id=:id ";
+    sql << "UNION ALL ";
   }
   if (ltype==asvcByGrpIdWithEMD ||
       ltype==asvcByPaxIdWithEMD ||
       ltype==asvcByGrpIdWithoutEMD ||
       ltype==asvcByPaxIdWithoutEMD)
   {
-    sql << "SELECT p.pax_id, \n"
-           "       tckin_pax_grp.seg_no-p.seg_no AS transfer_num, \n"
-           "       c.emd_no, \n"
-           "       c.emd_coupon, \n"
-           "       c.rfic, \n"
-           "       c.rfisc, \n"
-           "       c.service_quantity, \n"
-           "       c.ssr_code, \n"
-           "       c.service_name, \n"
-           "       c.emd_type, \n"
-           "       c.emd_no AS emd_no_base \n"
-           "FROM pax, tckin_pax_grp, pax_asvc c, \n"
-           "     (SELECT tckin_pax_grp.tckin_id, \n"
-           "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance, \n"
-           "             pax.pax_id, \n"
-           "             tckin_pax_grp.seg_no \n"
-           "      FROM pax, tckin_pax_grp \n"
-           "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num=0 AND \n";
+    sql << "SELECT p.pax_id, "
+           "       tckin_pax_grp.seg_no-p.seg_no AS transfer_num, "
+           "       c.emd_no, "
+           "       c.emd_coupon, "
+           "       c.rfic, "
+           "       c.rfisc, "
+           "       c.service_quantity, "
+           "       c.ssr_code, "
+           "       c.service_name, "
+           "       c.emd_type, "
+           "       c.emd_no AS emd_no_base "
+           "FROM pax, tckin_pax_grp, pax_asvc c, "
+           "     (SELECT tckin_pax_grp.tckin_id, "
+           "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance, "
+           "             pax.pax_id, "
+           "             tckin_pax_grp.seg_no "
+           "      FROM pax, tckin_pax_grp "
+           "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num=0 AND ";
     if (ltype==asvcByGrpIdWithEMD ||
         ltype==asvcByGrpIdWithoutEMD)
-      sql << "      pax.grp_id=:id \n";
+      sql << "      pax.grp_id=:id ";
     if (ltype==asvcByPaxIdWithEMD ||
         ltype==asvcByPaxIdWithoutEMD)
-      sql << "      pax.pax_id=:id \n";
-    sql << "     ) p \n"
-           "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND \n"
-           "      pax.grp_id=tckin_pax_grp.grp_id AND \n"
-           "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND tckin_pax_grp.transit_num=0 AND \n"
-           "      pax.pax_id=c.pax_id AND \n";
+      sql << "      pax.pax_id=:id ";
+    sql << "     ) p "
+           "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
+           "      pax.grp_id=tckin_pax_grp.grp_id AND "
+           "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND tckin_pax_grp.transit_num=0 AND "
+           "      pax.pax_id=c.pax_id AND ";
     if (ltype==asvcByGrpIdWithEMD ||
         ltype==asvcByPaxIdWithEMD)
-      sql << "      c.emd_type IS NOT NULL AND \n"
-             "      c.emd_no IS NOT NULL AND \n"
-             "      c.emd_coupon IS NOT NULL AND \n"
-             "      tckin_pax_grp.seg_no-p.seg_no>=0 \n";
+      sql << "      c.emd_type IS NOT NULL AND "
+             "      c.emd_no IS NOT NULL AND "
+             "      c.emd_coupon IS NOT NULL AND "
+             "      tckin_pax_grp.seg_no-p.seg_no>=0 ";
     if (ltype==asvcByGrpIdWithoutEMD ||
         ltype==asvcByPaxIdWithoutEMD)
-      sql << "      c.emd_type IS NULL AND \n"
-             "      c.emd_no IS NULL AND \n"
-             "      c.emd_coupon IS NULL AND \n"
-             "      tckin_pax_grp.seg_no-p.seg_no>0 \n"; //>0 потому что UNION ALL!
+      sql << "      c.emd_type IS NULL AND "
+             "      c.emd_no IS NULL AND "
+             "      c.emd_coupon IS NULL AND "
+             "      tckin_pax_grp.seg_no-p.seg_no>0 "; //>0 потому что UNION ALL!
 
     return sql.str();
   }
   return std::string();
 }
 
-string GetSQL(const TListType ltype)
+DbCpp::Session& GetSession(const TListType ltype)
 {
-  ostringstream sql;
-
   if (ltype==asvcByGrpIdWithEMD ||
       ltype==asvcByPaxIdWithEMD ||
       ltype==asvcByGrpIdWithoutEMD ||
       ltype==asvcByPaxIdWithoutEMD)
   {
+    return PgOra::getROSession({"PAX", "PAX_ASVC", "TCKIN_PAX_GRP"});
+  }
+
+  if (ltype == unboundByPointId
+      || ltype == unboundByPaxId
+      || ltype == allWithTknByPointId
+      || ltype == oneWithTknByGrpId
+      || ltype == oneWithTknByPaxId)
+  {
+    return PgOra::getROSession({"PAX", "PAX_GRP", "PAX_ASVC", "PAX_EMD"});
+  }
+  if (ltype == allByPaxId) {
+    return PgOra::getROSession({"PAX_ASVC", "PAX_EMD"});
+  }
+  if (ltype == allByGrpId) {
+    return PgOra::getROSession({"PAX", "PAX_ASVC", "PAX_EMD"});
+  }
+  return *get_main_ora_sess(STDLOG);
+}
+
+string GetSQL(const TListType ltype)
+{
+  ostringstream sql;
+
+  if (ltype == asvcByGrpIdWithEMD ||
+      ltype == asvcByPaxIdWithEMD ||
+      ltype == asvcByGrpIdWithoutEMD ||
+      ltype == asvcByPaxIdWithoutEMD)
+  {
     return GetSQL_ASVC(ltype);
   }
 
-  sql << "SELECT paxs.*, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfic \n"
-         "                                      ELSE c.rfic END AS rfic, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfisc \n"
-         "                                      ELSE c.rfisc END AS rfisc, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_quantity \n"
-         "                                      ELSE c.service_quantity END AS service_quantity, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.ssr_code \n"
-         "                                      ELSE c.ssr_code END AS ssr_code, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_name \n"
-         "                                      ELSE c.service_name END AS service_name, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_type \n"
-         "                                      ELSE c.emd_type END AS emd_type, \n"
-         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_no_base \n"
-         "                                      ELSE c.emd_no END AS emd_no_base \n"
-         "FROM pax_emd b, pax_asvc c, \n";
+  sql << "SELECT paxs.*, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfic "
+         "                                      ELSE c.rfic END AS rfic, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfisc "
+         "                                      ELSE c.rfisc END AS rfisc, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_quantity "
+         "                                      ELSE c.service_quantity END AS service_quantity, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.ssr_code "
+         "                                      ELSE c.ssr_code END AS ssr_code, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_name "
+         "                                      ELSE c.service_name END AS service_name, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_type "
+         "                                      ELSE c.emd_type END AS emd_type, "
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_no_base "
+         "                                      ELSE c.emd_no END AS emd_no_base "
+         "FROM pax_emd b "
+         "RIGHT OUTER JOIN ( "
+         "  ( ";
 
-  sql << getPaxsSQL(ltype);
+  if (ltype == unboundByPointId) {
+    sql << "SELECT "
+           "  e.pax_id, "
+           "  e.transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE pax_grp.point_dep = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE pax_grp.point_dep = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL ";
+  }
+  if (ltype == unboundByPaxId) {
+    sql << "SELECT "
+           "  e.pax_id, "
+           "  e.transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE pax.pax_id = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE pax.pax_id = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL ";
+  }
+  if (ltype == allByPaxId) {
+    sql << "SELECT e.pax_id, e.transfer_num, e.emd_no, e.emd_coupon "
+           "FROM pax_emd e "
+           "WHERE pax_id = :id "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon "
+           "FROM pax_asvc e "
+           "WHERE pax_id = :id ";
+  }
+  if (ltype == allByGrpId) {
+    sql << "SELECT e.pax_id, e.transfer_num, e.emd_no, e.emd_coupon "
+           "FROM pax "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE pax.grp_id = :id "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon "
+           "FROM pax "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE pax.grp_id = :id ";
+  }
+  if (ltype == allWithTknByPointId) {
+    sql << "SELECT "
+           "  e.pax_id, "
+           "  e.transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE pax_grp.point_dep = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax_grp "
+           "     JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE pax_grp.point_dep = :id "
+           "AND pax_grp.status NOT IN ('E') "
+           "AND pax.refuse IS NULL ";
+  }
 
-  sql << "WHERE \n"
-         "      paxs.pax_id=      b.pax_id(+) AND \n"
-         "      paxs.transfer_num=b.transfer_num(+) AND \n"
-         "      paxs.emd_no=      b.emd_no(+) AND \n"
-         "      paxs.emd_coupon=  b.emd_coupon(+) AND \n"
+  if (ltype == oneWithTknByGrpId) {
+    sql << "SELECT "
+           "  e.pax_id, "
+           "  e.transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax "
+           "     JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE e.emd_no = :emd_no "
+           "AND e.emd_coupon = :emd_coupon "
+           "AND pax.grp_id = :grp_id "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax "
+           "     JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE e.emd_no = :emd_no "
+           "AND e.emd_coupon = :emd_coupon "
+           "AND pax.grp_id = :grp_id ";
+  }
 
-         "      paxs.pax_id=      c.pax_id(+) AND \n"
-         "      paxs.emd_no=      c.emd_no(+) AND \n"
-         "      paxs.emd_coupon=  c.emd_coupon(+) AND \n"
+  if (ltype == oneWithTknByPaxId) {
+    sql << "SELECT "
+           "  e.pax_id, "
+           "  e.transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax "
+           "     JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_emd e ON pax.pax_id = e.pax_id "
+           "WHERE e.emd_no = :emd_no "
+           "AND e.emd_coupon = :emd_coupon "
+           "AND pax.pax_id = :pax_id "
+           "UNION "
+           "SELECT "
+           "  e.pax_id, "
+           "  0 AS transfer_num, "
+           "  e.emd_no, "
+           "  e.emd_coupon, "
+           "  pax_grp.point_dep AS point_id, "
+           "  pax.grp_id, "
+           "  pax.surname, "
+           "  pax.name, "
+           "  pax.pers_type, "
+           "  pax.reg_no, "
+           "  pax.ticket_no, "
+           "  pax.coupon_no, "
+           "  pax.ticket_rem, "
+           "  pax.ticket_confirm, "
+           "  pax.pr_brd, "
+           "  pax.refuse "
+           "FROM pax "
+           "     JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
+           "     JOIN pax_asvc e ON pax.pax_id = e.pax_id "
+           "WHERE e.emd_no = :emd_no "
+           "AND e.emd_coupon = :emd_coupon "
+           "AND pax.pax_id = :pax_id ";
+  }
 
-         "      paxs.emd_no IS NOT NULL AND \n"
-         "      paxs.emd_coupon IS NOT NULL AND \n"
-
-         "      (b.emd_no IS NOT NULL OR \n"
-         "       c.emd_no IS NOT NULL AND paxs.transfer_num=0) ";
-
-  sql << "\n";
+  sql << "  ) paxs "
+         "    LEFT OUTER JOIN pax_asvc c "
+         "      ON ( "
+         "        paxs.pax_id = c.pax_id "
+         "        AND paxs.emd_no = c.emd_no "
+         "        AND paxs.emd_coupon = c.emd_coupon "
+         "      ) "
+         ") ON ( "
+         "      paxs.pax_id = b.pax_id "
+         "      AND paxs.transfer_num = b.transfer_num "
+         "      AND paxs.emd_no = b.emd_no "
+         "      AND paxs.emd_coupon = b.emd_coupon "
+         "    ) "
+         "WHERE paxs.emd_no IS NOT NULL "
+         "AND paxs.emd_coupon IS NOT NULL "
+         "AND (b.emd_no IS NOT NULL OR (c.emd_no IS NOT NULL AND paxs.transfer_num = 0)) ";
 
   return sql.str();
 }
@@ -281,9 +455,10 @@ void GetUnboundEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id
           PointId_t(id), {"EMDA", "EMDS"});
   }
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
-  Qry.SQLText = PaxASVCList::GetSQL(is_pax_id?PaxASVCList::unboundByPaxId:
-                                              PaxASVCList::unboundByPointId);
+  DB::TQuery Qry(PaxASVCList::GetSession(is_pax_id ? PaxASVCList::unboundByPaxId
+                                                   : PaxASVCList::unboundByPointId), STDLOG);
+  Qry.SQLText = PaxASVCList::GetSQL(is_pax_id ? PaxASVCList::unboundByPaxId
+                                              : PaxASVCList::unboundByPointId);
   Qry.CreateVariable( "id", otInteger, id );
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -341,7 +516,7 @@ bool ExistsPaxUnboundBagEMD(int pax_id)
 void getWithoutEMD(int id, TGrpServiceAutoList &svcsAuto, bool is_pax_id)
 {
   svcsAuto.clear();
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_ASVC", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText = PaxASVCList::GetSQL_ASVC(is_pax_id?PaxASVCList::asvcByPaxIdWithoutEMD:
                                                    PaxASVCList::asvcByGrpIdWithoutEMD);
   Qry.CreateVariable( "id", otInteger, id );
@@ -414,7 +589,7 @@ void GetBagEMDDisassocList(const int point_id,
       = CheckIn::TServicePaymentList::getGrpEmdPaymentMap(
         PointId_t(point_id), {"EMDA", "EMDS"});
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PaxASVCList::GetSession(PaxASVCList::allWithTknByPointId), STDLOG);
   Qry.SQLText = PaxASVCList::GetSQL(PaxASVCList::allWithTknByPointId);
   Qry.CreateVariable( "id", otInteger, point_id );
   Qry.Execute();
@@ -950,7 +1125,7 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
             << QParam("emd_coupon", otInteger, EMDCtxt.emd.coupon);
 
   DB::TCachedQuery Qry(
-        PgOra::getROSession("ORACLE"),
+        PaxASVCList::GetSession(PaxASVCList::oneWithTknByPaxId),
         PaxASVCList::GetSQL(PaxASVCList::oneWithTknByPaxId),
         QryParams,
         STDLOG);
@@ -1034,7 +1209,7 @@ void TPaxEMDList::getPaxEMD(int id, PaxASVCList::TListType listType, bool doNotC
         listType==PaxASVCList::asvcByPaxIdWithEMD)) return;
 
   DB::TCachedQuery Qry(
-        PgOra::getROSession("ORACLE"),
+        PaxASVCList::GetSession(listType),
         PaxASVCList::GetSQL(listType),
         QParams() << QParam("id", otInteger, id),
         STDLOG);

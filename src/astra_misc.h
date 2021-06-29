@@ -902,7 +902,7 @@ struct TCkinRouteItem
   ASTRA::TPaxStatus status;
   TTripInfo operFlt;
 
-  TCkinRouteItem(TQuery &Qry);
+  TCkinRouteItem(DB::TQuery &Qry);
 };
 
 struct GrpRouteItem
@@ -1021,10 +1021,6 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
     }
 
     static boost::optional<GrpId_t> toDB(const std::list<TCkinRouteInsertItem>& tckinGroups);
-
-    static std::string copySubselectSQL(const std::string& mainTable,
-                                        const std::initializer_list<std::string>& otherTables,
-                                        const bool forEachPassenger);
 };
 
 enum TCkinSegmentSet { cssNone,

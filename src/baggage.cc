@@ -1215,28 +1215,43 @@ void TGroupBagItem::toDB(int grp_id, int point_dep) const
 
 void TGroupBagItem::copyPaxPool(const GrpId_t& src, const GrpId_t& dest)
 {
-  if (src==dest) return;
+  if (src == dest) {
+    return;
+  }
 
-  auto cur=make_db_curs("MERGE INTO pax "
-                     "USING "
-                     "( "
-                     "SELECT pax1.bag_pool_num, pax2.pax_id "
-                     "FROM pax pax1, tckin_pax_grp tckin_pax_grp1, "
-                     "     pax pax2, tckin_pax_grp tckin_pax_grp2 "
-                     "WHERE pax1.grp_id=tckin_pax_grp1.grp_id AND "
-                     "      pax2.grp_id=tckin_pax_grp2.grp_id AND "
-                     "      tckin_pax_grp1.first_reg_no-pax1.reg_no=tckin_pax_grp2.first_reg_no-pax2.reg_no AND "
-                     "      tckin_pax_grp1.grp_id=:grp_id_src AND "
-                     "      tckin_pax_grp2.grp_id=:grp_id_dest "
-                     ") src "
-                     "ON (pax.pax_id=src.pax_id) "
-                     "WHEN MATCHED THEN "
-                     "UPDATE SET pax.bag_pool_num=src.bag_pool_num, "
-                     "           pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, cycle_tid__seq.currval)",
-                     PgOra::getRWSession("PAX"));
+  const int tid = PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ");
+  DbCpp::Session& session = PgOra::getRWSession({"PAX", "TCKIN_PAX_GRP"});
+  const std::string src_subquery =
+      "SELECT pax1.bag_pool_num, pax2.pax_id "
+      "FROM pax pax1, tckin_pax_grp tckin_pax_grp1, "
+      "     pax pax2, tckin_pax_grp tckin_pax_grp2 "
+      "WHERE pax1.grp_id = tckin_pax_grp1.grp_id AND "
+      "      pax2.grp_id = tckin_pax_grp2.grp_id AND "
+      "      tckin_pax_grp1.first_reg_no - pax1.reg_no = tckin_pax_grp2.first_reg_no - pax2.reg_no AND "
+      "      tckin_pax_grp1.grp_id = :grp_id_src AND "
+      "      tckin_pax_grp2.grp_id = :grp_id_dest ";
+  auto cur = make_db_curs(
+        session.getType() == DbCpp::DbType::Oracle
+        ?
+          "MERGE INTO pax "
+          "USING "
+          "( " + src_subquery + " ) src "
+          "ON (pax.pax_id=src.pax_id) "
+          "WHEN MATCHED THEN "
+          "UPDATE SET pax.bag_pool_num=src.bag_pool_num, "
+          "           pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, :cur_tid)"
+        :
+          "UPDATE pax "
+          "SET pax.bag_pool_num = src.bag_pool_num,"
+          "    pax.tid = (CASE WHEN pax.bag_pool_num IS NOT DISTINCT FROM src.bag_pool_num "
+          "               THEN pax.tid ELSE :cur_tid END) "
+          "FROM ( " + src_subquery + " ) src "
+          "WHERE pax.pax_id=src.pax_id ",
+        session);
   cur.stb()
      .bind(":grp_id_src", src.get())
      .bind(":grp_id_dest", dest.get())
+     .bind(":cur_tid", tid)
      .exec();
 }
 

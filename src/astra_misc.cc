@@ -1235,7 +1235,7 @@ std::vector<GrpRoute> GrpRoute::load(int transfer_num,
                    << ", grp_id_src=" << grp_id_src
                    << ", grp_id_dest=" << grp_id_dest;
   std::vector<GrpRoute> result;
-  DB::TQuery Qry(PgOra::getROSession("PAX_GRP-TCKIN_PAX_GRP"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText = "(SELECT tckin_pax_grp.grp_id AS src_grp_id, "
                 "        pax_grp.point_dep AS src_point_id, "
                 "        tckin_pax_grp.tckin_id AS src_tckin_id, "
@@ -1289,7 +1289,7 @@ std::vector<PaxGrpRoute> PaxGrpRoute::load(const PaxId_t& pax_id,
                    << ", grp_id_src=" << grp_id_src
                    << ", grp_id_dest=" << grp_id_dest;
   std::vector<PaxGrpRoute> result;
-  DB::TQuery Qry(PgOra::getROSession("PAX-TCKIN_PAX_GRP"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_GRP", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText = "SELECT src.*, dest.* FROM "
                 "(SELECT pax.pax_id AS src_pax_id, "
                 "        tckin_pax_grp.grp_id AS src_grp_id, "
@@ -1345,7 +1345,7 @@ std::vector<PaxGrpRoute> PaxGrpRoute::load(const PaxId_t& pax_id,
   return result;
 }
 
-TCkinRouteItem::TCkinRouteItem(TQuery &Qry)
+TCkinRouteItem::TCkinRouteItem(DB::TQuery &Qry)
 {
   grp_num=Qry.FieldAsInteger("grp_num");
   seg_no=Qry.FieldAsInteger("seg_no");
@@ -1357,7 +1357,7 @@ TCkinRouteItem::TCkinRouteItem(TQuery &Qry)
   point_arv=Qry.FieldAsInteger("point_arv");
   airp_dep=Qry.FieldAsString("airp_dep");
   airp_arv=Qry.FieldAsString("airp_arv");
-  status=DecodePaxStatus(Qry.FieldAsString("status"));
+  status=DecodePaxStatus(Qry.FieldAsString("status").c_str());
   operFlt.Init(Qry);
 }
 
@@ -1365,24 +1365,24 @@ std::string TCkinRoute::getSelectSQL(const Direction direction,
                                      const std::string& subselect)
 {
   ostringstream sql;
-  sql << "SELECT " << TTripInfo::selectedFields("points") << ", \n"
-         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, \n"
-         "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.status, \n"
-         "       tckin_pax_grp.grp_num, tckin_pax_grp.seg_no, \n"
-         "       tckin_pax_grp.transit_num, tckin_pax_grp.pr_depend, \n"
-         "       key.grp_num AS current_grp_num \n"
-         "FROM points, pax_grp, tckin_pax_grp, \n"
-         "(" + subselect + ") key \n"
-         "WHERE points.point_id=pax_grp.point_dep AND \n"
-         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND \n"
-         "      tckin_pax_grp.tckin_id=key.tckin_id \n";
+  sql << "SELECT " << TTripInfo::selectedFields("points") << ", "
+         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
+         "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.status, "
+         "       tckin_pax_grp.grp_num, tckin_pax_grp.seg_no, "
+         "       tckin_pax_grp.transit_num, tckin_pax_grp.pr_depend, "
+         "       key.grp_num AS current_grp_num "
+         "FROM points, pax_grp, tckin_pax_grp, "
+         "(" + subselect + ") key "
+         "WHERE points.point_id=pax_grp.point_dep AND "
+         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+         "      tckin_pax_grp.tckin_id=key.tckin_id ";
   switch(direction)
   {
     case After:
-      sql << "      AND tckin_pax_grp.grp_num>=key.grp_num \n";
+      sql << "      AND tckin_pax_grp.grp_num>=key.grp_num ";
       break;
     case Before:
-      sql << "      AND tckin_pax_grp.grp_num<=key.grp_num \n";
+      sql << "      AND tckin_pax_grp.grp_num<=key.grp_num ";
       break;
     default:
       break;
@@ -1400,16 +1400,18 @@ boost::optional<int> TCkinRoute::getRoute(const int tckin_id,
 
   clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DbCpp::Session& session = PgOra::getROSession({"POINTS", "PAX_GRP", "TCKIN_PAX_GRP"});
+  DB::TQuery Qry(session, STDLOG);
   Qry.SQLText=getSelectSQL(direction,
-                           "SELECT :tckin_id AS tckin_id, :grp_num AS grp_num FROM dual");
+                           std::string("SELECT :tckin_id AS tckin_id, :grp_num AS grp_num ")
+                           + (session.getType() == DbCpp::DbType::Postgres ? "" : "FROM dual"));
   Qry.CreateVariable("tckin_id", otInteger, tckin_id);
   Qry.CreateVariable("grp_num", otInteger, grp_num);
   Qry.Execute();
   if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
-  for(; !Qry.Eof; Qry.Next())
+  for(; !Qry.Eof; Qry.Next()) {
     emplace_back(Qry);
+  }
 
   return current_grp_num;
 }
@@ -1421,10 +1423,11 @@ boost::optional<int> TCkinRoute::getRoute(const GrpId_t& grpId,
 
   clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "PAX_GRP", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText=getSelectSQL(direction,
-                           "SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id");
+                           "SELECT tckin_id, grp_num "
+                           "FROM tckin_pax_grp "
+                           "WHERE grp_id=:grp_id");
   Qry.CreateVariable("grp_id", otInteger, grpId.get());
   Qry.Execute();
   if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
@@ -1441,12 +1444,12 @@ boost::optional<int> TCkinRoute::getRoute(const PaxId_t& paxId,
 
   clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "PAX", "PAX_GRP", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText=getSelectSQL(direction,
                            "SELECT tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
                            "FROM pax, tckin_pax_grp "
-                           "WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id");
+                           "WHERE pax.grp_id=tckin_pax_grp.grp_id "
+                           "AND pax.pax_id=:pax_id");
   Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
   if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
@@ -1578,11 +1581,12 @@ boost::optional<GrpId_t> TCkinRoute::toDB(const std::list<TCkinRouteInsertItem> 
 {
   if (tckinGroups.size()<=1) return {};
 
-  auto cur=make_db_curs("INSERT INTO tckin_pax_grp "
-                     "  (tckin_id, grp_num, seg_no, transit_num, grp_id, first_reg_no, pr_depend) "
-                     "VALUES "
-                     "  (:tckin_id, :grp_num, :seg_no, :transit_num, :grp_id, :first_reg_no, :pr_depend)",
-                     PgOra::getRWSession("TCKIN_PAX_GRP"));
+  auto cur=make_db_curs(
+        "INSERT INTO tckin_pax_grp "
+        "  (tckin_id, grp_num, seg_no, transit_num, grp_id, first_reg_no, pr_depend) "
+        "VALUES "
+        "  (:tckin_id, :grp_num, :seg_no, :transit_num, :grp_id, :first_reg_no, :pr_depend)",
+        PgOra::getRWSession("TCKIN_PAX_GRP"));
 
   bool firstGrp=true;
   int grp_num=1;
@@ -1613,60 +1617,6 @@ boost::optional<GrpId_t> TCkinRoute::toDB(const std::list<TCkinRouteInsertItem> 
   }
 
   return tckinGroups.front().grpId;
-}
-
-// !!! Для перевода на PG уже есть готовая структура и функция, смотри PaxGrpRoute::load !!!
-
-std::string TCkinRoute::copySubselectSQL(const std::string& mainTable,
-                                         const std::initializer_list<std::string>& otherTables,
-                                         const bool forEachPassenger)
-{
-  std::ostringstream result;
-  result << "FROM " << mainTable << ", ";
-  for(const auto& tab : otherTables)
-    result << tab << ", ";
-
-  if (forEachPassenger)
-    result << "(SELECT pax.pax_id, "
-              "        tckin_pax_grp.grp_id, "
-              "        tckin_pax_grp.tckin_id, "
-              "        tckin_pax_grp.seg_no, "
-              "        tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-              " FROM pax, tckin_pax_grp "
-              " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
-              "       tckin_pax_grp.transit_num=0 AND "
-              "       pax.grp_id=:grp_id_src) src, "
-              "(SELECT pax.pax_id, "
-              "        tckin_pax_grp.grp_id, "
-              "        tckin_pax_grp.tckin_id, "
-              "        tckin_pax_grp.seg_no, "
-              "        tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-              " FROM pax, tckin_pax_grp "
-              " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
-              "       tckin_pax_grp.transit_num=0 AND "
-              "       pax.grp_id=:grp_id_dest) dest "
-              "WHERE src.tckin_id=dest.tckin_id AND "
-              "      src.distance=dest.distance AND "
-              "      " << mainTable << ".pax_id=src.pax_id AND "
-              "      " << mainTable << ".transfer_num+src.seg_no-dest.seg_no>=0 ";
-  else
-    result << "(SELECT tckin_pax_grp.grp_id, "
-              "        tckin_pax_grp.tckin_id, "
-              "        tckin_pax_grp.seg_no "
-              " FROM tckin_pax_grp "
-              " WHERE tckin_pax_grp.transit_num=0 AND "
-              "       tckin_pax_grp.grp_id=:grp_id_src) src, "
-              "(SELECT tckin_pax_grp.grp_id, "
-              "        tckin_pax_grp.tckin_id, "
-              "        tckin_pax_grp.seg_no "
-              " FROM tckin_pax_grp "
-              " WHERE tckin_pax_grp.transit_num=0 AND "
-              "       tckin_pax_grp.grp_id=:grp_id_dest) dest "
-              "WHERE src.tckin_id=dest.tckin_id AND "
-              "      " << mainTable << ".grp_id=src.grp_id AND "
-              "      " << mainTable << ".transfer_num+src.seg_no-dest.seg_no>=0 ";
-
-  return result.str();
 }
 
 const TSimpleMktFlight& TSimpleMktFlight::toXML(xmlNodePtr node,
@@ -1932,8 +1882,11 @@ int SeparateTCkin(int grp_id,
   int tckin_id=NoExists;
   int grp_num=NoExists;
 
-  auto cur=make_db_curs("SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id",
-                     PgOra::getROSession("TCKIN_PAX_GRP"));
+  auto cur=make_db_curs(
+        "SELECT tckin_id, grp_num "
+        "FROM tckin_pax_grp "
+        "WHERE grp_id=:grp_id",
+        PgOra::getROSession("TCKIN_PAX_GRP"));
 
   cur.bind(":grp_id", grp_id)
      .def(tckin_id)
@@ -1946,9 +1899,12 @@ int SeparateTCkin(int grp_id,
 
   if (tid!=NoExists && upd_tid!=cssNone)
   {
-    auto upd=make_db_curs("UPDATE pax_grp SET tid=:tid "
-                  "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " + whereSQL(upd_tid) + ") ",
-                  PgOra::getRWSession("TCKIN_PAX_GRP"));
+    auto upd=make_db_curs(
+          "UPDATE pax_grp SET tid=:tid "
+          "WHERE grp_id IN ("
+          "  SELECT grp_id FROM tckin_pax_grp "
+          + whereSQL(upd_tid) + ") ",
+          PgOra::getRWSession({"PAX_GRP", "TCKIN_PAX_GRP"}));
     upd.bind(":tckin_id", tckin_id)
        .bind(":grp_num", grp_num)
        .bind(":tid", tid)
@@ -1956,8 +1912,11 @@ int SeparateTCkin(int grp_id,
   }
 
 
-  auto upd=make_db_curs("UPDATE tckin_pax_grp SET pr_depend=0 " + whereSQL(upd_depend),
-                        PgOra::getRWSession("TCKIN_PAX_GRP"));
+  auto upd=make_db_curs(
+        "UPDATE tckin_pax_grp SET "
+        "pr_depend=0 "
+        + whereSQL(upd_depend),
+        PgOra::getRWSession("TCKIN_PAX_GRP"));
   upd.bind(":tckin_id", tckin_id)
      .bind(":grp_num", grp_num)
      .exec();
@@ -1982,8 +1941,7 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
 {
   if (tckin_ids.empty()) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText=
     "SELECT pax.reg_no, pax.refuse, "
     "       tckin_pax_grp.grp_num, tckin_pax_grp.grp_id, "
@@ -1993,20 +1951,14 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
     "ORDER BY grp_num ";
   Qry.DeclareVariable("tckin_id", otInteger);
 
-  TQuery UpdQry(&OraSession);
-  UpdQry.Clear();
-  UpdQry.SQLText=
-    "BEGIN "
-    "  UPDATE tckin_pax_grp SET pr_depend=0 WHERE grp_id=:grp_id AND pr_depend<>0; "
-    "  IF SQL%FOUND AND :tid IS NOT NULL THEN "
-    "    UPDATE pax_grp SET tid=:tid WHERE grp_id=:grp_id; "
-    "  END IF; "
-    "END;";
-  UpdQry.DeclareVariable("grp_id", otInteger);
-  if (tid!=NoExists)
-    UpdQry.CreateVariable("tid", otInteger, tid);
-  else
-    UpdQry.CreateVariable("tid", otInteger, FNull);
+  DB::TQuery QryUpd(PgOra::getRWSession("TCKIN_PAX_GRP"), STDLOG);
+  QryUpd.SQLText=
+    "UPDATE tckin_pax_grp SET "
+    "pr_depend = 0 "
+    "WHERE grp_id = :grp_id "
+    "AND pr_depend <> 0";
+  QryUpd.DeclareVariable("grp_id", otInteger);
+
 
   for(set<int>::const_iterator tckin_id=tckin_ids.begin(); tckin_id!=tckin_ids.end(); ++tckin_id)
   {
@@ -2059,15 +2011,24 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
       */
       if (iCurrSeg->second.pr_depend)
       {
-
         if (iPriorSeg==segs.end() || //первый сегмент
             iPriorSeg->second.grp_num+1!=iCurrSeg->second.grp_num ||
             iPriorSeg->second.pax!=iCurrSeg->second.pax)
         {
-          UpdQry.SetVariable("grp_id", iCurrSeg->second.grp_id);
-          UpdQry.Execute();
-        };
-      };
+          QryUpd.SetVariable("grp_id", iCurrSeg->second.grp_id);
+          QryUpd.Execute();
+          if (QryUpd.RowsProcessed() > 0 && tid != ASTRA::NoExists) {
+            DB::TQuery QryUpdGrp(PgOra::getRWSession("PAX_GRP"), STDLOG);
+            QryUpdGrp.SQLText=
+                "UPDATE pax_grp SET "
+                "tid = :tid "
+                "WHERE grp_id = :grp_id ";
+            QryUpdGrp.CreateVariable("tid", otInteger, tid);
+            QryUpdGrp.CreateVariable("grp_id", otInteger, iCurrSeg->second.grp_id);
+            QryUpdGrp.Execute();
+          }
+        }
+      }
       iPriorSeg=iCurrSeg;
     };
   };

@@ -754,6 +754,10 @@ class TSimplePaxItem
     {
       fromDB(Qry);
     }
+    TSimplePaxItem(DB::TQuery &Qry)
+    {
+      fromDB(Qry);
+    }
     void clear()
     {
       id=ASTRA::NoExists;
@@ -1256,6 +1260,13 @@ class TCkinPaxTknItem : public TPaxTknItem
 
   public:
     TCkinPaxTknItem(TQuery &Qry) :
+      grpId_(Qry.FieldAsInteger("grp_id")),
+      paxId_(Qry.FieldAsInteger("pax_id"))
+    {
+      TPaxTknItem::fromDB(Qry);
+    }
+
+    TCkinPaxTknItem(DB::TQuery &Qry) :
       grpId_(Qry.FieldAsInteger("grp_id")),
       paxId_(Qry.FieldAsInteger("pax_id"))
     {

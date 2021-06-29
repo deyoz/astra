@@ -26,8 +26,8 @@ enum TListType {unboundByPointId,
                 allWithTknByPointId,
                 oneWithTknByGrpId,
                 oneWithTknByPaxId};
+DbCpp::Session& GetSession(const TListType ltype);
 std::string GetSQL(const TListType ltype);
-std::string getPaxsSQL(const TListType ltype);
 void printSQLs();
 int print_sql(int argc, char **argv);
 void GetUnboundBagEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
