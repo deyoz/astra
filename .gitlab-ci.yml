@@ -71,9 +71,9 @@ deploy-db:
     action: start
   variables:
     DOCKERFILE: "./docker/Dockerfile"
+    PG_CONNECT_STRING_ARX: postgres://astra_demo_arx:astra@172.17.0.1
+    PG_CONNECT_STRING: postgres://astra_demo:astra@172.17.0.1
     PG_SYSPAROL: postgres://postgres:manager@172.17.0.1/postgres
-    PG_CONNECT_STRING: postgres://astra_docker:astra@172.17.0.1
-    PG_CONNECT_STRING_ARX: postgres://astra_docker_arx:astra@172.17.0.1
     ENABLE_ORACLE: "0"
   only:
     - trunk
