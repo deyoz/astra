@@ -6,8 +6,7 @@
 #include "astra_elems.h"
 #include <functional>
 #include "astra_utils.h"
-
-#include "serverlib/dump_table.h"
+#include "serverlib/algo.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -712,6 +711,44 @@ int BagReader::rkWeight(GrpId_t grp_id, std::optional<int> bag_pool_num) const
         for(const auto & bag: opt_bags->get()) {total_rkWeight += bag.rkWeight;}
     }
     return total_rkWeight;
+}
+
+int ExcessWt::excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse)
+{
+    return isMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse) ? excess_wt_raw : 0;
+}
+
+int ExcessWt::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse)
+{
+    LogTrace5 << __func__ << " grp_id: " << grp_id << " excess_wt_raw: " << excess_wt_raw
+              << " bag_refuse: " << bag_refuse;
+    if(!bag_refuse) {
+        if(!algo::contains(groups, grp_id)) {
+            groups.insert(grp_id);
+            return excess_wt_raw;
+        }
+    }
+    LogTrace5 << __func__ << " return 0";
+    return 0;
+}
+
+bool ExcessWt::isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
+{
+    if(!bag_refuse) {
+        if(algo::contains(first_paxes, grp_id)) {
+            if(first_paxes.at(grp_id) == pax_id) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void ExcessWt::saveMainPax(GrpId_t grp_id, PaxId_t pax_id)
+{
+    if(!algo::contains(first_paxes, GrpId_t(grp_id))) {
+        first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxId_t{pax_id}));
+    }
 }
 
 }

@@ -457,6 +457,7 @@ $(TAG 3 RUCH 0298401557 bag_num=2 color=О)
 </tags>}
 )
 
+
 !!
 $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT_298) ЮТ 298 СОЧ ПРХ OZ OFER 2985523437721
                        $(get pax_id2) $(get point_dep_UT_190) $(get point_arv_UT_190) ЮТ 190 ПРХ АМС OZ OFER
@@ -465,11 +466,13 @@ $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT
 
 $(set grp_id $(get_single_grp_id $(get point_dep_UT_298) OZ OFER))
 
+
 $(run_arch_step $(ddmmyy +151))
 
 
+
 !! capture=on
-$(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
+$(ARX_PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
 
 >>
 <?xml version='1.0' encoding='CP866'?>
@@ -1225,7 +1228,7 @@ $(set point_dep $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
 $(run_arch_step $(ddmmyy +387))
 
 !! capture=on
-$(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
+$(ARX_RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 
 >>
 <?xml version='1.0' encoding='CP866'?>
@@ -1300,7 +1303,7 @@ $(set point_dep $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
 $(run_arch_step $(ddmmyy +387))
 
 !! capture=on
-$(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
+$(ARX_RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 
 >>
 <?xml version='1.0' encoding='CP866'?>
@@ -1559,7 +1562,7 @@ $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 $(run_arch_step $(ddmmyy +150))
 
 !! capture=on
-$(RUN_LOG_RUN $(get point_dep) $(get grp_id) $(date_format %d.%m.%Y +20) 1)
+$(ARX_RUN_LOG_RUN $(get point_dep) $(get grp_id) $(date_format %d.%m.%Y +20) 1)
 >>
 <?xml version='1.0' encoding='CP866'?>
 <term>

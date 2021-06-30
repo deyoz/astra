@@ -2459,8 +2459,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool check_pay_on_tckin_segs=false;
   if (with_rcpt_info) check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, operFlt);
 
-  using namespace CKIN;
-  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
   ostringstream sql;
   sql <<
     "SELECT "
@@ -2479,7 +2477,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
-    "  ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
     "  pax_grp.excess_wt AS excess_wt_raw, "
     "  pax_grp.piece_concept, "
     "  mark_trips.airline AS airline_mark, "
@@ -2524,6 +2521,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
   TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
+
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
+  ExcessWt viewEx;
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2545,7 +2546,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_ticket_rem=Qry.FieldIndex("ticket_rem");
     int col_ticket_no=Qry.FieldIndex("ticket_no");
     int col_bag_refuse=Qry.FieldIndex("bag_refuse");
-    int col_excess_wt=Qry.FieldIndex("excess_wt");
     int col_piece_concept=Qry.FieldIndex("piece_concept");
 
     int col_airline_mark=Qry.FieldIndex("airline_mark");
@@ -2567,16 +2567,19 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TQuery PaxDocQry(&OraSession);
     TRemGrp rem_grp;
     rem_grp.Load(retCKIN_VIEW, operFlt.airline);
+
     for(;!Qry.Eof;Qry.Next())
     {
       int grp_id = Qry.FieldAsInteger(col_grp_id);
+      int pax_id = Qry.FieldAsInteger(col_pax_id);
+      int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
+
       std::optional<int> bag_pool_num = std::nullopt;
       if(!Qry.FieldIsNULL(col_bag_pool_num)) {
           bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+          viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id));
       }
-      int pax_id = Qry.FieldAsInteger(col_pax_id);
       int reg_no = Qry.FieldAsInteger(col_reg_no);
-      int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
       string cl = Qry.FieldAsString(col_class);
       string cabin_cl = Qry.FieldAsString(col_cabin_class);
       TPaxStatus status_id=DecodePaxStatus(Qry.FieldAsString(col_status));
@@ -2666,7 +2669,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
-                                            TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
+        TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw, bag_refuse!=0)));
       NewTextChild(paxNode,"tags",bag_reader.tags(GrpId_t(grp_id), bag_pool_num, reqInfo->desk.lang),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
 
@@ -2763,7 +2766,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
     "  last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
     "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
@@ -2797,12 +2799,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   node=NewTextChild(resNode,"unaccomp_bag");
+  ExcessWt viewExUnac;
   if (!Qry.Eof)
   {
     createDefaults=true;
     for(;!Qry.Eof;Qry.Next())
     {
-      int grp_id=Qry.FieldAsInteger("grp_id");
+      GrpId_t grp_id{Qry.FieldAsInteger("grp_id")};
       const std::string cl = Qry.FieldAsString("class");
       int bag_refuse = Qry.FieldAsInteger("bag_refuse");
       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
@@ -2824,19 +2827,18 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       TLastTCkinSegInfo tckinSegInfo(Qry);
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
-      NewTextChild(paxNode,"bag_amount",bag_reader.bagAmountUnaccomp(GrpId_t(grp_id)),0);
-      NewTextChild(paxNode,"bag_weight",bag_reader.bagWeightUnaccomp(GrpId_t(grp_id)),0);
-      NewTextChild(paxNode,"rk_weight",bag_reader.rkWeightUnaccomp(GrpId_t(grp_id)),0);
+      NewTextChild(paxNode,"bag_amount",bag_reader.bagAmountUnaccomp(grp_id),0);
+      NewTextChild(paxNode,"bag_weight",bag_reader.bagWeightUnaccomp(grp_id),0);
+      NewTextChild(paxNode,"rk_weight",bag_reader.rkWeightUnaccomp(grp_id),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(0),
-                                            TBagKilos(Qry.FieldAsInteger("excess_wt")));
+        TBagKilos(viewExUnac.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse)));
 
-
-      NewTextChild(paxNode,"tags", bag_reader.tagsUnaccomp(GrpId_t(grp_id), reqInfo->desk.lang),"");
+      NewTextChild(paxNode,"tags", bag_reader.tagsUnaccomp(grp_id, reqInfo->desk.lang),"");
       if (with_rcpt_info)
       {
-        string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, NoExists):
-                                      WeightConcept::GetBagRcptStr(grp_id, NoExists);
+        string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id.get(), NoExists):
+                                      WeightConcept::GetBagRcptStr(grp_id.get(), NoExists);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
         // все ли квитанции распечатаны
         //0 - частично напечатаны
@@ -2844,11 +2846,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         //2 - нет ни одной квитанции
         int rcpt_complete=2;
         if (!receipts.empty()) rcpt_complete=piece_concept?(int)true:
-                                                           (int)WeightConcept::BagPaymentCompleted(grp_id);
+                                                           (int)WeightConcept::BagPaymentCompleted(grp_id.get());
         NewTextChild(paxNode,"rcpt_complete",rcpt_complete,2);
       }
       //идентификаторы
-      NewTextChild(paxNode,"grp_id",grp_id);
+      NewTextChild(paxNode,"grp_id",grp_id.get());
       if (!Qry.FieldIsNULL("hall_id"))
         NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
       else

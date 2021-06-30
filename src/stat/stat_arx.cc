@@ -42,9 +42,9 @@ std::string get_seat_no(int seats, std::string seat_no)
 void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList,
                   bool isPaxSearch, int pass, int &count, bool isArch)
 {
-  LogTrace5 << __func__ << " isArch: " << isArch << " isPaxSearch: " << isPaxSearch;
+  LogTrace(TRACE6) << __func__ << " isArch: " << isArch << " isPaxSearch: " << isPaxSearch;
   if(Qry.Eof) {
-      LogTrace5 << __func__ << " NO Data found";
+      LogTrace(TRACE5) << __func__ << " NO DATA FOUND";
       return;
   }
 
@@ -74,31 +74,45 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_ticket_no = Qry.FieldIndex("ticket_no");
   int col_hall = Qry.FieldIndex("hall");
   int col_status=Qry.FieldIndex("status");
-
-
+  int col_bag_pool_num=Qry.FieldIndex("bag_pool_num");
+  int col_seat_no = Qry.FieldIndex("seat_no");
+  int col_bag_refuse = Qry.FieldIndex("bag_refuse");
 
   map<int, TTripItem> TripItems;
 
   TPerfTimer tm;
   tm.Init();
+
+  using namespace CKIN;
+  std::map<PointId_t, BagReader> bag_readers;
+  ExcessWt viewEx;
   for( ; !Qry.Eof; Qry.Next()) {
-
       xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
-
-      int point_id = Qry.FieldAsInteger(col_point_id);
-      GrpId_t grp_id(Qry.FieldAsInteger(col_grp_id));
-      int pax_id =  Qry.FieldAsInteger(col_pax_id);
       TDateTime part_key=NoExists;
-      if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
-
-      if(part_key!=NoExists)
-          NewTextChild(paxNode, "part_key",
-                  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
-      NewTextChild(paxNode, "point_id", point_id);
+      if(!Qry.FieldIsNULL(col_part_key)) {
+          part_key=Qry.FieldAsDateTime(col_part_key);
+          NewTextChild(paxNode, "part_key",  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
+      }
+      PointId_t point_id{Qry.FieldAsInteger(col_point_id)};
+      std::optional<Dates::DateTime_t> opt_part_key = std::nullopt;
+      if(part_key != NoExists) opt_part_key = DateTimeToBoost(part_key);
+      if(!algo::contains(bag_readers, point_id)) {
+          bag_readers[point_id] = BagReader(point_id, opt_part_key, READ::BAGS_AND_TAGS);
+      }
+      GrpId_t grp_id(Qry.FieldAsInteger(col_grp_id));
+      PaxId_t pax_id(Qry.FieldAsInteger(col_pax_id));
+      int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
+      int excess_wt = Qry.FieldAsInteger("excess_wt");
+      std::optional<int> opt_bag_pool_num = std::nullopt;
+      if(!Qry.FieldIsNULL(col_bag_pool_num)) {
+          opt_bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+          viewEx.saveMainPax(grp_id, pax_id);
+      }
+      NewTextChild(paxNode, "point_id", point_id.get());
       NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
       NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
       NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
-      map<int, TTripItem>::iterator i=TripItems.find(point_id);
+      map<int, TTripItem>::iterator i=TripItems.find(point_id.get());
       if(i == TripItems.end())
       {
           TTripInfo trip_info(Qry);
@@ -109,7 +123,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
                       UTCToClient( Qry.FieldAsDateTime(col_scd_out), TReqInfo::Instance()->desk.tz_region),
                       ServerFormatDateTimeAsString
                       );
-          i=TripItems.insert(make_pair(point_id, trip_item)).first;
+          i=TripItems.insert(make_pair(point_id.get(), trip_item)).first;
       };
       if(i == TripItems.end())
         throw Exception("PaxListToXML: i == TripItems.end()");
@@ -119,45 +133,28 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
       NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
 
+      NewTextChild(paxNode, "bag_amount", bag_readers[point_id].bagAmount(grp_id, opt_bag_pool_num));
+      NewTextChild(paxNode, "bag_weight", bag_readers[point_id].bagWeight(grp_id, opt_bag_pool_num));
+      NewTextChild(paxNode, "rk_weight",  bag_readers[point_id].rkWeight(grp_id, opt_bag_pool_num));
+
       if(isArch) {
-          int col_bag_pool_num=Qry.FieldIndex("bag_pool_num");
-          int col_seat_no = Qry.FieldIndex("seat_no");
-          int col_seats = Qry.FieldIndex("seats");
-          int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-          int seats = Qry.FieldAsInteger(col_seats);
-          int excess_pc = Qry.FieldAsInteger("excess_pc");
-          int excess_wt =  Qry.FieldAsInteger("excess_wt");
           int excess = Qry.FieldAsInteger("excess");
-          int bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
-          std::string seat_no = Qry.FieldAsString(col_seat_no);
-          Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", CKIN::get_bagAmount2(grp_id, pax_id, bag_pool_num, b_part_key).value_or(0));
-          NewTextChild(paxNode, "bag_weight", CKIN::get_bagWeight2(grp_id, pax_id, bag_pool_num, b_part_key).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  CKIN::get_rkWeight2(grp_id, pax_id, bag_pool_num, b_part_key).value_or(0));
+          int excess_nvl = excess==0 ? excess_wt : excess;
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_nvl, bag_refuse!=0)));
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc), TBagKilos(CKIN::get_excess_wt(
-                             grp_id, pax_id, excess_wt, excess, bag_refuse, b_part_key).value_or(0)));
-          NewTextChild(paxNode, "tags", CKIN::get_birks2(grp_id, pax_id, bag_pool_num, b_part_key,
-                                                         TReqInfo::Instance()->desk.lang).value_or(""));
-          NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
       } else {
-          int col_bag_amount = Qry.FieldIndex("bag_amount");
-          int col_bag_weight = Qry.FieldIndex("bag_weight");
-          int col_rk_weight = Qry.FieldIndex("rk_weight");
-          int col_excess_wt = Qry.FieldIndex("excess_wt");
-          int col_seat_no = Qry.FieldIndex("seat_no");
-          int col_tags = Qry.FieldIndex("tags");
-
-          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
-          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
-          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-
-          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")))),
-                                                TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
-          NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-          NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(pax_id)),
+            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt, bag_refuse!=0)));
       }
-
+      NewTextChild(paxNode, "tags", bag_readers[point_id].tags(grp_id, opt_bag_pool_num, TReqInfo::Instance()->desk.lang));
+      if(isArch) {
+        int col_seats = Qry.FieldIndex("seats");
+        int seats = Qry.FieldAsInteger(col_seats);
+        NewTextChild(paxNode, "seat_no",  get_seat_no(seats, Qry.FieldAsString(col_seat_no)));
+      } else {
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+      }
       NewTextChild(paxNode, "grp_id", grp_id.get());
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
 
@@ -179,10 +176,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "status", status);
       NewTextChild(paxNode, "class", clsGrpIdsToCodeNative(Qry.FieldAsInteger(col_class_grp),
                                                            Qry.FieldAsInteger(col_cabin_class_grp)));
-
-      NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
-                                                              Qry.FieldAsInteger(col_pax_id),
-                                                              true));
+      NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key, pax_id.get(), true));
       NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
       if(Qry.FieldIsNULL(col_hall))
           NewTextChild(paxNode, "hall");
@@ -758,7 +752,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
-        "   events_bilingual.id1=:point_id  ";
+        "   events_bilingual.id1=:point_id  "
+        " ORDER BY ev_order";
     qry2 =
         "SELECT msg, time,  "
         "       id2 AS point_id,  "
@@ -770,7 +765,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type IN (:evtDisp) AND  "
-        "   events_bilingual.id1=:move_id  ";
+        "   events_bilingual.id1=:move_id  "
+        " ORDER BY ev_order";
     NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
@@ -1537,9 +1533,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 }
 
 void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList &excessNodeList,
-                       bool isPaxSearch, int pass, int &count, bool isArch)
+                       bool isPaxSearch, int pass, int &count, PointId_t point_dep, std::optional<Dates::DateTime_t> part_key)
 {
-  LogTrace5 << __func__ << " isArch: " << isArch << " isPaxSearch: " << isPaxSearch;
   if(Qry.Eof) {
       LogTrace5 << __func__ << " No Data found";
       return;
@@ -1553,34 +1548,31 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
   if (rowsNode==NULL)
     rowsNode = NewTextChild(paxListNode, "rows");
 
-  int col_point_id = Qry.FieldIndex("point_id");
   int col_scd_out = Qry.FieldIndex("scd_out");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_hall = Qry.FieldIndex("hall");
-  int col_part_key=Qry.FieldIndex("part_key");
 
   map<int, TTripItem> TripItems;
   TPerfTimer tm;
   tm.Init();
+
+  using namespace CKIN;
+  BagReader bag_reader(point_dep, part_key, READ::BAGS_AND_TAGS);
+  ExcessWt viewGrp;
   for(;!Qry.Eof;Qry.Next())
   {
       xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
-
-      int point_id = Qry.FieldAsInteger(col_point_id);
       GrpId_t grp_id(Qry.FieldAsInteger(col_grp_id));
-
-      TDateTime part_key=NoExists;
-      if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
-
-      if(part_key!=NoExists)
-          NewTextChild(paxNode, "part_key",
-                  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
-      NewTextChild(paxNode, "point_id", point_id);
+      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+      int excess_wt = Qry.FieldAsInteger("excess_wt");
+      if(part_key)
+          NewTextChild(paxNode, "part_key", DateTimeToStr(BoostToDateTime(*part_key), ServerFormatDateTimeAsString));
+      NewTextChild(paxNode, "point_id", point_dep.get());
       NewTextChild(paxNode, "airline");
       NewTextChild(paxNode, "flt_no", 0);
       NewTextChild(paxNode, "suffix");
-      map<int, TTripItem>::iterator i=TripItems.find(point_id);
+      map<int, TTripItem>::iterator i=TripItems.find(point_dep.get());
       if(i == TripItems.end())
       {
           TTripInfo trip_info(Qry);
@@ -1591,7 +1583,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
                       UTCToClient( Qry.FieldAsDateTime(col_scd_out), TReqInfo::Instance()->desk.tz_region),
                       ServerFormatDateTimeAsString
                       );
-          i=TripItems.insert(make_pair(point_id, trip_item)).first;
+          i=TripItems.insert(make_pair(point_dep.get(), trip_item)).first;
       };
       if(i == TripItems.end())
         throw Exception("UnaccompListToXML: i == TripItems.end()");
@@ -1601,25 +1593,23 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
       NewTextChild(paxNode, "reg_no", 0);
       NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
 
-      if(isArch) {
-          int excess_wt =  Qry.FieldAsInteger("excess_wt");
+      NewTextChild(paxNode, "bag_amount", bag_reader.bagAmountUnaccomp(grp_id));
+      NewTextChild(paxNode, "bag_weight", bag_reader.bagWeightUnaccomp(grp_id));
+      NewTextChild(paxNode, "rk_weight",  bag_reader.rkWeightUnaccomp(grp_id));
+
+      if(part_key) {
           int excess = Qry.FieldAsInteger("excess");
-          int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-          Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", CKIN::get_bagAmount2(grp_id, std::nullopt, 0, b_part_key).value_or(0));
-          NewTextChild(paxNode, "bag_weight", CKIN::get_bagWeight2(grp_id, std::nullopt, 0, b_part_key).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  CKIN::get_rkWeight2(grp_id, std::nullopt, 0, b_part_key).value_or(0));
-          excessNodeList.add(paxNode, "excess", TBagPieces(0), TBagKilos(CKIN::get_excess_wt(
-                              grp_id, std::nullopt, excess_wt, excess, bag_refuse, b_part_key).value_or(0)));
-          NewTextChild(paxNode, "tags", CKIN::get_birks2(grp_id, std::nullopt, 0, b_part_key,
-                                                         TReqInfo::Instance()->desk.lang).value_or(""));
+          int excess_nvl = excess==0 ? excess_wt : excess;
+          excessNodeList.add(paxNode, "excess", TBagPieces(0),
+            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse)));
+
       } else {
-          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-          excessNodeList.add(paxNode, "excess", TBagPieces(0), TBagKilos(Qry.FieldAsInteger("excess_wt")));
-          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+          excessNodeList.add(paxNode, "excess", TBagPieces(0),
+            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_wt, bag_refuse)));
       }
+
+      NewTextChild(paxNode, "tags", bag_reader.tagsUnaccomp(grp_id, TReqInfo::Instance()->desk.lang));
+
       NewTextChild(paxNode, "grp_id", grp_id.get());
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
 
@@ -1716,7 +1706,6 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
 
     ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
-    //несопровождаемый багаж
     DB::TQuery QryUnac(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
     std::string SQLText=
         "SELECT "
@@ -1751,7 +1740,7 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     QryUnac.SQLText = SQLText;
     QryUnac.Execute();
     LogTrace5 << " Qry SQL TEXT: " << QryUnac.SQLText;
-    UnaccompListToXML(QryUnac, resNode, excessNodeList, false, 0, count, true);
+    UnaccompListToXML(QryUnac, resNode, excessNodeList, false, 0, count, PointId_t(point_id), part_key);
 
     xmlNodePtr paxListNode = GetNode("paxList", resNode);
     if(paxListNode!=NULL) { // для совместимости со старой версией терминала
@@ -1936,14 +1925,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   null part_key, " +
                 TTripInfo::selectedFields("points") + ", "
                 "   pax.reg_no, "
+                "   pax.bag_pool_num, "
                 "   pax_grp.airp_arv, "
                 "   pax.surname||' '||pax.name full_name, "
-                "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, "
-                "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
-                "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
-                "   ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
                 "   pax_grp.grp_id, "
-                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
                 "   pax.refuse, "
                 "   pax.pr_brd, "
                 "   pax_grp.class_grp, "
@@ -1952,8 +1937,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
                 "   pax.pax_id, "
-                "   pax_grp.status "
-                "FROM  pax_grp,pax, points "
+                "   pax_grp.status, "
+                "   pax_grp.excess_wt, "
+                "   pax_grp.bag_refuse "
+                "FROM  pax_grp, pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
                 "   points.point_id = pax_grp.point_dep and "
@@ -1973,7 +1960,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
 
         TPerfTimer tm;
         tm.Init();
@@ -1993,13 +1979,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   null part_key, " +
                 TTripInfo::selectedFields("points") + ", "
                 "   pax_grp.airp_arv, "
-                "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
-                "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
-                "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
-                "   ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-                "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
-                "   pax_grp.hall "
+                "   pax_grp.hall, "
+                "   pax_grp.excess_wt, "
+                "   pax_grp.bag_refuse "
                 "FROM pax_grp, points "
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
@@ -2020,7 +2003,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             }
         }
         Qry.Execute();
-        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, false);
+        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, PointId_t(point_id), std::nullopt);
 
         xmlNodePtr paxListNode = GetNode("paxList", resNode);
         if(paxListNode!=NULL) { // для совместимости со старой версией терминала
@@ -2226,7 +2209,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
-    Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
+    //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
     params.insert( make_pair("lang", TReqInfo::Instance()->desk.lang) );
     xmlNodePtr paramNode = reqNode->children;
     string airline = NodeAsStringFast("airline", paramNode, "");
@@ -2282,11 +2265,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " pax.reg_no, \n"
                " pax_grp.airp_arv, \n"
                " pax.surname||' '||pax.name full_name, \n"
-               " NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
-               " NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
-               " NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
-               " ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-               " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n"
                " pax_grp.grp_id, \n"
                " pax.pr_brd, \n"

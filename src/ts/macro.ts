@@ -2492,9 +2492,32 @@ $(defmacro GET_ARX_EVENTS
 </term>}
 
 }) #end-of-macro
+
 #################################################################################
 
 $(defmacro PAX_LIST_RUN
+    point_id
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+<query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <PaxListRun>
+    <dev_model/>
+    <fmt_type/>
+    <prnParams>
+      <pr_lat>0</pr_lat>
+      <encoding>UTF-16LE</encoding>
+      <offset>20</offset>
+      <top>0</top>
+    </prnParams>
+    <point_id>$(point_id)</point_id>
+  </PaxListRun>
+</query>
+</term>}
+}) #end-of-macro
+
+#################################################################################
+
+$(defmacro ARX_PAX_LIST_RUN
     point_id
     part_key
 {{<?xml version='1.0' encoding='CP866'?>
@@ -3725,6 +3748,29 @@ $(defmacro RUN_PAX_SRC_STAT
 ########################################################################################
 $(defmacro RUN_FLT_TASK_LOG
     point_id
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <FltTaskLogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <client_with_trip_col_in_SysLog/>
+      <LoadForm/>
+    </FltTaskLogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+########################################################################################
+$(defmacro ARX_RUN_FLT_TASK_LOG
+    point_id
     part_key
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -3750,6 +3796,33 @@ $(defmacro RUN_FLT_TASK_LOG
 ###################################################################################
 
 $(defmacro RUN_LOG_RUN
+    point_id
+    grp_id
+    reg_no
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <LogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <grp_id>$(grp_id)</grp_id>
+      <reg_no>$(reg_no)</reg_no>
+      <client_with_trip_col_in_SysLog/>
+    </LogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+###################################################################################
+
+$(defmacro ARX_RUN_LOG_RUN
     point_id
     grp_id
     part_key
@@ -3779,6 +3852,30 @@ $(defmacro RUN_LOG_RUN
 ####################################################################################
 
 $(defmacro RUN_FLT_LOG
+    point_id
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <FltLogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <client_with_trip_col_in_SysLog/>
+      <LoadForm/>
+    </FltLogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+####################################################################################
+
+$(defmacro ARX_RUN_FLT_LOG
     point_id
     part_key
 {{<?xml version='1.0' encoding='CP866'?>

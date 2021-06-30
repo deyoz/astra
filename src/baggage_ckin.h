@@ -47,9 +47,23 @@ enum class READ : uint32_t
     BAGS_AND_TAGS
 };
 
+class ExcessWt
+{
+public:
+    int excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse);
+    int excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse);
+    bool isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse);
+    void saveMainPax(GrpId_t grp_id, PaxId_t pax_id);
+private:
+    std::map<GrpId_t, PaxId_t> first_paxes;
+    std::set<GrpId_t> groups;
+};
+
+
 class BagReader
 {
 public:
+    BagReader() = default;
     BagReader(PointId_t point_dep, std::optional<DateTime_t> part_key, READ var);
     BagReader(GrpId_t grp_id, std::optional<DateTime_t> part_key, READ var);
 

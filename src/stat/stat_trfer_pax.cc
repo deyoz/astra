@@ -342,6 +342,7 @@ void RunTrferPaxStat(
         TPrintAirline &prn_airline
         )
 {
+    LogTrace5 << __func__;
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
@@ -356,6 +357,8 @@ void RunTrferPaxStat(
           QryParams,
           STDLOG);
     Qry.get().Execute();
+    using namespace CKIN;
+    std::map<PointId_t, BagReader> bag_readers;
     if(not Qry.get().Eof) {
         int col_point_id = Qry.get().FieldIndex("point_id");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -364,9 +367,12 @@ void RunTrferPaxStat(
         int col_bag_amount = Qry.get().FieldIndex("bag_amount");
         int col_segments = Qry.get().FieldIndex("segments");
         for(; not Qry.get().Eof; Qry.get().Next()) {
-            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            PointId_t point_id{Qry.get().FieldAsInteger(col_point_id)};
+            if(!algo::contains(bag_readers, point_id)) {
+                bag_readers[point_id] = BagReader(point_id, std::nullopt, READ::BAGS_AND_TAGS);
+            }
             TTripInfo flt;
-            flt.getByPointId(point_id);
+            flt.getByPointId(point_id.get());
             if(not params.ap.empty() && flt.airp != params.ap) {
                 continue;
             }
@@ -390,16 +396,21 @@ void RunTrferPaxStat(
             }
             DB::TQuery QryBricks2(PgOra::getROSession("ORACLE"), STDLOG);
             QryBricks2.SQLText =
-                "SELECT ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags "
+                "SELECT grp_id, bag_pool_num "
                 "FROM pax "
                 "WHERE pax_id = :pax_id ";
             QryBricks2.CreateVariable("pax_id", otInteger, pax_id);
-            QryBricks2.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
             QryBricks2.Execute();
             if (QryBricks2.Eof) {
               continue;
             }
-            string tags = QryBricks2.FieldAsString("tags");
+            GrpId_t grp_id(QryBricks2.FieldAsInteger("grp_id"));
+            std::optional<int> bag_pool_num = std::nullopt;
+            if(!QryBricks2.FieldIsNULL("bag_pool_num")) {
+                bag_pool_num = QryBricks2.FieldAsInteger("bag_pool_num");
+            }
+
+            string tags = bag_readers[point_id].tags(grp_id, bag_pool_num, TReqInfo::Instance()->desk.lang);
 
             list<pair<TTripInfo, string> > seg_list;
             getSegList(segments, seg_list);
@@ -748,9 +759,8 @@ void get_trfer_pax_stat(int point_id)
             "select "
             "    pax.pax_id, "
             "    tckin_pax_grp.tckin_id, "
-            "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, "
-            "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
-            "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight "
+            "    pax.grp_id, "
+            "    pax.bag_pool_num "
             "from "
             "    pax_grp, "
             "    tckin_pax_grp, "
@@ -763,18 +773,22 @@ void get_trfer_pax_stat(int point_id)
             "    pax_grp.grp_id = pax.grp_id ",
             QParams() << QParam("point_id", otInteger, point_id));
     selQry.get().Execute();
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
     if(not selQry.get().Eof) {
         int col_pax_id = selQry.get().FieldIndex("pax_id");
         int col_tckin_id = selQry.get().FieldIndex("tckin_id");
-        int col_rk_weight = selQry.get().FieldIndex("rk_weight");
-        int col_bag_amount = selQry.get().FieldIndex("bag_amount");
-        int col_bag_weight = selQry.get().FieldIndex("bag_weight");
+        GrpId_t grp_id(selQry.get().FieldAsInteger("grp_id"));
+        std::optional<int> bag_pool_num = std::nullopt;
+        if(!selQry.get().FieldIsNULL("bag_pool_num")) {
+            bag_pool_num = selQry.get().FieldAsInteger("bag_pool_num");
+        }
         for(; not selQry.get().Eof; selQry.get().Next()) {
 
             insQry.get().SetVariable("pax_id", selQry.get().FieldAsInteger(col_pax_id));
-            insQry.get().SetVariable("rk_weight", selQry.get().FieldAsInteger(col_rk_weight));
-            insQry.get().SetVariable("bag_weight", selQry.get().FieldAsInteger(col_bag_weight));
-            insQry.get().SetVariable("bag_amount", selQry.get().FieldAsInteger(col_bag_amount));
+            insQry.get().SetVariable("rk_weight", bag_reader.rkWeight(grp_id, bag_pool_num));
+            insQry.get().SetVariable("bag_weight", bag_reader.bagWeight(grp_id, bag_pool_num));
+            insQry.get().SetVariable("bag_amount", bag_reader.bagAmount(grp_id, bag_pool_num));
             insQry.get().SetVariable("segments", segListFromDB(selQry.get().FieldAsInteger(col_tckin_id)));
 
             insQry.get().Execute();
