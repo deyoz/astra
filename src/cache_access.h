@@ -97,12 +97,13 @@ void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
                                const std::optional<CacheTable::Row>& oldRow,
                                const std::optional<CacheTable::Row>& newRow);
 
-void checkNullableDeskAccess(const std::string& deskFieldName,
-                             const std::optional<CacheTable::Row>& oldRow,
-                             const std::optional<CacheTable::Row>& newRow);
+void checkDeskAccess(const std::string& deskFieldName,
+                     const std::optional<CacheTable::Row>& oldRow,
+                     const std::optional<CacheTable::Row>& newRow);
 
 void checkDeskAndDeskGrp(const std::string& deskFieldName,
                          const std::string& deskGrpIdFieldName,
                          std::optional<CacheTable::Row>& row);
 
 } //namespace CacheTable
+

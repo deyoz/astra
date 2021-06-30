@@ -271,9 +271,9 @@ void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
   }
 }
 
-void checkNullableDeskAccess(const std::string& deskFieldName,
-                             const std::optional<CacheTable::Row>& oldRow,
-                             const std::optional<CacheTable::Row>& newRow)
+void checkDeskAccess(const std::string& deskFieldName,
+                     const std::optional<CacheTable::Row>& oldRow,
+                     const std::optional<CacheTable::Row>& newRow)
 {
   for(bool isNewRow : {false, true})
   {

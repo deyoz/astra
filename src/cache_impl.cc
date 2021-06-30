@@ -19,6 +19,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="GRP_RFISC1")          return new CacheTable::GrpRfiscOutdated;
   if (cacheCode=="GRP_RFISC")           return new CacheTable::GrpRfisc;
   if (cacheCode=="FILE_TYPES")          return new CacheTable::FileTypes;
+  if (cacheCode=="IN_FILE_ENCODING")    return new CacheTable::FileEncoding(false);
+  if (cacheCode=="OUT_FILE_ENCODING")   return new CacheTable::FileEncoding(true);
+  if (cacheCode=="IN_FILE_PARAM_SETS")  return new CacheTable::FileParamSets(false);
+  if (cacheCode=="OUT_FILE_PARAM_SETS") return new CacheTable::FileParamSets(true);
   if (cacheCode=="TERM_PROFILE_RIGHTS") return new CacheTable::TermProfileRights;
   if (cacheCode=="PRN_FORMS_LAYOUT")    return new CacheTable::PrnFormsLayout;
   if (cacheCode=="GRAPH_STAGES")        return new CacheTable::GraphStages;
@@ -364,6 +368,168 @@ std::list<std::string> FileTypes::dbSessionObjectNames() const {
   return {"FILE_TYPES"};
 }
 
+bool DeskWritable::userDependence() const {
+  return true;
+}
+
+bool DeskWritable::checkViewAccess(DB::TQuery& Qry, int idxDesk) const
+{
+  if (!deskViewAccess) deskViewAccess.emplace();
+  DeskCode_t deskCode(Qry.FieldAsString(idxDesk));
+  if (!deskViewAccess.value().check(deskCode)) return false;
+
+  return true;
+}
+
+//FileEncoding
+
+void FileEncoding::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery Qry(PgOra::getROSession("FILE_ENCODING"), STDLOG);
+
+  Qry.SQLText="SELECT id, type, point_addr, encoding "
+              "FROM file_encoding "
+              "WHERE own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
+              "      type NOT IN ('BSM', 'HTTP_TYPEB') "
+              "ORDER BY type, point_addr";
+  Qry.CreateVariable("own_point_addr", otString, OWN_POINT_ADDR());
+  Qry.CreateVariable("pr_send", otInteger, (int)out_);
+
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxType=Qry.FieldIndex("type");
+  int idxPointAddr=Qry.FieldIndex("point_addr");
+  int idxEncoding=Qry.FieldIndex("encoding");
+  for(; !Qry.Eof; Qry.Next())
+  {
+    if (!checkViewAccess(Qry, idxPointAddr)) continue;
+
+    rows.setFromInteger(Qry, idxId)
+        .setFromString (Qry, idxType)
+        .setFromString (Qry, idxPointAddr)
+        .setFromString (Qry, idxEncoding)
+        .addRow();
+  }
+
+}
+
+std::string FileEncoding::insertSql() const {
+  return "INSERT INTO file_encoding(id, type, point_addr, own_point_addr, encoding, pr_send) "
+         "VALUES(:id, :type, :point_addr, :SYS_point_addr, :encoding, " + IntToString(out_) + ")";
+}
+std::string FileEncoding::updateSql() const {
+  return "UPDATE file_encoding "
+         "SET type=:type, point_addr=:point_addr, encoding=:encoding "
+         "WHERE id=:OLD_id";
+}
+std::string FileEncoding::deleteSql() const {
+  return "DELETE FROM file_encoding WHERE id=:OLD_id";
+}
+std::list<std::string> FileEncoding::dbSessionObjectNames() const {
+  return {"FILE_ENCODING"};
+}
+
+void FileEncoding::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            std::optional<CacheTable::Row>& newRow) const
+{
+  checkDeskAccess("point_addr", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void FileEncoding::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("file_encoding").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//FileParamSets
+
+void FileParamSets::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
+
+  Qry.SQLText="SELECT id, type, point_addr, param_name, param_value, airline, flt_no, airp "
+              "FROM file_param_sets "
+              "WHERE own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
+              "      type NOT IN ('BSM', 'HTTP_TYPEB') AND "
+              + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+              + getSQLFilter("airp",    AccessControl::PermittedAirportsOrNull) +
+              "ORDER BY type, point_addr, airline, airp, flt_no";
+  Qry.CreateVariable("own_point_addr", otString, OWN_POINT_ADDR());
+  Qry.CreateVariable("pr_send", otInteger, (int)out_);
+
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxType=Qry.FieldIndex("type");
+  int idxPointAddr=Qry.FieldIndex("point_addr");
+  int idxAirline=Qry.FieldIndex("airline");
+  int idxFltNo=Qry.FieldIndex("flt_no");
+  int idxAirp=Qry.FieldIndex("airp");
+  int idxParamName=Qry.FieldIndex("param_name");
+  int idxParamValue=Qry.FieldIndex("param_value");
+  for(; !Qry.Eof; Qry.Next())
+  {
+    if (!checkViewAccess(Qry, idxPointAddr)) continue;
+
+    rows.setFromInteger(Qry, idxId)
+        .setFromString (Qry, idxType)
+        .setFromString (Qry, idxPointAddr)
+        .setFromString (Qry, idxAirline)
+        .setFromString (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
+        .setFromInteger(Qry, idxFltNo)
+        .setFromString (Qry, idxAirp)
+        .setFromString (ElemIdToCodeNative(etAirp, Qry.FieldAsString(idxAirp)))
+        .setFromString (Qry, idxParamName)
+        .setFromString (Qry, idxParamValue)
+        .addRow();
+  }
+
+}
+
+std::string FileParamSets::insertSql() const {
+  return "INSERT INTO file_param_sets(id, type, point_addr, own_point_addr, param_name, airline, airp, flt_no, param_value, pr_send) "
+         "VALUES(:id, :type, :point_addr, :SYS_point_addr, :param_name, :airline, :airp, :flt_no, :param_value, " + IntToString(out_) + ")";
+}
+std::string FileParamSets::updateSql() const {
+  return "UPDATE file_param_sets "
+         "SET type=:type, point_addr=:point_addr, param_name=:param_name, "
+         "    airline=:airline, flt_no=:flt_no, airp=:airp, param_value=:param_value "
+         "WHERE id=:OLD_id";
+}
+std::string FileParamSets::deleteSql() const {
+  return "DELETE FROM file_param_sets WHERE id=:OLD_id";
+}
+std::list<std::string> FileParamSets::dbSessionObjectNames() const {
+  return {"FILE_PARAM_SETS"};
+}
+
+void FileParamSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  checkDeskAccess("point_addr", oldRow, newRow);
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void FileParamSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("file_param_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
 //Airlines
 
 bool Airlines::userDependence() const {
@@ -696,7 +862,7 @@ void DeskPlusDeskGrpWritable::checkAccess(const std::string& fieldDeskGrpId,
                                           std::optional<CacheTable::Row>& newRow) const
 {
   checkDeskAndDeskGrp(fieldDesk, fieldDeskGrpId, newRow);
-  checkNullableDeskAccess(fieldDesk, oldRow, newRow);
+  checkDeskAccess(fieldDesk, oldRow, newRow);
   checkNotNullDeskGrpAccess(fieldDeskGrpId, oldRow, newRow);
 }
 

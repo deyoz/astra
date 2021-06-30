@@ -341,10 +341,12 @@ $(LOAD_CACHE WEB_SALES)
 %%
 
 ### test 2
-### FILE_TYPES
 #########################################################################################
 
 $(init_term)
+
+### FILE_TYPES
+#########################################################################################
 
 !! capture=on
 $(cache PIKE RU FILE_TYPES "" "")
@@ -420,6 +422,251 @@ $(cache PIKE RU FILE_TYPES "" "")
           <col>UTG ¢Î£‡„ß™†</col>
         </row>
       </rows>
+
+### IN_FILE_ENCODING, OUT_FILE_ENCODING
+#########################################################################################
+
+!! capture=on
+$(cache PIKE RU IN_FILE_ENCODING $(cache_iface_ver IN_FILE_ENCODING) ""
+  insert type:AODBI
+         point_addr:RASTRV
+         encoding:UTF-8)
+
+$(set id_in $(last_history_row_id FILE_ENCODING))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_in)</col>
+          <col>AODBI</col>
+          <col>RASTRV</col>
+          <col>UTF-8</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU OUT_FILE_ENCODING $(cache_iface_ver OUT_FILE_ENCODING) ""
+  insert type:AODBO
+         point_addr:RASTRV
+         encoding:CP1251)
+
+$(set id_out $(last_history_row_id FILE_ENCODING))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_out)</col>
+          <col>AODBO</col>
+          <col>RASTRV</col>
+          <col>CP1251</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU OUT_FILE_ENCODING $(cache_iface_ver OUT_FILE_ENCODING) ""
+  update id:$(get id_out)   old_id:$(get id_out)
+         type:AODBO         old_type:AODBO
+         point_addr:RASTRN  old_point_addr:RASTRV
+         encoding:CP866     old_encoding:CP1251)
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_out)</col>
+          <col>AODBO</col>
+          <col>RASTRN</col>
+          <col>CP866</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU IN_FILE_ENCODING $(cache_iface_ver IN_FILE_ENCODING) ""
+  update id:$(get id_in)    old_id:$(get id_in)
+         type:AODBI         old_type:AODBI
+         point_addr:RASTRN  old_point_addr:RASTRV
+         encoding:CP866     old_encoding:UTF-8)
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_in)</col>
+          <col>AODBI</col>
+          <col>RASTRN</col>
+          <col>CP866</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU IN_FILE_ENCODING $(cache_iface_ver IN_FILE_ENCODING) ""
+  delete old_id:$(get id_in)
+         old_type:AODBI
+         old_point_addr:RASTRN
+         old_encoding:CP866)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>IN_FILE_ENCODING</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>
+    <command>
+      <message lexema_id='MSG.CHANGED_DATA_COMMIT' code='0'>...</message>
+    </command>
+  </answer>
+</term>
+
+!! capture=on
+$(cache PIKE RU OUT_FILE_ENCODING $(cache_iface_ver OUT_FILE_ENCODING) ""
+  delete old_id:$(get id_out)
+         old_type:AODBO
+         old_point_addr:RASTRN
+         old_encoding:CP866)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>OUT_FILE_ENCODING</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>
+    <command>
+      <message lexema_id='MSG.CHANGED_DATA_COMMIT' code='0'>...</message>
+    </command>
+  </answer>
+</term>
+
+### IN_FILE_PARAM_SETS, OUT_FILE_PARAM_SETS
+#########################################################################################
+
+!! capture=on
+$(cache PIKE EN IN_FILE_PARAM_SETS $(cache_iface_ver IN_FILE_PARAM_SETS) ""
+  insert type:AODBI
+         point_addr:RASTRV
+         airline:ûí
+         flt_no:
+         airp:Ççä
+         param_name:WORKDIR
+         param_value:d:\temp\aodbi)
+
+$(set id_in $(last_history_row_id FILE_PARAM_SETS))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_in)</col>
+          <col>AODBI</col>
+          <col>RASTRV</col>
+          <col>ûí</col>
+          <col>UT</col>
+          <col/>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>WORKDIR</col>
+          <col>d:\temp\aodbi</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN OUT_FILE_PARAM_SETS $(cache_iface_ver OUT_FILE_PARAM_SETS) ""
+  insert type:AODBO
+         point_addr:RASTRV
+         airline:
+         flt_no:777
+         airp:
+         param_name:WORKDIR
+         param_value:d:\temp\aodbo)
+
+$(set id_out $(last_history_row_id FILE_PARAM_SETS))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_out)</col>
+          <col>AODBO</col>
+          <col>RASTRV</col>
+          <col/>
+          <col/>
+          <col>777</col>
+          <col/>
+          <col/>
+          <col>WORKDIR</col>
+          <col>d:\temp\aodbo</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN OUT_FILE_PARAM_SETS $(cache_iface_ver OUT_FILE_PARAM_SETS) ""
+  update id:$(get id_out)   old_id:$(get id_out)
+         type:AODBO         old_type:AODBO
+         point_addr:RASTRN  old_point_addr:RASTRV
+         airline:ûí         old_airline:
+         flt_no:            old_flt_no:777
+         airp:ÄçÄ           old_airp:
+         param_name:Ñàê     old_param_name:WORKDIR
+         param_value:d:\    old_param_value:d:\temp\aodbo)
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id_out)</col>
+          <col>AODBO</col>
+          <col>RASTRN</col>
+          <col>ûí</col>
+          <col>UT</col>
+          <col/>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>Ñàê</col>
+          <col>d:\</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN OUT_FILE_PARAM_SETS $(cache_iface_ver OUT_FILE_PARAM_SETS) ""
+  delete old_id:$(get id_out)
+         old_type:AODBO
+         old_point_addr:RASTRN
+         old_airline:ûí
+         old_flt_no:
+         old_airp:ÄçÄ
+         old_param_name:Ñàê
+         old_param_value:d:\)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>OUT_FILE_PARAM_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>
+    <command>
+      <message lexema_id='MSG.CHANGED_DATA_COMMIT' code='0'>...</message>
+    </command>
+  </answer>
+</term>
+
 
 %%
 

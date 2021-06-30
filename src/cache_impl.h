@@ -44,6 +44,54 @@ class FileTypes : public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const;
 };
 
+class DeskWritable : public CacheTableWritable
+{
+  private:
+    mutable std::optional< ViewAccess<DeskCode_t> > deskViewAccess;
+  public:
+    bool userDependence() const;
+    std::string selectSql() const { return ""; }
+    bool checkViewAccess(DB::TQuery& Qry, int idxDesk) const;
+};
+
+class FileEncoding : public DeskWritable
+{
+  private:
+    bool out_;
+  public:
+    FileEncoding(bool out) : out_(out) {}
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class FileParamSets : public DeskWritable
+{
+  private:
+    bool out_;
+  public:
+    FileParamSets(bool out) : out_(out) {}
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
 class Airlines : public CacheTableReadonly
 {
   public:
