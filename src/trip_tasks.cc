@@ -216,11 +216,12 @@ void add_trip_task(const TTripTaskKey& task, TDateTime new_next_exec)
   int task_id = ASTRA::NoExists;
   TDateTime prior_next_exec = ASTRA::NoExists;
   for (int step = 1; step <= 2; ++step) {
-    DB::TQuery idQry(PgOra::getROSession("TRIP_TASKS"), STDLOG);
+    DB::TQuery idQry(PgOra::getRWSession("TRIP_TASKS"), STDLOG);
     idQry.SQLText =
         "SELECT id, next_exec FROM trip_tasks "
         "WHERE point_id=:point_id AND name=:name "
-        "AND (params = :params OR params IS NULL AND :params IS NULL) ";
+        "AND (params = :params OR params IS NULL AND :params IS NULL) "
+        "FOR UPDATE ";
     task.toDB(idQry);
     idQry.Execute();
     if (!idQry.Eof) {
@@ -240,10 +241,8 @@ void add_trip_task(const TTripTaskKey& task, TDateTime new_next_exec)
       updQry.CreateVariable("tid", otInteger, tid);
       updQry.CreateVariable("next_exec", otDate, new_next_exec);
       updQry.Execute();
-      if (updQry.RowsProcessed() > 0) {
-        saved = true;
-        break;
-      }
+      saved = true;
+      break;
     } else {
       task_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
     }

@@ -258,8 +258,11 @@ void progError(int tlg_id,
   const EOracleError *orae=dynamic_cast<const EOracleError*>(&E);
   if (orae!=NULL)
   {
-    only_trace?ProgTrace(TRACE0, "SQL: %s", orae->SQLText()):
-               ProgError(STDLOG, "SQL: %s", orae->SQLText());
+    if (only_trace) {
+      ProgTrace(TRACE0, "SQL: %s", orae->SQLText());
+    } else {
+      orae->showProgError();
+    }
   };
 
   if (tlge!=NULL)

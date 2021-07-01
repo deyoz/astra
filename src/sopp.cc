@@ -4796,7 +4796,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( old_dest.craft == id->craft ) {
         id->craft_fmt = old_dest.craft_fmt;
       }
-      DB::TQuery Qry(PgOra::getRWSession("POINTS"), STDLOG);
       Qry.SQLText =
        "UPDATE points "
        "SET point_num=:point_num,airp=:airp,airp_fmt=:airp_fmt,pr_tranzit=:pr_tranzit, "
@@ -5000,17 +4999,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         ch_dests = true;
         DB::TQuery Qry(PgOra::getRWSession({"POINTS", "PAX_GRP"}), STDLOG);
         Qry.SQLText =
-        "SELECT COUNT(*) c FROM "
-        "( SELECT 1 FROM pax_grp,points "
-        "   WHERE points.point_id=:point_id AND "
-        "         point_dep=:point_id AND bag_refuse=0 "
-        "         FETCH FIRST 1 ROWS ONLY "
-        "  UNION "
-        " SELECT 2 FROM pax_grp,points "
-        "   WHERE points.point_id=:point_id AND "
-        "         point_arv=:point_id AND bag_refuse=0 "
-        "         FETCH FIRST 1 ROWS ONLY "
-        ") ";
+            "SELECT COUNT(*) c FROM ( "
+            "(SELECT 1 FROM pax_grp,points "
+            " WHERE points.point_id=:point_id "
+            " AND point_dep=:point_id "
+            " AND bag_refuse=0 "
+            " FETCH FIRST 1 ROWS ONLY) "
+            " UNION "
+            "(SELECT 2 FROM pax_grp,points "
+            " WHERE points.point_id=:point_id "
+            " AND point_arv=:point_id "
+            " AND bag_refuse=0 "
+            " FETCH FIRST 1 ROWS ONLY) "
+            ") ";
         Qry.CreateVariable( "point_id", otInteger, id->point_id );
         Qry.Execute();
         if ( Qry.FieldAsInteger( "c" ) ) {

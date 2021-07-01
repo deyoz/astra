@@ -2290,6 +2290,9 @@ ComponSetter::TStatus ComponSetter::AutoSetCraft( bool pr_tranzit_routes ) {
     }
     return NoChanges; // не требуется назначение компоновки
   }
+  catch( const EOracleError &e ) {
+    e.showProgError();
+  }
   catch( const EXCEPTIONS::Exception &e ) {
     LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ", error=" << e.what();
   }

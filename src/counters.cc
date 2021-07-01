@@ -374,8 +374,10 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
           "UPDATE counters2 "
           "SET crs_tranzit = (CASE WHEN :pr_tranzit = 0 THEN 0 ELSE :crs_tranzit END), "
           "    crs_ok = :crs_ok, "
-          "    tranzit = (CASE WHEN :pr_tranzit = 0 THEN 0 ELSE ( "
-          "               (CASE WHEN :pr_tranz_reg = 0 THEN :crs_tranzit ELSE tranzit END)) END "
+          "    tranzit = (CASE WHEN :pr_tranzit = 0 "
+          "               THEN 0 "
+          "               ELSE (CASE WHEN :pr_tranz_reg = 0 THEN :crs_tranzit ELSE tranzit END) "
+          "               END) "
           "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
           QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
                     << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
@@ -573,10 +575,10 @@ bool get_pr_tranzit(const PointId_t& point_id)
   }
   DB::TQuery QryCnt2(PgOra::getROSession("POINTS"), STDLOG);
   QryCnt2.SQLText =
-      "SELECT COUNT(*) AS n FROM points"
+      "SELECT COUNT(*) AS n FROM points "
       "WHERE :first_point IN (point_id, first_point) "
       "AND point_num < :point_num "
-      "AND pr_del=0";
+      "AND pr_del = 0 ";
   QryCnt2.CreateVariable("first_point", otInteger, first_point);
   QryCnt2.CreateVariable("point_num", otInteger, point_num);
   QryCnt2.Execute();
@@ -705,7 +707,7 @@ void TCounters::recountInitially()
         "  AND points.point_num > :point_num "
         "  AND points.pr_del = 0 "
         "  AND (trip_classes.point_id IS NOT NULL OR (:cfg_exists = 0 AND :pr_free_seating <> 0)) "
-        ") AS main "
+        ") main "
         "  LEFT OUTER JOIN ( "
         "    SELECT "
         "      pax_grp.point_arv, "
@@ -743,7 +745,7 @@ void TCounters::recountInitially()
         "    GROUP BY "
         "      pax_grp.point_arv, "
         "      COALESCE(pax.cabin_class, pax_grp.class) "
-        "  ) AS pax "
+        "  ) pax "
         "    ON ( "
         "      main.point_arv = pax.point_arv "
         "      AND main.class = pax.class "
@@ -796,7 +798,7 @@ void TCounters::recountFinally()
           "WHERE point_dep = :point_id "
           "AND class = :class ",
           QParams() << QParam("point_id", otInteger, flt().point_id)
-                    << QParam("class", otString, Qry.get().FieldAsInteger("class"))
+                    << QParam("class", otString, Qry.get().FieldAsString("class"))
                     << QParam("avail", otInteger, Qry.get().FieldAsInteger("avail"))
                     << QParam("free_ok", otInteger, Qry.get().FieldAsInteger("free_ok"))
                     << QParam("free_goshow", otInteger, Qry.get().FieldAsInteger("free_goshow"))
