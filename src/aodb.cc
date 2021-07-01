@@ -321,32 +321,91 @@ class TBagNamesList : public list<TBagNamesItem>
 
 } //namespace AODB
 
+bool hasStagesBetweenOpenCheckInAndCloseBoarding(const int point_id)
+{
+    bool result = false;
+    make_db_curs(
+        PgOra::supportsPg("TRIP_FINAL_STAGES")
+        ? "SELECT EXISTS "
+             "(SELECT 1 FROM trip_final_stages "
+              "WHERE point_id = :point_id "
+                "AND stage_type = :ckin_stage_type "
+                "AND stage_id BETWEEN :stage1 AND :stage2)"
+        : "SELECT COUNT(*) FROM trip_final_stages "
+          "WHERE point_id = :point_id "
+            "AND stage_type = :ckin_stage_type "
+            "AND stage_id BETWEEN :stage1 AND :stage2 "
+            "AND ROWNUM = 1",
+        PgOra::getROSession("TRIP_FINAL_STAGES"))
+       .stb()
+       .bind(":point_id", point_id)
+       .bind(":ckin_stage_type", int(stCheckIn))
+       .bind(":stage1", int(sOpenCheckIn))
+       .bind(":stage2", int(sCloseBoarding))
+       .def(result)
+       .EXfet();
+
+    return result;
+}
+
+double getAodbPointId(const int point_id, const std::string& point_addr)
+{
+    double result = ASTRA::NoExists;
+    make_db_curs(
+       "SELECT aodb_point_id FROM aodb_points "
+       "WHERE point_id = :point_id "
+       "AND point_addr = :point_addr",
+        PgOra::getROSession("AODB_POINTS"))
+       .stb()
+       .bind(":point_id", point_id)
+       .bind(":point_addr", point_addr)
+       .defNull(result, ASTRA::NoExists)
+       .EXfet();
+
+    return result;
+}
+
 bool getFlightData( int point_id, const string &point_addr,
                     double &aodb_point_id,
                     TTripInfo &fltInfo)
 {
-  fltInfo.Clear();
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-      "SELECT aodb_point_id, "
-      "       points.airline, points.flt_no, points.suffix, points.scd_out, points.airp "
-      " FROM points, aodb_points, trip_final_stages "
-      " WHERE points.point_id=:point_id AND "
-      "       trip_final_stages.point_id=points.point_id AND "
-      "       trip_final_stages.stage_type=:ckin_stage_type AND "
-      "       trip_final_stages.stage_id BETWEEN :stage1 AND :stage2 AND "
-      "       points.point_id=aodb_points.point_id(+) AND "
-      "       :point_addr=aodb_points.point_addr(+)";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
-  Qry.CreateVariable( "stage1", otInteger, sOpenCheckIn );
-  Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
-  fltInfo.Init(Qry);
-  return true;
+    // данный запрос можно использовать когда все используемые таблицы будут переведены
+    // сейчас же разделено на 3 запроса.
+    //  "SELECT aodb_point_id, "
+    //         "points.airline, "
+    //         "points.flt_no, "
+    //         "points.suffix, "
+    //         "points.scd_out, "
+    //         "points.airp "
+    //    "FROM points "
+    //    "INNER JOIN trip_final_stages "
+    //       "ON (points.point_id = trip_final_stages.point_id "
+    //       "AND trip_final_stages.stage_type = :ckin_stage_type "
+    //       "AND trip_final_stages.stage_id BETWEEN :stage1 AND :stage2) "
+    //  "LEFT OUTER JOIN aodb_points "
+    //       "ON (points.point_id = aodb_points.point_id "
+    //       "AND points.point_id = :point_id "
+    //       "AND aodb_points.point_addr = :point_addr)";
+
+    if (!hasStagesBetweenOpenCheckInAndCloseBoarding(point_id)) {
+        return false;
+    }
+
+    fltInfo.Clear();
+
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+    Qry.SQLText = "SELECT airline, flt_no, suffix, scd_out, airp FROM points WHERE point_id = :point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+
+    if (Qry.Eof) {
+        return false;
+    }
+
+    aodb_point_id = getAodbPointId(point_id, point_addr);
+    fltInfo.Init(Qry);
+
+    return true;
 }
 
 string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const string &client_type,
@@ -1081,6 +1140,30 @@ void setNullMaxCommerce(const int point_id)
    .exec();
 }
 
+void updateEst(const TTripStages& trip_stages, const int point_id, const TStage stage, const TDateTime est, const std::string& airp, TReqInfo *reqInfo) {
+    DB::TQuery updEst(PgOra::getRWSession("TRIP_STAGES"), STDLOG);
+    updEst.SQLText =
+        "UPDATE trip_stages SET est = COALESCE(:est, est) "
+         "WHERE point_id = :point_id "
+           "AND stage_id = :stage_id "
+           "AND act IS NULL";
+    updEst.CreateVariable("point_id", otInteger, point_id);
+    updEst.CreateVariable("stage_id", otInteger, stage);
+
+    if ( est != NoExists )
+        updEst.CreateVariable( "est", otDate, est );
+    else
+        updEst.CreateVariable( "est", otDate, FNull );
+
+    updEst.Execute();
+    if ( updEst.RowsProcessed() > 0 ) {
+        if ( est != NoExists && trip_stages.time( stage ) != est ) {
+            reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", stage, airp)
+                               << PrmDate("est_time", est, "hh:nn dd.mm.yy (UTC)"), evtGraph, point_id, stage);
+        }
+    }
+}
+
 void ParseFlight( const std::string &point_addr, const std::string &airp, std::string &linestr, AODB_Flight &fl )
 {
   int err=0;
@@ -1582,52 +1665,11 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     Set_AODB_overload_alarm( point_id, overload_alarm );
     TTripStages trip_stages( point_id );
     // обновление времен технологического графика
-    DB::TQuery updEst(PgOra::getRWSession("TRIP_STAGES"), STDLOG);
-    updEst.SQLText =
-        "UPDATE trip_stages SET est=COALESCE(:scd,est) "
-        " WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
-    updEst.CreateVariable( "point_id", otInteger, point_id );
-    updEst.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
-    if ( fl.checkin_beg != NoExists )
-      updEst.CreateVariable( "scd", otDate, fl.checkin_beg );
-    else
-      updEst.CreateVariable( "scd", otDate, FNull );
+    updateEst(trip_stages, point_id, sOpenCheckIn, fl.checkin_beg, airp, reqInfo);
     err++;
-    updEst.Execute();
-    if ( updEst.RowsProcessed() > 0 ) {
-      if ( fl.checkin_beg != NoExists && trip_stages.time( sOpenCheckIn ) != fl.checkin_beg )
-        reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenCheckIn, airp)
-                             << PrmDate("est_time", fl.checkin_beg, "hh:nn dd.mm.yy (UTC)"),
-                             evtGraph, point_id, sOpenCheckIn );
-    }
+    updateEst(trip_stages, point_id, sCloseCheckIn, fl.checkin_end, airp, reqInfo);
     err++;
-    updEst.SetVariable( "stage_id", sCloseCheckIn );
-    if ( fl.checkin_end  != NoExists )
-      updEst.SetVariable( "scd", fl.checkin_end );
-    else
-      updEst.SetVariable( "scd", FNull );
-    err++;
-    updEst.Execute();
-    if ( updEst.RowsProcessed() > 0 ) {
-      if ( fl.checkin_end != NoExists && trip_stages.time( sCloseCheckIn ) != fl.checkin_end )
-        reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseCheckIn, airp)
-                             << PrmDate("est_time", fl.checkin_end, "hh:nn dd.mm.yy (UTC)"),
-                             evtGraph, point_id, sCloseCheckIn );
-    }
-    err++;
-    updEst.SetVariable( "stage_id", sOpenBoarding );
-    if ( fl.boarding_beg  != NoExists )
-      updEst.SetVariable( "scd", fl.boarding_beg );
-    else
-      updEst.SetVariable( "scd", FNull );
-    err++;
-    updEst.Execute();
-    if ( updEst.RowsProcessed() > 0 ) {
-      if ( fl.boarding_beg != NoExists && trip_stages.time( sOpenBoarding ) != fl.boarding_beg )
-        reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenBoarding, airp)
-                             << PrmDate("est_time", fl.boarding_beg, "hh:nn dd.mm.yy (UTC)"),
-                             evtGraph, point_id, sOpenBoarding );
-    }
+    updateEst(trip_stages, point_id, sOpenBoarding, fl.boarding_beg, airp, reqInfo);
     err++;
     // расчитаем время окончания посадки
     if ( old_est != fl.est ) { // изменение расчетного времени вылета
@@ -1635,19 +1677,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( fl.est != NoExists && fl.scd != fl.est ) { // задержка != 0
         fl.boarding_end += fl.est - fl.scd; // добавляем к плановому времени окончания посадки задержку по вылету
       }
-      updEst.SetVariable( "stage_id", sCloseBoarding );
-      if ( fl.boarding_end != NoExists )
-        updEst.SetVariable( "scd", fl.boarding_end );
-      else
-        updEst.SetVariable( "scd", FNull );
-      err++;
-      updEst.Execute();
-      if ( updEst.RowsProcessed() > 0 ) {
-        if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
-          reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseBoarding, airp)
-                               << PrmDate("est_time", fl.boarding_end, "hh:nn dd.mm.yy (UTC)"),
-                               evtGraph, point_id, sCloseBoarding );
-      }
+      updateEst(trip_stages, point_id, sCloseBoarding, fl.boarding_end, airp, reqInfo);
     }
     err++;
     fl.stations.toDB( "aodb", point_id, tstations::dbWriteReceiveChanged ); //только изменения передаем

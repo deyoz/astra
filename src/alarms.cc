@@ -71,14 +71,18 @@ void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
 bool getPrSalon(const int point_id)
 {
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT COUNT(*) "
-       "FROM trip_comp_elems "
-       "WHERE point_id = :point_id "
-         "AND ROWNUM <= 1",
+        PgOra::supportsPg("TRIP_COMP_ELEMS")
+         ? "SELECT EXISTS "
+             "(SELECT 1 FROM trip_comp_elems "
+              "WHERE point_id = :point_id)"
+         : "SELECT COUNT(*) "
+           "FROM trip_comp_elems "
+           "WHERE point_id = :point_id "
+             "AND ROWNUM = 1",
         PgOra::getROSession("TRIP_COMP_ELEMS")
     );
 
-    int pr_salon;
+    bool pr_salon;
 
     cur.stb()
        .def(pr_salon)

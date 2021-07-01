@@ -258,7 +258,7 @@ void setTripStageTime(const int point_id, const TStage stage, const Dates::DateT
          ? "INSERT INTO trip_stages( point_id, stage_id, scd, est, act, pr_auto, pr_manual) "
                             "VALUES(:point_id,:stage_id,:act,NULL,:act, "    "0, "      "1) "
            "ON CONFLICT(point_id, stage_id) "
-           "DO UPDATE trip_stages "
+           "DO UPDATE "
            "SET act = :act"
          : "MERGE INTO trip_stages USING DUAL "
            "ON (point_id = :point_id "

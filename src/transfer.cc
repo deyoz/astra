@@ -2854,22 +2854,27 @@ void GetNextTrferCheckedFlts(const int id, const TIdType id_type, std::set<int>&
     DB::TQuery Qry(PgOra::getROSession({"TRANSFER", "TRFER_TRIPS", "TRIP_STAGES", "PAX_GRP"}), STDLOG);
     Qry.SQLText = TIdType::idFlt == id_type
      ? "SELECT trfer_trips.point_id_spp "
-       "FROM transfer, trfer_trips, trip_stages, pax_grp "
-       "WHERE trfer_trips.point_id = transfer.point_id_trfer "
-         "AND trfer_trips.point_id_spp = trip_stages.point_id "
-         "AND transfer.grp_id = pax_grp.grp_id "
-         "AND pax_grp.point_dep = :id "
-         "AND transfer.transfer_num = 1 "
-         "AND trip_stages.stage_id = :stage_id "
-         "AND trip_stages.act IS NOT NULL"
+         "FROM transfer "
+        "INNER JOIN trfer_trips "
+           "ON trfer_trips.point_id = transfer.point_id_trfer "
+        "INNER JOIN trip_stages "
+           "ON trfer_trips.point_id_spp = trip_stages.point_id "
+        "INNER JOIN pax_grp "
+           "ON transfer.grp_id = pax_grp.grp_id "
+        "WHERE pax_grp.point_dep = :id "
+          "AND transfer.transfer_num = 1 "
+          "AND trip_stages.stage_id = :stage_id "
+          "AND trip_stages.act IS NOT NULL"
      : "SELECT trfer_trips.point_id_spp "
-       "FROM transfer, trfer_trips, trip_stages "
-       "WHERE trfer_trips.point_id = transfer.point_id_trfer "
-         "AND trfer_trips.point_id_spp = trip_stages.point_id "
-         "AND transfer.grp_id = :id "
-         "AND transfer.transfer_num = 1 "
-         "AND trip_stages.stage_id = :stage_id "
-         "AND trip_stages.act IS NOT NULL";
+         "FROM transfer "
+        "INNER JOIN trfer_trips "
+           "ON trfer_trips.point_id = transfer.point_id_trfer "
+        "INNER JOIN trip_stages "
+           "ON trfer_trips.point_id_spp = trip_stages.point_id "
+        "WHERE transfer.grp_id = :id "
+          "AND transfer.transfer_num = 1 "
+          "AND trip_stages.stage_id = :stage_id "
+          "AND trip_stages.act IS NOT NULL";
 
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("stage_id", otInteger, sCloseCheckIn);
