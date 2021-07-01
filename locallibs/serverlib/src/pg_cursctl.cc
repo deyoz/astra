@@ -1663,7 +1663,7 @@ short CursCtl::defIndPlaceholder_ = 0;
 
 static bool validPlaceholderChar(char c)
 {
-    static const char breakers[] = " ,.();:{}" // misc
+    static const char breakers[] = "\n\t ,.();:{}" // misc
                                    "+-/*"    // arith
                                    "<>=!"     // compare
                                    "|";      // concat
@@ -3916,6 +3916,11 @@ START_TEST(test_select_wo_space)
         int b=0;
         make_curs("SELECT\n1").def(b).EXfet();
         fail_unless(b==1,"expected 1");
+    }
+    {
+        int b = 0;
+        make_curs("SELECT :var1\nexcept select 2").bind("var1", 1).def(b).EXfet();
+        fail_unless(b == 1, "expected 1");
     }
     {
         int b=0;
