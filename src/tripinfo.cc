@@ -165,6 +165,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
   {
     const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
 
+    // см. C++ ф-ю get_pr_tranzit
     sql <<
       "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
       "       points.park_out, "

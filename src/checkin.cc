@@ -7508,17 +7508,17 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
   xmlNodePtr itemNode;
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("COUNTERS2"), STDLOG);
   Qry.SQLText =
      "SELECT point_arv, class, "
-     "       crs_ok-ok-jmp_ok AS noshow, "
-     "       crs_tranzit-tranzit-jmp_tranzit AS trnoshow, "
-     "       tranzit+ok+goshow AS show, "
-     "       jmp_tranzit+jmp_ok+jmp_goshow AS jmp_show, "
+     "       (crs_ok - ok - jmp_ok) AS noshow, "
+     "       (crs_tranzit - tranzit - jmp_tranzit) AS trnoshow, "
+     "       (tranzit + ok + goshow) AS show, "
+     "       (jmp_tranzit + jmp_ok + jmp_goshow) AS jmp_show, "
      "       jmp_nooccupy "
      "FROM counters2 "
-     "WHERE point_dep=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_id);
+     "WHERE point_dep = :point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
 
   for(;!Qry.Eof;Qry.Next())

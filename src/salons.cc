@@ -903,7 +903,8 @@ void TFilterLayers::getIntFilterLayers( int point_id,
       setFlag( cltPNLAfterPay );
     }
 
-  Qry.Clear();
+    // см. C++ ф-ю get_pr_tranzit
+    Qry.Clear();
     Qry.SQLText =
     "SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
     "FROM trip_sets "

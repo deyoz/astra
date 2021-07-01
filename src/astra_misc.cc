@@ -561,12 +561,12 @@ bool TAdvTripInfo::getByPointId(const int point_id, const FlightProps &props)
 bool TAdvTripInfo::transitable(const PointId_t& pointId)
 {
   auto cur = make_db_curs("SELECT 1 AS transitable "
-                       "FROM points a, points b "
-                       "WHERE b.move_id=a.move_id AND "
-                       "      a.point_id=:point_id AND a.pr_del=0 AND "
-                       "      b.point_num<a.point_num AND b.pr_del=0 AND "
-                       "      rownum<2",
-                       PgOra::getROSession("POINTS"));
+                          "FROM points a, points b "
+                          "WHERE b.move_id=a.move_id AND "
+                          "      a.point_id=:point_id AND a.pr_del=0 AND "
+                          "      b.point_num<a.point_num AND b.pr_del=0 "
+                          "FETCH FIRST 1 ROWS ONLY ",
+                          PgOra::getROSession("POINTS"));
 
   bool result=false;
 
@@ -2339,10 +2339,11 @@ bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncTy
   DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
   Qry.SQLText =
       "SELECT id FROM file_param_sets "
-      " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
-      "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
-      "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
-      "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND rownum<2";
+      "WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
+      "      ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
+      "      ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
+      "      file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr "
+      "FETCH FIRST 1 ROWS ONLY ";
   Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
   Qry.CreateVariable( "type", otString, syncType );
   Qry.CreateVariable( "airline", otString, tripInfo.airline );

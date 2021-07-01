@@ -17,8 +17,6 @@ FUNCTION next_airp(vfirst_point 	IN points.first_point%TYPE,
 
 FUNCTION get_pr_tranzit(vpoint_id	IN points.point_id%TYPE) RETURN points.pr_tranzit%TYPE;
 
-FUNCTION get_pr_tranz_reg(vpoint_id	IN points.point_id%TYPE) RETURN trip_sets.pr_tranz_reg%TYPE;
-
 FUNCTION get_birks2(vgrp_id       IN pax.grp_id%TYPE,
                     vpax_id 	    IN pax.pax_id%TYPE,
                     vbag_pool_num IN pax.bag_pool_num%TYPE,

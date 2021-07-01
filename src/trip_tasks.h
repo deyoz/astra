@@ -7,6 +7,7 @@
 #include "astra_types.h"
 #include "oralib.h"
 #include <set>
+#include "db_tquery.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -58,6 +59,7 @@ class TTripTaskKey
     }
 
     const TTripTaskKey& toDB(TQuery &Qry) const;
+    const TTripTaskKey& toDB(DB::TQuery &Qry) const;
     std::string traceStr() const;
 };
 

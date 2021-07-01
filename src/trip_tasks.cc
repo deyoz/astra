@@ -54,6 +54,22 @@ const TTripTaskKey& TTripTaskKey::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TTripTaskKey& TTripTaskKey::toDB(DB::TQuery &Qry) const
+{
+  if (Qry.GetVariableIndex("point_id")<0)
+    Qry.DeclareVariable("point_id", otInteger);
+  if (Qry.GetVariableIndex("name")<0)
+    Qry.DeclareVariable("name", otString);
+  if (Qry.GetVariableIndex("params")<0)
+    Qry.DeclareVariable("params", otString);
+  point_id!=ASTRA::NoExists?
+    Qry.SetVariable("point_id", point_id):
+    Qry.SetVariable("point_id", FNull);
+  Qry.SetVariable("name", name);
+  Qry.SetVariable("params", params);
+  return *this;
+}
+
 std::string TTripTaskKey::traceStr() const
 {
   std::ostringstream s;
@@ -196,70 +212,84 @@ void add_trip_task(const TTripTaskKey& task, TDateTime new_next_exec)
 {
   if (new_next_exec==ASTRA::NoExists) new_next_exec=NowUTC();
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "DECLARE \n"
-    "  pass BINARY_INTEGER; \n"
-    "BEGIN \n"
-    "  FOR pass IN 1..2 LOOP \n"
-    "    BEGIN \n"
-    "      SELECT id INTO :id FROM trip_tasks \n"
-    "      WHERE point_id=:point_id AND name=:name AND \n"
-    "            (params = :params OR params IS NULL AND :params IS NULL); \n"
-    "      UPDATE trip_tasks SET next_exec=:next_exec, tid=cycle_tid__seq.nextval \n"
-    "      WHERE id=:id AND \n"
-    "            (last_exec IS NULL OR :next_exec>=last_exec) AND \n"
-    "            (next_exec IS NULL OR next_exec<>:next_exec) \n"
-    "      RETURNING (SELECT next_exec FROM dual) INTO :prior_next_exec; \n"
-    "      EXIT; \n"
-    "    EXCEPTION \n"
-    "      WHEN NO_DATA_FOUND THEN \n"
-    "        IF :id IS NULL THEN \n"
-    "          SELECT cycle_id__seq.nextval INTO :id FROM dual; \n"
-    "        END IF; \n"
-    "        BEGIN \n"
-    "          SELECT proc_name INTO :proc_name FROM trip_task_processes WHERE task_name=:name; \n"
-    "        EXCEPTION \n"
-    "          WHEN NO_DATA_FOUND THEN NULL; \n"
-    "        END; \n"
-    "        BEGIN \n"
-    "          INSERT INTO trip_tasks(id, point_id, name, params, last_exec, next_exec, proc_name, tid) \n"
-    "          VALUES(:id, :point_id, :name, :params, NULL, :next_exec, :proc_name, cycle_tid__seq.nextval); \n"
-    "          EXIT; \n"
-    "        EXCEPTION \n"
-    "          WHEN DUP_VAL_ON_INDEX THEN \n"
-    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; \n"
-    "        END; \n"
-    "    END; \n"
-    "  END LOOP; \n"
-    "  :rows_processed:=SQL%ROWCOUNT; \n"
-    "END; ";
-  Qry.CreateVariable("id", otInteger, FNull);
-  Qry.CreateVariable("prior_next_exec", otDate, FNull);
-  Qry.CreateVariable("rows_processed", otInteger, 0);
-  Qry.CreateVariable("next_exec", otDate, new_next_exec);
-  Qry.CreateVariable("proc_name", otString, all_other_handler_id);
-  task.toDB(Qry);
-  Qry.Execute();
-  if (Qry.GetVariableAsInteger("rows_processed")>0)
-  {
-    int task_id=Qry.GetVariableAsInteger("id");
-    TDateTime next_exec=Qry.VariableIsNULL("prior_next_exec")?ASTRA::NoExists:
-                                                              Qry.GetVariableAsDateTime("prior_next_exec");
+  bool saved = false;
+  int task_id = ASTRA::NoExists;
+  TDateTime prior_next_exec = ASTRA::NoExists;
+  for (int step = 1; step <= 2; ++step) {
+    DB::TQuery idQry(PgOra::getROSession("TRIP_TASKS"), STDLOG);
+    idQry.SQLText =
+        "SELECT id, next_exec FROM trip_tasks "
+        "WHERE point_id=:point_id AND name=:name "
+        "AND (params = :params OR params IS NULL AND :params IS NULL) ";
+    task.toDB(idQry);
+    idQry.Execute();
+    if (!idQry.Eof) {
+      task_id = idQry.FieldAsInteger("id");
+      const int tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+      prior_next_exec = idQry.FieldIsNULL("next_exec")
+          ? ASTRA::NoExists
+          : idQry.FieldAsDateTime("next_exec");
+      DB::TQuery updQry(PgOra::getRWSession("TRIP_TASKS"), STDLOG);
+      updQry.SQLText =
+          "UPDATE trip_tasks SET "
+          "next_exec=:next_exec, tid=:tid "
+          "WHERE id=:id "
+          "AND (last_exec IS NULL OR :next_exec >= last_exec) "
+          "AND (next_exec IS NULL OR next_exec <> :next_exec) ";
+      updQry.CreateVariable("id", otInteger, task_id);
+      updQry.CreateVariable("tid", otInteger, tid);
+      updQry.CreateVariable("next_exec", otDate, new_next_exec);
+      updQry.Execute();
+      if (updQry.RowsProcessed() > 0) {
+        saved = true;
+        break;
+      }
+    } else {
+      task_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+    }
+    DB::TQuery procQry(PgOra::getROSession("TRIP_TASK_PROCESSES"), STDLOG);
+    procQry.SQLText =
+        "SELECT proc_name FROM trip_task_processes "
+        "WHERE task_name=:name";
+    procQry.CreateVariable("name", otString, task.name);
+    procQry.Execute();
+    const std::string proc_name = procQry.Eof ? std::string() : procQry.FieldAsString("proc_name");
 
-    if (next_exec!=ASTRA::NoExists)
-    {
+    const int tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+    DB::TQuery insQry(PgOra::getRWSession("TRIP_TASKS"), STDLOG);
+    insQry.SQLText =
+        "INSERT INTO trip_tasks( "
+        "id, point_id, name, params, last_exec, next_exec, proc_name, tid"
+        ") VALUES( "
+        ":id, :point_id, :name, :params, NULL, :next_exec, :proc_name, :tid"
+        ") ";
+    insQry.CreateVariable("id", otInteger, task_id);
+    insQry.CreateVariable("tid", otInteger, tid);
+    insQry.CreateVariable("next_exec", otDate, new_next_exec);
+    insQry.CreateVariable("proc_name", otString, proc_name);
+    task.toDB(insQry);
+    try {
+      insQry.Execute();
+      saved = (insQry.RowsProcessed() > 0);
+      break;
+    } catch (EOracleError &error) {
+        if (step > 1 || error.Code != CERR_U_CONSTRAINT) {
+          throw;
+        }
+    }
+  }
+
+  if (saved) {
+    if (prior_next_exec != ASTRA::NoExists) {
       ProgTrace(TRACE5, "trip_tasks: task changed (id=%d point_id=%d task_name=%s next_exec=%s new_next_exec=%s)",
                 task_id,
                 task.point_id,
                 task.name.c_str(),
-                DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str(),
+                DateTimeToStr(prior_next_exec, "dd.mm.yy hh:nn:ss").c_str(),
                 DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
 
-      taskToLog(task, TaskState::Update, next_exec, new_next_exec);
-    }
-    else
-    {
+      taskToLog(task, TaskState::Update, prior_next_exec, new_next_exec);
+    } else {
       ProgTrace(TRACE5, "trip_tasks: task added (id=%d point_id=%d task_name=%s next_exec=%s)",
                 task_id,
                 task.point_id,
@@ -273,39 +303,43 @@ void add_trip_task(const TTripTaskKey& task, TDateTime new_next_exec)
 
 void remove_trip_task(const TTripTaskKey& task)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_TASKS"), STDLOG);
   Qry.SQLText =
-    "BEGIN \n"
-    "  SELECT id INTO :id FROM trip_tasks \n"
-    "  WHERE point_id=:point_id AND name=:name AND \n"
-    "        (params = :params OR params IS NULL AND :params IS NULL); \n"
-    "  UPDATE trip_tasks SET next_exec=NULL, tid=cycle_tid__seq.nextval \n"
-    "  WHERE id=:id AND next_exec IS NOT NULL \n"
-    "  RETURNING (SELECT next_exec FROM dual) INTO :prior_next_exec; \n"
-    "  :rows_processed:=SQL%ROWCOUNT; \n"
-    "EXCEPTION \n"
-    "  WHEN NO_DATA_FOUND THEN NULL; \n"
-    "END; ";
-  Qry.CreateVariable("id", otInteger, FNull);
-  Qry.CreateVariable("prior_next_exec", otDate, FNull);
-  Qry.CreateVariable("rows_processed", otInteger, 0);
+      "SELECT id, next_exec FROM trip_tasks "
+      "WHERE point_id=:point_id AND name=:name AND "
+      "      (params = :params OR params IS NULL AND :params IS NULL) ";
   task.toDB(Qry);
   Qry.Execute();
-  if (Qry.GetVariableAsInteger("rows_processed")>0)
-  {
-    int task_id=Qry.GetVariableAsInteger("id");
-    TDateTime next_exec=Qry.VariableIsNULL("prior_next_exec")?ASTRA::NoExists:
-                                                              Qry.GetVariableAsDateTime("prior_next_exec");
+  if (Qry.Eof) {
+    return;
+  }
 
-    if (next_exec!=ASTRA::NoExists)
+  const int task_id = Qry.FieldAsInteger("id");
+  const TDateTime prior_next_exec = Qry.FieldIsNULL("next_exec")
+      ? ASTRA::NoExists
+      : Qry.FieldAsDateTime("next_exec");
+  const int tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+  DB::TQuery updQry(PgOra::getRWSession("TRIP_TASKS"), STDLOG);
+  updQry.SQLText =
+    "UPDATE trip_tasks SET "
+    "next_exec=NULL, "
+    "tid=:tid "
+    "WHERE id=:id "
+    "AND next_exec IS NOT NULL ";
+  updQry.CreateVariable("id", otInteger, task_id);
+  updQry.CreateVariable("tid", otInteger, tid);
+  updQry.Execute();
+  if (updQry.RowsProcessed() > 0)
+  {
+    if (prior_next_exec != ASTRA::NoExists)
     {
       ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d point_id=%d task_name=%s next_exec=%s)",
                 task_id,
                 task.point_id,
                 task.name.c_str(),
-                DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+                DateTimeToStr(prior_next_exec, "dd.mm.yy hh:nn:ss").c_str());
 
-      taskToLog(task, TaskState::Delete, next_exec);
+      taskToLog(task, TaskState::Delete, prior_next_exec);
     }
   }
 }
@@ -322,17 +356,17 @@ void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, set<int> &tlg_out_point_i
 {
     QParams QryParams;
     ostringstream sql;
-    sql << "select point_id, point_num, first_point, pr_tranzit from points where ";
+    sql << "SELECT point_id, point_num, first_point, pr_tranzit FROM points WHERE ";
     if(not flt.airline.empty()) {
-        sql << "airline = :airline and ";
+        sql << "airline = :airline AND ";
         QryParams << QParam("airline", otString, flt.airline);
     }
     if(not flt.airp_dep.empty()) {
-        sql << "airp = :airp_dep and ";
+        sql << "airp = :airp_dep AND ";
         QryParams << QParam("airp_dep", otString, flt.airp_dep);
     }
     if(flt.flt_no != ASTRA::NoExists) {
-        sql << "flt_no = :flt_no and ";
+        sql << "flt_no = :flt_no AND ";
         QryParams << QParam("flt_no", otInteger, flt.flt_no);
     }
     sql << "(time_out>=:first_date AND time_out<=:last_date) AND act_out IS NULL ";
@@ -340,7 +374,7 @@ void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, set<int> &tlg_out_point_i
     get_flt_period(period);
     QryParams << QParam("first_date", otDate, period.first);
     QryParams << QParam("last_date", otDate, period.second);
-    TCachedQuery Qry(sql.str(), QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("POINTS"), sql.str(), QryParams, STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         if(not flt.airp_arv.empty()) {
@@ -351,8 +385,9 @@ void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, set<int> &tlg_out_point_i
                     Qry.get().FieldAsInteger("first_point"),
                     Qry.get().FieldAsInteger("pr_tranzit"),
                     trtNotCurrent,trtNotCancelled);
-            if (route.empty() or route.begin()->airp != flt.airp_arv)
+            if (route.empty() or route.begin()->airp != flt.airp_arv) {
                 continue;
+            }
         }
         tlg_out_point_ids.insert(Qry.get().FieldAsInteger("point_id"));
     }
@@ -362,7 +397,12 @@ void calc_tlg_out_point_ids(int tlg_out_typeb_addrs_id, set<int> &tlg_out_point_
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_out_typeb_addrs_id);
-    TCachedQuery Qry("select tlg_type, airline, flt_no, airp_dep, airp_arv from typeb_addrs where id = :id", QryParams);
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("TYPEB_ADDRS"),
+          "SELECT tlg_type, airline, flt_no, airp_dep, airp_arv "
+          "FROM typeb_addrs "
+          "WHERE id = :id",
+          QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         TSimpleFltInfo flt;
@@ -457,11 +497,13 @@ class TStatFVTripTask: public TCreatePointTripTask
     {
       cps.clear();
       if(strlen(STAT_FV_PATH()) == 0) return;
-      TCachedQuery Qry(
-              "select * from points where "
-              " point_id = :point_id and pr_del = 0 and pr_reg <> 0 and "
-              " airline = 'ФВ'",
-              QParams() << QParam("point_id", otInteger, point_id));
+      DB::TCachedQuery Qry(
+            PgOra::getROSession("POINTS"),
+            "SELECT * FROM points WHERE "
+            " point_id = :point_id AND pr_del = 0 AND pr_reg <> 0 AND "
+            " airline = 'ФВ'",
+            QParams() << QParam("point_id", otInteger, point_id),
+            STDLOG);
       Qry.get().Execute();
       if(not Qry.get().Eof) {
           TTripInfo flt(Qry.get());
@@ -514,11 +556,15 @@ struct TTlgOutTripTask:public TCreatePointTripTask {
             QParams QryParams;
             QryParams.clear();
             QryParams << QParam("point_id", otInteger, point_id);
-            TCachedQuery fltQry(
-                    "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
-                    "       point_id,point_num,first_point,pr_tranzit "
-                    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0",
-                    QryParams);
+            DB::TCachedQuery fltQry(
+                  PgOra::getROSession("POINTS"),
+                  "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
+                  "       point_id,point_num,first_point,pr_tranzit "
+                  "FROM points "
+                  "WHERE point_id = :point_id "
+                  "AND pr_del = 0 "
+                  "AND pr_reg <> 0",
+                  QryParams, STDLOG);
             fltQry.get().Execute();
             TAdvTripInfo flt;
             if(fltQry.get().Eof) return;
@@ -640,6 +686,11 @@ struct TTripTaskTimes
         last_exec = Qry.FieldIsNULL("last_exec") ? ASTRA::NoExists : Qry.FieldAsDateTime("last_exec");
         next_exec = Qry.FieldIsNULL("next_exec") ? ASTRA::NoExists : Qry.FieldAsDateTime("next_exec");
     }
+    TTripTaskTimes(DB::TQuery &Qry)
+    {
+      last_exec = Qry.FieldIsNULL("last_exec") ? ASTRA::NoExists : Qry.FieldAsDateTime("last_exec");
+      next_exec = Qry.FieldIsNULL("next_exec") ? ASTRA::NoExists : Qry.FieldAsDateTime("next_exec");
+    }
 };
 
 template <typename T>
@@ -649,7 +700,14 @@ void get_curr_trip_tasks(const T &pattern, map<T, TTripTaskTimes> &tasks)
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, pattern.point_id);
     QryParams << QParam("name", otString, pattern.name);
-    TCachedQuery Qry("select next_exec, last_exec, params from trip_tasks where point_id = :point_id and name = :name for update", QryParams);
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("TRIP_TASKS"),
+          "SELECT next_exec, last_exec, params FROM trip_tasks "
+          "WHERE point_id = :point_id "
+          "AND name = :name "
+          "FOR UPDATE",
+          QryParams,
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         T task(pattern.point_id);
@@ -932,8 +990,9 @@ TSyncTlgOutMng::TSyncTlgOutMng()
 
 static bool isDefferedFlightTask(const TTripTaskKey& task, int paxCount)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT min_pax_count FROM deffered_flt_tasks WHERE task_name=:task_name";
+  DB::TQuery Qry(PgOra::getROSession("DEFFERED_FLT_TASKS"), STDLOG);
+  Qry.SQLText = "SELECT min_pax_count FROM deffered_flt_tasks "
+                "WHERE task_name=:task_name";
   Qry.CreateVariable("task_name", otString, task.name);
   Qry.Execute();
   if (Qry.Eof) return false; //если не прописана, выполняем немедленно

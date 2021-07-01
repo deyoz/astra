@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/season/macro.ts)
+include(ts/spp/read_trips_macro.ts)
 
 
 # meta: suite demo
@@ -83,9 +84,25 @@ $(GET_SPP PIKE "25.06.2021 00:00:00")
       <message lexema_id='MSG.DATA_SAVED'...
     </command>
 
+    
+# открытие экрана Перевозки
+!! capture=on
+$(READ_TRIPS)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer execute_time='...' lang='RU' handle='0'>
+    <data>
+      <flight_date>$(date_format %d.%m.%Y) 00:00:00</flight_date>
+    </data>
+  </answer>
+</term>
+
 # выход из системы
 !! capture=on
 $(logoff PIKE)
+
 
 >> lines=auto
       <message lexema_id='MSG.WORK_SEANCE_FINISHED' code='0'>...

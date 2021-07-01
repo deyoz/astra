@@ -41,17 +41,6 @@ BEGIN
   RETURN 1;
 END get_pr_tranzit;
 
-FUNCTION get_pr_tranz_reg(vpoint_id	IN points.point_id%TYPE) RETURN trip_sets.pr_tranz_reg%TYPE
-IS
-res             trip_sets.pr_tranz_reg%TYPE;
-BEGIN
-  IF ckin.get_pr_tranzit(vpoint_id)=0 THEN RETURN 0; END IF;
-  SELECT NVL(pr_tranz_reg,0) INTO res FROM trip_sets WHERE point_id=vpoint_id;
-  RETURN res;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN 0;
-END get_pr_tranz_reg;
-
 FUNCTION build_birks_str(cur birks_cursor_ref) RETURN VARCHAR2
 IS
 res	      VARCHAR2(4000);

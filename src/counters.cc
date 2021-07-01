@@ -361,7 +361,9 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
   LogTrace(TRACE5) << __FUNCTION__;
 
   DB::TCachedQuery DelQry(PgOra::getRWSession("COUNTERS2"),
-        "UPDATE counters2 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
+        "UPDATE counters2 SET "
+        "crs_tranzit=0, crs_ok=0 "
+        "WHERE point_dep=:point_dep",
         QParams() << QParam("point_dep", otInteger, flt.point_id),
         STDLOG);
   DelQry.get().Execute();
@@ -370,10 +372,10 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
   {
     DB::TCachedQuery UpdQry(PgOra::getRWSession("COUNTERS2"),
           "UPDATE counters2 "
-          "SET crs_tranzit=DECODE(:pr_tranzit, 0, 0, :crs_tranzit), "
-          "    crs_ok=:crs_ok, "
-          "    tranzit=    DECODE(:pr_tranzit, 0, 0, "
-          "                       DECODE(:pr_tranz_reg, 0, :crs_tranzit, tranzit)) "
+          "SET crs_tranzit = (CASE WHEN :pr_tranzit = 0 THEN 0 ELSE :crs_tranzit END), "
+          "    crs_ok = :crs_ok, "
+          "    tranzit = (CASE WHEN :pr_tranzit = 0 THEN 0 ELSE ( "
+          "               (CASE WHEN :pr_tranz_reg = 0 THEN :crs_tranzit ELSE tranzit END)) END "
           "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
           QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
                     << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
@@ -539,14 +541,74 @@ const TTripRoute& TCounters::fltRouteAfter()
   return _fltRouteAfter.get();
 }
 
+bool get_pr_tranzit(const PointId_t& point_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+  Qry.SQLText =
+      "SELECT (CASE WHEN pr_tranzit = 0 THEN points.point_id ELSE first_point END) AS first_point, point_num "
+      "FROM points "
+      "WHERE point_id = :point_id "
+      "AND pr_del = 0 "
+      "AND pr_tranzit <> 0";
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.Execute();
+  if (Qry.Eof) {
+    return false;
+  }
+  const int first_point = Qry.FieldAsInteger("first_point");
+  const int point_num = Qry.FieldAsInteger("point_num");
+
+  DB::TQuery QryCnt1(PgOra::getROSession("POINTS"), STDLOG);
+  QryCnt1.SQLText =
+      "SELECT COUNT(*) AS n FROM points "
+      "WHERE first_point = :first_point "
+      "AND point_num > :point_num "
+      "AND pr_del = 0 ";
+  QryCnt1.CreateVariable("first_point", otInteger, first_point);
+  QryCnt1.CreateVariable("point_num", otInteger, point_num);
+  QryCnt1.Execute();
+  int n = QryCnt1.Eof ? 0 : QryCnt1.FieldAsInteger("n");
+  if (n == 0) {
+    return false;
+  }
+  DB::TQuery QryCnt2(PgOra::getROSession("POINTS"), STDLOG);
+  QryCnt2.SQLText =
+      "SELECT COUNT(*) AS n FROM points"
+      "WHERE :first_point IN (point_id, first_point) "
+      "AND point_num < :point_num "
+      "AND pr_del=0";
+  QryCnt2.CreateVariable("first_point", otInteger, first_point);
+  QryCnt2.CreateVariable("point_num", otInteger, point_num);
+  QryCnt2.Execute();
+  n = QryCnt2.Eof ? 0 : QryCnt2.FieldAsInteger("n");
+  if (n == 0) {
+    return false;
+  }
+  return true;
+}
+
+bool get_pr_tranz_reg(const PointId_t& point_id)
+{
+  if (!get_pr_tranzit(point_id)) {
+    return false;
+  }
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+  Qry.SQLText =
+      "SELECT COALESCE(pr_tranz_reg,0) AS pr_tranz_reg "
+      "FROM trip_sets "
+      "WHERE point_id = :point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.Execute();
+  if (Qry.Eof) {
+    return false;
+  }
+  return bool(Qry.FieldAsInteger("pr_tranz_reg"));
+}
+
 const bool& TCounters::pr_tranz_reg()
 {
-  if (!_pr_tranz_reg)
-  {
-    TCachedQuery Qry("SELECT ckin.get_pr_tranz_reg(point_id) AS pr_tranz_reg FROM points WHERE point_id=:point_id AND pr_del>=0",
-                     QParams() << QParam("point_id", otInteger, flt().point_id));
-    Qry.get().Execute();
-    _pr_tranz_reg=!Qry.get().Eof && Qry.get().FieldAsInteger("pr_tranz_reg")!=0;
+  if (!_pr_tranz_reg) {
+    _pr_tranz_reg=get_pr_tranz_reg(PointId_t(flt().point_id));
   }
 
   return _pr_tranz_reg.get();
@@ -556,8 +618,15 @@ const bool& TCounters::cfg_exists()
 {
   if (!_cfg_exists)
   {
-    TCachedQuery Qry("SELECT COUNT(*) AS cfg_exists FROM trip_classes WHERE point_id=:point_id AND cfg>0 AND rownum<2",
-                     QParams() << QParam("point_id", otInteger, flt().point_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("TRIP_CLASSES"),
+          "SELECT COUNT(*) AS cfg_exists "
+          "FROM trip_classes "
+          "WHERE point_id = :point_id "
+          "AND cfg > 0 "
+          "FETCH FIRST 1 ROWS ONLY ",
+          QParams() << QParam("point_id", otInteger, flt().point_id),
+          STDLOG);
     Qry.get().Execute();
     _cfg_exists=!Qry.get().Eof && Qry.get().FieldAsInteger("cfg_exists")!=0;
   }
@@ -569,8 +638,12 @@ void TCounters::deleteInitially(int point_id)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry("DELETE FROM counters2 WHERE point_dep=:point_dep",
-                   QParams() << QParam("point_dep", otInteger, point_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("COUNTERS2"),
+        "DELETE FROM counters2 "
+        "WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, point_id),
+        STDLOG);
   Qry.get().Execute();
 }
 
@@ -578,8 +651,13 @@ void TCounters::lockInitially(int point_id)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry("SELECT point_dep FROM counters2 WHERE point_dep=:point_dep FOR UPDATE",
-                   QParams() << QParam("point_dep", otInteger, point_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("COUNTERS2"),
+        "SELECT point_dep FROM counters2 "
+        "WHERE point_dep=:point_dep "
+        "FOR UPDATE",
+        QParams() << QParam("point_dep", otInteger, point_id),
+        STDLOG);
   Qry.get().Execute();
 }
 
@@ -589,50 +667,95 @@ void TCounters::recountInitially()
 
   deleteInitially(flt().point_id);
 
-  TCachedQuery Qry(
-        "INSERT INTO counters2 "
-        "  (point_dep, point_arv, class, crs_tranzit, crs_ok, "
-        "   tranzit, ok, goshow, "
-        "   jmp_tranzit, jmp_ok, jmp_goshow, "
-        "   avail, free_ok, free_goshow, nooccupy, jmp_nooccupy) "
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession({"COUNTERS2", "POINTS", "TRIP_CLASSES", "CLASSES", "PAX", "PAX_GRP"}),
+        "INSERT INTO counters2 ( "
+        "    point_dep, point_arv, class, crs_tranzit, crs_ok, tranzit, "
+        "    ok, goshow, jmp_tranzit, jmp_ok, jmp_goshow, avail, free_ok, "
+        "    free_goshow, nooccupy, jmp_nooccupy "
+        ") "
         "SELECT "
-        "   :point_dep, main.point_arv, main.class, 0, 0, "
-        "   DECODE(:pr_tranzit, 0, 0, "
-        "          DECODE(:pr_tranz_reg, 0, 0, NVL(pax.tranzit,0))), "
-        "   NVL(pax.ok,0), "
-        "   NVL(pax.goshow,0), "
-        "   DECODE(:pr_tranzit, 0, 0, "
-        "          DECODE(:pr_tranz_reg, 0, 0, NVL(pax.jmp_tranzit,0))), "
-        "   NVL(pax.jmp_ok,0), "
-        "   NVL(pax.jmp_goshow,0), "
-        "   0, 0, 0, 0, 0 "
-        "FROM "
-        "     (SELECT points.point_id AS point_arv, point_num, classes.code AS class "
-        "      FROM points, classes, trip_classes "
-        "      WHERE classes.code=trip_classes.class(+) AND trip_classes.point_id(+)=:point_dep AND "
-        "            points.first_point=:first_point AND points.point_num>:point_num AND points.pr_del=0 AND "
-        "            (trip_classes.point_id IS NOT NULL OR :cfg_exists=0 AND :pr_free_seating<>0)) main, "
-        "     (SELECT pax_grp.point_arv, NVL(pax.cabin_class, pax_grp.class) AS class, "
-        "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'T',pax.seats,0), 0)) AS tranzit, "
-        "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0), 0)) AS ok, "
-        "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'P',pax.seats,0), 0)) AS goshow, "
-        "             SUM(DECODE(pax.is_jmp, 0, 0, DECODE(pax_grp.status,'T',pax.seats,0))) AS jmp_tranzit, "
-        "             SUM(DECODE(pax.is_jmp, 0, 0, DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0))) AS jmp_ok, "
-        "             SUM(DECODE(pax.is_jmp, 0, 0, DECODE(pax_grp.status,'P',pax.seats,0))) AS jmp_goshow "
-        "      FROM pax_grp, pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND "
-        "            pax_grp.point_dep=:point_dep AND "
-        "            pax_grp.status NOT IN ('E') AND "
-        "            pax.refuse IS NULL "
-        "      GROUP BY pax_grp.point_arv, NVL(pax.cabin_class, pax_grp.class)) pax "
-        "WHERE main.point_arv=pax.point_arv(+) AND main.class=pax.class(+)",
+        "  :point_dep, main.point_arv, main.class, 0, 0, "
+        "  CASE WHEN :pr_tranzit = 0 "
+        "  THEN 0 "
+        "  ELSE (CASE WHEN :pr_tranz_reg = 0 THEN 0 ELSE COALESCE(pax.tranzit, 0) END) "
+        "  END, "
+        "  COALESCE(pax.ok, 0), "
+        "  COALESCE(pax.goshow, 0), "
+        "  CASE WHEN :pr_tranzit = 0 "
+        "  THEN 0 "
+        "  ELSE (CASE WHEN :pr_tranz_reg = 0 THEN 0 ELSE coalesce(pax.jmp_tranzit, 0) END) "
+        "  END, "
+        "  COALESCE(pax.jmp_ok, 0), "
+        "  COALESCE(pax.jmp_goshow, 0), "
+        "  0, 0, 0, 0, 0 "
+        "FROM ( "
+        "  SELECT "
+        "    points.point_id AS point_arv, "
+        "    point_num, "
+        "    classes.code AS class "
+        "  FROM points "
+        "    JOIN ( "
+        "      trip_classes "
+        "        RIGHT OUTER JOIN classes "
+        "          ON classes.code = trip_classes.class "
+        "    ) "
+        "      ON trip_classes.point_id = :point_dep "
+        "  WHERE points.first_point = :first_point "
+        "  AND points.point_num > :point_num "
+        "  AND points.pr_del = 0 "
+        "  AND (trip_classes.point_id IS NOT NULL OR (:cfg_exists = 0 AND :pr_free_seating <> 0)) "
+        ") AS main "
+        "  LEFT OUTER JOIN ( "
+        "    SELECT "
+        "      pax_grp.point_arv, "
+        "      COALESCE(pax.cabin_class, pax_grp.class) AS class, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN (CASE WHEN pax_grp.status = 'T' THEN pax.seats ELSE 0 END) "
+        "          ELSE 0 END) AS tranzit, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN (CASE WHEN pax_grp.status = 'K' THEN pax.seats "
+        "                     WHEN pax_grp.status = 'C' THEN pax.seats "
+        "                     ELSE 0 END) "
+        "          ELSE 0 END) AS ok, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN (CASE WHEN pax_grp.status = 'P' THEN pax.seats ELSE 0 END) "
+        "          ELSE 0 END) AS goshow, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN 0 "
+        "          ELSE (CASE WHEN pax_grp.status = 'T' THEN pax.seats ELSE 0 END) "
+        "          END) AS jmp_tranzit, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN 0 "
+        "          ELSE (CASE WHEN pax_grp.status = 'K' THEN pax.seats "
+        "                     WHEN pax_grp.status = 'C' THEN pax.seats "
+        "                     ELSE 0 END) "
+        "          END) AS jmp_ok, "
+        "      SUM(CASE WHEN pax.is_jmp = 0 "
+        "          THEN 0 "
+        "          ELSE (CASE WHEN pax_grp.status = 'P' THEN pax.seats ELSE 0 END) "
+        "          END) AS jmp_goshow "
+        "    FROM pax_grp "
+        "      JOIN pax ON pax_grp.grp_id = pax.grp_id "
+        "    WHERE pax_grp.point_dep = :point_dep "
+        "    AND pax_grp.status NOT IN ('E') "
+        "    AND pax.refuse IS NULL "
+        "    GROUP BY "
+        "      pax_grp.point_arv, "
+        "      COALESCE(pax.cabin_class, pax_grp.class) "
+        "  ) AS pax "
+        "    ON ( "
+        "      main.point_arv = pax.point_arv "
+        "      AND main.class = pax.class "
+        "    ) ",
         QParams() << QParam("point_dep", otInteger, flt().point_id)
                   << QParam("first_point", otInteger, !flt().pr_tranzit?flt().point_id:flt().first_point)
                   << QParam("point_num", otInteger, flt().point_num)
                   << QParam("pr_tranzit", otInteger, flt().pr_tranzit)
                   << QParam("pr_tranz_reg", otInteger, pr_tranz_reg())
                   << QParam("cfg_exists", otInteger, cfg_exists())
-                  << QParam("pr_free_seating", otInteger, (int)fltSettings().value<bool>(tsFreeSeating, false)));
+                  << QParam("pr_free_seating", otInteger, (int)fltSettings().value<bool>(tsFreeSeating, false)),
+        STDLOG);
   Qry.get().Execute();
 }
 
@@ -640,40 +763,59 @@ void TCounters::recountFinally()
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry(
-        "DECLARE "
-        "  CURSOR cur IS "
-        "    SELECT counters2.point_dep, "
-        "           counters2.class, "
-        "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(crs_tranzit)-SUM(crs_ok) AS avail, "
-        "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(GREATEST(crs_tranzit, tranzit))-SUM(ok)-SUM(goshow) AS free_ok, "
-        "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(GREATEST(crs_tranzit, tranzit))-SUM(GREATEST(crs_ok, ok))-SUM(goshow) AS free_goshow, "
-        "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(tranzit)-SUM(ok)-SUM(goshow) AS nooccupy, "
-        "           SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS jmp "
-        "    FROM counters2, trip_classes "
-        "    WHERE counters2.point_dep=trip_classes.point_id(+) AND "
-        "          counters2.class=trip_classes.class(+) AND "
-        "          counters2.point_dep=:point_dep "
-        "    GROUP BY counters2.point_dep, counters2.class; "
-        "jmp  NUMBER(6); "
-        "BEGIN "
-        "  jmp:=0; "
-        "  FOR curRow IN cur LOOP "
-        "    UPDATE counters2 "
-        "    SET avail=curRow.avail, "
-        "        free_ok=curRow.free_ok, "
-        "        free_goshow=curRow.free_goshow, "
-        "        nooccupy=curRow.nooccupy "
-        "    WHERE point_dep=curRow.point_dep AND class=curRow.class; "
-        "    jmp:=jmp+curRow.jmp; "
-        "  END LOOP; "
-        "  UPDATE counters2 SET jmp_nooccupy=DECODE(:use_jmp, 0, 0, :jmp_cfg)-jmp WHERE point_dep=:point_dep; "
-        "END;",
-        QParams() << QParam("point_dep", otInteger, flt().point_id)
-                  << QParam("use_jmp", otInteger, (int)fltSettings().value<bool>(tsUseJmp, false))
-                  << QParam("jmp_cfg", otInteger, fltSettings().value<int>(tsJmpCfg, 0))
-        );
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"COUNTERS2", "TRIP_CLASSES"}),
+        "SELECT "
+        "  counters2.point_dep, "
+        "  counters2.class, "
+        "  (MAX(COALESCE(cfg, 0)) - MAX(COALESCE(block, 0)) - SUM(crs_tranzit) - SUM(crs_ok)) AS avail, "
+        "  (MAX(COALESCE(cfg, 0)) - MAX(COALESCE(block, 0)) - SUM(GREATEST(crs_tranzit, tranzit)) - SUM(ok) - SUM(goshow)) AS free_ok, "
+        "  (MAX(COALESCE(cfg, 0)) - MAX(COALESCE(block, 0)) - SUM(GREATEST(crs_tranzit, tranzit)) - SUM(GREATEST(crs_ok, ok)) - SUM(goshow)) AS free_goshow, "
+        "  (MAX(COALESCE(cfg, 0)) - MAX(COALESCE(block, 0)) - SUM(tranzit) - SUM(ok) - SUM(goshow)) AS nooccupy, "
+        "  (SUM(jmp_tranzit) + SUM(jmp_ok) + SUM(jmp_goshow)) AS jmp "
+        "FROM counters2 "
+        "  LEFT OUTER JOIN trip_classes "
+        "    ON ( "
+        "      counters2.point_dep = trip_classes.point_id "
+        "      AND counters2.class = trip_classes.class "
+        "    ) "
+        "WHERE counters2.point_dep = :point_id "
+        "GROUP BY counters2.point_dep, counters2.class ",
+        QParams() << QParam("point_id", otInteger, flt().point_id),
+        STDLOG);
   Qry.get().Execute();
+  int jmp = 0;
+  for (; !Qry.get().Eof; Qry.get().Next()) {
+    DB::TCachedQuery updQry(
+          PgOra::getRWSession("COUNTERS2"),
+          "UPDATE counters2 "
+          "SET avail = :avail, "
+          "    free_ok = :free_ok, "
+          "    free_goshow = :free_goshow, "
+          "    nooccupy = :nooccupy "
+          "WHERE point_dep = :point_id "
+          "AND class = :class ",
+          QParams() << QParam("point_id", otInteger, flt().point_id)
+                    << QParam("class", otString, Qry.get().FieldAsInteger("class"))
+                    << QParam("avail", otInteger, Qry.get().FieldAsInteger("avail"))
+                    << QParam("free_ok", otInteger, Qry.get().FieldAsInteger("free_ok"))
+                    << QParam("free_goshow", otInteger, Qry.get().FieldAsInteger("free_goshow"))
+                    << QParam("nooccupy", otInteger, Qry.get().FieldAsInteger("nooccupy")),
+          STDLOG);
+    updQry.get().Execute();
+    jmp = jmp + Qry.get().FieldAsInteger("jmp");
+  }
+  const int use_jmp = int(fltSettings().value<bool>(tsUseJmp, false));
+  const int jmp_cfg = fltSettings().value<int>(tsJmpCfg, 0);
+  DB::TCachedQuery updQry(
+        PgOra::getRWSession("COUNTERS2"),
+        "UPDATE counters2 SET "
+        "jmp_nooccupy = :jmp "
+        "WHERE point_dep = :point_id ",
+        QParams() << QParam("point_id", otInteger, flt().point_id)
+                  << QParam("jmp", otInteger, (use_jmp == 0 ? 0 : jmp_cfg) - jmp),
+        STDLOG);
+  updQry.get().Execute();
 }
 
 void TCounters::recountCrsFields()
@@ -749,10 +891,14 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem& grp,
 
 int TCounters::totalRegisteredPassengers(int point_id)
 {
-  TCachedQuery Qry("SELECT SUM(tranzit)+SUM(ok)+SUM(goshow)+ "
-                   "       SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS reg FROM counters2 "
-                   "WHERE point_dep=:point_id",
-                   QParams() << QParam("point_id", otInteger, point_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("COUNTERS2"),
+        "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow)+ "
+        "       SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS reg "
+        "FROM counters2 "
+        "WHERE point_dep=:point_id",
+        QParams() << QParam("point_id", otInteger, point_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return 0;
   return Qry.get().FieldAsInteger("reg");
@@ -797,20 +943,25 @@ void CheckCounters(int point_dep,
     if (cfg.empty() && free_seating) return;
     if (grp_status==ASTRA::psCrew) return;
     //проверка наличия свободных мест
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("COUNTERS2"), STDLOG);
     if (!is_jmp)
     {
       Qry.SQLText=
-        "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy FROM counters2 "
-        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
+          "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy "
+          "FROM counters2 "
+          "WHERE point_dep=:point_dep "
+          "AND point_arv=:point_arv "
+          "AND class=:class ";
       Qry.CreateVariable("class", otString, cl);
     }
     else
     {
       Qry.SQLText=
-        "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy FROM counters2 "
-        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND rownum<2 ";
+          "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy "
+          "FROM counters2 "
+          "WHERE point_dep=:point_dep "
+          "AND point_arv=:point_arv "
+          "FETCH FIRST 1 ROWS ONLY ";
     }
     Qry.CreateVariable("point_dep", otInteger, point_dep);
     Qry.CreateVariable("point_arv", otInteger, point_arv);

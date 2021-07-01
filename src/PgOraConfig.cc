@@ -114,7 +114,8 @@ namespace PgOra
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
                                       "DEV_SESS_TYPES",   "DEV_FMT_TYPES","DEV_MODELS",
-                                      "SEAT_DESCR",       "LANG_TYPES" } },
+                                      "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
+        } },
 
         { "SP_PG_GROUP_ADM", { "ROT" } },
 
@@ -198,7 +199,25 @@ namespace PgOra
                 "CACHE_CHILD_TABLES",
                 "CACHE_CHILD_FIELDS",
                 "ADM_CACHE_TABLES",
-        }}
+        }},
+        { "SP_PG_GROUP_COUNTERS", {
+                "COUNTERS2",
+        }},
+        { "SP_PG_GROUP_PAX", {
+                "PAX",
+                "PAX_GRP",
+        }},
+        { "SP_PG_GROUP_TRIP_TASK", {
+                "TRIP_CLASSES",
+                "TRIP_TASKS",
+                "TRIP_TASK_PROCESSES",
+        }},
+        { "SP_PG_GROUP_FILE_PARAM_SETS", {
+                "FILE_PARAM_SETS",
+        }},
+        { "SP_PG_GROUP_TYPEB_TYPES", {
+                "TYPEB_TYPES",
+        }},
 
         // ASTRA MINIMUM END
     };
