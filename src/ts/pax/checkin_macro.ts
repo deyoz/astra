@@ -347,6 +347,7 @@ $(defmacro NEW_CHECKIN_REQUEST
   airp_dep
   airp_arv
   passengers
+  class=ù
   hall=777
   lang=RU
   capture=off
@@ -360,7 +361,7 @@ $(defmacro NEW_CHECKIN_REQUEST
       <agent_stat_period>3</agent_stat_period>
       <transfer/>
       <segments>
-$(NEW_CHECKIN_SEGMENT $(point_dep) $(point_arv) $(airp_dep) $(airp_arv) $(passengers))
+$(NEW_CHECKIN_SEGMENT $(point_dep) $(point_arv) $(airp_dep) $(airp_arv) $(passengers) $(class))
       </segments>
       <hall>$(hall)</hall>
     </TCkinSavePax>

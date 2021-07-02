@@ -448,6 +448,7 @@ $(set comp_id $(get_comp_id $(get point_dep)))
 $(deny_ets_interactive ’ 298 ‘—)
 
 $(set pax_id $(get_pax_id $(get point_dep) CHEKMAREV "KONSTANTIN ALEKSANDROVICH"))
+$(set pax_id_chekmarev $(get pax_id))
 
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 298 ‘— • CHEKMAREV KONSTANTIN 2986145143701 ‚‡ UA FA144642 UA 16.04.1968 25.06.2025 M)
@@ -475,6 +476,7 @@ $(TAG  1 RUCH 0000000001 bag_num=2)
 )
 
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+$(set pax_id_tumali $(get_pax_id $(get point_dep) TUMALI VALERII))
 
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 298 ‘— • TUMALI VALERII 2986145115578 ‚‡ UA FA144642 UA 16.04.1968 25.06.2025 M)
@@ -542,11 +544,11 @@ $(TAG 3 RUCH 0298401557 bag_num=2 color=)
 $(NEW_UNACCOMP_REQUEST capture=off lang=EN hall=2 ""
 {$(NEW_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘)})
 
-$(set grp_id_unacc1 $(get_unaccomp_id $(get point_dep) 2))
+$(set grp_id_unacc2 $(get_unaccomp_id $(get point_dep) 2))
 
 $(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=2
 {$(CHANGE_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘
-                           $(get grp_id_unacc1) $(get_unaccomp_tid $(get grp_id_unacc1)))}
+                           $(get grp_id_unacc2) $(get_unaccomp_tid $(get grp_id_unacc2)))}
 {<value_bags/>
 <bags>
 $(BAG_WT 1 "" ’ pr_cabin=1 amount=1  weight=4  bag_pool_num=1)
@@ -556,6 +558,51 @@ $(BAG_WT 2 "" ’ pr_cabin=0 amount=3  weight=5  bag_pool_num=1)
 $(TAG 1 RUCH 1298401558 bag_num=2 color=‘ˆ)
 $(TAG 2 RUCH 1298401559 bag_num=2 color=†)
 $(TAG 3 RUCH 0298401560 bag_num=2 color=)
+</tags>}
+)
+
+#®¤­®£® ¯ ªá  á ¡ £ ¦¥¬ ¢ ˆ‡…‘ Š‹€‘‘
+$(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv1) ‘— €Œ‘ hall=1 class=
+{
+<passengers>
+  <pax>
+$(NEW_CHECKIN_NOREC PUPKIN VASYA ‚‡ 1 
+document={<document>
+            <type>P</type>
+            <issue_country>TR</issue_country>
+            <no>1357924680</no>
+            <nationality>TR</nationality>
+            <birth_date>08.02.1983 00:00:00</birth_date>
+            <expiry_date/>
+            <gender>M</gender>
+            <surname>PUPKIN</surname>
+            <first_name>VASYA</first_name>
+          </document>}
+)
+  </pax>
+</passengers>
+})
+
+$(set pax_id_pupkin $(get_pax_id $(get point_dep) 5))
+$(set grp_id3 $(get_single_grp_id $(get pax_id_pupkin)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘
+                          $(get grp_id3) $(get_single_grp_tid $(get pax_id_pupkin))
+{<passengers>
+$(CHANGE_CHECKIN $(get pax_id_pupkin) PUPKIN VASYA ‚‡  bag_pool_num=1)
+</passengers>})
+#$(CHANGE_CHECKIN_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘
+#                         $(get grp_id3) $(get_single_grp_tid $(get pax_id_pupkin))
+#)
+}
+{<value_bags/>
+<bags>
+$(BAG_WT 1 "" ’ pr_cabin=1 amount=1 weight= 34 bag_pool_num=1)
+$(BAG_WT 2 "" ’ pr_cabin=0 amount=1 weight=21 bag_pool_num=1)
+</bags>
+<tags pr_print=\"0\">
+$(TAG  1 RUCH 0000020001 bag_num=2)
 </tags>}
 )
 
@@ -648,9 +695,25 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
             &lt;/item&gt;
           &lt;/pax_seats&gt;
         &lt;/passenger&gt;
+        &lt;passenger pax_id='...'&gt;
+          &lt;gender&gt;A&lt;/gender&gt;
+          &lt;airp_dep&gt;‘—&lt;/airp_dep&gt;
+          &lt;airp_arv&gt;€Œ‘&lt;/airp_arv&gt;
+          &lt;rkamount&gt;1&lt;/rkamount&gt;
+          &lt;rkweight&gt;34&lt;/rkweight&gt;
+          &lt;class&gt;&lt;/class&gt;
+          &lt;pax_seats&gt;
+            &lt;item&gt;
+              ...
+              ...
+              &lt;layer&gt;CHECKIN&lt;/layer&gt;
+            &lt;/item&gt;
+          &lt;/pax_seats&gt;
+        &lt;/passenger&gt;
       &lt;/seats&gt;
       &lt;baggage&gt;
         &lt;dest val='€Œ‘'&gt;
+          &lt;class bagamount='1' bagweight='21'&gt;&lt;/class&gt;
           &lt;class bagamount='10' bagweight='75'&gt;&lt;/class&gt;
         &lt;/dest&gt;
         &lt;dest val='•'&gt;
@@ -663,3 +726,49 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
       &lt;/unaccompanied&gt;
     &lt;/compon&gt;
   &lt;/details&gt;
+
+$(set grp_id $(get_single_grp_id $(get pax_id_chekmarev)))
+$(set tid $(get_single_tid $(get pax_id_chekmarev)))
+!!
+$(CANCEL_PAX $(get pax_id_chekmarev) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ’ 298 ‘— • CHEKMAREV KONSTANTIN 2986145143701 ‚‡)
+
+$(set grp_id $(get_single_grp_id $(get pax_id_tumali)))
+$(set tid $(get_single_tid $(get pax_id_tumali)))
+!!
+$(CANCEL_PAX $(get pax_id_tumali) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ’ 298 ‘— • TUMALI VALERII 2986145115578 ‚‡)
+
+$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘
+                          $(get grp_id2) $(get_single_grp_tid $(get pax_id_adl1))
+{<passengers>
+$(CHANGE_CHECKIN $(get pax_id_adl1) Š’‹Ÿ "‚‹€„ˆŒˆ ˆŠ‹€…‚ˆ—" ‚‡  bag_pool_num="" refuse=€)
+$(CHANGE_CHECKIN $(get pax_id_adl2) AGAFONOV "DENIS DMITRIEVICH" ‚‡  bag_pool_num="" refuse=€)
+</passengers>})
+})
+
+$(set grp_id $(get_single_grp_id $(get pax_id_pupkin)))
+$(set tid $(get_single_tid $(get pax_id_pupkin)))
+!!
+$(CANCEL_PAX $(get pax_id_pupkin) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv1) ’ 298 ‘— €Œ‘ PUPKIN VASYA "" ‚‡)
+
+
+??
+$(dump_table PAX display="on")
+>> mode=regex
+.*ND PAX DUMP COUNT=0.*
+
+$(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=1 bag_refuse=€
+{$(CHANGE_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv) ‘— •
+                           $(get grp_id_unacc1) $(get_unaccomp_tid $(get grp_id_unacc1)))})
+
+$(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=1 bag_refuse=€
+{$(CHANGE_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv1) ‘— €Œ‘
+                           $(get grp_id_unacc2) $(get_unaccomp_tid $(get grp_id_unacc2)))})
+
+#í¬ã«ïæ¨ï à¥¦¨¬  Libra
+$(sql "DELETE FROM libra_comps")
+
+$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
+  insert type_code:66
+         airline:$(get_elem_id etAirline ’)
+         pr_misc:0)
