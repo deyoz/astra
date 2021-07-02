@@ -1632,68 +1632,61 @@ bool existsTlgTransfer(int prior_point_arv, TrferPointType point_type)
 
 bool trferInExists(int point_arv, int prior_point_arv)
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText=
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "TRANSFER"}), STDLOG);
+  Qry.SQLText =
       "SELECT 1 "
-      "FROM pax_grp, transfer, pax "
-      "WHERE pax_grp.grp_id=transfer.grp_id AND "
-      "      pax_grp.grp_id=pax.grp_id(+) AND "
-      "      pax_grp.point_arv=:point_arv AND "
-      "      transfer.transfer_num=1 AND "
-      "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
-      "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
-      "      rownum<2 ";
+      "FROM pax_grp "
+      "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+      "  JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+      "WHERE pax_grp.point_arv = :point_arv "
+      "AND transfer.transfer_num = 1 "
+      "AND pax_grp.bag_refuse = 0 "
+      "AND pax_grp.status NOT IN ('T', 'E') "
+      "AND (pax_grp.class IS NULL OR pax.pr_brd = 1) "
+      "FETCH FIRST 1 ROWS ONLY ";
   Qry.CreateVariable("point_arv", otInteger, point_arv);
   Qry.Execute();
   return !Qry.Eof || existsTlgTransfer(prior_point_arv, TrferPointType::IN);
 }
 
-bool trferOutExists(int point_dep, TQuery& Qry)
+bool trferOutExists(int point_dep)
 {
-  const char *sql =
-    "SELECT 1 "
-    "FROM trfer_trips, transfer, pax_grp, pax "
-    "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
-    "      transfer.grp_id=pax_grp.grp_id AND "
-    "      pax_grp.grp_id=pax.grp_id(+) AND "
-    "      trfer_trips.point_id_spp=:point_dep AND "
-    "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
-    "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
-    "      rownum<2 ";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("point_dep", otInteger);
-  };
-  Qry.SetVariable("point_dep", point_dep);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "TRANSFER", "TRFER_TRIPS"}), STDLOG);
+  Qry.SQLText =
+      "SELECT 1 "
+      "FROM trfer_trips "
+      "  JOIN transfer ON trfer_trips.point_id = transfer.point_id_trfer "
+      "  JOIN (pax_grp LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id) "
+      "    ON transfer.grp_id = pax_grp.grp_id "
+      "WHERE trfer_trips.point_id_spp = :point_dep "
+      "AND transfer.transfer_num = 1 "
+      "AND pax_grp.bag_refuse = 0 "
+      "AND pax_grp.status NOT IN ('T', 'E') "
+      "AND (pax_grp.class IS NULL OR pax.pr_brd = 1) "
+      "FETCH FIRST 1 ROWS ONLY ";
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
   Qry.Execute();
   return !Qry.Eof || existsTlgTransfer(point_dep, TrferPointType::OUT);
-};
+}
 
-bool trferCkinExists(int point_dep, TQuery& Qry)
+bool trferCkinExists(int point_dep)
 {
-  const char *sql =
-    "SELECT 1 "
-    "FROM pax_grp, transfer, pax "
-    "WHERE pax_grp.grp_id=transfer.grp_id AND "
-    "      pax_grp.grp_id=pax.grp_id(+) AND "
-    "      pax_grp.point_dep=:point_dep AND "
-    "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
-    "      (pax_grp.class IS NULL OR pax.pr_brd IS NOT NULL) AND "
-    "      rownum<2";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("point_dep", otInteger);
-  };
-  Qry.SetVariable("point_dep", point_dep);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "TRANSFER"}), STDLOG);
+  Qry.SQLText =
+      "SELECT 1 "
+      "FROM pax_grp "
+      "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+      "  JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+      "WHERE pax_grp.point_dep = :point_dep "
+      "AND transfer.transfer_num = 1 "
+      "AND pax_grp.bag_refuse = 0 "
+      "AND pax_grp.status NOT IN ('T', 'E') "
+      "AND (pax_grp.class IS NULL OR pax.pr_brd IS NOT NULL) "
+      "FETCH FIRST 1 ROWS ONLY ";
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
   Qry.Execute();
   return !Qry.Eof;
-};
+}
 
 std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id)
 {

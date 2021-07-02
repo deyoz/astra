@@ -307,10 +307,13 @@ template<> std::string PnrFlightsCache::traceTitle()
 std::set<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp)
 {
   std::set<PointIdTlg_t> result;
-  TCachedQuery Qry("SELECT point_id_tlg "
-                   "FROM tlg_binding "
-                   "WHERE point_id_spp = :point_id ",
-                   QParams() << QParam("point_id", otInteger, point_id_spp.get()));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("TLG_BINDING"),
+        "SELECT point_id_tlg "
+        "FROM tlg_binding "
+        "WHERE point_id_spp = :point_id ",
+        QParams() << QParam("point_id", otInteger, point_id_spp.get()),
+        STDLOG);
   Qry.get().Execute();
   for(;!Qry.get().Eof;Qry.get().Next()) {
     result.insert(PointIdTlg_t(Qry.get().FieldAsInteger("point_id_tlg")));
@@ -2565,8 +2568,10 @@ void TCFG::get(int point_id, TDateTime part_key)
           "WHERE trip_classes.class=classes.code AND "
           "      point_id=:point_id AND cfg>0 "
           "ORDER BY priority ";
-    };
-    TCachedQuery Qry(SQLText, QryParams);
+    }
+    DbCpp::Session& session = point_id == NoExists ? PgOra::getROSession({"CLASSES"})
+                                                   : PgOra::getROSession({"CLASSES", "TRIP_CLASSES"});
+    DB::TCachedQuery Qry(session, SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     for(; !Qry.get().Eof; Qry.get().Next()) {
         TCFGItem item;
@@ -2599,8 +2604,7 @@ FltMarkFilter::FltMarkFilter(const AirlineCode_t& airline,
 
 std::set<PointIdMkt_t> FltMarkFilter::search() const
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("MARK_TRIPS"), STDLOG);
   Qry.SQLText =
     "SELECT DISTINCT point_id FROM mark_trips "
     "WHERE airline=:airline AND flt_no=:flt_no AND "
@@ -2666,51 +2670,54 @@ std::list<TAdvTripInfo> FltOperFilter::search() const
   QryParams << QParam("airline", otString, airline_.get())
             << QParam("flt_no", otInteger, fltNumber_.get())
             << QParam("suffix", otString, suffix_.get())
-            << QParam("airp_dep", otString, airpDepOpt_?airpDepOpt_.value().get():"")
-            << QParam("date_dep", otDate, dateDepTruncated_);
+            << QParam("airp_dep", otString, airpDepOpt_?airpDepOpt_.value().get():"");
 
   ostringstream sql;
   sql <<
-    "SELECT " << TAdvTripInfo::selectedFields() << " FROM points \n";
+    "SELECT " << TAdvTripInfo::selectedFields() << " FROM points ";
 
   if (!dateDepInUTC_)
   {
+    QryParams << QParam("date_dep_first", otDate, dateDepTruncated_ - 1)
+              << QParam("date_dep_last", otDate, dateDepTruncated_ + 2);
     //перевод UTCToLocal(points.scd)
     sql <<
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND \n"
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
-      "      (scd_out >= TO_DATE(:date_dep)-1 AND scd_out < TO_DATE(:date_dep)+2 \n ";
+      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      (scd_out >= :date_dep_first AND scd_out < :date_dep_last  ";
     if(dateDepFlags_.count(Est)>0)
     sql <<
-      "      or est_out >= TO_DATE(:date_dep)-1 AND est_out < TO_DATE(:date_dep)+2 \n ";
+      "      or est_out >= :date_dep_first AND est_out < :date_dep_last  ";
     if(dateDepFlags_.count(Act)>0)
     sql <<
-      "      or act_out >= TO_DATE(:date_dep)-1 AND act_out < TO_DATE(:date_dep)+2 \n ";
+      "      or act_out >= :date_dep_first AND act_out < :date_dep_last  ";
     sql <<
-      "      ) AND \n"
-      "      pr_del>=0 \n";
+      "      ) AND "
+      "      pr_del>=0 ";
   }
   else
   {
+    QryParams << QParam("date_dep_first", otDate, dateDepTruncated_)
+              << QParam("date_dep_last", otDate, dateDepTruncated_ + 1);
     sql <<
-      "WHERE airline=:airline AND flt_no=:flt_no AND \n"
-      "      (:airp_dep IS NULL OR airp=:airp_dep) AND \n"
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
-      "      (scd_out >= TO_DATE(:date_dep) AND scd_out < TO_DATE(:date_dep)+1 \n";
+      "WHERE airline=:airline AND flt_no=:flt_no AND "
+      "      (:airp_dep IS NULL OR airp=:airp_dep) AND "
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      (scd_out >= :date_dep_first AND scd_out < :date_dep_last ";
     if(dateDepFlags_.count(Est)>0)
     sql <<
-      "      or est_out >= TO_DATE(:date_dep) AND est_out < TO_DATE(:date_dep)+1 \n";
+      "      or est_out >= :date_dep_first AND est_out < :date_dep_last ";
     if(dateDepFlags_.count(Act)>0)
     sql <<
-      "      or act_out >= TO_DATE(:date_dep) AND act_out < TO_DATE(:date_dep)+1 \n";
+      "      or act_out >= :date_dep_first AND act_out < :date_dep_last ";
     sql <<
-      "      ) AND \n"
-      "      pr_del>=0 \n";
+      "      ) AND "
+      "      pr_del>=0 ";
   };
 
   sql << " " << additionalWhere_;
 
-  TCachedQuery PointsQry(sql.str(), QryParams);
+  DB::TCachedQuery PointsQry(PgOra::getROSession("POINTS"), sql.str(), QryParams, STDLOG);
   PointsQry.get().Execute();
   for(;!PointsQry.get().Eof;PointsQry.get().Next())
   {

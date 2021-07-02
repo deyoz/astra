@@ -1434,13 +1434,11 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
   }
 
   TCFG cfg;
-  TQuery RegQry( &OraSession );
+  DB::TQuery RegQry(PgOra::getROSession("COUNTERS2"), STDLOG);
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  TQuery Trfer_inQry( &OraSession );
-
-  TQuery DelaysQry( &OraSession );
+  DB::TQuery DelaysQry(PgOra::getROSession("TRIP_DELAYS"), STDLOG);
   if ( trips.module == TSOPPTrips::tISG ) {
     DelaysQry.SQLText = trip_delays_SQL;
     DelaysQry.DeclareVariable( "point_id", otInteger );
@@ -1711,7 +1709,7 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
             tr->resa = crs_ok;
           }
           ////////////////////// trfer  ///////////////////////////////
-          if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))
+          if (TrferList::trferOutExists( tr->point_id ))
             tr->TrferType.setFlag( trferOut );
           bool trferExists;
           get_TrferExists( tr->point_id, trferExists );
@@ -2376,7 +2374,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
           tr->resa = crs_ok;
         }
         ////////////////////// trfer  ///////////////////////////////
-        if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))
+        if (TrferList::trferOutExists( tr->point_id ))
           tr->TrferType.setFlag( trferOut );
         bool trferExists;
         get_TrferExists( tr->point_id, trferExists );
@@ -2952,8 +2950,7 @@ void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
         NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
     else
       NewTextChild( dataNode, "flight_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
-  }
-  else {
+  } else {
     first_date = NoExists;
     next_date = NoExists;
   }
@@ -6487,7 +6484,6 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   bool new_trfer_exists = false;
   string new_ckin_desks;
   string new_gates;
-  TQuery Qry(&OraSession);
   if ( pr_empty || whatcalc.isFlag( tDesksGates ) ) {
     tstations stations;
     stations.fromDB(point_id);
@@ -6495,7 +6491,7 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
     new_gates = tstations::toString(stations,GATE_WORK_MODE);
   }
   if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
-    new_trfer_exists = TrferList::trferCkinExists( point_id, Qry );
+    new_trfer_exists = TrferList::trferCkinExists(point_id);
   }
   bool pr_update = false;
   if ( !pr_empty ) {
@@ -6517,28 +6513,27 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
     trfer_exists = new_trfer_exists;
   }
-  Qry.Clear();
-  if ( pr_empty ) {
-    Qry.SQLText =
-      "BEGIN "
-      " INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
-      "  VALUES(:point_id,:trfer_exists,:ckin_desks,:gates); "
-      "EXCEPTION WHEN DUP_VAL_ON_INDEX THEN "
-      " UPDATE trip_calc_data "
-      "  SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
-      "  WHERE point_id=:point_id; "
-      "END;";
+  DB::TQuery updQry(PgOra::getRWSession("TRIP_CALC_DATA"), STDLOG);
+  updQry.SQLText =
+    "UPDATE trip_calc_data "
+    "SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
+    "WHERE point_id=:point_id";
+  updQry.CreateVariable( "point_id", otInteger, point_id );
+  updQry.CreateVariable( "trfer_exists", otInteger, trfer_exists );
+  updQry.CreateVariable( "ckin_desks", otString, ckin_desks );
+  updQry.CreateVariable( "gates", otString, gates );
+  updQry.Execute();
+  if (pr_empty && updQry.RowsProcessed() == 0) {
+    DB::TQuery insQry(PgOra::getRWSession("TRIP_CALC_DATA"), STDLOG);
+    insQry.SQLText =
+      "INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
+      "VALUES(:point_id,:trfer_exists,:ckin_desks,:gates) ";
+    insQry.CreateVariable( "point_id", otInteger, point_id );
+    insQry.CreateVariable( "trfer_exists", otInteger, trfer_exists );
+    insQry.CreateVariable( "ckin_desks", otString, ckin_desks );
+    insQry.CreateVariable( "gates", otString, gates );
+    insQry.Execute();
   }
-  else
-    Qry.SQLText =
-      "UPDATE trip_calc_data "
-      " SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
-      " WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "trfer_exists", otInteger, trfer_exists );
-  Qry.CreateVariable( "ckin_desks", otString, ckin_desks );
-  Qry.CreateVariable( "gates", otString, gates );
-  Qry.Execute();
   return true;
 }
 

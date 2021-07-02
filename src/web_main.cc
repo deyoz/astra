@@ -3246,9 +3246,10 @@ void SyncCHKD(int point_id_spp, bool sync_all)
     "      points.pr_del=0 AND points.pr_reg<>0";
   Qry.CreateVariable("point_id_spp", otInteger, point_id_spp);
   Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  for(;!Qry.Eof;Qry.Next()) {
     SyncCHKD(Qry.FieldAsInteger("point_id_tlg"), point_id_spp, sync_all);
-};
+  }
+}
 
 void SyncNewCHKD(const TTripTaskKey &task)
 {

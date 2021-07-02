@@ -219,21 +219,20 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
                    << ": point_id_tlg=" << point_id_tlg
                    << ", id=" << id
                    << ", is_pax_id=" << is_pax_id;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}), STDLOG);
 
   ostringstream sql;
-  sql << "SELECT crs_pax.pax_id, tlg_binding.point_id_spp AS point_id \n"
-         "FROM crs_pax, crs_pnr, tlg_binding \n"
-         "WHERE crs_pax.pr_del=0 AND \n"
-         "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
-         "      crs_pnr.system='CRS' AND \n"
-         "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-         "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
+  sql << "SELECT crs_pax.pax_id, tlg_binding.point_id_spp AS point_id "
+         "FROM crs_pax, crs_pnr, tlg_binding "
+         "WHERE crs_pax.pr_del=0 AND "
+         "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+         "      crs_pnr.system='CRS' AND "
+         "      crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+         "      tlg_binding.point_id_tlg=:point_id_tlg AND ";
   if (is_pax_id) {
-    sql << "      crs_pax.pax_id=:id \n";
+    sql << "      crs_pax.pax_id=:id ";
   } else {
-    sql << "      tlg_binding.point_id_spp=:id \n";
+    sql << "      tlg_binding.point_id_spp=:id ";
   }
 
   Qry.SQLText = sql.str();
@@ -596,13 +595,15 @@ void TlgETDisplay(int point_id_spp)
   set<int> ids;
   ids.insert(point_id_spp);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "SELECT point_id_tlg FROM tlg_binding WHERE point_id_spp=:point_id_spp";
+  DB::TQuery Qry(PgOra::getROSession("TLG_BINDING"), STDLOG);
+  Qry.SQLText = "SELECT point_id_tlg "
+                "FROM tlg_binding "
+                "WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id_spp );
   Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  for(;!Qry.Eof;Qry.Next()) {
     TlgETDisplay(Qry.FieldAsInteger("point_id_tlg"), ids, false);
+  }
 }
 
 static bool deleteDisplayTlg(const TETickItem& item)

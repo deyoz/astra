@@ -402,8 +402,8 @@ void TrferConfirmFromXML(xmlNodePtr trferNode,
                          std::map<TGrpId, TGrpConfirmItem> &grps);
 
 bool trferInExists(int point_arv, int prior_point_arv);
-bool trferOutExists(int point_dep, TQuery& Qry);
-bool trferCkinExists(int point_dep, TQuery& Qry);
+bool trferOutExists(int point_dep);
+bool trferCkinExists(int point_dep);
 
 std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id);
 std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id);

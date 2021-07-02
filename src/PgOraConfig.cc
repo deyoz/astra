@@ -218,6 +218,22 @@ namespace PgOra
         { "SP_PG_GROUP_TYPEB_TYPES", {
                 "TYPEB_TYPES",
         }},
+        { "SP_PG_GROUP_CRS_PNR", {
+                "CRS_PNR",
+                "CRS_PAX",
+                "TLG_BINDING",
+        }},
+        { "SP_PG_GROUP_TRANSFER", {
+                "TRANSFER",
+        }},
+        { "SP_PG_GROUP_TRIP_CALC", {
+                "TRIP_CALC_DATA",
+                "TRIP_COMP_ELEMS",
+        }},
+        { "SP_PG_GROUP_STATIONS", {
+                "TRIP_STATIONS",
+                "STATIONS",
+        }},
 
         // ASTRA MINIMUM END
     };
