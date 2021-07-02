@@ -281,7 +281,7 @@ void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFile
 
 void departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.CreateVariable("first_date", otDate, interval.first);
     Qry.CreateVariable("last_date", otDate, interval.second);
     ostringstream sql;

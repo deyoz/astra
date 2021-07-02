@@ -194,42 +194,60 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       };
   }
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
-};
+}
 
-void GetSystemLogAgentSQL(TQuery &Qry)
+void GetSystemLogAgentSQL(DB::TQuery &Qry)
 {
-    string SQLText =
-        "select -1, null agent, -1 view_order from dual "
+    std::string dual;
+    if(!PgOra::supportsPg("USERS2")) {
+        dual = "from dual ";
+    }
+    std::string SQLText =
+        "select -1, null agent, -1 view_order " + dual +
         "union "
         "select 0, '";
     SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
-        "' agent, 0 view_order from dual "
+        "' agent, 0 view_order " + dual +
         "union "
-        "select 1, descr agent, 1 view_order from users2 where "
-        "  (adm.check_user_access(user_id,:SYS_user_id)<>0 or user_id=:SYS_user_id) "
+        "select 1, descr agent, 1 view_order from users2 where (";
+    if(!DEMO_MODE()) {
+        // В ДЕМО-ВЕРСИИ НЕ ПРОВЕРЯЕМ ПРАВА ДОСТУПА ДО ПЕРЕВОДА пакета ADM на c++
+        SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+    }
+
+    SQLText += "user_id=:SYS_user_id) "
         "order by "
         "   view_order, agent";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 }
 
-void GetSystemLogStationSQL(TQuery &Qry)
+void GetSystemLogStationSQL(DB::TQuery &Qry)
 {
-    string SQLText =
-        "select -1, null station, -1 view_order from dual "
+    std::string dual;
+    if(!PgOra::supportsPg("DESKS")) {
+        dual = "from dual ";
+    }
+    std::string SQLText =
+        "select -1, null station, -1 view_order " + dual +
         "union "
         "select 0, '";
     SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
-        "' station, 0 view_order from dual "
+        "' station, 0 view_order " + dual +
         "union "
-        "select 1, code, 1 from desks where "
-        "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 "
+        "select 1, code, 1 from desks ";
+    if(!DEMO_MODE()) {
+        // В ДЕМО-ВЕРСИИ НЕ ПРОВЕРЯЕМ ПРАВА ДОСТУПА ДО ПЕРЕВОДА пакета ADM на c++
+        SQLText += "where adm.check_desk_view_access(code, :SYS_user_id) <> 0 ";
+        Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    }
+
+    SQLText +=
         "order by "
         "   view_order, station";
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 }
 
 void GetSystemLogModuleSQL(DB::TQuery &Qry)
@@ -273,18 +291,18 @@ void addCboxNode(T &Qry, xmlNodePtr resNode)
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
-    if (cbox == "AgentCBox" || cbox == "StationCBox") {
-      TQuery Qry(&OraSession, STDLOG);
-      if(cbox == "AgentCBox") {
-          GetSystemLogAgentSQL(Qry);
-      } else if(cbox == "StationCBox") {
-          GetSystemLogStationSQL(Qry);
-      }
-      addCboxNode(Qry, resNode);
+    if (cbox == "AgentCBox") {
+        DB::TQuery Qry(PgOra::getROSession("USERS2"), STDLOG);
+        GetSystemLogAgentSQL(Qry);
+        addCboxNode(Qry, resNode);
+    } else if(cbox == "StationCBox") {
+        DB::TQuery Qry(PgOra::getROSession("DESKS"), STDLOG);
+        GetSystemLogStationSQL(Qry);
+        addCboxNode(Qry, resNode);
     } else if(cbox == "ModuleCBox") {
-      DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
-      GetSystemLogModuleSQL(Qry);
-      addCboxNode(Qry, resNode);
+        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
+        GetSystemLogModuleSQL(Qry);
+        addCboxNode(Qry, resNode);
     } else {
         throw Exception("StatInterface::CommonCBoxDropDown: unknown cbox: %s", cbox.c_str());
     }
@@ -431,18 +449,16 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
-    TQuery Qry(&OraSession);
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    Qry.Clear();
     string SQLQuery;
     string airline;
     {
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         Qry.SQLText = "select airline from points where point_id = :point_id "; // pr_del>=0 - не надо т.к. можно просматривать удаленные рейсы
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
@@ -453,18 +469,18 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         "SELECT msg, time,  "
         "       id1 AS point_id,  "
         "       events_bilingual.screen,  "
-        "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num "
+        "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num "
         "FROM events_bilingual  "
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type = :evtFltTask AND  "
-        "   events_bilingual.id1=:point_id  ";
+        "   events_bilingual.id1  = :point_id  ";
     NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
     tm.Init();
     xmlNodePtr rowsNode = NULL;
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
     Qry.SQLText = SQLQuery;
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -479,7 +495,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     }
 
     if(Qry.Eof) {
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         Qry.SQLText = "select point_id from points where point_id = :point_id";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
@@ -721,19 +737,17 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал операций рейса"));
-    TQuery Qry(&OraSession);
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    Qry.Clear();
     string qry1, qry2;
     int move_id = 0;
     string airline;
     {
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         Qry.SQLText = "select move_id, airline from points where point_id = :point_id "; // pr_del>=0 - не надо т.к. можно просматривать удаленные рейсы
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
@@ -745,9 +759,9 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "SELECT msg, time,  "
         "       id1 AS point_id,  "
         "       events_bilingual.screen,  "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
-        "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
+        "       (CASE WHEN type in (:evtPax,:evtPay) THEN id2 ELSE NULL END) AS reg_no,  "
+        "       (CASE WHEN type in (:evtPax,:evtPay) THEN id3 ELSE NULL END) AS grp_id,  "
+        "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num  "
         "FROM events_bilingual  "
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
@@ -760,7 +774,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "       events_bilingual.screen,  "
         "       NULL AS reg_no,  "
         "       NULL AS grp_id,  "
-        "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
+        "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num  "
         "FROM events_bilingual  "
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
@@ -773,24 +787,24 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     tm.Init();
     xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
-        Qry.Clear();
+        DB::TQuery EQry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
         if(i == 0) {
-            Qry.SQLText = qry1;
-            Qry.CreateVariable("point_id", otInteger, point_id);
-            Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
-            Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
-            Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-            Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-            Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
-            Qry.CreateVariable("evtPrn",otString,EncodeEventType(ASTRA::evtPrn));
+            EQry.SQLText = qry1;
+            EQry.CreateVariable("point_id", otInteger, point_id);
+            EQry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+            EQry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
+            EQry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+            EQry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+            EQry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+            EQry.CreateVariable("evtPrn",otString,EncodeEventType(ASTRA::evtPrn));
         } else {
-            Qry.SQLText = qry2;
-            Qry.CreateVariable("move_id", otInteger, move_id);
-            Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
+            EQry.SQLText = qry2;
+            EQry.CreateVariable("move_id", otInteger, move_id);
+            EQry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         }
-        Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
+        EQry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
         try {
-            Qry.Execute();
+            EQry.Execute();
         } catch (EOracleError &E) {
             if(E.Code == 376)
                 throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
@@ -798,61 +812,61 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 throw;
         }
 
-        if(Qry.Eof) {
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select point_id from points where point_id = :point_id";
-            Qry.CreateVariable("point_id", otInteger, point_id);
-            Qry.Execute();
-            if(Qry.Eof)
+        if(EQry.Eof) {
+            DB::TQuery PQry(PgOra::getROSession("POINTS"), STDLOG);
+            PQry.SQLText = "select point_id from points where point_id = :point_id";
+            PQry.CreateVariable("point_id", otInteger, point_id);
+            PQry.Execute();
+            if(PQry.Eof)
                 throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
         }
 
         typedef map<string, string> TScreenMap;
         TScreenMap screen_map;
-        if(!Qry.Eof) {
-            int col_point_id=Qry.FieldIndex("point_id");
-            int col_ev_user=Qry.FieldIndex("ev_user");
-            int col_station=Qry.FieldIndex("station");
-            int col_time=Qry.FieldIndex("time");
-            int col_grp_id=Qry.FieldIndex("grp_id");
-            int col_reg_no=Qry.FieldIndex("reg_no");
-            int col_msg=Qry.FieldIndex("msg");
-            int col_ev_order=Qry.FieldIndex("ev_order");
-            int col_part_num=Qry.FieldIndex("part_num");
-            int col_screen=Qry.FieldIndex("screen");
+        if(!EQry.Eof) {
+            int col_point_id=EQry.FieldIndex("point_id");
+            int col_ev_user=EQry.FieldIndex("ev_user");
+            int col_station=EQry.FieldIndex("station");
+            int col_time=EQry.FieldIndex("time");
+            int col_grp_id=EQry.FieldIndex("grp_id");
+            int col_reg_no=EQry.FieldIndex("reg_no");
+            int col_msg=EQry.FieldIndex("msg");
+            int col_ev_order=EQry.FieldIndex("ev_order");
+            int col_part_num=EQry.FieldIndex("part_num");
+            int col_screen=EQry.FieldIndex("screen");
 
             if(!rowsNode)
                 rowsNode = NewTextChild(paxLogNode, "rows");
-            for( ; !Qry.Eof; Qry.Next()) {
-                string ev_user = Qry.FieldAsString(col_ev_user);
-                string station = Qry.FieldAsString(col_station);
+            for( ; !EQry.Eof; EQry.Next()) {
+                string ev_user = EQry.FieldAsString(col_ev_user);
+                string station = EQry.FieldAsString(col_station);
 
                 xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-                NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+                NewTextChild(rowNode, "point_id", EQry.FieldAsInteger(col_point_id));
                 NewTextChild( rowNode, "time",
                         DateTimeToStr(
-                            UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                            UTCToClient( EQry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
                             ServerFormatDateTimeAsString
                             )
                         );
-                NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
-                NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
-                NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
-                if(!Qry.FieldIsNULL(col_grp_id))
-                    NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                if(!Qry.FieldIsNULL(col_reg_no))
-                    NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(rowNode, "msg", EQry.FieldAsString(col_msg));
+                NewTextChild(rowNode, "ev_order", EQry.FieldAsInteger(col_ev_order));
+                NewTextChild(rowNode, "part_num", EQry.FieldAsInteger(col_part_num), 1);
+                if(!EQry.FieldIsNULL(col_grp_id))
+                    NewTextChild(rowNode, "grp_id", EQry.FieldAsInteger(col_grp_id));
+                if(!EQry.FieldIsNULL(col_reg_no))
+                    NewTextChild(rowNode, "reg_no", EQry.FieldAsInteger(col_reg_no));
                 NewTextChild(rowNode, "ev_user", ev_user, "");
                 NewTextChild(rowNode, "station", station, "");
-                string screen = Qry.FieldAsString(col_screen);
+                string screen = EQry.FieldAsString(col_screen);
                 if(screen.size()) {
                     if(screen_map.find(screen) == screen_map.end()) {
-                        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
-                        Qry.SQLText = "select name from screen where exe = :exe";
-                        Qry.CreateVariable("exe", otString, screen);
-                        Qry.Execute();
-                        if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
-                        screen_map[screen] = getLocaleText(Qry.FieldAsString(0));
+                        DB::TQuery SQry(PgOra::getROSession("SCREEN"), STDLOG);
+                        SQry.SQLText = "select name from screen where exe = :exe";
+                        SQry.CreateVariable("exe", otString, screen);
+                        SQry.Execute();
+                        if(SQry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
+                        screen_map[screen] = getLocaleText(SQry.FieldAsString(0));
                     }
                     screen = screen_map[screen];
                 }
@@ -1007,19 +1021,20 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции по пассажиру"));
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
+
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // Для совместимости со старой версией терминала
-    Qry.Clear();
-    TQuery AirlineQry(&OraSession);
+    DB::TQuery AirlineQry(PgOra::getROSession("POINTS"), STDLOG);
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
     AirlineQry.SQLText = "select airline from points where point_id = :point_id and pr_del >= 0";
+
+    DB::TQuery Qry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
     Qry.SQLText =
         "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-        "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num "
+        "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num "
         "FROM events_bilingual "
         "WHERE "
         "      lang = :lang AND "
@@ -1049,7 +1064,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     }
 
     if(Qry.Eof) {
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         Qry.SQLText = "select point_id from points where point_id = :point_id and pr_del >= 0";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
@@ -1226,11 +1241,16 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
 
             if(ev_user != "") {
                 if(user_access.find(ev_user) == user_access.end()) {
-                    TQuery Qry(&OraSession);
+                    DB::TQuery Qry(PgOra::getROSession("USERS2"), STDLOG);
                     Qry.SQLText =
-                        "select descr from users2 where "
-                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
-                        "   descr = :ev_user";
+                        "select descr from users2 where (";
+                    if(!DEMO_MODE()) {
+                        // В ДЕМО-ВЕРСИИ НЕ ПРОВЕРЯЕМ ПРАВА ДОСТУПА ДО ПЕРЕВОДА пакета ADM на c++
+                        Qry.SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+                    }
+
+                    Qry.SQLText += "user_id=:SYS_user_id) and "
+                            "   descr = :ev_user";
                     Qry.CreateVariable("ev_user", otString, ev_user);
                     Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
                     Qry.Execute();
@@ -1359,24 +1379,25 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
     Qry.SQLText =
         "SELECT msg, time, "
-        "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
-        "                    :evtDisp, id2, NULL) AS point_id, "
+        "       (CASE WHEN type in (:evtFlt,:evtFltTask,:evtPax,:evtPay,:evtGraph,:evtTlg) THEN id1"
+        "             WHEN type in (:evtDisp) THEN id2"
+        "             ELSE NULL END) AS point_id, "
         "       screen, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-        "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, null part_key "
+        "       (CASE WHEN type in (:evtPax,:evtPay) THEN id2 ELSE NULL END) AS reg_no, "
+        "       (CASE WHEN type in (:evtPax,:evtPay) THEN id3 ELSE NULL END) AS grp_id, "
+        "  ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num, null part_key "
         "FROM "
         "  events_bilingual "
         "WHERE "
         "  events_bilingual.lang = :lang AND "
         "  events_bilingual.time >= :FirstDate and "
         "  events_bilingual.time < :LastDate and "
-        "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
-        "  (:module is null or nvl(screen, :system_user) = :module) and "
-        "  (:station is null or nvl(station, :system_user) = :station) and "
+        "  (:agent is null or COALESCE(ev_user, :system_user) = :agent) and "
+        "  (:module is null or COALESCE(screen, :system_user) = :module) and "
+        "  (:station is null or COALESCE(station, :system_user) = :station) and "
         "  events_bilingual.type IN ( "
         "    :evtFlt, "
         "    :evtFltTask, "
@@ -1455,10 +1476,14 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
             if(ev_user != "") {
                 if(user_access.find(ev_user) == user_access.end()) {
-                    TQuery Qry(&OraSession);
+                    DB::TQuery Qry(PgOra::getROSession("USERS2"), STDLOG);
                     Qry.SQLText =
-                        "select descr from users2 where "
-                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
+                        "select descr from users2 where (";
+                    if(!DEMO_MODE()) {
+                        Qry.SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+                    }
+                    Qry.SQLText +=
+                        "   user_id = :SYS_user_id) and "
                         "   descr = :ev_user";
                     Qry.CreateVariable("ev_user", otString, ev_user);
                     Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
@@ -1485,7 +1510,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             if(!Qry.FieldIsNULL(col_point_id)) {
                 int point_id = Qry.FieldAsInteger(col_point_id);
                 if(TripItems.find(point_id) == TripItems.end()) {
-                    TQuery tripQry(&OraSession);
+                    DB::TQuery tripQry(PgOra::getROSession("POINTS"), STDLOG);
                     string SQLText =
                         "select " + TTripInfo::selectedFields() +
                         "from points "
@@ -1917,7 +1942,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
-        DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
+        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "POINTS"}), STDLOG);
         string SQLText;
         if(part_key == NoExists)  {
             SQLText =
@@ -1932,8 +1957,16 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.refuse, "
                 "   pax.pr_brd, "
                 "   pax_grp.class_grp, "
-                "   NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
-                "   salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
+                "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, ";
+            if(DEMO_MODE()) {
+                // В ДЕМО-ВЕРСИИ НЕ МОЖЕМ ПОЛУЧИТЬ НОМЕР МЕСТА ДО ПЕРЕВОДА пакета SALONS на c++
+                SQLText +=
+                "   null, ";
+            } else {
+                SQLText +=
+                "   salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, ";
+            }
+            SQLText +=
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
                 "   pax.pax_id, "
@@ -2206,7 +2239,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
+    auto& sess = PgOra::getROSession({"PAX", "PAX_GRP", "POINTS"});
+    DB::TQuery Qry(sess, STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
@@ -2264,13 +2298,21 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         sql << TTripInfo::selectedFields("points") << ", \n"
                " pax.reg_no, \n"
                " pax_grp.airp_arv, \n"
-               " pax.surname||' '||pax.name full_name, \n"
-               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n"
+               " pax.surname||' '||pax.name full_name, \n";
+        if(DEMO_MODE()) {
+            // В ДЕМО-ВЕРСИИ НЕ МОЖЕМ ПОЛУЧИТЬ НОМЕР МЕСТА ДО ПЕРЕВОДА пакета SALONS на c++
+            sql <<
+               " null, ";
+        } else {
+            sql <<
+               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
+        }
+        sql <<
                " pax_grp.grp_id, \n"
                " pax.pr_brd, \n"
                " pax.refuse, \n"
                " pax_grp.class_grp, \n"
-               " NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, \n"
+               " COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, \n"
                " pax_grp.hall, \n"
                " pax.ticket_no, \n"
                " pax.pax_id, \n"
@@ -2296,9 +2338,13 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         };
         if(!tag_no.empty())
         {
-          sql << " AND pax_grp.grp_id = bag_tags.grp_id \n"
-                 " AND bag_tags.no like '%'||:tag_no \n";
-        };
+          sql << " AND pax_grp.grp_id = bag_tags.grp_id \n";
+          if(sess.isOracle()) {
+            sql << " AND bag_tags.no like '%'||:tag_no \n";
+          } else {
+            sql << " AND CAST(bag_tags.no AS VARCHAR) like '%'||:tag_no \n";
+          }
+        }
 
         fillSqlSrcRunQuery(sql, info, airline, city, surname, flt_no, ticket_no,
                            FirstDate, LastDate);

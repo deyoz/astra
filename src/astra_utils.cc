@@ -1314,6 +1314,14 @@ bool get_test_server()
   return VAR!=0;
 }
 
+bool DEMO_MODE()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("DEMO_MODE",0,1,0);
+  return VAR!=0;
+}
+
 bool get_enable_fr_design()
 {
   static int VAR=NoExists;
