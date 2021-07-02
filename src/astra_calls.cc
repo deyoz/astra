@@ -244,7 +244,7 @@ static bool set_payload_limit(xmlNodePtr reqNode, xmlNodePtr resNode)
     PersWeightRules libra_pwr(PERS_WEIGHT_LIBRA_SRC);
     //LogTrace(TRACE5) << libra_pwr.source;
     node = node->children;
-    while ( node && std::string((char*)node->name) == "class" ) {
+    while ( node && std::string((const char*)node->name) == "class" ) {
       ClassesPersWeight cpw;
       cpw.cl =  ElemToElemId( etClass, NodeAsString( "@name", node ), fmt );
       if ( fmt == efmtUnknown )
@@ -323,7 +323,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     " FROM pax_grp, pax"
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=:pax_id AND "
-    "       pax.wl_type IS NULL";
+    "       pax.wl_type IS NULL ";
   Qry.DeclareVariable( "pax_id", otInteger );
   SALONS2::TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
@@ -441,19 +441,23 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   Qry.Clear();
   Qry.SQLText =
     "  SELECT airp_arv, "
-    "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
+    "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight, "
+    "         NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight "
     "  FROM pax_grp "
     "  WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
-    "  GROUP BY airp_arv";
+    "  GROUP BY airp_arv "
+    " ORDER BY airp_arv";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   tst();
   xmlNodePtr unaccompNode = nullptr;
   for( ;!Qry.Eof; Qry.Next() ) {
     if ( !unaccompNode ) {
-      unaccompNode = NewTextChild( resNode, "unaccompanied_baggage" );
+      unaccompNode = NewTextChild( resNode, "unaccompanied" );
     }
-    SetProp( NewTextChild( unaccompNode, Qry.FieldAsString( "airp_arv" ) ), "weight", Qry.FieldAsInteger( "bag_weight" ) );
+    xmlNodePtr narv = NewTextChild( unaccompNode, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
+    SetProp( narv, "baggage",  Qry.FieldAsInteger( "bag_weight" ) );
+    SetProp( narv, "rk",  Qry.FieldAsInteger( "rk_weight" ) );
   }
   return true;
 }

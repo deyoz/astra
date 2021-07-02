@@ -632,6 +632,7 @@ static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
   else
   {
     CheckIn::TSimplePaxItem pax;
+    LogTrace(TRACE5) << __func__ << " " << p.at(0);
     PaxId_t paxId(std::stoi(p.at(0)));
     assert(pax.getByPaxId( paxId.get() ));
     return std::to_string(pax.grp_id);
@@ -1531,6 +1532,23 @@ static std::string FP_firstPnrAddrByPaxId(const std::vector<std::string> &p)
                                                               TPnrAddrInfo::AddrAndAirline) +"|";
 }
 
+static std::string FP_getCompId(const std::vector<std::string>& p)
+{
+  assert(p.size() == 1);
+  auto cur = make_db_curs(
+      "select COMP_ID FROM TRIP_SETS WHERE POINT_ID=:point_id",
+      PgOra::getROSession("TLG_BINDING"));
+   int comp_id = 0;
+   cur
+      .stb()
+      .bind(":point_id", std::stoi(p.at(0)))
+          .def(comp_id)
+          .EXfet();
+  if(cur.err() == DbCpp::ResultCode::NoDataFound)
+    throw EXCEPTIONS::Exception("TRIP_SETS EMPTY!");
+  return std::to_string(comp_id);
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1607,6 +1625,7 @@ FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
 FP_REGISTER("check_dump", FP_check_dump);
 FP_REGISTER("pnr_addr_by_pax_id", FP_pnrAddrByPaxId);
 FP_REGISTER("first_pnr_addr_by_pax_id", FP_firstPnrAddrByPaxId);
+FP_REGISTER("get_comp_id", FP_getCompId);
 
 #include "xp_testing.h"
 
