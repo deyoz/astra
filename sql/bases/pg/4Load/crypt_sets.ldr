@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE crypt_sets
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,desk_grp_id
+,desk
+,pr_crypt
+)
+BEGINDATA
+39844|1|"ŒŽ‚‚‹€"|0
+39845|1|"MOVDEN"|0
+35249|1|"ŒŽ‚†…Š"|0
+39954|1|"ŒŽ‚’03"|0
+35248|1||0

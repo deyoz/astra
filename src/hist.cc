@@ -61,7 +61,7 @@ std::optional<HistoryEventId> HistoryTable::addRow(const RowId_t& rowId)
       << identField_ << ", " << historyFields_ << ", hist_time, hist_order) " << std::endl
       << "(SELECT :row_ident, " << historyFields_ << ", :next_hist_time, :next_hist_order " << std::endl
       << " FROM " << tableName_ << std::endl
-      << " WHERE " << identField_ << "=:row_ident";
+      << " WHERE " << identField_ << "=:row_ident ";
 
   if (lastEventId)
   {
