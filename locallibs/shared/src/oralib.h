@@ -11,6 +11,7 @@
 #define HDA_SIZE 256
 #include <stdio.h>
 #include <map>
+#include <set>
 
 //#define SQL_COUNTERS
 
@@ -400,7 +401,7 @@ class EOracleError:public EXCEPTIONS::Exception
 int ConvertORACLEDate_TO_DateTime( void *Value, TDateTime &VDateTime );
 int ConvertORACLEDate_TO_Str( void *Data, char *Value );
 int ConvertDateTime_TO_ORACLEDate( const TDateTime &VDateTime, void *Value );
-void FindVariables( const std::string &SQL, bool IncludeDuplicates, std::vector<std::string> &vars );
+std::set<std::string> getSQLVariables(const std::string &SQL);
 
 extern TSession OraSession;
 

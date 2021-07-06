@@ -1,0 +1,29 @@
+LOAD DATA
+INFILE *
+INTO TABLE bag_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,descr
+,name_lat
+,descr_lat
+,id
+,rem_code_lci
+,rem_code_ldm
+)
+BEGINDATA
+1|"Негабарит по размерам"|"Вещи пассажира, независимо от их наименования и назначения, габариты которых в упакованном виде превышают установленные размеры"|"Oversize"|"Passengers properties irrespective of their naming and purpose, packed dimensions of which exceed allowances"|1||
+2|"Негабарит по весу"|"Вещи пассажира, независимо от их наименования и назначения массой одного места более установленного веса"|"Overweight"|"Passengers properties irrespective of their naming and purpose, exceeding weight allowance per piece"|2||
+3|"Аппаратура"|"Теле-, радио-, видео-, аудио-, кино-, фотоаппаратура, электробытовая техника, компьютеры, массой одного места свыше установленного веса"|"Equipment"|"Tele-, radio, video, audio, cinema, photo equipment, consumer electronics, computers, exceeding weight allowance per piece"|3||
+4|"Живность"|"Животные (домашние и дикие), птицы, рыбы, пчелы и другая живность (за исключением собак-поводырей, сопровождающих слепых)."|"Living creatures"|"Animals (domestic and wild), birds, fish, bees and other living creatures (except for guide-dogs accompanying blind persons)."|4||
+5|"Цветы, саженцы, зелень"|"Цветы, саженцы растений, пищевая зелень (зеленый лук, петрушка, щавель, укроп, сельдерей и т.д.) массой свыше установленного веса"|"Flowers, saplings, greenery"|"Flowers, plant saplings, edible greens (spring onion, parsley, sorrel, dill, celery etc.) exceeding weight allowance"|5||
+6|"Суш. растения, ветви"|"Сушеные растения, ветви деревьев и кустарника массой свыше установленного веса"|"Dried plants, branches"|"Dried plants, tree and bush branches exceeding weight allowance"|6||
+7|"Овощи, ягода"|"Овощи, ягода массой свыше установленного веса"|"Vegetables, berries"|"Vegetables, berries exceeding weight allowance"|7||
+8|"Служебная почта"|"Фельдъегерская корреспонденция и корреспонденция спецсвязи."|"Official mail"|"Courier service and special communication correspondence"|8||
+9|"Меховые изделия"|"Меховые изделия."|"Furs"|"Furs"|9||
+10|"Муз. инструменты"|"Музыкальные инструменты массой одного места свыше установленного веса"|"Mus. instruments"|"Musical instruments exceeding weight allowance per piece"|10||
+99|"Трансферный багаж"||"Transfer baggage"|"Transfer baggage"|23||
+

@@ -181,4 +181,32 @@ void HistoryTable::synchronize(const RowId_t& rowId)
   openNextEvent(rowId, nextEventId.value());
 }
 
+#ifdef XP_TESTING
 
+std::vector<RowId_t> HistoryTable::getLastEventRowIds() const
+{
+  auto cur = make_db_curs("SELECT row_ident FROM history_events "
+                          "WHERE table_id=:table_id "
+                          "ORDER BY open_time DESC, hist_order DESC",
+                          PgOra::getROSession("HISTORY_EVENTS"));
+
+  int rowIdent;
+
+  cur.stb()
+     .def(rowIdent)
+     .bind(":table_id", tableId_)
+     .exec();
+
+  std::vector<RowId_t> result;
+
+  while (!cur.fen())
+  {
+    RowId_t rowId(rowIdent);
+    if (algo::contains(result, rowId)) continue;
+    result.push_back(rowId);
+  }
+
+  return result;
+}
+
+#endif/*XP_TESTING*/

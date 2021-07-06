@@ -18,6 +18,7 @@
 #include "alarms.h"
 #include "xml_unit.h"
 #include "pg_session.h"
+#include "stat/stat_main.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
@@ -26,15 +27,15 @@
 #include "dbostructures.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
-#include "cache.h"
 #include "PgOraConfig.h"
 #include "cr_lf.h"
+#include "cache.h"
 #include "timer.h"
 #include "stat/stat_departed.h"
 #include "basel_aero.h"
 #include "passenger.h"
 #include "trip_tasks.h"
-#include "stat/stat_main.h"
+#include "hist.h"
 
 #include <queue>
 #include <fstream>
@@ -1227,6 +1228,24 @@ static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
   return CacheTableTermRequest::getSQLParamXml(par);
 }
 
+static std::string FP_lastHistoryRowId(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 1);
+
+  int idx=0;
+  if (par.size() > 1) idx=std::stoi(par.at(1));
+
+  ASSERT(idx<=0);
+
+  idx=-idx;
+
+  vector<RowId_t> rowIds=HistoryTable(par.at(0)).getLastEventRowIds();
+
+  if (idx<rowIds.size()) return std::to_string(rowIds.at(idx).get());
+
+  return "";
+}
+
 static std::string FP_runEtFltTask(const std::vector<std::string> &par)
 {
   ETCheckStatusFlt();
@@ -1380,6 +1399,7 @@ FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
+FP_REGISTER("last_history_row_id", FP_lastHistoryRowId);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 FP_REGISTER("clean_old_records", FP_cleanOldRecords);
 FP_REGISTER("last_tlg_id", FP_lastTlgId);

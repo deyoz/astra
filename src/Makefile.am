@@ -73,6 +73,9 @@ astra_SOURCES = \
   bi_rules.cpp \
   brd.cc \
   cache.cc \
+  cache_access.cc \
+  cache_callbacks.cc \
+  cache_impl.cc \
   cent.cc \
   checkin.cc \
   checkin_segments.cc \
@@ -301,6 +304,9 @@ noinst_HEADERS = \
   bi_rules.h \
   brd.h \
   cache.h \
+  cache_access.h \
+  cache_callbacks.h \
+  cache_impl.h \
   cent.h \
   checkin.h \
   checkin_segments.h \

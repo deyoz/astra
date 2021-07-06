@@ -7,6 +7,7 @@
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "db_tquery.h"
+#include "cache_callbacks.h"
 
 #include "jxtlib/JxtInterface.h"
 
@@ -34,8 +35,6 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList,
                       ftUnknown, NumFieldType};
-enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
-enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
     cecNone,
@@ -148,7 +147,7 @@ struct TCacheField2 {
     std::string ReferName;
     int ReferLevel;
     int ReferIdent;
-    int VarIdx[2];
+    std::vector<std::string> varNames[2];
     int num;
     TCacheElemCategory ElemCategory;
     TElemType ElemType;
@@ -162,19 +161,11 @@ struct TCacheField2 {
         ReadOnly = true;
         ReferLevel = 0;
         ReferIdent = -1;
-        VarIdx[0] = -1;
-        VarIdx[1] = -1;
         ElemCategory = cecNone;
     }
-};
 
-struct TParam {
-    std::string Value;
-    TCacheConvertType DataType;
-    TParam() { DataType = ctString; };
+    TCacheConvertType cacheConvertType() const;
 };
-
-typedef std::map<std::string, TParam> TParams;
 
 typedef struct {
     std::vector<std::string> cols;
@@ -185,16 +176,6 @@ typedef struct {
 
 typedef std::vector<TRow> TTable;
 
-class FieldsForLogging
-{
-  private:
-    std::map<std::string, std::string> fields;
-  public:
-    void set(const std::string& name, const std::string& value);
-    std::string get(const std::string& name) const;
-    void trace() const;
-};
-
 class TCacheTable;
 
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, DB::TQuery &, const TCacheQueryType);
@@ -203,17 +184,23 @@ typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, con
 typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
 typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
-enum TUpdateDataType {upNone, upExists, upClearAll};
-
 class TCacheTable {
     protected:
+        std::unique_ptr<CacheTableCallbacks> callbacks;
         TParams Params, SQLParams;
         std::string Title;
+
         std::string SelectSQL;
         std::string RefreshSQL;
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
+        std::list<std::string> dbSessionObjectNames;
+
+        bool insertImplemented;
+        bool updateImplemented;
+        bool deleteImplemented;
+
         ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;
@@ -229,32 +216,43 @@ class TCacheTable {
         int curVerIface;
         int clientVerIface;
         TTable table;
+        std::optional<CacheTable::SelectedRows> selectedRows;
 
         void getPerms( );
         bool pr_irefresh, pr_dconst;
-        TUpdateDataType refresh_data_type;
+        CacheTable::RefreshStatus refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
-        TUpdateDataType refreshData();
+        CacheTable::RefreshStatus refreshData();
+        CacheTable::RefreshStatus refreshDataIndividual();
+        CacheTable::RefreshStatus refreshDataCommon();
         virtual void initChildTables();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareSysVariable(const std::string& name, const int value,
-                                std::vector<std::string> &vars, DB::TQuery& Qry,
+        bool VariableExists(const std::string& name, const std::set<std::string> &vars);
+        void CreateSysVariable(const std::string& name, const int value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariable(const std::string& name, const std::string& value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariables(std::set<std::string> &vars, DB::TQuery& Qry,
                                 FieldsForLogging& fieldsForLogging);
-        void DeclareSysVariable(const std::string& name, const std::string& value,
-                                std::vector<std::string> &vars, DB::TQuery& Qry,
-                                FieldsForLogging& fieldsForLogging);
-        void DeclareSysVariables(std::vector<std::string> &vars, DB::TQuery& Qry,
-                                 FieldsForLogging& fieldsForLogging);
-        void DeclareVariables(const std::vector<std::string> &vars, DB::TQuery& Qry);
-        void SetVariables(const TRow &row, const std::vector<std::string> &vars,
+        void DeclareVariables(const std::set<std::string> &vars, DB::TQuery& Qry);
+        void PrepareRows(const TRow &row,
+                         const TCacheUpdateStatus status,
+                         std::optional<CacheTable::Row>& oldRow,
+                         std::optional<CacheTable::Row>& newRow);
+        void SetVariables(const std::optional<CacheTable::Row>& oldRow,
+                          const std::optional<CacheTable::Row>& newRow,
+                          DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
+        void SetVariables(const TRow &row, const std::set<std::string> &vars,
                           DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
         void OnLogging(const TRow &row, TCacheUpdateStatus UpdateStatus,
-                       const std::vector<std::string> &vars,
+                       const std::set<std::string> &vars,
                        const FieldsForLogging& fieldsForLogging);
         void Clear();
     public:
@@ -266,8 +264,11 @@ class TCacheTable {
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
+        void ApplyUpdatesHandmade(const TCacheUpdateStatus status);
+        void HandleDBErrors(const EOracleError &e);
         bool changeIfaceVer();
         std::string code();
+        std::optional<int> dataVersion() const;
         std::string getSelectSql() { return SelectSQL; }
         int FieldIndex( const std::string name );
         std::string FieldValue( const std::string name, const TRow &row );

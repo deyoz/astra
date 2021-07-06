@@ -2045,6 +2045,9 @@ $(ADL_UT_580_WITH_ASVC)
 
 $(CHECKIN_2PAXES_2SEGS_1GROUP)
 
+$(LOAD_GRP_RFISC_OUTDATED 1 $(get grp_id_1479_1))
+$(LOAD_GRP_RFISC $(get grp_id_1479_1) EN)
+
 $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
 
 >> lines=auto

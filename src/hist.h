@@ -6,6 +6,10 @@
 #include <serverlib/dates.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 DECL_RIP_RANGED(RowId_t, int, 1, 999999999);
 
 class HistoryEventId
@@ -46,6 +50,10 @@ class HistoryTable
   public:
     HistoryTable(const std::string& tableName);
     void synchronize(const RowId_t& rowId);
+
+#ifdef XP_TESTING
+    std::vector<RowId_t> getLastEventRowIds() const;
+#endif/*XP_TESTING*/
 
 };
 
