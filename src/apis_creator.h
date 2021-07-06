@@ -1252,7 +1252,8 @@ struct TAPISFormat_EDI_TR : public TEdiAPISFormat
     add_rule(r_notOmitCrew);
     add_rule(r_setSeats);
     add_rule(r_setCBPPort);
-    add_rule(r_setBagCount); // уточнить
+    add_rule(r_setBagCount);
+    add_rule(r_setBagWeight);
     add_rule(r_bagTagSerials); // номера бирок: FTX+BAG
     file_rule = r_file_rule_1;
     add_rule(r_fileSimplePush); // формировать EDIFACT одним блоком
