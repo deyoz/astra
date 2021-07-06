@@ -6,6 +6,7 @@
 #include "oralib.h"
 #include "astra_elems.h"
 #include "astra_utils.h"
+#include "db_tquery.h"
 
 #include "jxtlib/JxtInterface.h"
 
@@ -23,7 +24,7 @@ public:
 
   void LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
 #define TAG_REFRESH_DATA        "DATA_VER"
@@ -177,14 +178,6 @@ struct TParam {
 
 typedef std::map<std::string, TParam> TParams;
 
-class TParams1 : public  std::map<std::string, TParam>
-{
-    private:
-    public:
-        void getParams(xmlNodePtr paramNode);
-        void setSQL(TQuery *Qry);
-};
-
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
@@ -208,7 +201,6 @@ enum TUpdateDataType {upNone, upExists, upClearAll};
 
 class TCacheTable {
     protected:
-        TQuery *Qry;
         TParams Params, SQLParams;
         std::string Title;
         std::string SelectSQL;
@@ -220,10 +212,10 @@ class TCacheTable {
         bool Logging;
         bool KeepLocally;
         bool KeepDeletedRows;
-        int SelectRight;
-        int InsertRight;
-        int UpdateRight;
-        int DeleteRight;
+        std::optional<int> SelectRight;
+        std::optional<int> InsertRight;
+        std::optional<int> UpdateRight;
+        std::optional<int> DeleteRight;
         bool Forbidden, ReadOnly;
         std::vector<TCacheChildTable> FChildTables;
         std::vector<TCacheField2> FFields;
@@ -231,7 +223,6 @@ class TCacheTable {
         int curVerIface;
         int clientVerIface;
         TTable table;
-        std::vector<std::string> vars;
 
         void getPerms( );
         bool pr_irefresh, pr_dconst;
@@ -243,12 +234,14 @@ class TCacheTable {
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareSysVariables(std::vector<std::string> &vars, TQuery *Qry);
-        void DeclareVariables(const std::vector<std::string> &vars);
-        void SetVariables(TRow &row, const std::vector<std::string> &vars);
+        void DeclareSysVariables(std::vector<std::string> &vars, TQuery& Qry);
+        void DeclareVariables(const std::vector<std::string> &vars, TQuery& Qry);
+        void SetVariables(TRow &row, const std::vector<std::string> &vars, TQuery& Qry);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
-        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus );
+        void OnLogging(const TRow &row, TCacheUpdateStatus UpdateStatus,
+                       const std::vector<std::string> &vars,
+                       TQuery& Qry);
         void Clear();
     public:
         TBeforeRefreshEvent OnBeforeRefresh;
@@ -274,7 +267,7 @@ class TCacheTable {
           OnAfterApply = NULL;
         };
         virtual void Init(xmlNodePtr cacheNode);
-        virtual ~TCacheTable();
+        virtual ~TCacheTable() {};
 };
 
 std::string get_role_name(int role_id, TQuery &Qry);
