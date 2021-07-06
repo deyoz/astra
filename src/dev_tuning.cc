@@ -13,6 +13,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "dev_utils.h"
 #include "term_version.h"
+#include "db_tquery.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -22,7 +23,7 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
-void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
+void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, DB::TQuery &applyQry, const TCacheQueryType qryType)
 {
     if(cache.code() == "PRN_FORMS") {
         if(

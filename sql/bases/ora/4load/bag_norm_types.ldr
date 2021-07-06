@@ -1,0 +1,20 @@
+LOAD DATA
+INFILE *
+INTO TABLE bag_norm_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,code_lat
+,name_lat
+)
+BEGINDATA
+"БП"|"Бесплатный багаж"|"FB"|"Free of charge baggage"
+"ОБ"|"Расчет по норме обычного багажа"|"BB"|"Calculation based on baggage allowance"
+"ПЛ"|"Платный багаж"|"PB"|"Paid baggage"
+"БП/СН"|"Бесплатный/сверхнормативный багаж"|"FB/EB"|"Free of charge/excess baggage"
+"БП/ОБ"|"Бесплатный багаж/расчет по норме обычного багажа"|"FB/BB"|"Free of charge baggage/calculation based on baggage allowance"
+"БП/ПЛ"|"Бесплатный/платный багаж"|"FB/PB"|"Free of charge/paid baggage"
+"ОБ/ПЛ"|"Расчет по норме обычного багажа/платный багаж"|"BB/PB"|"Calculation based on baggage allowance/paid baggage"

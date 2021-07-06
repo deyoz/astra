@@ -43,9 +43,7 @@ enum TCacheElemCategory {
     cecNameShort,
     cecName,
     cecRoleName,
-    cecUserName,
-    cecUserPerms,
-    cecProfileName
+    cecUserName
 };
 
 extern const char * CacheFieldTypeS[NumFieldType];
@@ -181,19 +179,27 @@ typedef std::map<std::string, TParam> TParams;
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
-/*    std::vector<std::string> new_cols; */
     TCacheUpdateStatus status;
     TParams params;
-    int index;
 } TRow;
 
 typedef std::vector<TRow> TTable;
 
+class FieldsForLogging
+{
+  private:
+    std::map<std::string, std::string> fields;
+  public:
+    void set(const std::string& name, const std::string& value);
+    std::string get(const std::string& name) const;
+    void trace() const;
+};
+
 class TCacheTable;
 
-typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
-typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
-typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeRefreshEvent)(TCacheTable &, DB::TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, const TCacheQueryType);
+typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
 typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
@@ -234,14 +240,22 @@ class TCacheTable {
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareSysVariables(std::vector<std::string> &vars, TQuery& Qry);
-        void DeclareVariables(const std::vector<std::string> &vars, TQuery& Qry);
-        void SetVariables(TRow &row, const std::vector<std::string> &vars, TQuery& Qry);
+        void DeclareSysVariable(const std::string& name, const int value,
+                                std::vector<std::string> &vars, DB::TQuery& Qry,
+                                FieldsForLogging& fieldsForLogging);
+        void DeclareSysVariable(const std::string& name, const std::string& value,
+                                std::vector<std::string> &vars, DB::TQuery& Qry,
+                                FieldsForLogging& fieldsForLogging);
+        void DeclareSysVariables(std::vector<std::string> &vars, DB::TQuery& Qry,
+                                 FieldsForLogging& fieldsForLogging);
+        void DeclareVariables(const std::vector<std::string> &vars, DB::TQuery& Qry);
+        void SetVariables(const TRow &row, const std::vector<std::string> &vars,
+                          DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
         void OnLogging(const TRow &row, TCacheUpdateStatus UpdateStatus,
                        const std::vector<std::string> &vars,
-                       TQuery& Qry);
+                       const FieldsForLogging& fieldsForLogging);
         void Clear();
     public:
         TBeforeRefreshEvent OnBeforeRefresh;
@@ -270,10 +284,7 @@ class TCacheTable {
         virtual ~TCacheTable() {};
 };
 
-std::string get_role_name(int role_id, TQuery &Qry);
-std::string get_user_descr(int user_id,
-                      TQuery &Qry, TQuery &Qry1, TQuery &Qry2,
-                      bool only_airlines_airps);
+std::string get_role_name(int role_id);
 
 inline bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
 {
