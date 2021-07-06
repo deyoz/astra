@@ -267,7 +267,7 @@ void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
     DeskGrpId_t deskGrpId(valueOpt.value());
 
     if (!Access(deskGrpId).check(deskGrpId))
-      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":"MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP");
+      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":"MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP"); //!!! хорошо бы в сообщении выводить название группы
   }
 }
 
