@@ -72,6 +72,13 @@ $(cache PIKE RU CRYPT_SETS $(cache_iface_ver CRYPT_SETS) ""
   </answer>
 </term>
 
+!! capture=on
+$(cache PIKE RU CRYPT_SETS $(cache_iface_ver CRYPT_SETS) ""
+  insert desk_grp_id:1
+         pr_crypt:1)
+
+$(USER_ERROR_RESPONSE MSG.UNIQUE_CONSTRAINT_VIOLATED)
+
 %%
 
 ### test 2 - простейшие тесты на запись
@@ -115,6 +122,22 @@ $(set id $(last_history_row_id CRYPT_REQ_DATA))
           <col>0</col>
         </row>
       </rows>
+
+!! capture=on
+$(cache PIKE RU CRYPT_REQ_DATA $(cache_iface_ver CRYPT_REQ_DATA) ""
+  insert desk_grp_id:35251
+         desk:
+         country:RU
+         state:Регион
+         city:Город
+         organization:Организация
+         organizational_unit:Подразделение
+         title:Должность
+         user_name:Пользователь
+         email:E-Mail
+         pr_denial:0)
+
+$(USER_ERROR_RESPONSE MSG.UNIQUE_CONSTRAINT_VIOLATED)
 
 !! capture=on
 $(cache PIKE RU CRYPT_REQ_DATA $(cache_iface_ver CRYPT_REQ_DATA) ""
