@@ -42,6 +42,8 @@ void SetVariablesFromParams(const std::set<std::string> &vars, const TParams &SQ
 void CreateVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                const bool onlyIfParamExists=true);
 
+std::string getParamValue(const std::string& var, const TParams &SQLParams);
+
 
 namespace CacheTable
 {

@@ -244,7 +244,6 @@ $(LOAD_CACHE SELF_CKIN_SET_TYPES)
 $(LOAD_CACHE SELF_CKIN_TYPES)
 $(LOAD_CACHE SERVICE_TYPES)
 $(LOAD_CACHE SOPP_STAGE_STATUSES)
-$(LOAD_CACHE SOPP_STATIONS)
 $(LOAD_CACHE STAGE_NAMES)
 $(LOAD_CACHE STAGE_SETS)
 $(LOAD_CACHE STATION_HALLS)
@@ -1046,5 +1045,120 @@ $(cache PIKE RU PRN_FORMS_LAYOUT $(cache_iface_ver PRN_FORMS_LAYOUT) "")
   </answer>
 </term>
 
+%%
+
+### test 5
+### STATIONS, SOPP_STATIONS
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE EN STATIONS $(cache_iface_ver STATIONS) ""
+  insert airp:Ççä
+         name:G06
+         desk:VDE006
+         mode_code:è
+         using_scales:0
+         without_monitor:0
+  insert airp:Ççä
+         name:R21
+         desk:VDR021
+         mode_code:ê
+         using_scales:0
+         without_monitor:0
+  insert airp:ëéó
+         name:VIP-1R
+         desk:AER075
+         mode_code:ê
+         using_scales:0
+         without_monitor:0)
+
+$(set id_01 $(last_history_row_id STATIONS -2))
+$(set id_02 $(last_history_row_id STATIONS -1))
+$(set id_03 $(last_history_row_id STATIONS  0))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>G06</col>
+          <col>VDE006</col>
+          <col>è</col>
+          <col>Boarding</col>
+          <col>0</col>
+          <col>0</col>
+          <col>$(get id_01)</col>
+        </row>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>R21</col>
+          <col>VDR021</col>
+          <col>ê</col>
+          <col>Check-in</col>
+          <col>0</col>
+          <col>0</col>
+          <col>$(get id_02)</col>
+        </row>
+        <row pr_del='0'>
+          <col>ëéó</col>
+          <col>AER</col>
+          <col>VIP-1R</col>
+          <col>AER075</col>
+          <col>ê</col>
+          <col>Check-in</col>
+          <col>0</col>
+          <col>0</col>
+          <col>$(get id_03)</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU SOPP_STATIONS $(cache_iface_ver SOPP_STATIONS) ""
+        $(cache_sql_param airp string VKO))
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>SOPP_STATIONS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>1</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>ÇëÖ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>R21</col>
+          <col>ê</col>
+        </row>
+        <row pr_del='0'>
+          <col>G06</col>
+          <col>è</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+!! capture=on
+$(cache PIKE EN SOPP_STATIONS $(cache_iface_ver SOPP_STATIONS) ""
+        $(cache_sql_param airp string ZZZZ))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>ALL</col>
+          <col/>
+        </row>
+      </rows>
 
 

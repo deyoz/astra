@@ -34,6 +34,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CRYPT_SETS")          return new CacheTable::CryptSets;
   if (cacheCode=="CRYPT_REQ_DATA")      return new CacheTable::CryptReqData;
   if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
+  if (cacheCode=="SOPP_STATIONS")       return new CacheTable::SoppStations;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -1013,6 +1014,41 @@ void CryptReqData::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                            const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("crypt_req_data").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//SoppStations
+
+bool SoppStations::userDependence() const {
+  return false;
+}
+
+void SoppStations::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  bool isLangRu=TReqInfo::Instance()->desk.lang==AstraLocale::LANG_RU;
+
+  rows.setFromString(isLangRu?"‚‘…":"ALL")
+      .setFromString("")
+      .addRow();
+
+  TElemFmt fmt;
+  string airp=ElemToElemId(etAirp, getParamValue("airp", sqlParams), fmt);
+  if (fmt==efmtUnknown) return;
+
+  DB::TQuery Qry(PgOra::getROSession("STATIONS"), STDLOG);
+  Qry.SQLText="SELECT name, work_mode FROM stations WHERE airp=:airp ORDER BY work_mode DESC, name ASC";
+  Qry.CreateVariable("airp", otString, airp);
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxName=Qry.FieldIndex("name");
+  int idxWorkMode=Qry.FieldIndex("work_mode");
+  for(; !Qry.Eof; Qry.Next())
+  {
+    rows.setFromString(Qry, idxName)
+        .setFromString(Qry, idxWorkMode)
+        .addRow();
+  }
 }
 
 } //namespace CacheTable

@@ -264,5 +264,12 @@ class CryptReqData : public DeskPlusDeskGrpWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class SoppStations : public CacheTableReadonlyHandmade
+{
+  public:
+    bool userDependence() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+};
+
 }
 

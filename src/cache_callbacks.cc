@@ -145,6 +145,14 @@ void CreateVariablesFromParams(const std::set<string> &vars, const TParams &SQLP
   SetVariablesFromParams(vars, SQLParams, Qry, fieldsForLogging, onlyIfParamExists);
 }
 
+std::string getParamValue(const std::string& var, const TParams &SQLParams)
+{
+  map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
+  if ( ip == SQLParams.end() )
+    throw Exception("%s: parameter %s not found", __func__, var.c_str());
+  return ip->second.Value;
+}
+
 
 namespace CacheTable
 {
