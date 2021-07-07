@@ -3,6 +3,7 @@
 #include "astra_main.h"
 #include "wb_messages.h"
 #include "tlg/tlg.h"
+#include "telegram.h"
 #include "salons.h"
 #include "images.h"
 #include "astra_consts.h"
@@ -13,6 +14,7 @@
 #include "sopp.h"
 #include "points.h"
 #include "pers_weights.h"
+#include "astra_service.h"
 #include "date_time.h"
 #include "astra_date_time.h"
 #include "typeb_utils.h"
@@ -165,20 +167,71 @@ static bool configuration_change(xmlNodePtr reqNode, xmlNodePtr resNode)
   return true;
 }
 //=========запрос на СПП от Либры==============
+static void get_props(xmlNodePtr reqNode, const std::string& tag_name,
+                      TElemType type, TAccessElems<std::string> &access_list) {
+  access_list.clear();
+  xmlNodePtr node = GetNode( tag_name.c_str(), reqNode );
+  if ( node == nullptr ) return;
+  node = node->children;
+  TElemFmt fmt;
+  while ( node != nullptr && std::string("code") == (const char*)node->name ) {
+    access_list.add_elem( ElemToElemId( type, NodeAsString(node), fmt ) );
+    node = node->next;
+  }
+}
 static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TUserSettingType old_time_format = TReqInfo::Instance()->user.sets.time;
+  XMLDoc doc("access");
+  TReqInfo::Instance()->user.access.toXML(doc.docPtr()->children);
   try {
-   TSOPPTrips trips(  NowUTC() - 3,  NowUTC() + 1, false, TSOPPTrips::tsLibra );
+    struct Range {
+      TDateTime first;
+      TDateTime last;
+    };
+   Range range;
+   if ( NodeAsInteger("args/period/@hh",reqNode,0) != 0 ) {
+     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,24)/(24.0);
+     range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,24)/(24.0);
+   }
+   else {
+     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,3);
+     range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,1);
+   }
+   LogTrace(TRACE5) << "filter first " << DateTimeToStr( range.first, ServerFormatDateTimeAsString )
+                    << " last " << DateTimeToStr( range.last, ServerFormatDateTimeAsString );
+   if ( range.last < range.first ) {
+     LogError(STDLOG) << "get_spp filter minus > plus";
+     throw EXCEPTIONS::Exception("get_spp filter minus > plus");
+   }
+   TAccessElems<std::string> access_list_crafts, access_list_airps, access_list_airlines;
+   get_props(reqNode, "args/dep_list", etAirp, access_list_airps);
+   if ( !access_list_airps.elems().empty() )
+     TReqInfo::Instance()->user.access.merge_airps(access_list_airps);
+   get_props(reqNode, "args/airco_list", etAirline, access_list_airlines);
+   if ( !access_list_airlines.elems().empty() )
+     TReqInfo::Instance()->user.access.merge_airlines(access_list_airlines);
+   get_props(reqNode, "args/craft_list", etCraft, access_list_crafts);
+   TSOPPTrips trips(  range.first,  range.last, false, TSOPPTrips::tsLibra );
+   TReqInfo::Instance()->user.sets.time = ustTimeUTC;
    long int exec_time;
    internal_ReadData_N( trips, exec_time );
-   TReqInfo::Instance()->user.sets.time = old_time_format;
    NewTextChild( resNode, "flights" );
+   TElemFmt fmt;
    for ( const auto &f : trips ) {
      if ( f.scd_out == ASTRA::NoExists ||
-          f.region.empty() ) {
+          f.region.empty() ||
+          //здесь важно на вылет, когда internal_ReadData_N фильтрует маршрут на хотя бы одно совпадение
+          (!access_list_crafts.elems().empty() && !access_list_crafts.permitted( ElemToElemId( etCraft, f.craft_out, fmt) )) ||
+          (!access_list_airps.elems().empty() &&  !access_list_airps.permitted( ElemToElemId( etAirp, f.airp, fmt) )) ||
+          (!access_list_airlines.elems().empty() && !access_list_airlines.permitted( ElemToElemId( etAirline, f.airline_out, fmt) ))
+          )
        continue;
-     }
+     TFlightStages stages;
+     TCkinClients CkinClients;
+     stages.Load( f.point_id );
+     TTripStages::ReadCkinClients( f.point_id, CkinClients );
+
      xmlNodePtr flightNode = NewTextChild( resNode, "flight" );
      SetProp( flightNode, "point_id", f.point_id );
      NewTextChild( flightNode, "airline", f.airline_out );
@@ -187,12 +240,35 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
      NewTextChild( flightNode, "airp", f.airp );
      NewTextChild( flightNode, "utc_scd_out", DateTimeToStr( f.scd_out, ServerFormatDateTimeAsString ) );
      NewTextChild( flightNode, "local_scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( f.scd_out, f.region ), ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "utc_est_out", DateTimeToStr( f.est_out, ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "local_est_out", DateTimeToStr( ASTRA::date_time::UTCToClient( f.est_out, f.region ), ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "utc_act_out", DateTimeToStr( f.act_out, ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "local_act_out", DateTimeToStr( ASTRA::date_time::UTCToClient( f.act_out, f.region ), ServerFormatDateTimeAsString ) );
      NewTextChild( flightNode, "craft", f.craft_out );
      NewTextChild( flightNode, "bort", f.bort_out );
+     xmlNodePtr node = NewTextChild( flightNode, "dests" );
+     for ( const auto &d : f.places_out ) {
+       NewTextChild( node, "dest", d.airp );
+     }
+     SoppInterface::ReadCrew( f.point_id, flightNode );
+     NewTextChild( flightNode, "uws", existsTlgByPointId( f.point_id, "UWS" ) );
+     node = NewTextChild( flightNode, "stages" );
+     CreateXMLStage( CkinClients, sPrepCheckIn, stages.GetStage( sPrepCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sOpenCheckIn, stages.GetStage( sOpenCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sCloseCheckIn, stages.GetStage( sCloseCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sOpenBoarding, stages.GetStage( sOpenBoarding ), node, f.region );
+     CreateXMLStage( CkinClients, sCloseBoarding, stages.GetStage( sCloseBoarding ), node, f.region );
+     CreateXMLStage( CkinClients, sOpenWEBCheckIn, stages.GetStage( sOpenWEBCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, f.region );
+     CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, f.region );
    }
+   TReqInfo::Instance()->user.sets.time = old_time_format;
+   TReqInfo::Instance()->user.access.fromXML(doc.docPtr()->children);
   }
   catch(...) {
     TReqInfo::Instance()->user.sets.time = old_time_format;
+    TReqInfo::Instance()->user.access.fromXML(doc.docPtr()->children);
     throw;
   }
   return true;

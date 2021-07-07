@@ -1644,7 +1644,7 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
           TSOPPTrip ntr = createTrip( move_id, id, dests );
           //================== LIBRA ==========================
           if ( trips.module == TSOPPTrips::tsLibra ) {
-            //yет даты вылета, нет маршрута на вылет, отменен, нет регистрации, то в Либру этот рейс не передавать
+            //нет даты вылета, нет маршрута на вылет, отменен, нет регистрации, то в Либру этот рейс не передавать
             if ( ntr.scd_out == ASTRA::NoExists ||
                  ntr.places_out.empty() ||
                  ntr.pr_del != 0 ||
@@ -6342,31 +6342,33 @@ void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripCha
   }
 }
 
-
-
-void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SoppInterface::ReadCrew( int point_id,  xmlNodePtr resNode)
 {
-    int point_id = NodeAsInteger( "point_id", reqNode );
-    DB::TQuery Qry(PgOra::getROSession("TRIP_CREW"), STDLOG);
-    Qry.SQLText =
-      "SELECT commander, cockpit, cabin "
-      "FROM trip_crew "
-      "WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    xmlNodePtr dataNode = NewTextChild( NewTextChild( resNode, "data" ), "crew" );
+  DB::TQuery Qry(PgOra::getROSession("TRIP_CREW"), STDLOG);
+  Qry.SQLText =
+    "SELECT commander, cockpit, cabin "
+    "FROM trip_crew "
+    "WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  xmlNodePtr dataNode = NewTextChild( resNode, "crew" );
   NewTextChild( dataNode, "commander" );
   NewTextChild( dataNode, "cockpit" );
   NewTextChild( dataNode, "cabin" );
 
-    if ( !Qry.Eof )
-    {
-        ReplaceTextChild( dataNode, "commander", Qry.FieldAsString( "commander" ) );
-        if (!Qry.FieldIsNULL("cockpit"))
-          ReplaceTextChild( dataNode, "cockpit", Qry.FieldAsInteger( "cockpit" ) );
-        if (!Qry.FieldIsNULL("cabin"))
-          ReplaceTextChild( dataNode, "cabin", Qry.FieldAsInteger( "cabin" ) );
+  if ( !Qry.Eof )
+  {
+      ReplaceTextChild( dataNode, "commander", Qry.FieldAsString( "commander" ) );
+      if (!Qry.FieldIsNULL("cockpit"))
+        ReplaceTextChild( dataNode, "cockpit", Qry.FieldAsInteger( "cockpit" ) );
+      if (!Qry.FieldIsNULL("cabin"))
+        ReplaceTextChild( dataNode, "cabin", Qry.FieldAsInteger( "cabin" ) );
   };
+}
+
+void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ReadCrew( NodeAsInteger( "point_id", reqNode ), NewTextChild( resNode, "data" ) );
 }
 
 void validateField( const string &surname, const string &fieldname )

@@ -406,6 +406,7 @@ namespace KUF_STAT {
 }
 
 void get_bag_info(std::map<std::string, std::pair<int, int> > &bag_info, int point_id);
+bool existsTlgByPointId( int point_dep, const std::string& tlg_type );
 
 #endif /*_TELEGRAM_H_*/
 

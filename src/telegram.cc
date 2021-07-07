@@ -2562,3 +2562,24 @@ void sendTypeBOnTakeoffTask(const TTripTaskKey &task)
                      __FUNCTION__, time_end-time_start, task.point_id);
 }
 
+bool existsTlgByPointId( int point_dep, const std::string& tlg_type )
+{
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE","TLG_BINDING"}), STDLOG);
+  std::ostringstream sql;
+  Qry.SQLText =
+    "SELECT tlgs_in.type "
+    " FROM "
+    "    tlg_binding, "
+    "    tlg_source, "
+    "    tlgs_in "
+    " WHERE "
+    "    tlg_binding.point_id_spp = :point_dep AND "
+    "    tlg_binding.point_id_tlg = tlg_source.point_id_tlg AND "
+    "    tlg_source.tlg_id = tlgs_in.id AND "
+    "    tlgs_in.type = :tlg_type "
+    " FETCH FIRST 1 ROW ONLY ";
+  Qry.CreateVariable( "point_dep", otInteger, point_dep );
+  Qry.CreateVariable( "tlg_type", otString, tlg_type );
+  Qry.Execute();
+  return !Qry.Eof;
+}
