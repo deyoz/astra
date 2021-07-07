@@ -350,7 +350,7 @@ bool hasStagesBetweenOpenCheckInAndCloseBoarding(const int point_id)
 
 double getAodbPointId(const int point_id, const std::string& point_addr)
 {
-    double result = ASTRA::NoExists;
+    double result = 0;
     make_db_curs(
        "SELECT aodb_point_id FROM aodb_points "
        "WHERE point_id = :point_id "
@@ -359,7 +359,7 @@ double getAodbPointId(const int point_id, const std::string& point_addr)
        .stb()
        .bind(":point_id", point_id)
        .bind(":point_addr", point_addr)
-       .defNull(result, ASTRA::NoExists)
+       .defNull(result, 0)
        .EXfet();
 
     return result;
