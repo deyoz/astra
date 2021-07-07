@@ -875,3 +875,98 @@ $(check_dump ARX_PAX_GRP order="point_dep,grp_id")
 [ПРХ] [СОЧ] [0] [Э] [12] [TERM] [МОВРОМ] [0] [0] [...] [1] [0] [$(get point_arv_UT_298)] [$(get point_dep_UT_298)] [$(get point_dep_UT_298)] [0] [K] [$(get pax_tid1)] [$(date_format %d.%m.%Y)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()
 [ПРХ] [СОЧ] [0] [Э] [12] [TERM] [МОВРОМ] [0] [0] [...] [1] [0] [$(get point_arv_UT_300)] [$(get point_dep_UT_300)] [$(get point_dep_UT_300)] [0] [K] [$(get pax_tid2)] [$(date_format %d.%m.%Y)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()
 $()
+
+%%
+#########################################################################################
+###
+#   Тест №12
+#   Проверка удаления строк в 6 шаге TArxTlgsFilesEtc
+#
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+
+$(set first_date "$(date_format %y%m%d +0)")
+
+$(db_sql TLGS "INSERT INTO TLGS(id, receiver, sender, time, tlg_num, type)  VALUES(1, 'ab', 'AC', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'), 1, 'A')")
+$(db_sql TLGS "INSERT INTO TLGS(id, receiver, sender, time, tlg_num, type)  VALUES(2, 'ab', 'AC', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'), 2, 'B')")
+$(db_sql TLGS "INSERT INTO TLGS(id, receiver, sender, time, tlg_num, type)  VALUES(3, 'ab', 'AC', TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'), 3, 'C')")
+$(db_sql TLGS "INSERT INTO TLGS(id, receiver, sender, time, tlg_num, type)  VALUES(4, 'ab', 'AC', TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'), 4, 'D')")
+
+$(db_sql aodb_spp_files "INSERT INTO aodb_spp_files(filename, point_addr, rec_no, airline)  VALUES('SPP$(get first_date).txt', 'RASTRV', -1, 'ЮВ')")
+$(db_sql aodb_spp_files "INSERT INTO aodb_spp_files(filename, point_addr, rec_no, airline)  VALUES('SPP200618.txt', 'RASTRV', -1, 'ЮВ')")
+$(db_sql aodb_spp_files "INSERT INTO aodb_spp_files(filename, point_addr, rec_no, airline)  VALUES('SPP$(get first_date).txt', 'SINSVO', 349, 'ЮТ')")
+$(db_sql aodb_spp_files "INSERT INTO aodb_spp_files(filename, point_addr, rec_no, airline)  VALUES('SPP210218.txt', 'SINSVO', 349, 'ЮТ')")
+
+$(db_sql FILES "INSERT INTO FILES(id, receiver, sender, time, type)  VALUES(1, 'AB', 'BC', '$(date_format %Y-%m-%d)', '000')")
+$(db_sql FILES "INSERT INTO FILES(id, receiver, sender, time, type)  VALUES(2, 'AB', 'BC', '$(date_format %Y-%m-%d)', '000')")
+$(db_sql FILES "INSERT INTO FILES(id, receiver, sender, time, type)  VALUES(3, 'AB', 'BC', '$(date_format %Y-%m-%d -130)', '000')")
+$(db_sql FILES "INSERT INTO FILES(id, receiver, sender, time, type)  VALUES(4, 'AB', 'BC', '$(date_format %Y-%m-%d -130)' , '000')")
+
+$(db_sql KIOSK_EVENTS "INSERT INTO KIOSK_EVENTS(id, ev_order, time)  VALUES(1, 1, TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'))")
+$(db_sql KIOSK_EVENTS "INSERT INTO KIOSK_EVENTS(id, ev_order, time)  VALUES(2, 5, TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'))")
+$(db_sql KIOSK_EVENTS "INSERT INTO KIOSK_EVENTS(id, ev_order, time)  VALUES(3, 8, TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'))")
+$(db_sql KIOSK_EVENTS "INSERT INTO KIOSK_EVENTS(id, ev_order, time)  VALUES(4, 9, TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'))")
+
+$(db_sql ETICKS_DISPLAY "INSERT INTO ETICKS_DISPLAY(coupon_no, fare_basis, issue_date, last_display, surname, ticket_no)  VALUES(1, 'AB', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'),  '$(date_format %Y-%m-%d)',      'BC', '000')")
+$(db_sql ETICKS_DISPLAY "INSERT INTO ETICKS_DISPLAY(coupon_no, fare_basis, issue_date, last_display, surname, ticket_no)  VALUES(2, 'AB', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'),  '$(date_format %Y-%m-%d)',      'BG', '001')")
+$(db_sql ETICKS_DISPLAY "INSERT INTO ETICKS_DISPLAY(coupon_no, fare_basis, issue_date, last_display, surname, ticket_no)  VALUES(3, 'AB', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'),  '$(date_format %Y-%m-%d -130)', 'BH', '002')")
+$(db_sql ETICKS_DISPLAY "INSERT INTO ETICKS_DISPLAY(coupon_no, fare_basis, issue_date, last_display, surname, ticket_no)  VALUES(4, 'AB', TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'),  '$(date_format %Y-%m-%d -130)' ,'BK', '003')")
+
+$(db_sql ETICKS_DISPLAY_TLGS "INSERT INTO ETICKS_DISPLAY_TLGS(coupon_no, last_display, page_no, ticket_no, tlg_text, tlg_type)  VALUES(1, TO_DATE('$(date_format %Y-%m-%d)','yyyy-mm-dd'),      10, 'AB', 'DR', 0)")
+$(db_sql ETICKS_DISPLAY_TLGS "INSERT INTO ETICKS_DISPLAY_TLGS(coupon_no, last_display, page_no, ticket_no, tlg_text, tlg_type)  VALUES(2, TO_DATE('$(date_format %Y-%m-%d)', 'yyyy-mm-dd'),     11, 'AC', 'DE', 2)")
+$(db_sql ETICKS_DISPLAY_TLGS "INSERT INTO ETICKS_DISPLAY_TLGS(coupon_no, last_display, page_no, ticket_no, tlg_text, tlg_type)  VALUES(3, TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'),12, 'AD', 'DH', 3)")
+$(db_sql ETICKS_DISPLAY_TLGS "INSERT INTO ETICKS_DISPLAY_TLGS(coupon_no, last_display, page_no, ticket_no, tlg_text, tlg_type)  VALUES(4, TO_DATE('$(date_format %Y-%m-%d -130)', 'yyyy-mm-dd'),13, 'AE', 'DN', 9)")
+
+$(db_dump_table ETICKS_DISPLAY fields="coupon_no, ticket_no, last_display")
+
+#На дату архивации через 133 дня от текущей даты сохранятся рейсы , которые были через 12 дней, от текущей даты
+$(run_arch_step $(ddmmyy +1) 6)
+
+#В таблице должны остаться только 2 строки которые не попали под архивацию, с именами файлов от текущей даты
+
+??
+$(db_dump_table TLGS fields="id, receiver, sender, time, tlg_num, type" display="on")
+>> lines=auto
+[1] [ab] [AC] [$(date_format %Y-%m-%d) 00:00:00] [1] [A] $()
+[2] [ab] [AC] [$(date_format %Y-%m-%d) 00:00:00] [2] [B] $()
+
+??
+$(db_dump_table AODB_SPP_FILES display="on")
+>> lines=auto
+[ЮВ] [SPP$(get first_date).txt] [RASTRV] [-1] $()
+[ЮТ] [SPP$(get first_date).txt] [SINSVO] [349] $()
+
+??
+$(db_dump_table FILES display="on")
+>> lines=auto
+[NULL] [NULL] [1] [AB] [BC] [$(date_format %Y-%m-%d) 00:00:00] [000] $()
+[NULL] [NULL] [2] [AB] [BC] [$(date_format %Y-%m-%d) 00:00:00] [000] $()
+
+??
+$(db_dump_table KIOSK_EVENTS display="on")
+>> lines=auto
+[NULL] [1] [1] [NULL] [NULL] [NULL] [$(date_format %y%m%d)] [NULL] $()
+[NULL] [5] [2] [NULL] [NULL] [NULL] [$(date_format %y%m%d)] [NULL] $()
+
+??
+$(db_dump_table ETICKS_DISPLAY fields="coupon_no, ticket_no, last_display" display="on")
+>> lines=auto
+[1] [000] [$(date_format %Y-%m-%d) 00:00:00] $()
+[2] [001] [$(date_format %Y-%m-%d) 00:00:00] $()
+
+
+??
+$(db_dump_table ETICKS_DISPLAY_TLGS fields="coupon_no, ticket_no, last_display, tlg_type, tlg_text" display="on")
+>> lines=auto
+[1] [AB] [$(date_format %Y-%m-%d) 00:00:00] [0] [DR] $()
+[2] [AC] [$(date_format %Y-%m-%d) 00:00:00] [2] [DE] $()
+
+
+
+

@@ -169,13 +169,13 @@ static void executeRequest(
               pos+=4;
               if (reply.compare(pos, 15, "<!doctype html>")==0)
               {
-                //это html
+                //я┐╜я┐╜я┐╜ html
                 reply = CRLF2LF(reply);
                 reply = UTF8toCP866(reply);
               }
               if (reply.compare(pos, 6, "<?xml ")==0)
               {
-                //это xml
+                //я┐╜я┐╜я┐╜ xml
                 reply = CRLF2LF(reply);
                 reply = UTF8toCP866(reply);
                 reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
@@ -521,12 +521,12 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
                          "FROM pax_grp, pax "
                          "WHERE pax_grp.grp_id=pax.grp_id AND "
                          "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
-                         "ORDER BY pax.pax_id");  //может быть РМ с рег. номером взрослого
+                         "ORDER BY pax.pax_id");  //я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜ рег. я┐╜я┐╜я┐╜я┐╜ром я┐╜я┐╜я┐╜я┐╜слоя┐╜я┐╜
     int pax_id;
     cur.def(pax_id)
        .bind(":point_dep", pointDep)
        .bind(":reg_no", regNo)
-       .exfet(); //может быть РМ с рег. номером взрослого (дублирование regNo)
+       .exfet(); //я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜ рег. я┐╜я┐╜я┐╜я┐╜ром я┐╜я┐╜я┐╜я┐╜слоя┐╜я┐╜ (я┐╜убля┐╜ровя┐╜я┐╜я┐╜я┐╜ regNo)
 
     if(cur.err() == NO_DATA_FOUND) return "";
 
@@ -1123,7 +1123,7 @@ static std::string FP_descTest(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     std::cout << "Test #" << par.at(0) << std::endl;
     return "";
-}          
+}
 
 static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
 {
@@ -1181,6 +1181,20 @@ static std::string FP_collectFlightStat(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     PointId_t point_id(std::stoi(par.at(0)));
     get_flight_stat(point_id.get(), true);
+    return "";
+}
+
+static std::string FP_db_sql(const std::vector<std::string> &args)
+{
+    assert(args.size() > 1);
+
+    std::string tableName = args.at(0);
+
+    std::string sqlStr;
+    for (size_t i = 1; i < args.size(); ++i)
+      sqlStr += args.at(i);
+
+    make_db_curs(sqlStr, PgOra::getRWSession(tableName)).exec();
     return "";
 }
 
@@ -1394,6 +1408,7 @@ FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("db_dump_table", FP_dump_table_astra);
 // FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
+FP_REGISTER("db_sql", FP_db_sql);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
