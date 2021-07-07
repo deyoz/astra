@@ -498,25 +498,27 @@ $(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
                           $(get grp_id2) $(get_single_grp_tid $(get pax_id_adl1))
 {<passengers>
 $(CHANGE_CHECKIN $(get pax_id_adl1) äéíãüê "ÇãÄÑàåàê çàäéãÄÖÇàó" Çá ù bag_pool_num=1)
-$(CHANGE_CHECKIN $(get pax_id_adl2) AGAFONOV "DENIS DMITRIEVICH" Çá ù bag_pool_num=1)
+$(CHANGE_CHECKIN $(get pax_id_adl2) AGAFONOV "DENIS DMITRIEVICH" Çá ù bag_pool_num=2)
 </passengers>})
 }
 {<value_bags/>
 <bags>
 $(BAG_WT 1 "" ûí pr_cabin=1 amount=2  weight=13   bag_pool_num=1)
-$(BAG_WT 2 "" ûí pr_cabin=0 amount=10 weight=75 bag_pool_num=1)
+$(BAG_WT 2 "" ûí pr_cabin=0 amount=1  weight=44   bag_pool_num=1)
+$(BAG_WT 3 "" ûí pr_cabin=0 amount=10 weight=75   bag_pool_num=2)
 </bags>
 <tags pr_print=\"0\">
-$(TAG  1 RUCH 1000000001 bag_num=2)
-$(TAG  2 RUCH 1000000009 bag_num=2)
-$(TAG  3 RUCH 1000000010 bag_num=2)
-$(TAG  4 RUCH 1000000099 bag_num=2)
-$(TAG  5 RUCH 1000000101 bag_num=2)
-$(TAG  6 RUCH 1000000102 bag_num=2)
-$(TAG  7 DON  1000000103 bag_num=2)
-$(TAG  8 DON  1000000104 bag_num=2)
-$(TAG  9 TEST 1000000105 bag_num=2)
-$(TAG 10 TEST 1000000106 bag_num=2)
+$(TAG  1 RUCH 1100000044 bag_num=2)
+$(TAG  2 RUCH 1000000001 bag_num=3)
+$(TAG  3 RUCH 1000000009 bag_num=3)
+$(TAG  4 RUCH 1000000010 bag_num=3)
+$(TAG  5 RUCH 1000000099 bag_num=3)
+$(TAG  6 RUCH 1000000101 bag_num=3)
+$(TAG  7 RUCH 1000000102 bag_num=3)
+$(TAG  8 DON  1000000103 bag_num=3)
+$(TAG  9 DON  1000000104 bag_num=3)
+$(TAG 10 TEST 1000000105 bag_num=3)
+$(TAG 11 TEST 1000000106 bag_num=3)
 </tags>}
 )
 
@@ -598,7 +600,7 @@ $(CHANGE_CHECKIN $(get pax_id_pupkin) PUPKIN VASYA Çá Å bag_pool_num=1)
 }
 {<value_bags/>
 <bags>
-$(BAG_WT 1 "" ûí pr_cabin=1 amount=1 weight= 34 bag_pool_num=1)
+$(BAG_WT 1 "" ûí pr_cabin=1 amount=1 weight=34 bag_pool_num=1)
 $(BAG_WT 2 "" ûí pr_cabin=0 amount=1 weight=21 bag_pool_num=1)
 </bags>
 <tags pr_print=\"0\">
@@ -714,7 +716,7 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
       &lt;baggage&gt;
         &lt;dest val='Äåë'&gt;
           &lt;class bagamount='1' bagweight='21'&gt;Å&lt;/class&gt;
-          &lt;class bagamount='10' bagweight='75'&gt;ù&lt;/class&gt;
+          &lt;class bagamount='11' bagweight='119'&gt;ù&lt;/class&gt;
         &lt;/dest&gt;
         &lt;dest val='èêï'&gt;
           &lt;class bagamount='1' bagweight='100'&gt;ù&lt;/class&gt;
@@ -727,48 +729,3 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
     &lt;/compon&gt;
   &lt;/details&gt;
 
-$(set grp_id $(get_single_grp_id $(get pax_id_chekmarev)))
-$(set tid $(get_single_tid $(get pax_id_chekmarev)))
-!!
-$(CANCEL_PAX $(get pax_id_chekmarev) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ûí 298 ëéó èêï CHEKMAREV KONSTANTIN 2986145143701 Çá)
-
-$(set grp_id $(get_single_grp_id $(get pax_id_tumali)))
-$(set tid $(get_single_tid $(get pax_id_tumali)))
-!!
-$(CANCEL_PAX $(get pax_id_tumali) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ûí 298 ëéó èêï TUMALI VALERII 2986145115578 Çá)
-
-$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
-{$(CHANGE_CHECKIN_SEGMENT $(get point_dep) $(get point_arv1) ëéó Äåë
-                          $(get grp_id2) $(get_single_grp_tid $(get pax_id_adl1))
-{<passengers>
-$(CHANGE_CHECKIN $(get pax_id_adl1) äéíãüê "ÇãÄÑàåàê çàäéãÄÖÇàó" Çá ù bag_pool_num="" refuse=Ä)
-$(CHANGE_CHECKIN $(get pax_id_adl2) AGAFONOV "DENIS DMITRIEVICH" Çá ù bag_pool_num="" refuse=Ä)
-</passengers>})
-})
-
-$(set grp_id $(get_single_grp_id $(get pax_id_pupkin)))
-$(set tid $(get_single_tid $(get pax_id_pupkin)))
-!!
-$(CANCEL_PAX $(get pax_id_pupkin) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv1) ûí 298 ëéó Äåë PUPKIN VASYA "" Çá)
-
-
-??
-$(dump_table PAX display="on")
->> mode=regex
-.*ND PAX DUMP COUNT=0.*
-
-$(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=1 bag_refuse=Ä
-{$(CHANGE_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv) ëéó èêï
-                           $(get grp_id_unacc1) $(get_unaccomp_tid $(get grp_id_unacc1)))})
-
-$(CHANGE_UNACCOMP_REQUEST capture=off lang=EN hall=1 bag_refuse=Ä
-{$(CHANGE_UNACCOMP_SEGMENT $(get point_dep) $(get point_arv1) ëéó Äåë
-                           $(get grp_id_unacc2) $(get_unaccomp_tid $(get grp_id_unacc2)))})
-
-#Ì¨„´ÔÊ®Ô ‡•¶®¨† Libra
-$(sql "DELETE FROM libra_comps")
-
-$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
-  insert type_code:66
-         airline:$(get_elem_id etAirline ûí)
-         pr_misc:0)
