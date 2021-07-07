@@ -172,7 +172,6 @@ void arx_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t & part
 void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t & part_key);
 void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t & part_key);
 void arx_bag_pay_types(int receipt_id, const Dates::DateTime_t & part_key);
-void delete_bag_receipt_kits(int kit_id);
 //by grp_id
 std::vector<dbo::PAX> read_pax(const GrpId_t& grp_id);
 void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,
@@ -384,9 +383,9 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         readMoveIds(max_rows);
         LogTrace(TRACE6) << " readMoveIds: " << timer.elapsedSeconds();
     }
+    HelpCpp::Timer timer;
     while (!move_ids.empty())
     {
-        HelpCpp::Timer timer;
         MoveId_t move_id = move_ids.begin()->first;
         Dates::time_period date_period = move_ids.begin()->second;
         LogTrace(TRACE6) << __func__ << " move_id: " << move_id;
@@ -495,7 +494,6 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
 
             ASTRA::commitAndCallCommitHooks();
             proc_count++;
-            LogTrace(TRACE6) << " MoveFlt one iteration time: " << timer.elapsedSeconds();
         }
         catch(...)
         {
@@ -507,6 +505,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             throw;
         };
     };
+    LogTrace(TRACE6) << " MoveFlt one iteration time: " << timer.elapsedSeconds();
     return false;
 };
 
@@ -922,7 +921,7 @@ void deleteTlgOut(const PointId_t& point_id)
 {
     dbo::Session session;
     std::vector<dbo::TLG_OUT> stats = session.query<dbo::TLG_OUT>()
-            .where("point_id = :point_id AND type<>'LCI'")
+            .where("point_id = :point_id")
             .for_update(true)
             .setBind({{"point_id", point_id.get()}});
     for(const auto &cs : stats) {
