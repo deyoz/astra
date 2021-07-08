@@ -243,10 +243,14 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
      NewTextChild( flightNode, "airp", f.airp );
      NewTextChild( flightNode, "utc_scd_out", DateTimeToStr( f.scd_out, ServerFormatDateTimeAsString ) );
      NewTextChild( flightNode, "local_scd_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.scd_out, f.region ), ServerFormatDateTimeAsString ) );
-     NewTextChild( flightNode, "utc_est_out", DateTimeToStr( f.est_out, ServerFormatDateTimeAsString ) );
-     NewTextChild( flightNode, "local_est_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.est_out, f.region ), ServerFormatDateTimeAsString ) );
-     NewTextChild( flightNode, "utc_act_out", DateTimeToStr( f.act_out, ServerFormatDateTimeAsString ) );
-     NewTextChild( flightNode, "local_act_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.act_out, f.region ), ServerFormatDateTimeAsString ) );
+     if ( f.est_out != f.scd_out ) {
+       NewTextChild( flightNode, "utc_est_out", DateTimeToStr( f.est_out, ServerFormatDateTimeAsString ) );
+       NewTextChild( flightNode, "local_est_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.est_out, f.region ), ServerFormatDateTimeAsString ) );
+     }
+     if ( f.act_out != ASTRA::NoExists ) {
+       NewTextChild( flightNode, "utc_act_out", DateTimeToStr( f.act_out, ServerFormatDateTimeAsString ) );
+       NewTextChild( flightNode, "local_act_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.act_out, f.region ), ServerFormatDateTimeAsString ) );
+     }
      NewTextChild( flightNode, "craft", f.craft_out );
      NewTextChild( flightNode, "bort", f.bort_out );
      xmlNodePtr node = NewTextChild( flightNode, "dests" );
