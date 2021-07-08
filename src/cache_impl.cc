@@ -392,7 +392,7 @@ void CryptSets::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selected
   DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
 
   Qry.SQLText="SELECT id, desk_grp_id, desk, pr_crypt "
-              "FROM crypt_sets ORDER BY desk_grp_id";
+              "FROM crypt_sets ORDER BY desk_grp_id, id";
 
   Qry.Execute();
 
@@ -456,7 +456,7 @@ void CryptReqData::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
 
   Qry.SQLText="SELECT id, desk_grp_id, desk, country, state, city, organization, organizational_unit, "
               "       title, user_name, email, pr_denial "
-              "FROM crypt_req_data ORDER BY desk_grp_id";
+              "FROM crypt_req_data ORDER BY desk_grp_id, id";
 
   Qry.Execute();
 
