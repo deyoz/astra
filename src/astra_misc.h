@@ -1149,8 +1149,16 @@ bool AdultsWithBaby( int adult_id, const std::vector<T1> &InfItems )
 bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType );
 bool is_sync_paxs( int point_id );
 bool is_sync_flights( int point_id );
-void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
-void update_pax_change( const TTripInfo &fltInfo, int pax_id, int reg_no, const std::string &work_mode );
+
+void updatePaxChange(const PointId_t& pointDep,
+                     const PaxId_t& paxId,
+                     const RegNo_t& regNo,
+                     const TermWorkingMode::Enum workMode);
+void updatePaxChange(const TTripInfo &fltInfo,
+                     const PaxId_t& paxId,
+                     const RegNo_t& regNo,
+                     const TermWorkingMode::Enum workMode);
+
 void update_flights_change( int point_id );
 
 class TPaxNameTitle

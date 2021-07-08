@@ -1239,7 +1239,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 void TripsInterface::readGates(int point_id, vector<string> &gates)
 {
   tstations stations;
-  stations.fromDB( point_id, GATE_WORK_MODE );
+  stations.fromDB( point_id, termWorkingModes().encode(TermWorkingMode::Boarding) );
   gates = algo::transform<std::vector>(stations, [](const TSOPPStation &n) { return n.name; });
 }
 

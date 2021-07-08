@@ -3204,9 +3204,9 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 
     if (SyncPaxs)
     {
-      update_pax_change(point_id, pax_id, reg_no, TERM_WORK_MODE);
+      updatePaxChange(PointId_t(point_id), PaxId_t(pax_id), RegNo_t(reg_no), TermWorkingMode::CheckIn);
       if (boarded)
-        update_pax_change(point_id, pax_id, reg_no, GATE_WORK_MODE);
+        updatePaxChange(PointId_t(point_id), PaxId_t(pax_id), RegNo_t(reg_no), TermWorkingMode::Boarding);
     };
 
     if (toLog)
@@ -6849,8 +6849,8 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   if ( pr_empty || whatcalc.isFlag( tDesksGates ) ) {
     tstations stations;
     stations.fromDB(point_id);
-    new_ckin_desks = tstations::toString(stations,TERM_WORK_MODE);
-    new_gates = tstations::toString(stations,GATE_WORK_MODE);
+    new_ckin_desks = tstations::toString(stations, TermWorkingMode::CheckIn);
+    new_gates = tstations::toString(stations, TermWorkingMode::Boarding);
   }
   if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
     new_trfer_exists = TrferList::trferCkinExists( point_id, Qry );
@@ -6912,8 +6912,8 @@ void get_DesksGates( int point_id, tstations &stations )
   string ckin_desks, gates;
   get_DesksGates( point_id, ckin_desks, gates );
   stations.clear();
-  tstations::fromString(ckin_desks, TERM_WORK_MODE, stations );
-  tstations::fromString(gates, GATE_WORK_MODE, stations );
+  tstations::fromString(ckin_desks, TermWorkingMode::CheckIn, stations );
+  tstations::fromString(gates, TermWorkingMode::Boarding, stations );
 }
 
 void get_TrferExists( int point_id, bool &trfer_exists )

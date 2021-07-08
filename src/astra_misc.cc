@@ -2370,14 +2370,20 @@ bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncTy
   return ( !Qry.Eof );
 }
 
-void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
+void updatePaxChange(const PointId_t& pointDep,
+                     const PaxId_t& paxId,
+                     const RegNo_t& regNo,
+                     const TermWorkingMode::Enum workMode)
 {
     TTripInfo tripInfo;
-    if (tripInfo.getByPointId ( point_id ) )
-        update_pax_change(tripInfo, pax_id, reg_no, work_mode);
+    if (tripInfo.getByPointId(pointDep.get()))
+        updatePaxChange(tripInfo, paxId, regNo, workMode);
 }
 
-void update_pax_change( const TTripInfo &fltInfo, int pax_id, int reg_no, const string &work_mode )
+void updatePaxChange(const TTripInfo &fltInfo,
+                     const PaxId_t& paxId,
+                     const RegNo_t& regNo,
+                     const TermWorkingMode::Enum workMode)
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -2390,9 +2396,9 @@ void update_pax_change( const TTripInfo &fltInfo, int pax_id, int reg_no, const 
      "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time,:airline,:airp); "
      " END IF; "
      "END;";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.CreateVariable( "reg_no", otInteger, reg_no );
-  Qry.CreateVariable( "work_mode", otString, work_mode );
+  Qry.CreateVariable( "pax_id", otInteger, paxId.get() );
+  Qry.CreateVariable( "reg_no", otInteger, regNo.get() );
+  Qry.CreateVariable( "work_mode", otString, termWorkingModes().encode(workMode) );
   Qry.CreateVariable( "point_id", otInteger, fltInfo.point_id );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
