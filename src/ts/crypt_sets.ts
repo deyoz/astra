@@ -30,10 +30,17 @@ $(cache PIKE RU CRYPT_SETS $(cache_iface_ver CRYPT_SETS) ""
       <user_depend>1</user_depend>
       <rows tid='-1'>
         <row pr_del='0'>
-          <col>35248</col>
+          <col>39845</col>
           <col>1</col>
           <col>Группа разработчиков</col>
-          <col/>
+          <col>MOVDEN</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>39844</col>
+          <col>1</col>
+          <col>Группа разработчиков</col>
+          <col>МОВВЛА</col>
           <col>0</col>
         </row>
         <row pr_del='0'>
@@ -44,24 +51,17 @@ $(cache PIKE RU CRYPT_SETS $(cache_iface_ver CRYPT_SETS) ""
           <col>1</col>
         </row>
         <row pr_del='0'>
-          <col>39844</col>
-          <col>1</col>
-          <col>Группа разработчиков</col>
-          <col>МОВВЛА</col>
-          <col>0</col>
-        </row>
-        <row pr_del='0'>
-          <col>39845</col>
-          <col>1</col>
-          <col>Группа разработчиков</col>
-          <col>MOVDEN</col>
-          <col>0</col>
-        </row>
-        <row pr_del='0'>
           <col>39954</col>
           <col>1</col>
           <col>Группа разработчиков</col>
           <col>МОВТ03</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>35248</col>
+          <col>1</col>
+          <col>Группа разработчиков</col>
+          <col/>
           <col>0</col>
         </row>
       </rows>
