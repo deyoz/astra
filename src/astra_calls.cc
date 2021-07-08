@@ -15,6 +15,9 @@
 #include "points.h"
 #include "pers_weights.h"
 #include "astra_service.h"
+#include "prepreg.h"
+#include "pax_calc_data.h"
+#include "tripinfo.h"
 #include "date_time.h"
 #include "astra_date_time.h"
 #include "typeb_utils.h"
@@ -184,18 +187,18 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
   TUserSettingType old_time_format = TReqInfo::Instance()->user.sets.time;
   XMLDoc doc("access");
   TReqInfo::Instance()->user.access.toXML(doc.docPtr()->children);
+  struct Range {
+    TDateTime first;
+    TDateTime last;
+  };
   try {
-    struct Range {
-      TDateTime first;
-      TDateTime last;
-    };
    Range range;
    if ( NodeAsInteger("args/period/@hh",reqNode,0) != 0 ) {
-     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,24)/(24.0);
+     range.first = NowUTC() + NodeAsInteger("args/period/@minus",reqNode,24)/(24.0);
      range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,24)/(24.0);
    }
    else {
-     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,3);
+     range.first = NowUTC() + NodeAsInteger("args/period/@minus",reqNode,3);
      range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,1);
    }
    LogTrace(TRACE5) << "filter first " << DateTimeToStr( range.first, ServerFormatDateTimeAsString )
@@ -247,8 +250,9 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
      NewTextChild( flightNode, "craft", f.craft_out );
      NewTextChild( flightNode, "bort", f.bort_out );
      xmlNodePtr node = NewTextChild( flightNode, "dests" );
+     int num = 0;
      for ( const auto &d : f.places_out ) {
-       NewTextChild( node, "dest", d.airp );
+       SetProp( NewTextChild( node, "dest", d.airp ), "num", ++num );
      }
      SoppInterface::ReadCrew( f.point_id, flightNode );
      NewTextChild( flightNode, "uws", existsTlgByPointId( f.point_id, "UWS" ) );
@@ -262,6 +266,19 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
      CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, f.region );
      CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, f.region );
      CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, f.region );
+     //CRS data - жирно по всем рейсам?!
+     LIBRA::CrsData crs;
+     if ( crs.get(PointId_t(f.point_id)) ) { //есть список PNL
+       node = NewTextChild( flightNode, "pnl_data");
+       for ( const auto& s : crs ) {
+         xmlNodePtr n = NewTextChild( node, "resa", s.second );
+         SetProp( n, "airp_arv", s.first.airp_arv );
+         SetProp( n, "class", s.first.cls );
+         SetProp( n, "person", s.first.person );
+       }
+     }
+     else { //цифровые данные - нужны ли?
+     }
    }
    TReqInfo::Instance()->user.sets.time = old_time_format;
    TReqInfo::Instance()->user.access.fromXML(doc.docPtr()->children);

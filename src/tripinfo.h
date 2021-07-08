@@ -137,6 +137,36 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &pax_id,
                          bool &isBoardingPass);
 
+namespace LIBRA {
+//for LIBRA
+struct CrsDataKey {
+  std::string person;
+  std::string airp_arv;
+  std::string cls;
+  CrsDataKey(const std::string& _person,
+             const std::string& _airp_arv,
+             const std::string& _cls ) {
+   person = _person;
+   airp_arv = _airp_arv;
+   cls = _cls;
+  }
+  bool operator <(const CrsDataKey& key) const {
+    if (person!=key.person)
+        return person<key.person;
+      if (airp_arv!=key.airp_arv)
+        return airp_arv<key.airp_arv;
+      return cls<key.cls;
+  }
+};
+class CrsData: public std::map<CrsDataKey,int>
+{
+public:
+  bool get( const PointId_t& point_id );
+};
+} // end namespace LIBRA
+
+//end for LIBRA
+
 class TripsInterface : public JxtInterface
 {
 private:

@@ -3383,3 +3383,21 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, fltOperFilter);
 }
 
+namespace LIBRA {
+//for LIBRA
+bool CrsData::get( const PointId_t& point_id )
+{
+  clear();
+  AllAPIAttrs a(ASTRA::NoExists);
+  const std::vector<SearchCrsResult> searchCrsResults = runSearchCrs(PointId_t(point_id), {},
+                                                                     false, a);
+  for(const SearchCrsResult& searchResult: searchCrsResults) {
+    (*this)[CrsDataKey(searchResult.pers_type,
+                       searchResult.airp_arv,
+                       searchResult.cabin_class)]++;
+  }
+
+  return !empty();
+}
+
+} // end namespace LIBRA
