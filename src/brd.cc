@@ -321,6 +321,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
+      RegNo_t regNo(PaxQry.FieldAsInteger("reg_no"));
       Qry.SetVariable("pax_id", pax_id);
 
       bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
@@ -336,7 +337,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
 
       if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
-          update_pax_change( fltInfo, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
+          updatePaxChange( fltInfo, PaxId_t(pax_id), regNo, TermWorkingMode::Boarding );
     };
     if(not bsm_grp.empty()) {
         BSM::TBSMAddrs BSMaddrs;
@@ -413,6 +414,7 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
   if (!Qry.Eof)
   {
     int grp_id=Qry.FieldAsInteger("grp_id");
+    RegNo_t regNo(Qry.FieldAsInteger("reg_no"));
 
     string lexema_id;
     if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -422,14 +424,14 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
       else
         lexema_id = (mark ? "EVT.PASSENGER.BOARDED" : "EVT.PASSENGER.NOT_BOARDED");
       if (is_sync_paxs(point_id))
-        update_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
+        updatePaxChange( PointId_t(point_id), PaxId_t(pax_id), regNo, TermWorkingMode::Boarding);
     }
     else
       lexema_id = (mark ? "EVT.PASSENGER.EXAMED" : "EVT.PASSENGER.NOT_EXAMED");
 
     TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<string>("surname", Qry.FieldAsString("surname"))
                                       << PrmSmpl<string>("name", Qry.FieldAsString("name")),
-                                      evtPax, point_id, Qry.FieldAsInteger("reg_no"), grp_id);
+                                      evtPax, point_id, regNo.get(), grp_id);
 
     //отвяжем сквозняков от предыдущих сегментов
     SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,Qry.FieldAsInteger("tid"));

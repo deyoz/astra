@@ -689,13 +689,15 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           TERM_WORK_MODE, airp_dep, length_time_value ); // стойка рег.
+                           termWorkingModes().encode(TermWorkingMode::CheckIn),
+                           airp_dep, length_time_value ); // стойка рег.
       end_checkin_time = record.str().size();
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           GATE_WORK_MODE, airp_dep, length_time_value ); // выход на посадку
+                           termWorkingModes().encode(TermWorkingMode::Boarding),
+                           airp_dep, length_time_value ); // выход на посадку
       end_brd_time = record.str().size();
       if ( Qry.FieldIsNULL( "refuse" ) )
         record<<setw(1)<<0<<";";
