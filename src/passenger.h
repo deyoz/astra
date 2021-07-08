@@ -1415,6 +1415,10 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
 
 using PaxGrpCache = ASTRA::Cache<GrpId_t, CheckIn::TSimplePaxGrpItem>;
 
+void updatePaxChange(const PointId_t& pointDep,
+                     const GrpId_t& grpId,
+                     const TermWorkingMode::Enum workMode);
+
 #endif
 
 

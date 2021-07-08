@@ -104,3 +104,5 @@ std::string ASTRA::TPaxTypeExt::ToString() const
 }
 
 const DCSActionsContainer& dcsActions() { return ASTRA::singletone<DCSActionsContainer>(); }
+
+const TermWorkingModeContainer& termWorkingModes() { return ASTRA::singletone<TermWorkingModeContainer>(); }

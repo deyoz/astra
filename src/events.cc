@@ -1292,7 +1292,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
             if (aodb_pax_id!=NoExists && aodb_reg_no!=NoExists)
             {
                 if (changed) //были изменения по регистрации
-                    update_pax_change( operFlt, aodb_pax_id, aodb_reg_no, "Р" );
+                    updatePaxChange( operFlt, PaxId_t(aodb_pax_id), RegNo_t(aodb_reg_no), TermWorkingMode::CheckIn );
 
                 bool boardedAfter=false, boardedBefore=false;
                 if (aPax!=grpInfoAfter.pax.end())
@@ -1300,7 +1300,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                 if (bPax!=grpInfoBefore.pax.end())
                     boardedBefore=bPax->second.pr_brd;
                 if (boardedAfter!=boardedBefore) //были изменения с посадкой/высадкой
-                    update_pax_change( operFlt, aodb_pax_id, aodb_reg_no, "П" );
+                    updatePaxChange( operFlt, PaxId_t(aodb_pax_id), RegNo_t(aodb_reg_no), TermWorkingMode::Boarding );
             };
         };
     };

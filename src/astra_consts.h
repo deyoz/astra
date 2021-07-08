@@ -329,6 +329,8 @@ const ASTRA::TDocTrickyGenders& DocTrickyGenders();
 const std::string TIMEOUT_OCCURRED = "Timeout occurred";
 const std::string ACCESS_DENIED = "Access denied";
 
+//DCSAction
+
 class DCSAction
 {
   public:
@@ -356,7 +358,7 @@ class DCSAction
 class DCSActionsContainer : public ASTRA::PairList<DCSAction::Enum, std::string>
 {
   private:
-    virtual std::string className() const { return "DCSActions"; }
+    virtual std::string className() const { return "DCSActionsContainer"; }
   public:
     DCSActionsContainer() : ASTRA::PairList<DCSAction::Enum, std::string>(DCSAction::pairs(),
                                                                           boost::none,
@@ -364,6 +366,44 @@ class DCSActionsContainer : public ASTRA::PairList<DCSAction::Enum, std::string>
 };
 
 const DCSActionsContainer& dcsActions();
+
+
+//TermWorkingMode
+
+class TermWorkingMode
+{
+  public:
+    enum Enum
+    {
+      CheckIn,
+      Boarding
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l =
+      {
+        {CheckIn,    "ê"},
+        {Boarding,   "è"}
+      };
+      return l;
+    }
+};
+
+class TermWorkingModeContainer : public ASTRA::PairList<TermWorkingMode::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TermWorkingModeContainer"; }
+  public:
+    TermWorkingModeContainer() : ASTRA::PairList<TermWorkingMode::Enum, std::string>(TermWorkingMode::pairs(),
+                                                                                     boost::none,
+                                                                                     boost::none) {}
+};
+
+const TermWorkingModeContainer& termWorkingModes();
+
+
+//TAlignment
 
 class TAlignment
 {

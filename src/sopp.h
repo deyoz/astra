@@ -13,7 +13,6 @@
 #include "astra_misc.h"
 #include "alarms.h"
 
-
 using BASIC::date_time::TDateTime;
 
 enum TTrip_Calc_Data { tDesksGates, tTrferExists };
@@ -137,9 +136,6 @@ struct TSoppStage {
   bool pr_permit;
 };
 
-const static std::string GATE_WORK_MODE = "è";
-const static std::string TERM_WORK_MODE = "ê";
-
 struct TSOPPStation {
   std::string name;
   std::string work_mode;
@@ -181,10 +177,10 @@ struct TSOPPStation {
            ( pr_del == station.pr_del );
   }
   static bool isTerm( const std::string& work_mode ) {
-    return work_mode == TERM_WORK_MODE;
+    return work_mode == termWorkingModes().encode(TermWorkingMode::CheckIn);
   }
   static bool isGate( const std::string& work_mode ) {
-    return work_mode == GATE_WORK_MODE;
+    return work_mode == termWorkingModes().encode(TermWorkingMode::Boarding);
   }
   bool isTerm( ) const {
     return isTerm( work_mode );
@@ -206,7 +202,8 @@ class tstations:public std::vector<TSOPPStation>
                   dbRewriteAll_Delete_Terms,
                   dbRewriteAll_Delete_Gates
                            };
-  static void fromString( const std::string& value, const std::string& work_mode, tstations &stations ) {
+  static void fromString( const std::string& value, const TermWorkingMode::Enum workMode, tstations &stations ) {
+    std::string work_mode=termWorkingModes().encode(workMode);
     std::istringstream iss(value);
     std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                     std::istream_iterator<std::string>{}};
@@ -215,14 +212,15 @@ class tstations:public std::vector<TSOPPStation>
     }
   }
   std::string toString() {
-    std::string res = TERM_WORK_MODE + ": ";
-    res += toString( *this, TERM_WORK_MODE );
-    res += ", " + GATE_WORK_MODE + ": ";
-    res += toString( *this, GATE_WORK_MODE );
+    std::string res = termWorkingModes().encode(TermWorkingMode::CheckIn) + ": ";
+    res += toString( *this, TermWorkingMode::CheckIn );
+    res += ", " + termWorkingModes().encode(TermWorkingMode::Boarding) + ": ";
+    res += toString( *this, TermWorkingMode::Boarding );
     return res;
   }
-  static std::string toString( const tstations &stations, const std::string& work_mode ) {
+  static std::string toString( const tstations &stations, const TermWorkingMode::Enum workMode ) {
     std::string res;
+    std::string work_mode=termWorkingModes().encode(workMode);
     for ( const auto &t : stations ) {
       if ( t.work_mode != work_mode ) {
         continue;
@@ -242,7 +240,7 @@ class tstations:public std::vector<TSOPPStation>
   }
   void fromDB( int point_id, const std::string& work_mode = "" );
   void fromDBGates( int point_id ) {
-    fromDB( point_id, GATE_WORK_MODE );
+    fromDB( point_id, termWorkingModes().encode(TermWorkingMode::Boarding) );
   }
 
   void toDB( const std::string &whereabouts, int point_id, toDbMode mode, const BitSet<toDBModeRewriteAll> &flags = BitSet<toDBModeRewriteAll>() );

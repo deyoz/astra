@@ -4300,3 +4300,14 @@ template<> std::string PaxGrpCache::traceTitle()
 }
 
 } //namespace ASTRA
+
+
+void updatePaxChange(const PointId_t& pointDep,
+                     const GrpId_t& grpId,
+                     const TermWorkingMode::Enum workMode)
+{
+  const auto paxList=CheckIn::TSimplePaxItem::getByGrpId(grpId);
+
+  for(const CheckIn::TSimplePaxItem& pax : paxList)
+    updatePaxChange(pointDep, PaxId_t(pax.id), RegNo_t(pax.reg_no), workMode);
+}
