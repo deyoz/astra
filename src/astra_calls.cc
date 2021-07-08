@@ -194,11 +194,11 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
   try {
    Range range;
    if ( NodeAsInteger("args/period/@hh",reqNode,0) != 0 ) {
-     range.first = NowUTC() + NodeAsInteger("args/period/@minus",reqNode,24)/(24.0);
+     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,24)/(24.0);
      range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,24)/(24.0);
    }
    else {
-     range.first = NowUTC() + NodeAsInteger("args/period/@minus",reqNode,3);
+     range.first = NowUTC() - NodeAsInteger("args/period/@minus",reqNode,3);
      range.last = NowUTC() + NodeAsInteger("args/period/@plus",reqNode,1);
    }
    LogTrace(TRACE5) << "filter first " << DateTimeToStr( range.first, ServerFormatDateTimeAsString )
