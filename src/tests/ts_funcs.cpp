@@ -1117,6 +1117,7 @@ static std::string FP_runArchStep(const std::vector<std::string>& par)
 
 static std::string FP_runArch(const std::vector<std::string>& par)
 {
+    LogTrace(TRACE5) << __func__;
     ASSERT(par.size() == 1);
     Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
     bool resultPg = PG_ARX::arx_daily(date);
@@ -1131,6 +1132,21 @@ static std::string FP_collectFlightStat(const std::vector<std::string>& par)
     get_flight_stat(point_id.get(), true);
     return "";
 }
+
+static std::string FP_db_sql(const std::vector<std::string> &args)
+{
+    assert(args.size() > 1);
+
+    std::string tableName = args.at(0);
+
+    std::string sqlStr;
+    for (size_t i = 1; i < args.size(); ++i)
+      sqlStr += args.at(i);
+
+    make_db_curs(sqlStr, PgOra::getRWSession(tableName)).exec();
+    return "";
+}
+
 
 static std::string FP_initIapiRequestId(const std::vector<std::string> &par)
 {
@@ -1324,6 +1340,7 @@ FP_REGISTER("db_dump_table", FP_dump_table_astra);
 FP_REGISTER("are_tables_equal", FP_tables_equal);
 FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
+FP_REGISTER("db_sql", FP_db_sql);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);

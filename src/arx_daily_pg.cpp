@@ -178,7 +178,6 @@ void arx_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t & part
 void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t & part_key);
 void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t & part_key);
 void arx_bag_pay_types(int receipt_id, const Dates::DateTime_t & part_key);
-void delete_bag_receipt_kits(int kit_id);
 //by grp_id
 std::vector<dbo::PAX> read_pax(const GrpId_t& grp_id);
 void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,
@@ -831,7 +830,12 @@ bool isTripDeleted(const std::vector<dbo::Points>& points)
 
 bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
-    readMoveIds(max_rows);
+    if(move_ids.empty()) {
+        HelpCpp::Timer timer;
+        readMoveIds(max_rows);
+        LogTrace(TRACE6) << " readMoveIds: " << timer.elapsedSeconds();
+    }
+    HelpCpp::Timer timer;
     while (!move_ids.empty())
     {
         MoveId_t move_id = move_ids.begin()->first;
@@ -953,6 +957,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             throw;
         };
     };
+    LogTrace(TRACE6) << " MoveFlt one iteration time: " << timer.elapsedSeconds();
     return false;
 };
 
@@ -1370,7 +1375,7 @@ void deleteTlgOut(const PointId_t& point_id)
 {
     dbo::Session session;
     std::vector<dbo::TLG_OUT> stats = session.query<dbo::TLG_OUT>()
-            .where("point_id = :point_id AND type<>'LCI'")
+            .where("point_id = :point_id")
             .for_update(true)
             .setBind({{"point_id", point_id.get()}});
     for(const auto &cs : stats) {
@@ -2216,8 +2221,10 @@ bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS());
+    HelpCpp::Timer timer;
     move_noflt(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
+    LogTrace(TRACE6) << " MoveNoFlt time: " << timer.elapsedSeconds();
     proc_count++;
     return step>0;
 };
@@ -2235,10 +2242,9 @@ TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
     point_ids_count=0;
 };
 
-std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
+void TArxTlgTrips::readTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
-    std::vector<PointIdTlg_t> points;
-    points.reserve(max_rows);
+    tlg_trip_points.reserve(max_rows);
     int point_id_tlg;
     auto cur = make_db_curs("SELECT point_id "
                             "FROM tlg_trips "
@@ -2251,14 +2257,14 @@ std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t
     while(!cur.fen()) {
         const std::set<PointId_t> point_id_set = getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg));
         if(point_id_set.empty()) {
-            points.emplace_back(point_id_tlg);
+            tlg_trip_points.emplace_back(point_id_tlg);
         }
     }
-    return points;
 }
 
 void arx_tlg_trip(const PointIdTlg_t& point_id)
 {
+    HelpCpp::Timer timer;
     if(ARX::CLEANUP_PG()) {
         LogTrace(TRACE6) << __func__ << " point_id: " << point_id;
         TypeB::deleteTypeBData(point_id);
@@ -2268,17 +2274,22 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
         TypeB::deleteCrsDataStat(point_id);
         TrferList::deleteTransferData(point_id);
     }
+    LogTrace(TRACE6) << " arx_tlg_trip time: " << timer.elapsedSeconds();
 }
 
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
-
-    while (!points.empty())
+    if(tlg_trip_points.empty()) {
+        HelpCpp::Timer timer;
+        readTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
+        LogTrace(TRACE6) << " readTlgTripPoints time: " << timer.elapsedSeconds();
+    }
+    HelpCpp::Timer timer;
+    while (!tlg_trip_points.empty())
     {
-        PointIdTlg_t point_id = points.front();
-        points.erase(points.begin());
+        PointIdTlg_t point_id = tlg_trip_points.front();
+        tlg_trip_points.erase(tlg_trip_points.begin());
         try
         {
             arx_tlg_trip(point_id);
@@ -2291,6 +2302,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
             throw;
         };
     };
+    LogTrace(TRACE6) << " TArxTlgTrips time: " << timer.elapsedSeconds();
     return false;
 };
 
@@ -2306,10 +2318,9 @@ TArxTypeBIn::TArxTypeBIn(const Dates::DateTime_t &utc_date):TArxMove(utc_date)
 {
 };
 
-std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
+void TArxTypeBIn::readTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
     LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
-    std::map<int, Dates::DateTime_t> res;
     int tlg_id;
     Dates::DateTime_t time_receive;
     auto cur = make_db_curs(
@@ -2320,16 +2331,15 @@ std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, si
                 "      NOT EXISTS(SELECT * FROM tlgs_in a WHERE a.id=tlgs_in.id AND time_receive >= :arx_date FETCH FIRST 1 ROWS ONLY) ",
                 PgOra::getROSession("TLGS_IN"));
     cur.def(tlg_id)
-            .def(time_receive)
-            .bind(":arx_date", arx_date)
-            .exec();
+       .def(time_receive)
+       .bind(":arx_date", arx_date)
+       .exec();
     while(!cur.fen()) {
-        if(res.size() == max_rows) {
+        if(tlg_ids.size() == max_rows) {
             break;
         }
-        res.try_emplace(tlg_id, time_receive);
+        tlg_ids.try_emplace(tlg_id, time_receive);
     }
-    return res;
 }
 
 void move_typeb_in(int tlg_id)
@@ -2347,7 +2357,12 @@ void move_typeb_in(int tlg_id)
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE6) << __func__;
-    std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
+    if(tlg_ids.empty()) {
+        HelpCpp::Timer timer;
+        readTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
+        LogTrace(TRACE6) << " readTlgIds time: " << timer.elapsedSeconds();
+    }
+    HelpCpp::Timer timer;
     while (!tlg_ids.empty())
     {
         int tlg_id = tlg_ids.begin()->first;
@@ -2366,6 +2381,7 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
             throw;
         };
     };
+    LogTrace(TRACE6) << " TArxTypeBIn time: " << timer.elapsedSeconds();
     return false;
 }
 
@@ -2530,8 +2546,10 @@ bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS()-15);
+    HelpCpp::Timer timer;
     norms_rates_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
+    LogTrace(TRACE6) << " TArxNormsRatesEtc time: " << timer.elapsedSeconds();
     proc_count++;
     return step > 0;
 };
@@ -2616,13 +2634,17 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     dbo::Session session;
 
+    LogTrace5 << __func__ << " arx_date: " << arx_date << " remain_rows: " << remain_rows;
     std::vector<dbo::FILES> files = session.query<dbo::FILES>()
             .where("time < :arx_date")
             .fetch_first(":remain_rows")
             .for_update(true)
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
-
+    LogTrace5 << " FILES DELETED SIZE: " << files.size();
+    for(const auto & f : files) {
+        LogTrace5 << " f.id: " << f.id << " f.time: " << f.time;
+    }
     for(const auto & f : files) {
         make_db_curs("delete from FILE_PARAMS where ID = :id", PgOra::getRWSession("FILE_PARAMS")).bind(":id", f.id).exec();
         make_db_curs("delete from FILE_QUEUE where ID = :id", PgOra::getRWSession("FILE_QUEUE")).bind(":id", f.id).exec();
@@ -2667,18 +2689,22 @@ int delete_rozysk(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 {
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date << " remain_rows: " << remain_rows;
     int rowsize = 0;
     if(ARX::CLEANUP_PG()) {
+		LogTrace(TRACE6) << __func__ << " if arx clean pg";
         dbo::Session session;
-
+        std::string spp_filename = "SPP" + HelpCpp::string_cast(arx_date, "%y%m%d") + ".txt";
         std::vector<dbo::AODB_SPP_FILES> files = session.query<dbo::AODB_SPP_FILES>()
-                .where("filename<'SPP'||TO_CHAR(:arx_date, 'YYMMDD')||'.txt'")
+                .where("filename < :filename ")
                 .fetch_first(":remain_rows")
                 .for_update(true)
-                .setBind({{":arx_date", arx_date},
+                .setBind({{":filename", spp_filename},
                           {":remain_rows", remain_rows}});
 
         for(const auto & f : files) {
+            LogTrace(TRACE6) << " delete filename: " << f.filename << " point_addr: " << f.point_addr
+                             << " airline: " << f.airline;
             auto cur = make_db_curs("delete from AODB_EVENTS "
                                     "where (filename, point_addr, airline) in ( "
                                     "select filename,point_addr, airline from AODB_EVENTS "
@@ -2691,7 +2717,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
                     .bind(":remain_rows", remain_rows)
                     .exec();
             rowsize += cur.rowcount();
-
+            LogTrace(TRACE6) << " delete aodb_events: " << cur.rowcount();
             auto cur2 = make_db_curs("delete from AODB_SPP_FILES "
                                      "where (filename, point_addr, airline) in ( "
                                      "select filename,point_addr, airline from AODB_SPP_FILES "
@@ -2704,7 +2730,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
                     .bind(":remain_rows", remain_rows)
                     .exec();
             rowsize += cur2.rowcount();
-
+            LogTrace(TRACE6) << " delete aodb_events: " << cur2.rowcount();
         }
     }
     return rowsize;
@@ -2801,8 +2827,10 @@ bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate - Dates::days(ARX::ARX_DAYS());
+    HelpCpp::Timer timer;
     tlgs_files_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
+    LogTrace(TRACE6) << "TArxTlgsFilesEtc time: " << timer.elapsedSeconds();
     proc_count++;
     return step > 0;
 };
@@ -2841,7 +2869,7 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
 
     time_t time_finish = time(NULL)+ARX::ARX_DURATION();
 
-    if (prior_utcdate != utcdate)
+    if (prior_utcdate.date() != utcdate.date())
     {
         if (arxMove)
         {

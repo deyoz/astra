@@ -634,6 +634,7 @@ bool TArxMoveNoFlt::Next(int max_rows, int duration)
     Qry->SetVariable("step",1);
   Qry->SetVariable("max_rows",max_rows);
   Qry->SetVariable("time_duration",duration);
+  LogTrace(TRACE5) << " step: " << step;
   Qry->Execute();
   ASTRA::commitAndCallCommitHooks();
   proc_count++;
@@ -677,6 +678,7 @@ TArxTlgsFilesEtc::TArxTlgsFilesEtc(TDateTime utc_date):TArxMoveNoFlt(utc_date)
     "BEGIN "
     "  arch.tlgs_files_etc(:arx_date,:max_rows,:time_duration,:step); "
     "END;";
+  LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << DateTimeToStr(utcdate-ARX_DAYS());
   Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
   Qry->DeclareVariable("max_rows",otInteger);
   Qry->DeclareVariable("time_duration",otInteger);
@@ -705,13 +707,17 @@ std::unique_ptr<TArxMove> create_arx_manager(const TDateTime& utcdate, int step 
 
 bool arx_daily(TDateTime utcdate)
 {
+  LogTrace(TRACE5) << __func__;
   modf(utcdate,&utcdate);
   static TDateTime prior_utcdate=NoExists;
   static time_t prior_exec=0;
   static int step=1;
   static std::unique_ptr<TArxMove> arxMove = nullptr;
 
-  if (time(NULL)-prior_exec<ARX_SLEEP()) return false;
+  if (time(NULL)-prior_exec<ARX_SLEEP()) {
+      LogTrace(TRACE5) << " ARX_SLEEP time. Return false";
+      return false;
+  }
 
   time_t time_finish=time(NULL)+ARX_DURATION();
 

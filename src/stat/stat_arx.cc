@@ -1640,8 +1640,7 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
 
     DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
-    string SQLText;
-    SQLText =
+    string sql_text =
         "SELECT "
         "   arx_points.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
@@ -1676,19 +1675,19 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     TReqInfo &info = *(TReqInfo::Instance());
     if (!info.user.access.airps().elems().empty()) {
         if (info.user.access.airps().elems_permit())
-            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
+            sql_text += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
         else
-            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
+            sql_text += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
     }
     if (!info.user.access.airlines().elems().empty()) {
         if (info.user.access.airlines().elems_permit())
-            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
+            sql_text += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
         else
-            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
+            sql_text += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
     }
     Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
 
-    Qry.SQLText = SQLText;
+    Qry.SQLText = sql_text;
     Qry.CreateVariable("point_id", otInteger, point_id);
     //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
 
@@ -1704,7 +1703,8 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
     //несопровождаемый багаж
-    Qry.SQLText=
+    DB::TQuery QryUnac(PgOra::getROSession("ARX_PAX_GRP"));
+    std::string SQLText=
         "SELECT "
         "  arx_pax_grp.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
@@ -1733,10 +1733,12 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
         else
             SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
     }
-    Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
-    Qry.Execute();
-    LogTrace5 << " Qry SQL TEXT: " << Qry.SQLText;
-    UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, true);
+    QryUnac.CreateVariable("point_id", otInteger, point_id);
+    QryUnac.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
+    QryUnac.SQLText = SQLText;
+    QryUnac.Execute();
+    LogTrace5 << " Qry SQL TEXT: " << QryUnac.SQLText;
+    UnaccompListToXML(QryUnac, resNode, excessNodeList, false, 0, count, true);
 
     xmlNodePtr paxListNode = GetNode("paxList", resNode);
     if(paxListNode!=NULL) { // для совместимости со старой версией терминала

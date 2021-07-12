@@ -1591,7 +1591,7 @@ BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=2 AND step<=8 LOOP
+  WHILE step>=1 AND step<=8 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
     IF step=2 THEN
       OPEN cur FOR
