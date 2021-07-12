@@ -243,7 +243,7 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
      NewTextChild( flightNode, "airp", f.airp );
      NewTextChild( flightNode, "utc_scd_out", DateTimeToStr( f.scd_out, ServerFormatDateTimeAsString ) );
      NewTextChild( flightNode, "local_scd_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.scd_out, f.region ), ServerFormatDateTimeAsString ) );
-     if ( f.est_out != f.scd_out ) {
+     if ( f.est_out != ASTRA::NoExists && f.est_out != f.scd_out ) {
        NewTextChild( flightNode, "utc_est_out", DateTimeToStr( f.est_out, ServerFormatDateTimeAsString ) );
        NewTextChild( flightNode, "local_est_out", DateTimeToStr( BASIC::date_time::UTCToLocal( f.est_out, f.region ), ServerFormatDateTimeAsString ) );
      }
