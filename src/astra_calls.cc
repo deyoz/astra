@@ -438,6 +438,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
       weight = 0;
     }
   };
+  std::set<std::string> signalRems = {"EXST","AVIH","WEAP","STCR","JMP"};
   std::map<std::string,std::map<std::string,Counters>> weights; //направление, класс
   for ( SALONS2::TLayersSeats::iterator ilayer=layerSeats.begin();
         ilayer!=layerSeats.end(); ilayer++ ) {
@@ -501,7 +502,13 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_wt += TBagKilos( Qry.FieldAsInteger( "excess_wt" ) );
     weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" ))) );
 
-
+    xmlNodePtr rnode = nullptr;
+    std::multiset<CheckIn::TPaxRemItem> rems;
+    LoadPaxRem( ilayer->first.getPaxId(), rems );
+    for ( const auto & r : rems ) {
+      if ( signalRems.find( r.code ) != signalRems.end() )
+        r.toXML( rnode?rnode:(rnode=NewTextChild( n, "remarks" )) );
+    }
     n = NewTextChild( n, "pax_seats" );
     for ( TPassSeats::const_iterator iseat=ilayer->second.begin();
           iseat!=ilayer->second.end(); iseat++ ) {
