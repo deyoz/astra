@@ -1086,13 +1086,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "tranzitable", (int)info.transitable());
     };
 
-    TQuery Qryh( &OraSession );
-    Qryh.Clear();
+    DB::TQuery Qryh(PgOra::getROSession("TRIP_SETS"), STDLOG);
     Qryh.SQLText=
-      "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
-      "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
-      "       pr_etstatus "
-      "FROM trip_sets WHERE point_id=:point_id ";
+     "SELECT COALESCE(pr_tranz_reg,0) AS pr_tranz_reg, "
+            "COALESCE(pr_block_trzt,0) AS pr_block_trzt, "
+            "pr_etstatus "
+     "FROM trip_sets WHERE point_id = :point_id";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
     if (Qryh.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);

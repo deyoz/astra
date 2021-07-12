@@ -2042,7 +2042,7 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 {
   int point_id=NodeAsInteger("point_id",reqNode);
   int new_pr_etstatus=sign(NodeAsInteger("pr_etstatus",reqNode));
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText=
     "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);

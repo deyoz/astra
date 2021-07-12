@@ -2030,17 +2030,34 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
   };
 };
 
+int getTripSetsPrLatSeat(const int point_id)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_lat_seat "
+       "FROM trip_sets "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("TRIP_SETS")
+    );
+
+    int result;
+
+    cur.stb()
+       .defNull(result, 0)
+       .bind(":point_id", point_id)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return 1;
+    }
+
+    return result;
+}
+
 TPaxSeats::TPaxSeats( int point_id )
 {
-    pr_lat_seat = 1;
+    pr_lat_seat = getTripSetsPrLatSeat(point_id);
+
     Qry = new TQuery( &OraSession );
-    Qry->SQLText =
-      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
-    Qry->CreateVariable( "point_id", otInteger, point_id );
-    Qry->Execute();
-    if ( !Qry->Eof )
-        pr_lat_seat = Qry->FieldAsInteger( "pr_lat_seat" );
-    Qry->Clear();
     Qry->SQLText =
     "SELECT first_xname, first_yname, last_xname, last_yname "
     " FROM trip_comp_layers, grp_status_types "

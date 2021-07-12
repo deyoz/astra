@@ -189,20 +189,25 @@ void setCompName( TShowComps &comp )
 
 void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_airline, vector<TShowComps> &comps )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_ELEMS", "COMP_ELEM_TYPES", "POINTS", "TRIP_SETS"}), STDLOG);
   Qry.SQLText =
-    "SELECT craft, bort, crc_comp,"
-    "       NVL( SUM( DECODE( class, 'è', 1, 0 ) ), 0 ) as f, "
-    "       NVL( SUM( DECODE( class, 'Å', 1, 0 ) ), 0 ) as c, "
-    "       NVL( SUM( DECODE( class, 'ù', 1, 0 ) ), 0 ) as y "
-    "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "
-    " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-    "       comp_elem_types.pr_seat <> 0 AND "
-    "       trip_comp_elems.point_id = points.point_id AND "
-    "       points.point_id = :point_id AND "
-    "       trip_sets.point_id(+) = points.point_id AND "
-    "       trip_sets.comp_id IS NULL "
-    " GROUP BY craft, bort, crc_comp ";
+    "SELECT craft, "
+           "bort, "
+           "crc_comp, "
+           "COALESCE(SUM(CASE class WHEN 'è' THEN 1 ELSE 0 END), 0) as f, "
+           "COALESCE(SUM(CASE class WHEN 'Å' THEN 1 ELSE 0 END), 0) as c, "
+           "COALESCE(SUM(CASE class WHEN 'ù' THEN 1 ELSE 0 END), 0) as y "
+      "FROM points "
+      "LEFT OUTER JOIN trip_sets "
+        "ON trip_sets.point_id = points.point_id "
+     "INNER JOIN trip_comp_elems "
+        "ON trip_comp_elems.point_id = points.point_id "
+     "INNER JOIN comp_elem_types "
+        "ON trip_comp_elems.elem_type = comp_elem_types.code "
+     "WHERE trip_sets.comp_id IS NULL "
+       "AND comp_elem_types.pr_seat <> 0 "
+       "AND points.point_id = :point_id "
+     "GROUP BY craft, bort, crc_comp";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   while ( !Qry.Eof ) {

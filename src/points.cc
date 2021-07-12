@@ -1737,7 +1737,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   if ( this->events.isFlag( teDeleteACTOUT ) ) {
     //отмена вылета
     try {
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
       Qry.SQLText =
         "UPDATE trip_sets SET pr_etstatus=0,et_final_attempt=0 WHERE point_id=:point_id";
       Qry.CreateVariable("point_id",otInteger,this->key.point_id);
@@ -2549,7 +2549,7 @@ const std::string TFlightMaxCommerce::PERS_WEIGHT_LCI_SRC = "LCI";
 
 void TFlightMaxCommerce::Load( int point_id )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText =
     "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -2569,7 +2569,7 @@ void TFlightMaxCommerce::Save( int point_id )
   if ( old.value == value )
     return;
   bool pr_overload_alarm = Get_AODB_overload_alarm( point_id, value );
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText =
     "UPDATE trip_sets SET max_commerce=:max_commerce "
     " WHERE point_id=:point_id";

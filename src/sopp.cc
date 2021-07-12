@@ -3322,8 +3322,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 
 void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
 {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText=
     "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
   Qry.DeclareVariable("point_id",otInteger);

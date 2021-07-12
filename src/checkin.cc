@@ -2182,10 +2182,9 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   xmlNodePtr node;
 
-  TQuery Qry(&OraSession);
   if (pax_status==psTransit)
   {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
     Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.Execute();
@@ -4099,6 +4098,52 @@ static bool saveCrsPaxRefuse(PaxId_t pax_id, const std::string& client_type)
   return cur.rowcount() > 0;
 }
 
+std::optional<bool> getTripSetsPrTranzReg(const int point_id)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_tranz_reg "
+       "FROM trip_sets "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("TRIP_SETS")
+    );
+
+    int pr_tranz_reg;
+
+    cur.stb()
+       .defNull(pr_tranz_reg, ASTRA::NoExists)
+       .bind(":point_id", point_id)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return std::nullopt;
+    }
+
+    return dbo::isNotNull(pr_tranz_reg) && pr_tranz_reg;
+}
+
+std::optional<bool> getHalls2PrVip(const int hall)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_vip "
+       "FROM halls2 "
+       "WHERE id = :hall",
+        PgOra::getROSession("HALLS2")
+    );
+
+    int pr_vip;
+
+    cur.stb()
+       .def(pr_vip)
+       .bind(":hall", hall)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return std::nullopt;
+    }
+
+    return pr_vip;
+}
+
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
@@ -4494,17 +4539,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                       BSM::IsSend(fltInfo, BSMaddrs, false);
 
       set<int> nextTrferSegs;
+      bool pr_tranz_reg;
 
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT pr_tranz_reg "
-        "FROM trip_sets WHERE point_id=:point_id ";
-      Qry.CreateVariable("point_id",otInteger,grp.point_dep);
-      Qry.Execute();
-      if (Qry.Eof)
-        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
-      bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
+      if (std::optional<bool> pr_tranz_reg_opt = getTripSetsPrTranzReg(grp.point_dep)) {
+          pr_tranz_reg = pr_tranz_reg_opt.value();
+      } else {
+          throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+      }
 
       TTripSetList setList;
       setList.fromDB(grp.point_dep);
@@ -4525,12 +4566,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (reqInfo->client_type == ctTerm)
         {
-          Qry.Clear();
-          Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
-          Qry.CreateVariable("hall",otInteger,grp.hall);
-          Qry.Execute();
-          if (Qry.Eof) throw UserException("MSG.CHECKIN.INVALID_HALL");
-          addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+          std::optional<bool> addVip_opt = getHalls2PrVip(grp.hall);
+          if (addVip_opt) {
+            addVIP = addVip_opt.value();
+          } else {
+            throw UserException("MSG.CHECKIN.INVALID_HALL");
+          }
         }
       }
 
@@ -4952,7 +4993,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           {
             if (grp.status!=psCrew)
             {
-              Qry.Clear();
+              DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
               Qry.SQLText=
                 "SELECT reg_no FROM pax_grp,pax "
                 "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_dep ";
@@ -5010,7 +5051,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         timing.start("CheckInPassengers", grp.point_dep);
 
-        Qry.Clear();
+        TQuery Qry(&OraSession);
         Qry.SQLText=
           "DECLARE "
           "  pass BINARY_INTEGER; "
@@ -5303,7 +5344,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
         }
 
-        Qry.Clear();
+        TQuery Qry(&OraSession);
         Qry.SQLText=
           "UPDATE pax_grp "
           "SET bag_refuse=:bag_refuse, "
@@ -5670,7 +5711,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (!needSyncEdsEts(ediResNode))
         {
           //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
-          Qry.Clear();
+          TQuery Qry(&OraSession);
           Qry.SQLText=
             "BEGIN "
             "  IF :pax_id IS NOT NULL THEN "
@@ -5875,7 +5916,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (overload_alarm)
       {
         //проверяем, а не было ли полной отмены регистрации группы по ошибке агента
-        Qry.Clear();
+        TQuery Qry(&OraSession);
         Qry.SQLText="SELECT grp_id FROM pax_grp WHERE grp_id=:grp_id";
         Qry.CreateVariable("grp_id",otInteger,grp.id);
         Qry.Execute();
@@ -5941,7 +5982,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         //посчитаем индекс группы подклассов
         TQuery PaxQry(&OraSession);
-        PaxQry.Clear();
         PaxQry.SQLText=
           "SELECT pax.subclass, pax_grp.class "
           "FROM pax_grp, pax "
@@ -5975,7 +6015,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (!subclass_grp)
             throw EXCEPTIONS::Exception("%s: !subclass_grp!!!", __FUNCTION__);
 
-          Qry.Clear();
+          TQuery Qry(&OraSession);
           Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
           Qry.CreateVariable("grp_id",otInteger,grp.id);
           Qry.CreateVariable("class_grp",otInteger,subclass_grp.get().value());
@@ -7692,8 +7732,7 @@ void CheckInInterface::readTripSets( int point_id,
                                      const TTripInfo &fltInfo,
                                      xmlNodePtr tripSetsNode )
 {
-    TQuery Qry( &OraSession );
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
     Qry.SQLText=
         "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
     Qry.CreateVariable("point_id",otInteger,point_id);

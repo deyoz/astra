@@ -75,8 +75,7 @@ bool TFltParams::get(int point_id)
 bool TFltParams::get(const TAdvTripInfo& _fltInfo)
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText=
     "SELECT pr_etstatus, et_final_attempt FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, _fltInfo.point_id);
@@ -138,8 +137,7 @@ bool TFltParams::get(const TAdvTripInfo& fltInfo,
 
 void TFltParams::incFinalAttempts(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText="UPDATE trip_sets SET et_final_attempt=et_final_attempt+1 WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -152,8 +150,7 @@ void TFltParams::finishFinalAttempts(int point_id)
 
 void TFltParams::setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum status)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText="UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("pr_etstatus", otInteger, FNull);
@@ -163,7 +160,7 @@ void TFltParams::setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum stat
 
 bool TFltParams::returnOnlineStatus(int point_id)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText=
     "UPDATE trip_sets SET pr_etstatus=0 WHERE point_id=:point_id AND pr_etstatus<0 ";
   Qry.CreateVariable("point_id", otInteger, point_id);

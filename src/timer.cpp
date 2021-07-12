@@ -332,8 +332,7 @@ void ETCheckStatusFlt(void)
   {
     list<TAdvTripInfo> flts;
 
-    TQuery ETQry(&OraSession);
-    ETQry.Clear();
+    DB::TQuery ETQry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
     ETQry.SQLText=
       "SELECT " + TAdvTripInfo::selectedFields("points") + ", pr_etstatus "
       "FROM points,trip_sets "

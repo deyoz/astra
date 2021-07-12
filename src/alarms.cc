@@ -207,7 +207,7 @@ void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 
 bool calc_overload_alarm( int point_id )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText=
     "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);

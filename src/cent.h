@@ -265,7 +265,7 @@ struct TDestBalance {
 class TBalanceData
 {
   BitSet<TBalanceDataFlag> dataFlags;
-  TQuery *qTripSetsQry;
+  DB::TQuery *qTripSetsQry;
   TQuery *qPassQry;
   TQuery *qPassTQry;
   TQuery *qBagQry;
@@ -274,73 +274,7 @@ class TBalanceData
   TQuery *qExcessBagTQry;
   TQuery *qCargoQry;
   TQuery *qPADQry;
-  void init() {
-    qTripSetsQry = new TQuery( &OraSession );
-    qTripSetsQry->SQLText =
-      "SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
-    qTripSetsQry->DeclareVariable( "point_id", otInteger );
-
-    balances.clear();
-    //total_classpads.clear();
-    passengers.clear();
-    qPassQry = NULL;
-    qPassTQry = NULL;
-    qBagQry = NULL;
-    qBagTQry = NULL;
-    qExcessBagQry = NULL;
-    qExcessBagTQry = NULL;
-    qCargoQry = NULL;
-    qPADQry = NULL;
-
-    if ( dataFlags.isFlag( tdPass ) ) {
-      qPassQry = new TQuery( &OraSession );
-      qPassQry->SQLText = qryBalancePassWOCheckinTranzit.c_str();
-      qPassQry->DeclareVariable( "point_dep", otInteger );
-      qPassQry->DeclareVariable( "point_arv", otInteger );
-
-      qPassTQry = new TQuery( &OraSession );
-      qPassTQry->SQLText = qryBalancePassWithCheckinTranzit.c_str();
-      qPassTQry->DeclareVariable( "point_dep", otInteger );
-      qPassTQry->DeclareVariable( "point_arv", otInteger );
-      qPassTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
-    }
-    if ( dataFlags.isFlag( tdBag ) ) {
-      qBagQry = new TQuery( &OraSession );
-      qBagQry->SQLText = qryBalanceBagWOCheckinTranzit.c_str();
-      qBagQry->DeclareVariable( "point_dep", otInteger );
-      qBagQry->DeclareVariable( "point_arv", otInteger );
-
-      qBagTQry = new TQuery( &OraSession );
-      qBagTQry->SQLText = qryBalanceBagWithCheckinTranzit.c_str();
-      qBagTQry->DeclareVariable( "point_dep", otInteger );
-      qBagTQry->DeclareVariable( "point_arv", otInteger );
-      qBagTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
-    }
-    if ( dataFlags.isFlag( tdExcess ) ) {
-      qExcessBagQry = new TQuery( &OraSession );
-      qExcessBagQry->SQLText = qryBalanceExcessBagWOCheckinTranzit.c_str();
-      qExcessBagQry->DeclareVariable( "point_dep", otInteger );
-      qExcessBagQry->DeclareVariable( "point_arv", otInteger );
-
-      qExcessBagTQry = new TQuery( &OraSession );
-      qExcessBagTQry->SQLText = qryBalanceExcessBagWithCheckinTranzit.c_str();
-      qExcessBagTQry->DeclareVariable( "point_dep", otInteger );
-      qExcessBagTQry->DeclareVariable( "point_arv", otInteger );
-      qExcessBagTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
-    }
-    if ( dataFlags.isFlag( tdPad ) ) {
-      qPADQry = new TQuery( &OraSession );
-      qPADQry->SQLText = qryBalancePad.c_str();
-      qPADQry->DeclareVariable( "point_dep", otInteger );
-      qPADQry->DeclareVariable( "point_arv", otInteger );
-    }
-    if ( dataFlags.isFlag( tdCargo ) ) {
-      qCargoQry = new TQuery( &OraSession );
-      qCargoQry->SQLText = qryBalanceCargo.c_str();
-      qCargoQry->DeclareVariable( "point_dep", otInteger );
-      qCargoQry->DeclareVariable( "point_arv", otInteger );
-    }
-  };
+  void init();
   void getPassBalance( bool pr_tranzit_pass, int point_id, const TTripRoute &routesB, const TTripRoute &routesA, bool isLimitDest4 );
   public:
     TBalanceData( ) {

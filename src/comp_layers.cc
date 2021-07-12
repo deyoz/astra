@@ -200,16 +200,24 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
     prior_layer_type=layer_type;
     prior_point_ids.clear();
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS", "TRIP_PAID_CKIN", "TLG_BINDING"}), STDLOG);
     ostringstream sql;
-    sql << "SELECT points.point_id,point_num,first_point,pr_tranzit,pr_lat_seat, "
-           "       trip_paid_ckin.pr_permit AS pr_paid_ckin "
-           "FROM tlg_binding,points,trip_sets,trip_paid_ckin "
-           "WHERE tlg_binding.point_id_spp=points.point_id AND "
-           "      points.point_id=trip_sets.point_id(+) AND "
-           "      points.point_id=trip_paid_ckin.point_id(+) AND "
-           "      tlg_binding.point_id_tlg=:point_id_tlg ";
+    sql << "SELECT "
+               "points.point_id, "
+               "points.point_num, "
+               "points.first_point, "
+               "points.pr_tranzit, "
+               "trip_sets.pr_lat_seat, "
+               "trip_paid_ckin.pr_permit AS pr_paid_ckin "
+           "FROM points "
+           "LEFT OUTER JOIN trip_sets "
+               "ON points.point_id = trip_sets.point_id "
+           "LEFT OUTER JOIN trip_paid_ckin "
+               "ON points.point_id = trip_paid_ckin.point_id "
+           "INNER JOIN tlg_binding "
+               "ON tlg_binding.point_id_spp = points.point_id "
+            "WHERE tlg_binding.point_id_tlg = :point_id_tlg ";
+
     if (point_id_spp!=NoExists)
     {
       sql << "AND point_id_spp=:point_id_spp ";
@@ -423,17 +431,23 @@ void DeleteTripSeatRanges(const SeatRangeIds& range_ids,
 {
   if (range_ids.empty()) return;
 
-  TQuery Qry(&OraSession);
   if (crs_pax_id!=NoExists)
   {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_LAYERS", "TRIP_SETS"}), STDLOG);
     ostringstream sql;
-    sql << "SELECT trip_comp_layers.point_id, layer_type, "
-           "       first_xname, last_xname, first_yname, last_yname, "
-           "       trip_sets.pr_lat_seat "
-           "FROM trip_comp_layers, trip_sets "
-           "WHERE trip_comp_layers.point_id=trip_sets.point_id(+) AND "
-           "      trip_comp_layers.range_id=:range_id ";
+    sql << "SELECT "
+                "trip_comp_layers.point_id, "
+                "trip_comp_layers.layer_type, "
+                "trip_comp_layers.first_xname, "
+                "trip_comp_layers.last_xname, "
+                "trip_comp_layers.first_yname, "
+                "trip_comp_layers.last_yname, "
+                "trip_sets.pr_lat_seat "
+           "FROM trip_comp_layers "
+           "LEFT OUTER JOIN trip_sets "
+             "ON trip_comp_layers.point_id = trip_sets.point_id "
+          "WHERE trip_comp_layers.range_id = :range_id ";
+
     if (point_id_spp!=NoExists)
     {
       sql << "AND trip_comp_layers.point_id=:point_id_spp ";
@@ -449,7 +463,7 @@ void DeleteTripSeatRanges(const SeatRangeIds& range_ids,
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
-        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
+        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type").c_str());
         int point_id=Qry.FieldAsInteger("point_id");
         point_ids_spp.insert( make_pair(point_id, layer_type) );
         pair<TSeatRanges, bool> &seat_view_ranges=ranges[ make_pair(layer_type,point_id) ];
@@ -508,7 +522,7 @@ void DeleteTripSeatRanges(const SeatRangeIds& range_ids,
   }
   else
   {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_COMP_LAYERS"), STDLOG);
     ostringstream sql;
     sql << "SELECT point_id, layer_type "
            "FROM trip_comp_layers "
@@ -527,14 +541,14 @@ void DeleteTripSeatRanges(const SeatRangeIds& range_ids,
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
-        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
+        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type").c_str());
         int point_id=Qry.FieldAsInteger("point_id");
         point_ids_spp.insert( make_pair(point_id, layer_type) );
       };
     };
   };
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
   ostringstream sql;
   sql <<
     "DELETE FROM trip_comp_layers "

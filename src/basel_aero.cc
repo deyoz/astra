@@ -97,11 +97,16 @@ void read_basel_aero_stat( const string &airp, ofstream &f );
 
 void sych_basel_aero_stat( TDateTime utcdate )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
     Qry.SQLText =
-    "SELECT points.point_id, NVL(act_out,NVL(est_out,scd_out)) real_time FROM points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND points.time_out<=:vdate AND "
-    "      pr_del=0 AND airp=:airp AND trip_sets.pr_basel_stat=0 AND pr_reg<>0";
+    "SELECT points.point_id, COALESCE(act_out, est_out, scd_out) AS real_time "
+      "FROM points INNER JOIN trip_sets "
+        "ON points.point_id = trip_sets.point_id "
+       "AND points.time_out <= :vdate "
+       "AND pr_del = 0 "
+       "AND airp = :airp "
+       "AND trip_sets.pr_basel_stat = 0 "
+       "AND pr_reg <> 0";
   TDateTime trunc_date;
   modf( utcdate, &trunc_date );
   ProgTrace( TRACE5,"sych_basel_aero_stat: utcdate=%s, trunc_date=%s",
@@ -109,7 +114,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
              DateTimeToStr(  trunc_date - 2, "dd.mm.yyyy hh:nn" ).c_str() );
   Qry.CreateVariable( "vdate", otDate, trunc_date - 2 );
   Qry.DeclareVariable( "airp", otString );
-  TQuery TripSetsQry(&OraSession);
+  DB::TQuery TripSetsQry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   TripSetsQry.SQLText =
     "UPDATE trip_sets SET pr_basel_stat=1 WHERE point_id=:point_id";
   TripSetsQry.DeclareVariable( "point_id", otInteger );

@@ -22,7 +22,7 @@ class ETSExchangeStatus
                 Finalized,
                 Unknown
               };
-    static Enum fromDB(TQuery &Qry)
+    static Enum fromDB(DB::TQuery &Qry)
     {
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       if (pr_etstatus<0) return NotConnected;
@@ -30,7 +30,7 @@ class ETSExchangeStatus
       return Online;
 
     }
-    static void toDB(const Enum value, TQuery &Qry)
+    static void toDB(const Enum value, DB::TQuery &Qry)
     {
       int pr_etstatus=0;
       switch(value)

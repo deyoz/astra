@@ -215,7 +215,7 @@ const TTripSetList& TTripSetList::toDB(int point_id) const
 {
   if (empty()) return *this;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   list< pair<string, LEvntPrms> > msgs;
 
   ostringstream sql;

@@ -2037,10 +2037,14 @@ bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &f
 */
 bool Get_AODB_overload_alarm( int point_id, int max_commerce )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"AODB_POINTS", "TRIP_SETS"}), STDLOG);
   Qry.SQLText =
-      "SELECT max_commerce, aodb_points.overload_alarm FROM aodb_points, trip_sets "
-      " WHERE aodb_points.point_id=:point_id AND aodb_points.point_id=trip_sets.point_id";
+      "SELECT max_commerce, aodb_points.overload_alarm "
+      "FROM aodb_points "
+      "INNER JOIN trip_sets "
+      "ON aodb_points.point_id = trip_sets.point_id "
+      "WHERE aodb_points.point_id = :point_id";
+
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   return ( !Qry.Eof &&

@@ -1071,14 +1071,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                      !GetTripSets(tsChangeETStatusWhileBoarding, fltInfo);
     bool check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery etStatusQry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    etStatusQry.SQLText=
         "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof)
+    etStatusQry.CreateVariable("point_id",otInteger,point_id);
+    etStatusQry.Execute();
+    if (etStatusQry.Eof)
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+    int pr_etstatus=etStatusQry.FieldAsInteger("pr_etstatus");
 
     //признак контроля данных APIS
     TTripSetList setList;
