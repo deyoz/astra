@@ -1195,20 +1195,35 @@ void SetCraft( int point_id, TStage stage )
 {
     if ( stage != sPrepCheckIn && stage != sOpenCheckIn )
         return;
-    DB::TQuery Qry(PgOra::getROSession({"COMPS", "POINTS"}), STDLOG);
-    Qry.SQLText =
-    "SELECT craft, b.bort, airp "
-    "FROM points "
-    "  LEFT OUTER JOIN ( "
-    "    SELECT points.bort, points.point_id "
-    "    FROM comps, points "
-    "    WHERE points.craft = comps.craft "
-    "    AND points.bort = comps.bort "
-    "    AND points.point_id = :point_id "
-    "    AND points.bort IS NOT NULL "
-    "    LIMIT 1) b "
-    "  ON points.point_id = b.point_id "
-    "  WHERE points.point_id = :point_id";
+    auto& sess = PgOra::getROSession({"COMPS", "POINTS"});
+    DB::TQuery Qry(sess, STDLOG);
+    
+    if(sess.isOracle()) {
+        Qry.SQLText =
+"SELECT craft, b.bort, airp FROM points, "
+"( SELECT points.bort, points.point_id FROM comps, points "
+"  WHERE points.point_id = :point_id AND "
+"        points.craft = comps.craft AND "
+"        points.bort IS NOT NULL AND "
+"        points.bort = comps.bort AND "
+"        rownum < 2 ) b "
+"WHERE points.point_id = :point_id AND "
+"      points.point_id = b.point_id(+) ";        
+    } else {
+        Qry.SQLText =
+"SELECT craft, b.bort, airp "
+"FROM points "
+"  LEFT OUTER JOIN ( "
+"    SELECT points.bort, points.point_id "
+"    FROM comps, points "
+"    WHERE points.craft = comps.craft "
+"    AND points.bort = comps.bort "
+"    AND points.point_id = :point_id "
+"    AND points.bort IS NOT NULL "
+"    LIMIT 1) b "
+"  ON points.point_id = b.point_id "
+"  WHERE points.point_id = :point_id";        
+    }
 
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
