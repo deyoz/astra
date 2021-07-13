@@ -1053,16 +1053,17 @@ void exec_stage( int point_id, int stage_id )
 
 void astra_timer( TDateTime utcdate )
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-     "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id, points.airp "
-   " FROM points, trip_stages "
-   "WHERE points.point_id = trip_stages.point_id AND "
-   "      points.act_out IS NULL AND "
-   "      points.pr_del = 0 AND "
-   "      trip_stages.time_auto_not_act <= :now AND "
-   "      trip_stages.time_auto_not_act >= :now - 3 "
-   " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_STAGES"}), STDLOG);
+  Qry.SQLText =
+     "SELECT trip_stages.point_id, trip_stages.stage_id, points.airp "
+       "FROM points "
+      "INNER JOIN trip_stages "
+         "ON points.point_id = trip_stages.point_id "
+      "WHERE points.act_out IS NULL "
+        "AND points.pr_del = 0 "
+        "AND trip_stages.time_auto_not_act <= :now "
+        "AND trip_stages.time_auto_not_act >= :now - 3 "
+      "ORDER BY trip_stages.point_id, trip_stages.stage_id";
   Qry.CreateVariable( "now", otDate, utcdate );
 
   bool pr_exit = false;
@@ -1141,31 +1142,31 @@ void astra_timer( TDateTime utcdate )
 
   //обработаем временные слои из tlg_comp_layers
   int curr_tid=NoExists;
-  Qry.Clear();
-  Qry.SQLText=
+  TQuery LayersQry(&OraSession);
+  LayersQry.SQLText=
     "SELECT range_id, crs_pax_id "
     "FROM tlg_comp_layers "
     "WHERE time_remove<=SYSTEM.UTCSYSDATE "
     "ORDER BY crs_pax_id";
-  Qry.Execute();
+  LayersQry.Execute();
   SeatRangeIds range_ids;
-  for(;!Qry.Eof;)
+  for(;!LayersQry.Eof;)
   {
     int crs_pax_id=NoExists;
-    if (!Qry.FieldIsNULL("crs_pax_id"))
-      crs_pax_id=Qry.FieldAsInteger("crs_pax_id");
-    range_ids.insert(Qry.FieldAsInteger("range_id"));
+    if (!LayersQry.FieldIsNULL("crs_pax_id"))
+      crs_pax_id=LayersQry.FieldAsInteger("crs_pax_id");
+    range_ids.insert(LayersQry.FieldAsInteger("range_id"));
 
-    Qry.Next();
+    LayersQry.Next();
 
     int next_crs_pax_id=NoExists;
-    if (!Qry.Eof)
+    if (!LayersQry.Eof)
     {
-      if (!Qry.FieldIsNULL("crs_pax_id"))
-        next_crs_pax_id=Qry.FieldAsInteger("crs_pax_id");
+      if (!LayersQry.FieldIsNULL("crs_pax_id"))
+        next_crs_pax_id=LayersQry.FieldAsInteger("crs_pax_id");
     };
 
-    if (Qry.Eof ||
+    if (LayersQry.Eof ||
         crs_pax_id!=next_crs_pax_id ||
         range_ids.size()>=1000)
     {
