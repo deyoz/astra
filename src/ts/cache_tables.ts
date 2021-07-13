@@ -1161,4 +1161,112 @@ $(cache PIKE EN SOPP_STATIONS $(cache_iface_ver SOPP_STATIONS) ""
         </row>
       </rows>
 
+%%
+
+### test 6
+### HOTEL_ACMD
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE EN HOTEL_ACMD $(cache_iface_ver HOTEL_ACMD) ""
+  insert airline:
+         airp:АНА
+         {hotel_name:Вилла Мармари}
+         single_amount:15
+         double_amount:24)
+
+$(set id $(last_history_row_id HOTEL_ACMD))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id)</col>
+          <col>АНА</col>
+          <col>AAQ</col>
+          <col/>
+          <col/>
+          <col>Вилла Мармари</col>
+          <col>15</col>
+          <col>24</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN HOTEL_ACMD $(cache_iface_ver HOTEL_ACMD) ""
+  update id:$(get id)               old_id:$(get id)
+         airline:ЮТ                 old_airline:
+         airp:АНА                   old_airp:АНА
+         {hotel_name:Вилла Мармари} {old_hotel_name:Вилла Мармари}
+         single_amount:16           old_single_amount:15
+         double_amount:20           old_double_amount:24)
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get id)</col>
+          <col>АНА</col>
+          <col>AAQ</col>
+          <col/>
+          <col/>
+          <col>Вилла Мармари</col>
+          <col>16</col>
+          <col>20</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN HOTEL_ACMD $(cache_iface_ver HOTEL_ACMD) ""
+  delete old_id:$(get id)
+         old_airline:ЮТ
+         old_airp:АНА
+         {old_hotel_name:Вилла Мармари}
+         old_single_amount:16
+         old_double_amount:20)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>HOTEL_ACMD</code>
+      <Forbidden>1</Forbidden>
+      <ReadOnly>1</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>
+    <command>
+      <message lexema_id='MSG.CHANGED_DATA_COMMIT' code='0'>...</message>
+    </command>
+  </answer>
+</term>
+
+??
+$(db_dump_table hist_hotel_acmd fields="id,airline,airp,hotel_name,single_amount,double_amount" order="hist_time, hist_order" display="on")
+
+>>
+--------------------- hist_hotel_acmd DUMP ---------------------
+SELECT id, airline, airp, hotel_name, single_amount, double_amount FROM hist_hotel_acmd ORDER BY hist_time, hist_order
+[$(get id)] [NULL] [АНА] [Вилла Мармари] [15] [24] $()
+[$(get id)] [NULL] [АНА] [Вилла Мармари] [16] [20] $()
+------------------- END hist_hotel_acmd DUMP COUNT=2 -------------------
+$()
+
+??
+$(db_dump_table history_events fields="table_id,row_ident,open_user,open_desk,close_user,close_desk" order="open_time, hist_order" display="on")
+
+>>
+--------------------- history_events DUMP ---------------------
+SELECT table_id, row_ident, open_user, open_desk, close_user, close_desk FROM history_events ORDER BY open_time, hist_order
+[155] [$(get id)] [КОВАЛЕВ Р.А.] [МОВРОМ] [КОВАЛЕВ Р.А.] [МОВРОМ] $()
+[155] [$(get id)] [КОВАЛЕВ Р.А.] [МОВРОМ] [КОВАЛЕВ Р.А.] [МОВРОМ] $()
+------------------- END history_events DUMP COUNT=2 -------------------
+$()
+
+
+
 

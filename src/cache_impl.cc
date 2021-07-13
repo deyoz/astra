@@ -35,6 +35,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CRYPT_REQ_DATA")      return new CacheTable::CryptReqData;
   if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
   if (cacheCode=="SOPP_STATIONS")       return new CacheTable::SoppStations;
+  if (cacheCode=="HOTEL_ACMD")          return new CacheTable::HotelAcmd;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -1049,6 +1050,52 @@ void SoppStations::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
         .setFromString(Qry, idxWorkMode)
         .addRow();
   }
+}
+
+//HotelAcmd
+
+bool HotelAcmd::userDependence() const {
+  return true;
+}
+std::string HotelAcmd::selectSql() const {
+  return
+   "SELECT id, airline, airp, hotel_name, single_amount, double_amount "
+   "FROM hotel_acmd "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirports) +
+   "ORDER BY airline, airp, hotel_name";
+}
+std::string HotelAcmd::insertSql() const {
+  return "INSERT INTO hotel_acmd(id, airline, airp, hotel_name, single_amount, double_amount) "
+         "VALUES(:id, :airline, :airp, :hotel_name, :single_amount, :double_amount)";
+}
+std::string HotelAcmd::updateSql() const {
+  return "UPDATE hotel_acmd "
+         "SET single_amount=:single_amount, double_amount=:double_amount "
+         "WHERE id=:OLD_id";
+}
+std::string HotelAcmd::deleteSql() const {
+  return "DELETE FROM hotel_acmd WHERE id=:OLD_id";
+}
+std::list<std::string> HotelAcmd::dbSessionObjectNames() const {
+  return {"HOTEL_ACMD"};
+}
+
+void HotelAcmd::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void HotelAcmd::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("hotel_acmd").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTable

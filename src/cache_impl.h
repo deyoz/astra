@@ -271,5 +271,22 @@ class SoppStations : public CacheTableReadonlyHandmade
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
 };
 
+class HotelAcmd : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
 }
 
