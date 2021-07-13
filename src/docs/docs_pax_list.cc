@@ -129,6 +129,31 @@ void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
     }
 }
 
+void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
+{
+    for(; !Qry.Eof; Qry.Next()) {
+        TPaxPtr pax = getPaxPtr();
+        pax->fromDB(Qry);
+        if (countExcessPC) {
+          pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
+        }
+
+        if(options.mkt_flt and not options.mkt_flt.get().empty()) {
+            TMktFlight db_mkt_flt;
+            db_mkt_flt.getByPaxId(pax->simple.id);
+            if(not(db_mkt_flt == options.mkt_flt.get()))
+                return;
+        }
+
+        if(pax->simple.isCBBG()) {
+            unbound_cbbg_list.add_cbbg(pax);
+        } else {
+            push_back(pax);
+            unbound_cbbg_list.bind_cbbg(back());
+        }
+    }
+}
+
 void TBaggage::trace(TRACE_SIGNATURE)
 {
     LogTrace(TRACE_PARAMS) << "---TBaggage::trace---";
@@ -156,7 +181,8 @@ void TPax::trace(TRACE_SIGNATURE)
 }
 
 // Может, вынести в утилиты?
-string FieldAsString(TQuery &Qry, const string &name)
+template<class TQueryT>
+string FieldAsString(TQueryT &Qry, const string &name)
 {
     string result;
     int col_idx = Qry.GetFieldIndex(name);
@@ -165,7 +191,8 @@ string FieldAsString(TQuery &Qry, const string &name)
     return result;
 }
 
-int FieldAsInteger(TQuery &Qry, const string &name)
+template<class TQueryT>
+int FieldAsInteger(TQueryT &Qry, const string &name)
 {
     int result = NoExists;
     int col_idx = Qry.GetFieldIndex(name);
@@ -175,6 +202,48 @@ int FieldAsInteger(TQuery &Qry, const string &name)
 }
 
 void TPax::fromDB(TQuery &Qry)
+{
+    int empty_pax_grp_id = FieldAsInteger(Qry, "empty_pax_grp_id");
+    if(empty_pax_grp_id > 0)
+        simple.grp_id = empty_pax_grp_id;
+    else
+        simple.fromDB(Qry);
+    if(not simple.isCBBG())
+        cbbg_list.fromDB(simple.id);
+
+    if(pax_list.options.flags.isFlag(oeSeatNo) and not pax_list.complayers) {
+        pax_list.complayers = boost::in_place();
+        TAdvTripInfo flt_info;
+        flt_info.getByPointId(pax_list.point_id);
+        if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
+            getSalonLayers( flt_info.point_id, flt_info.point_num, flt_info.first_point, flt_info.pr_tranzit, pax_list.complayers.get(), false );
+    }
+
+    if(pax_list.complayers) {
+        seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
+        simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(
+                    pax_list.complayers.get().pr_craft_lat or
+                    pax_list.options.lang != AstraLocale::LANG_RU));
+        ostringstream s;
+        s << setw(4) << right << simple.seat_no;
+        _seat_no = s.str();
+    }
+
+    if(not pax_list.rem_grp and pax_list.options.rem_event_type) {
+        pax_list.rem_grp = boost::in_place();
+        pax_list.rem_grp.get().Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
+    }
+
+    user_descr = FieldAsString(Qry, "user_descr");
+    baggage.fromDB(Qry);
+    baggage.trace(TRACE5);
+    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
+        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
+    if(pax_list.rem_grp)
+        GetRemarks(simple.id, pax_list.options.lang, _rems);
+}
+
+void TPax::fromDB(DB::TQuery &Qry)
 {
     int empty_pax_grp_id = FieldAsInteger(Qry, "empty_pax_grp_id");
     if(empty_pax_grp_id > 0)
@@ -307,6 +376,16 @@ string TPax::tkn_str() const
 }
 
 void TBaggage::fromDB(TQuery &Qry)
+{
+    rk_amount = FieldAsInteger(Qry, "rk_amount");
+    rk_weight = FieldAsInteger(Qry, "rk_weight");
+    amount = FieldAsInteger(Qry, "bag_amount");
+    weight = FieldAsInteger(Qry, "bag_weight");
+    excess_wt = FieldAsInteger(Qry, "excess_wt");
+    excess_pc = FieldAsInteger(Qry, "excess_pc");
+}
+
+void TBaggage::fromDB(DB::TQuery &Qry)
 {
     rk_amount = FieldAsInteger(Qry, "rk_amount");
     rk_weight = FieldAsInteger(Qry, "rk_weight");

@@ -38,6 +38,7 @@ namespace REPORTS {
 
         TREMPaxList &get_pax_list() const;
         void fromDB(TQuery &Qry);
+        void fromDB(DB::TQuery &Qry);
         void clear()
         {
             TPax::clear();
@@ -57,6 +58,22 @@ namespace REPORTS {
     }
 
     void TREMPax::fromDB(TQuery &Qry)
+    {
+        TPax::fromDB(Qry);
+        REPORT_PAX_REMS::get(Qry, pax_list.options.lang, get_pax_list().rems, _final_rems);
+        if(get_pax_list().is_spec) {
+            if(not get_pax_list().spec_rems) {
+                get_pax_list().spec_rems = boost::in_place();
+                get_pax_list().spec_rems.get().Load(retRPT_SS, pax_list.point_id);
+            }
+            for(multiset<CheckIn::TPaxRemItem>::iterator r=_final_rems.begin();r!=_final_rems.end();)
+            {
+                if (!get_pax_list().spec_rems.get().exists(r->code)) r=Erase(_final_rems, r); else ++r;
+            };
+        }
+    }
+
+    void TREMPax::fromDB(DB::TQuery &Qry)
     {
         TPax::fromDB(Qry);
         REPORT_PAX_REMS::get(Qry, pax_list.options.lang, get_pax_list().rems, _final_rems);
@@ -122,7 +139,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         TRemGrp spec_rems;
         if(is_spec) spec_rems.Load(retRPT_SS, rpt_params.point_id);
 
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
         string SQLText =
             "SELECT pax_grp.point_dep AS point_id, "
             "       pax.*, "

@@ -1214,8 +1214,7 @@ TCreator::TCreator(int point_id, const TCreatePoint &vcreate_point)
   crs_init=false;
   mkt_flights_init=false;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText=
     "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
     "       point_id,point_num,first_point,pr_tranzit "
@@ -1223,7 +1222,7 @@ TCreator::TCreator(int point_id, const TCreatePoint &vcreate_point)
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (!Qry.Eof) flt.Init(Qry);
-};
+}
 
 const set<string>& TCreator::airps()
 {

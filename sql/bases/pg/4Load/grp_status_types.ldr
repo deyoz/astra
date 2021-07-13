@@ -1,0 +1,19 @@
+LOAD DATA
+INFILE *
+INTO TABLE grp_status_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,priority
+,layer_type
+,name_lat
+)
+BEGINDATA
+"T"|"Транзит"|5|"TRANZIT"|"Transit"
+"C"|"Сквозная рег."|10|"TCHECKIN"|"One-time check-in"
+"K"|"Бронь"|15|"CHECKIN"|"Reservation"
+"P"|"Подсадка"|20|"GOSHOW"|"SA check-in"
+"E"|"Экипаж"|25||"Crew"

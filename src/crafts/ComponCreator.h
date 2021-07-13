@@ -23,13 +23,11 @@ struct TSetsCraftPoints: public std::vector<int> { //маршрут с одной компоновкой
 
 class ComponFinder {
 public:
-  static bool isExistsCraft( const std::string& craft, TQuery& Qry );
+  static bool isExistsCraft( const std::string& craft );
   static int GetCompId( const std::string& craft, const std::string& bort, const std::string& airline,
-                        const std::vector<std::string>& airps,  int f, int c, int y, bool pr_ignore_fcy,
-                        TQuery& Qry );
+                        const std::vector<std::string>& airps,  int f, int c, int y, bool pr_ignore_fcy );
   static int GetCompIdFromBort( const std::string& craft,
-                                const std::string& bort,
-                                TQuery& Qry );
+                                const std::string& bort );
 };
 
 /*struct LibraInfo {
@@ -75,20 +73,19 @@ public:
       }
       void getLibraCompStatus( const std::string& airline,
                                const std::string& bort,
-                               TQuery& Qry,
                                const int& comp_id );
       bool isOk( ) {
         return ( comp_id != ASTRA::NoExists &&
                  time_change != ASTRA::NoExists );
       }
       void Write();
-      void ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
-      void ReadFromAHMCompId( const std::string& bort, int comp_id, TQuery& Qry );
+      void ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id );
+      void ReadFromAHMCompId( const std::string& bort, int comp_id );
   };
   static std::string getConfigSQLText( bool withConfId );
   static std::string getConvertClassSQLText();
-  static AstraSearchResult checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
-  static AstraSearchResult checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry );
+  static AstraSearchResult checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id );
+  static AstraSearchResult checkChangeAHMFromCompId( const std::string& bort, int comp_id );
   static int getPlanId(const std::string& bort);
   static int getConfig(int planId,
                         const std::string& airline, const std::string& bort,
@@ -118,7 +115,7 @@ private:
   int fcomp_id;
   int SearchCompon( bool pr_tranzit_routes,
                     const std::vector<std::string>& airps,
-                    TQuery &Qry, int libra_plan_id = ASTRA::NoExists );
+                    int libra_plan_id = ASTRA::NoExists );
   void Init( int point_id );
   TStatus IntSetCraftFreeSeating( );
   TStatus IntSetCraft( bool pr_tranzit_routes );
@@ -146,7 +143,7 @@ public:
 };
 
 ComponSetter::TStatus AutoSetCraft( int point_id, bool pr_tranzit_routes = true );
-void InitVIP( const TTripInfo &fltInfo, TQuery &Qry );
+void InitVIP( const TTripInfo &fltInfo );
 void check_diffcomp_alarm( int point_id );
 void setManualCompChg( int point_id );
 void setFlightClasses( int point_id );
@@ -160,7 +157,7 @@ public:
   static bool isLibraMode( const TTripInfo &info );
 };
 
-void signalChangesComp( TQuery &Qry, int plan_id, int conf_id = ASTRA::NoExists );
+void signalChangesComp(int plan_id, int conf_id = ASTRA::NoExists );
 void SychAHMCompsFromBort( const std::string& airline, const std::string& craft, const std::string& bort  );
 
 } //end namespace ComponCreator

@@ -6516,7 +6516,7 @@ struct TWA {
     void get(TypeB::TDetailCreateInfo &info)
     {
         payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
         Qry.SQLText=
             "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
         Qry.CreateVariable("point_id", otInteger, info.point_id);
@@ -10560,7 +10560,10 @@ namespace KUF_STAT {
         public:
             TAirps()
             {
-                TCachedQuery airpsQry("select airp from kuf_stat_airps");
+                DB::TCachedQuery airpsQry(
+                            PgOra::getROSession("KUF_STAT_AIRPS"),
+                            "select airp from kuf_stat_airps",
+                            STDLOG);
                 airpsQry.get().Execute();
                 for(; not airpsQry.get().Eof; airpsQry.get().Next()) {
                     items.insert(airpsQry.get().FieldAsString("airp"));
@@ -11023,8 +11026,10 @@ void get_pfs_stat(int point_id)
 
 void get_kuf_stat(int point_id)
 {
-    TCachedQuery Qry("select * from points where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery Qry(PgOra::getROSession("POINTS"),
+                         "select * from points where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id),
+                         STDLOG);
     Qry.get().Execute();
 
     TTripInfo tripInfo(Qry.get());

@@ -2158,7 +2158,7 @@ void setDelete( double aodb_point_id )
 
 bool isDelete( int point_id )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry( PgOra::getROSession("AODB_POINTS"), STDLOG );
   Qry.SQLText =
     "SELECT pr_del from aodb_points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -2168,7 +2168,7 @@ bool isDelete( int point_id )
 
 void setSCD_OUT( double aodb_point_id, TDateTime aodb_scd_out )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry( PgOra::getRWSession("AODB_POINTS"), STDLOG );
   Qry.SQLText =
     "UPDATE aodb_points SET scd_out_ext=:scd_out_ext WHERE aodb_point_id=:aodb_point_id";
   Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
@@ -2178,7 +2178,7 @@ void setSCD_OUT( double aodb_point_id, TDateTime aodb_scd_out )
 
 TDateTime getSCD_OUT( int point_id )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry( PgOra::getROSession("AODB_POINTS"), STDLOG );
   Qry.SQLText =
     "SELECT scd_out_ext FROM aodb_points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otFloat, point_id );

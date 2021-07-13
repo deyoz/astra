@@ -685,7 +685,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   salonList.WriteFlight( trip_id, saveContructivePlaces );
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
-  ComponCreator::InitVIP( info, Qry );
+  ComponCreator::InitVIP( info );
   string lexema_id;
   LEvntPrms params;
   string comp_lang;

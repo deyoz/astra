@@ -857,7 +857,7 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
 class TPaxSeats {
     private:
       int pr_lat_seat;
-      TQuery *Qry;
+      std::unique_ptr<DB::TQuery> Qry;
     public:
         TPaxSeats( int point_id );
         std::string getSeats( int pax_id, const std::string format );

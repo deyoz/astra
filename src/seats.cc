@@ -4559,11 +4559,11 @@ BitSet<TChangeLayerSeatsProps>
   vector<TPlaceList*>::const_iterator isalonList;
   SALONS2::TPoint coord;
   TPlace* seat;
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
+  PointsQry.SQLText =
     "SELECT airline,airp,point_id,point_num,first_point,pr_tranzit "
     " FROM points WHERE point_id=:point_id";
-  Qry.DeclareVariable( "point_id", otInteger );
+  PointsQry.DeclareVariable( "point_id", otInteger );
 
   TSeatTariffMap passTariffs;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
@@ -4754,15 +4754,15 @@ BitSet<TChangeLayerSeatsProps>
             throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
           }
           string airp_dep, airp_arv;
-          Qry.SetVariable( "point_id", ilayers->second.begin()->point_dep() );
-          Qry.Execute();
-          if ( !Qry.Eof ) {
-            airp_dep = Qry.FieldAsString( "airp" );
+          PointsQry.SetVariable( "point_id", ilayers->second.begin()->point_dep() );
+          PointsQry.Execute();
+          if ( !PointsQry.Eof ) {
+            airp_dep = PointsQry.FieldAsString( "airp" );
           }
-          Qry.SetVariable( "point_id", ilayers->second.begin()->point_arv() );
-          Qry.Execute();
-          if ( !Qry.Eof ) {
-            airp_arv = Qry.FieldAsString( "airp" );
+          PointsQry.SetVariable( "point_id", ilayers->second.begin()->point_arv() );
+          PointsQry.Execute();
+          if ( !PointsQry.Eof ) {
+            airp_arv = PointsQry.FieldAsString( "airp" );
           }
           throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_LEG_PASSENGER",
                                LParams()<<LParam("airp_dep", ElemIdToCodeNative(etAirp,airp_dep) )

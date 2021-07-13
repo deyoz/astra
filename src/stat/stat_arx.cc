@@ -212,8 +212,11 @@ void GetSystemLogAgentSQL(DB::TQuery &Qry)
         "union "
         "select 1, descr agent, 1 view_order from users2 where (";
     if(!DEMO_MODE()) {
-        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
         SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+    } else {
+        TST();
+        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
+        ;
     }
 
     SQLText += "user_id=:SYS_user_id) "
@@ -239,9 +242,12 @@ void GetSystemLogStationSQL(DB::TQuery &Qry)
         "union "
         "select 1, code, 1 from desks ";
     if(!DEMO_MODE()) {
-        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
         SQLText += "where adm.check_desk_view_access(code, :SYS_user_id) <> 0 ";
         Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    } else {
+        TST();
+        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
+        ;
     }
 
     SQLText +=
@@ -1245,8 +1251,11 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
                     Qry.SQLText =
                         "select descr from users2 where (";
                     if(!DEMO_MODE()) {
-                        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
                         Qry.SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+                    } else {
+                        TST();
+                        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
+                        ;
                     }
 
                     Qry.SQLText += "user_id=:SYS_user_id) and "
@@ -1481,6 +1490,10 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         "select descr from users2 where (";
                     if(!DEMO_MODE()) {
                         Qry.SQLText += "adm.check_user_access(user_id,:SYS_user_id)<>0 or ";
+                    } else {
+                        TST();
+                        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
+                        ;
                     }
                     Qry.SQLText +=
                         "   user_id = :SYS_user_id) and "
@@ -1958,13 +1971,14 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.pr_brd, "
                 "   pax_grp.class_grp, "
                 "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, ";
-            if(DEMO_MODE()) {
+            if(!DEMO_MODE()) {
+                SQLText +=
+                "   salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, ";
+            } else {
+                TST();
                 // ‚ „…Œ-‚…‘ˆˆ … Œ†…Œ ‹“—ˆ’œ Œ… Œ…‘’€ „ ……‚„€ ¯ ª¥â  SALONS ­  c++
                 SQLText +=
                 "   null, ";
-            } else {
-                SQLText +=
-                "   salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, ";
             }
             SQLText +=
                 "   pax_grp.hall, "
@@ -2299,13 +2313,14 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " pax.reg_no, \n"
                " pax_grp.airp_arv, \n"
                " pax.surname||' '||pax.name full_name, \n";
-        if(DEMO_MODE()) {
+        if(!DEMO_MODE()) {
+            sql <<
+               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
+        } else {
+            TST();
             // ‚ „…Œ-‚…‘ˆˆ … Œ†…Œ ‹“—ˆ’œ Œ… Œ…‘’€ „ ……‚„€ ¯ ª¥â  SALONS ­  c++
             sql <<
                " null, ";
-        } else {
-            sql <<
-               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
         }
         sql <<
                " pax_grp.grp_id, \n"

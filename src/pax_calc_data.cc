@@ -59,7 +59,7 @@ std::string APIAttrs::updateValuesSQL() const
   return sql.str();
 }
 
-void APIAttrs::get(TQuery& Qry)
+void APIAttrs::get(DB::TQuery& Qry)
 {
   if (!colCrsNotEmpty) colCrsNotEmpty=Qry.FieldIndex(columnPrefix+"crs_not_empty_attrs");
   if (!colNotEmpty) colNotEmpty=Qry.FieldIndex(columnPrefix+"not_empty_attrs");
@@ -163,7 +163,7 @@ bool APIAttrs::manualInput(ASTRA::TPaxTypeExt paxTypeExt,
   return (scannedFields & requiredNotEmptyFields) != requiredNotEmptyFields;
 }
 
-void AllAPIAttrs::get(TQuery& Qry)
+void AllAPIAttrs::get(DB::TQuery& Qry)
 {
   if (attrs.empty())
   {
@@ -192,7 +192,7 @@ AllAPIAttrs::AllAPIAttrs(const TDateTime& scdOut)
   }
 }
 
-void AllAPIAttrs::initColumnIndexes(TQuery& Qry)
+void AllAPIAttrs::initColumnIndexes(DB::TQuery& Qry)
 {
   if (!init)
   {
@@ -205,7 +205,7 @@ void AllAPIAttrs::initColumnIndexes(TQuery& Qry)
   }
 }
 
-std::string AllAPIAttrs::view(TQuery& Qry, bool paxNotRefused)
+std::string AllAPIAttrs::view(DB::TQuery& Qry, bool paxNotRefused)
 {
   initColumnIndexes(Qry);
 
@@ -232,7 +232,7 @@ std::string AllAPIAttrs::view(TQuery& Qry, bool paxNotRefused)
   return res;
 }
 
-std::set<APIS::TAlarmType> AllAPIAttrs::getAlarms(TQuery& Qry,
+std::set<APIS::TAlarmType> AllAPIAttrs::getAlarms(DB::TQuery& Qry,
                                                   bool apiDocApplied,
                                                   ASTRA::TPaxTypeExt paxTypeExt,
                                                   bool docoConfirmed,

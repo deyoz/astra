@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include "oralib.h"
+#include "db_tquery.h"
 
 namespace APIS
 {
@@ -69,7 +70,7 @@ class Settings : public SettingsKey
       m_transportType(transportType),
       m_transportParams(transportParams) {}
 
-    Settings& fromDB(TQuery &Qry);
+    Settings& fromDB(DB::TQuery &Qry);
     Settings& replaceFormat(const std::string& format);
 
     void clear()

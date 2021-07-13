@@ -1005,7 +1005,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (!pax.agent_checkin_reasons.empty())
               pax.checkin_status = "agent_checkin";
           }
-          pax.bagNorm=trueBagNorm(CheckIn::TSimplePaxItem::getCrsBagNorm<string>(Qry, "crs_bag_norm", "crs_bag_norm_unit"), pax.etick);
+          pax.bagNorm=trueBagNorm(CheckIn::TSimplePaxItem::getCrsBagNorm<TQuery, string>(Qry, "crs_bag_norm", "crs_bag_norm_unit"), pax.etick);
           pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
           pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
           if ( !Qry.FieldIsNULL( "pax_grp_tid" ) )

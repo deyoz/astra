@@ -930,12 +930,11 @@ bool TTripRoute::GetRoute(TDateTime part_key,
         return GetArxRoute(part_key, point_id, after_current, route_type1, route_type2);
     }
   clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   ostringstream sql;
   sql << "SELECT point_num,first_point,pr_tranzit FROM points \n"
          "WHERE point_id=:point_id AND pr_del>=0";
 
-  Qry.Clear();
   Qry.SQLText= sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -979,9 +978,9 @@ bool TAdvTripRoute::GetRoute(TDateTime part_key,
 {
   clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
 
-  ostringstream sql;
+  std::ostringstream sql;
   sql << "SELECT point_num,first_point,pr_tranzit ";
   if (part_key!=NoExists) {
       return GetArxRoute(part_key, point_id, after_current, route_type1, route_type2);
@@ -991,7 +990,6 @@ bool TAdvTripRoute::GetRoute(TDateTime part_key,
 
   sql << "WHERE point_id=:point_id AND pr_del>=0";
 
-  Qry.Clear();
   Qry.SQLText= sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -1140,35 +1138,34 @@ bool TTrferRoute::GetRoute(int grp_id,
                            TTrferRouteType route_type)
 {
   clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry1(PgOra::getROSession("POINTS"), STDLOG);
   if (route_type==trtWithFirstSeg)
   {
-    Qry.Clear();
-    Qry.SQLText=
+    Qry1.SQLText=
       "SELECT " + TTripInfo::selectedFields("points") + ", "
       "       pax_grp.airp_arv, pax_grp.piece_concept "
       "FROM pax_grp, points "
       "WHERE points.point_id=pax_grp.point_dep AND "
       "      pax_grp.grp_id = :grp_id AND points.pr_del>=0";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-    if (Qry.Eof) return false;
+    Qry1.CreateVariable("grp_id", otInteger, grp_id);
+    Qry1.Execute();
+    if (Qry1.Eof) return false;
     push_back(TTrferRouteItem());
     TTrferRouteItem &item=back();
-    item.operFlt.Init(Qry);
+    item.operFlt.Init(Qry1);
     if (item.operFlt.scd_out_exists())
       item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
     if (item.operFlt.est_out_exists())
       item.operFlt.est_out=UTCToLocal(item.operFlt.est_out.get(), AirpTZRegion(item.operFlt.airp));
     if (item.operFlt.act_out_exists())
       item.operFlt.act_out=UTCToLocal(item.operFlt.act_out.get(), AirpTZRegion(item.operFlt.airp));
-    item.airp_arv=Qry.FieldAsString("airp_arv");
-    if (!Qry.FieldIsNULL("piece_concept"))
-      item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+    item.airp_arv=Qry1.FieldAsString("airp_arv");
+    if (!Qry1.FieldIsNULL("piece_concept"))
+      item.piece_concept=Qry1.FieldAsInteger("piece_concept")!=0;
   };
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery Qry2(PgOra::getROSession({"TRANSFER","PIECE_CONCEPT"}), STDLOG);
+  Qry2.SQLText=
     "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
     "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt, "
     "       transfer.piece_concept "
@@ -1176,17 +1173,17 @@ bool TTrferRoute::GetRoute(int grp_id,
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
     "      grp_id=:grp_id AND transfer_num>0 "
     "ORDER BY transfer_num";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  Qry2.CreateVariable("grp_id", otInteger, grp_id);
+  Qry2.Execute();
+  for(;!Qry2.Eof;Qry2.Next())
   {
     push_back(TTrferRouteItem());
     TTrferRouteItem &item=back();
-    item.operFlt.Init(Qry);
-    item.airp_arv=Qry.FieldAsString("airp_arv");
-    item.airp_arv_fmt=(TElemFmt)Qry.FieldAsInteger("airp_arv_fmt");
-    if (!Qry.FieldIsNULL("piece_concept"))
-      item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+    item.operFlt.Init(Qry2);
+    item.airp_arv=Qry2.FieldAsString("airp_arv");
+    item.airp_arv_fmt=(TElemFmt)Qry2.FieldAsInteger("airp_arv_fmt");
+    if (!Qry2.FieldIsNULL("piece_concept"))
+      item.piece_concept=Qry2.FieldAsInteger("piece_concept")!=0;
   };
   return true;
 }
@@ -2057,7 +2054,7 @@ TPaxSeats::TPaxSeats( int point_id )
 {
     pr_lat_seat = getTripSetsPrLatSeat(point_id);
 
-    Qry = new TQuery( &OraSession );
+    Qry.reset(new DB::TQuery(PgOra::getROSession({"TRIP_COMP_LAYERS", "GRP_STATUS_TYPES"}), STDLOG));
     Qry->SQLText =
     "SELECT first_xname, first_yname, last_xname, last_yname "
     " FROM trip_comp_layers, grp_status_types "
@@ -2065,8 +2062,8 @@ TPaxSeats::TPaxSeats( int point_id )
     "       trip_comp_layers.pax_id=:pax_id AND "
     "       trip_comp_layers.layer_type=grp_status_types.layer_type "
     "ORDER BY first_yname, first_xname";
-  Qry->CreateVariable( "point_id", otInteger, point_id );
-  Qry->DeclareVariable( "pax_id", otInteger );
+    Qry->CreateVariable( "point_id", otInteger, point_id );
+    Qry->DeclareVariable( "pax_id", otInteger );
 }
 
 std::string TPaxSeats::getSeats( int pax_id, const std::string format )
@@ -2086,7 +2083,6 @@ std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 
 TPaxSeats::~TPaxSeats()
 {
-    delete Qry;
 }
 
 void GetMktFlights(const TTripInfo &operFltInfo, TSimpleMktFlights &simpleMktFlights)
@@ -2439,8 +2435,7 @@ const map<string, TPaxNameTitle>& pax_name_titles()
   static map<string, TPaxNameTitle> titles;
   if (titles.empty())
   {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("PAX_NAME_TITLES"), STDLOG);
     Qry.SQLText = "SELECT title, is_female FROM pax_name_titles";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
@@ -2451,9 +2446,9 @@ const map<string, TPaxNameTitle>& pax_name_titles()
       titles.insert( make_pair(info.title, info) );
     };
     ProgTrace(TRACE5, "titles loaded");
-  };
+  }
   return titles;
-};
+}
 
 bool GetPaxNameTitle(string &name, bool truncate, TPaxNameTitle &info)
 {

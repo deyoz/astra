@@ -181,7 +181,7 @@ void TPersWeights::getRules( int point_id, PersWeightRules &weights )
 void PersWeightRules::read( int point_id )
 {
   Clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_PERS_WEIGHTS"), STDLOG);
   Qry.SQLText =
     "SELECT class,subclass,male,female,child,infant "
     " FROM trip_pers_weights WHERE point_id=:point_id";
@@ -376,7 +376,8 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
 
   bool use_counters_by_subcls = weight_type != withBrd && include_wait_list;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(use_counters_by_subcls ? PgOra::getROSession("COUNTERS_BY_SUBCLS")
+                                        : PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
   ostringstream sql;
   if (use_counters_by_subcls)
   {
@@ -387,29 +388,64 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   }
   else
   {
-    sql << "SELECT NVL(pax.cabin_class, pax_grp.class) AS class, subclass, "
-           "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
-           "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
-           "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
-           "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
-           "       NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
-           "       NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight "
+    sql << "SELECT COALESCE(pax.cabin_class, pax_grp.class) AS class, subclass, "
+           "       COALESCE(SUM(CASE WHEN pax.pers_type=:adl THEN CASE WHEN pax.is_female=0 THEN 1"
+           "                                                           WHEN pax.is_female IS NULL THEN 1"
+           "                                                           ELSE 0 END "
+           "                         ELSE 0 END), 0) AS male, "
+           "       COALESCE(SUM(CASE WHEN pax.pers_type=:adl THEN CASE WHEN pax.is_female=0 THEN 0"
+           "                                                           WHEN pax.is_female IS NULL THEN 0"
+           "                                                           ELSE 1 END "
+           "                         ELSE 0 END), 0) AS female, "
+           "       COALESCE(SUM(CASE WHEN pax.pers_type=:chd THEN 1"
+           "                         ELSE 0 END), 0) AS child, "
+           "       COALESCE(SUM(CASE WHEN pax.pers_type=:inf THEN 1 "
+           "                         ELSE 0 END), 0) AS infant, ";
+    if(!DEMO_MODE()) {
+        sql <<
+           "       COALESCE(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
+           "       COALESCE(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight ";
+    } else {
+        TST();
+        // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
+        sql <<
+           "       0 as rk_weight, "
+           "       0 as bag_weight ";
+    }
+    sql <<
            "FROM pax_grp, pax "
            "WHERE pax_grp.grp_id=pax.grp_id";
     if ( weight_type == withBrd )
       sql << " AND pr_brd=1 ";
     else
       sql << " AND pr_brd IS NOT NULL ";
-    if(not include_wait_list)
-      sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
+    if(not include_wait_list) {
+        if(!DEMO_MODE()) {
+            sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
+        } else {
+            TST();
+            // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
+            sql << " and 1=1 ";
+        }
+    }
     sql << " AND point_dep=:point_id "
            " AND pax_grp.status NOT IN ('E') "
-           "GROUP BY NVL(pax.cabin_class, pax_grp.class), subclass "
+           "GROUP BY COALESCE(pax.cabin_class, pax_grp.class), subclass "
            "UNION "
            "SELECT class, NULL AS subclass, "
-           "       0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
+           "       0 AS male, 0 AS female, 0 AS child, 0 AS infant, ";
+    if(!DEMO_MODE()) {
+        sql <<
            "       NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
-           "       NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
+           "       NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight ";
+    } else {
+        TST();
+        // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
+        sql <<
+           "       0 as rk_weight, "
+           "       0 as bag_weight ";
+    }
+    sql <<
            "FROM pax_grp "
            "WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
            "GROUP BY class ";

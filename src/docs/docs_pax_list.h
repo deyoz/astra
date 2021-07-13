@@ -3,6 +3,7 @@
 
 #include "passenger.h"
 #include "telegram.h"
+#include "db_tquery.h"
 #include "docs_consts.h"
 #include "pers_weights.h"
 
@@ -127,6 +128,7 @@ namespace REPORTS {
                 excess_pc.empty();
         }
         void fromDB(TQuery &Qry);
+        void fromDB(DB::TQuery &Qry);
         void trace(TRACE_SIGNATURE);
     };
 
@@ -180,6 +182,7 @@ namespace REPORTS {
 
         virtual void trace(TRACE_SIGNATURE);
         virtual void fromDB(TQuery &Qry);
+        virtual void fromDB(DB::TQuery &Qry);
         virtual ~TPax() {}
         const CheckIn::TSimplePaxGrpItem &grp() const;
     };
@@ -214,6 +217,7 @@ namespace REPORTS {
         void trace(TRACE_SIGNATURE);
         // внешний запрос
         void fromDB(TQuery &Qry, bool countExcessPC);
+        void fromDB(DB::TQuery &Qry, bool countExcessPC);
         // клеится свой, внутренний
         void fromDB();
         virtual TPaxPtr getPaxPtr();

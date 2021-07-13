@@ -45,13 +45,13 @@ class APIAttrs
       set(crs, checkin);
     }
 
-    APIAttrs(TAPIType type, TQuery& Qry) : apiType(type)
+    APIAttrs(TAPIType type, DB::TQuery& Qry) : apiType(type)
     {
       setPrefixAndAbbriviation();
       get(Qry);
     }
 
-    void get(TQuery& Qry);
+    void get(DB::TQuery& Qry);
     std::string view(bool paxNotRefused) const;
 
     class BindParam
@@ -85,7 +85,7 @@ class AllAPIAttrs
 {
   private:
     std::vector<APIAttrs> attrs;
-    void get(TQuery& Qry);
+    void get(DB::TQuery& Qry);
 
     bool init=false;
     int col_pax_id=-1;
@@ -94,7 +94,7 @@ class AllAPIAttrs
     int col_docs_not_empty_attrs=-1;
     int col_crs_deleted=-1;
     boost::optional<bool> beforeDemarcationDate;
-    void initColumnIndexes(TQuery& Qry);
+    void initColumnIndexes(DB::TQuery& Qry);
   public:
     AllAPIAttrs(const TDateTime& scdOut);
     bool useOldAlgorithm()
@@ -102,8 +102,8 @@ class AllAPIAttrs
       return beforeDemarcationDate && beforeDemarcationDate.get();
     }
 
-    std::string view(TQuery& Qry, bool paxNotRefused);
-    std::set<APIS::TAlarmType> getAlarms(TQuery& Qry,
+    std::string view(DB::TQuery& Qry, bool paxNotRefused);
+    std::set<APIS::TAlarmType> getAlarms(DB::TQuery& Qry,
                                          bool apiDocApplied,
                                          ASTRA::TPaxTypeExt paxTypeExt,
                                          bool docoConfirmed,

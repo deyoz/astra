@@ -1045,6 +1045,12 @@ void TrferFromDB(TTrferType type,
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
   };
 
+  if(DEMO_MODE()) {
+      // TODO
+      TST();
+      return;
+  }
+
   ostringstream sql;
   sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num) AS bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
 //         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n" //могло бы быть проще, но все из-за 11-го оракла

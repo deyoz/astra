@@ -55,6 +55,15 @@ public:
                                        const TSortType sort,
                                        const bool usePaxCalcData=false);
 
+  static void GetPaxQuery(DB::TQuery &Qry, const int point_id,
+                                           const int reg_no,
+                                           const int pax_id,
+                                           const std::string &lang,
+                                           const ASTRA::TRptType rpt_type,
+                                           const std::string &client_type,
+                                           const TSortType sort,
+                                           const bool usePaxCalcData=false);
+
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

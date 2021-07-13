@@ -1670,8 +1670,8 @@ struct PaxLoadTotalRowStruct {
 
 static void getPaxLoadTotal( int point_id, PaxLoadTotalRowStruct &total )
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  auto& sess = PgOra::getROSession({"PAX_GRP","PAX","BAG2","COUNTERS2","TRIP_CLASSES"});
+  DB::TQuery Qry(sess, STDLOG);
   Qry.SQLText =
     "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
     "       b.bag_amount, "
@@ -1680,30 +1680,50 @@ static void getPaxLoadTotal( int point_id, PaxLoadTotalRowStruct &total )
     "       c.crs_ok,c.crs_tranzit, "
     "       e.excess_wt,e.excess_pc,f.cfg "
     "FROM "
-    " (SELECT NVL(SUM(seats),0) AS seats, "
-    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS adult_m, "
-    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS adult_f, "
-    "         NVL(SUM(DECODE(pers_type,:child,1,0)),0) AS child, "
-    "         NVL(SUM(DECODE(pers_type,:baby,1,0)),0) AS baby "
+    " (SELECT COALESCE(SUM(seats),0) AS seats, "
+    "         COALESCE(SUM(CASE WHEN pers_type=:adult THEN CASE WHEN pax.is_female=0 THEN 1"
+    "                                                           WHEN pax.is_female IS NULL THEN 1"
+    "                                                           ELSE 0 END "
+    "                           ELSE 0 END), 0) AS adult_m, "
+    "         COALESCE(SUM(CASE WHEN pers_type=:adult THEN CASE WHEN pax.is_female=0 THEN 0"
+    "                                                           WHEN pax.is_female IS NULL THEN 0"
+    "                                                           ELSE 1 END "
+    "                           ELSE 0 END), 0) AS adult_f, "
+    "         COALESCE(SUM(CASE WHEN pers_type=:child THEN 1 "
+    "                           ELSE 0 END), 0) AS child, "
+    "         COALESCE(SUM(CASE WHEN pers_type=:baby THEN 1 "
+    "                           ELSE 0 END), 0) AS baby "
     "  FROM pax_grp,pax "
     "  WHERE pax_grp.grp_id=pax.grp_id AND "
     "        pax_grp.point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
-    " (SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
-    "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
-    "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
+    " (SELECT COALESCE(SUM(CASE WHEN pr_cabin=0 THEN amount "
+    "                           ELSE 0 END), 0) AS bag_amount, "
+    "         COALESCE(SUM(CASE WHEN pr_cabin=0 THEN weight "
+    "                           ELSE 0 END), 0) AS bag_weight, "
+    "         COALESCE(SUM(CASE WHEN pr_cabin=0 THEN 0"
+    "                           ELSE weight END), 0) AS rk_weight "
     "  FROM pax_grp,bag2 "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        pax_grp.point_dep=:point_id AND status NOT IN ('E') AND "
-    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, "
-    " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
-    "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
+    "        pax_grp.point_dep=:point_id AND status NOT IN ('E') AND ";
+  if(!DEMO_MODE()) {
+      Qry.SQLText +=
+    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, ";
+  } else {
+      TST();
+      // ‚ DEMO … ‚›‡›‚€… …’›… ”“– €…’‚ „ ……‚„€ • € c++
+      Qry.SQLText +=
+    "        1=1) b, ";
+  }
+  Qry.SQLText +=
+    " (SELECT COALESCE(SUM(crs_ok),0) AS crs_ok, "
+    "         COALESCE(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
     "  WHERE point_dep=:point_id) c, "
-    " (SELECT NVL(SUM(excess_wt),0) AS excess_wt, "
-    "         NVL(SUM(excess_pc),0) AS excess_pc "
+    " (SELECT COALESCE(SUM(excess_wt),0) AS excess_wt, "
+    "         COALESCE(SUM(excess_pc),0) AS excess_pc "
     "  FROM pax_grp "
     "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
-    " (SELECT NVL(SUM(cfg),0) AS cfg "
+    " (SELECT COALESCE(SUM(cfg),0) AS cfg "
     "  FROM trip_classes "
     "  WHERE point_id=:point_id) f";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1786,15 +1806,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(fieldsNode,"field","load");
 
   //αβΰ®ª  '¨β®£®'
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery PQry(PgOra::getROSession("POINTS"), STDLOG);
+  PQry.SQLText=
     "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
     "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  TTripInfo fltInfo(Qry);
+  PQry.CreateVariable("point_id", otInteger, point_id);
+  PQry.Execute();
+  if (PQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  TTripInfo fltInfo(PQry);
   PaxLoadTotalRowStruct total;
   TComplexBagExcessNodeList  excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
   getPaxLoadTotal( point_id, total );
@@ -1855,6 +1874,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   string crew_filter;
   if (!(pr_class || pr_cl_grp || pr_status)) crew_filter=createCrewFilter();
+
+  if(DEMO_MODE()) {
+      TST();
+      // ‚ DEMO € … ‘‹‹ „ †…
+      return;
+  }
 
   if (!pr_section)
   {
@@ -1918,9 +1943,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',NVL(pax.cabin_class, pax_grp.class))"
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',COALESCE(pax.cabin_class, pax_grp.class))"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,NVL(pax.cabin_class_grp, pax_grp.class_grp))"
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,COALESCE(pax.cabin_class_grp, pax_grp.class_grp))"
                                 << (i==0?" AS class_grp":"");
           if (pr_hall)        s << ", pax_grp.hall";
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
@@ -2136,7 +2161,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
       sql << "GROUP BY " << group_by.str().erase(0,1) << endl;
 
-      Qry.Clear();
+      TQuery Qry(&OraSession);
       Qry.SQLText = sql.str().c_str();
       Qry.CreateVariable("point_id",otInteger,point_id);
       if (pass==3)
@@ -2867,7 +2892,7 @@ struct SearchCrsResult
   std::string apis;
 };
 
-std::vector<SearchCrsResult> fetchSearchCrsResults(TQuery& Qry, bool apis_generation,
+std::vector<SearchCrsResult> fetchSearchCrsResults(DB::TQuery& Qry, bool apis_generation,
                                                    AllAPIAttrs& allAPIAttrs)
 {
   std::vector<SearchCrsResult> result;
@@ -2925,6 +2950,8 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
   LogTrace(TRACE6) << __func__;
   std::vector<SearchCrsResult> result;
 
+  auto& sess = PgOra::getROSession({"CRS_PNR", "CRS_PAX", "TLG_BINDING", "PAX"});
+
   ostringstream sql;
 
   sql <<
@@ -2962,7 +2989,18 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
   else
     sql << ", pax_calc_data.crs_doc_no, pax_calc_data.crs_fqt_tier_level ";
   sql <<
-     "FROM crs_pnr,crs_pax,pax,pax_grp,pax_calc_data,";
+     "FROM crs_pnr "
+     "   JOIN ( "
+     "        crs_pax "
+     "          LEFT OUTER JOIN pax "
+     "            ON crs_pax.pax_id = pax.pax_id "
+     "          LEFT OUTER JOIN pax_grp "
+     "            ON pax.grp_id = pax_grp.grp_id"
+     "          LEFT OUTER JOIN pax_calc_data "
+     "            ON crs_pax.pax_id = pax_calc_data.pax_calc_data_id "
+     "      ) "
+     "        ON crs_pnr.pnr_id = crs_pax.pnr_id "
+     "   JOIN ";
 
   bool returnPnrIds=!paxId;
   ostringstream subquerySqlFilter;
@@ -2970,12 +3008,19 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
     subquerySqlFilter << "crs_pax.pax_id=" << paxId.get();
 
   sql << "       ( "
-      << getSearchPaxSubquery(psCheckin, returnPnrIds, false, false, false, subquerySqlFilter.str())
+      << getSearchPaxSubquery(psCheckin, returnPnrIds, false, false, false, subquerySqlFilter.str(), sess.isOracle())
       << "UNION \n"
-      << getSearchPaxSubquery(psGoshow,  returnPnrIds, false, false, false, subquerySqlFilter.str())
+      << getSearchPaxSubquery(psGoshow,  returnPnrIds, false, false, false, subquerySqlFilter.str(), sess.isOracle())
       << "UNION \n"
-      << getSearchPaxSubquery(psTransit, returnPnrIds, false, false, false, subquerySqlFilter.str())
-      << "       ) ids ";
+      << getSearchPaxSubquery(psTransit, returnPnrIds, false, false, false, subquerySqlFilter.str(), sess.isOracle())
+      << "       ) ";
+  if(sess.isOracle()) {
+     sql << "ids ";
+  } else {
+     sql << "as ids ";
+  }
+
+  sql << "ON crs_pnr.pnr_id = ids.pnr_id ";
 
   if (returnPnrIds)
     sql << "WHERE crs_pnr.pnr_id=ids.pnr_id AND ";
@@ -2983,14 +3028,10 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
     sql << "WHERE crs_pax.pax_id=ids.pax_id AND ";
 
   sql <<
-     "      crs_pax.pax_id=pax_calc_data.pax_calc_data_id(+) AND "
-     "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-     "      crs_pax.pax_id=pax.pax_id(+) AND "
-     "      pax.grp_id=pax_grp.grp_id(+) AND "
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(sess, STDLOG);
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id.get());
   Qry.CreateVariable("ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin));

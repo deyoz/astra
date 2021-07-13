@@ -74,12 +74,13 @@ std::string getSearchPaxSubquery(const ASTRA::TPaxStatus& pax_status,
                                  const bool& exclude_checked,
                                  const bool& exclude_deleted,
                                  const bool& select_pad_with_ok,
-                                 const std::string& sql_filter);
-void bindSearchPaxQuery(TQuery& Qry, const PointId_t& point_dep,
+                                 const std::string& sql_filter,
+                                 bool forOracle);
+void bindSearchPaxQuery(DB::TQuery& Qry, const PointId_t& point_dep,
                         const ASTRA::TPaxStatus& pax_status);
-std::vector<SearchPaxResult> fetchSearchPaxResults(TQuery& Qry);
+std::vector<SearchPaxResult> fetchSearchPaxResults(DB::TQuery& Qry);
 
-void getTCkinSearchPaxQuery(TQuery& Qry);
+void getTCkinSearchPaxQuery(DB::TQuery& Qry);
 
 std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id);
 std::vector<SearchPaxResult> runSearchPax(const PointId_t& point_dep,

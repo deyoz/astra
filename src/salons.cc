@@ -2711,7 +2711,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   //1. полученный маршрут надо пересечь с сегментом (если задан point_dep, point_arv)
   //2. проверить весь маршрут на предмет: совпадения crc_comp
   //3. здесь надо будет сделать отсечку
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry( PgOra::getROSession({"TRIP_SETS", "POINTS"}), STDLOG);
   Qry.SQLText =
     "SELECT airline, "
     "       flt_no, "
@@ -2719,9 +2719,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     "       scd_out, "
     "       act_out, "
     "       pr_lat_seat, "
-    "       NVL(comp_id,-1) comp_id, "
+    "       COALESCE(comp_id,-1) comp_id, "
     "       crc_comp, "
-    "       NVL(crc_base_comp,crc_comp) as crc_base_comp, "
+    "       COALESCE(crc_base_comp,crc_comp) as crc_base_comp, "
     "       craft, "
     "       bort, "
     "       airp, "
@@ -2827,9 +2827,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
 int FilterRoutesProperty::readNum( int point_id, bool in_use )
 {
   if ( pointNum.find( point_id ) == pointNum.end() ) {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
-      "SELECT point_num, airp FROM points WHERE point_id = :point_id AND pr_del!=-1";
+      "SELECT point_num, airp FROM points WHERE point_id = :point_id AND pr_del != -1";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( Qry.Eof )
@@ -8299,21 +8299,21 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
   bool createDefaults = false;
   SEAT_DESCR::paxsWaitListDescrSeat paxsSeatDescr;
   paxsSeatDescr.get( point_dep );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
+  DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
+  PointsQry.SQLText =
     "SELECT airline "
     " FROM points "
-    " WHERE points.point_id=:point_id AND points.pr_del!=-1 AND points.pr_reg<>0";
-  Qry.CreateVariable( "point_id", otInteger, point_dep );
-  Qry.Execute();
-  if ( Qry.Eof )
+    " WHERE points.point_id = :point_id AND points.pr_del <> -1 AND points.pr_reg <> 0";
+  PointsQry.CreateVariable( "point_id", otInteger, point_dep );
+  PointsQry.Execute();
+  if ( PointsQry.Eof )
     throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  SEATS2::TSublsRems subcls_rems( string(Qry.FieldAsString( "airline" )) );
+  SEATS2::TSublsRems subcls_rems( string(PointsQry.FieldAsString( "airline" )) );
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TClsGrp &cls_grp = (TClsGrp &)base_tables.get("CLS_GRP");    //cls_grp.code subclass,
   SEATS2::TDefaults def;
 
-  TQuery RemsQry( &OraSession );
+  DB::TQuery RemsQry(PgOra::getROSession({"PAX_REM","COMP_REM_TYPES"}), STDLOG);
   RemsQry.SQLText =
     "SELECT rem, rem_code, comp_rem_types.pr_comp "
     " FROM pax_rem, comp_rem_types "
@@ -8322,7 +8322,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
     " ORDER BY pr_comp, code ";
   RemsQry.DeclareVariable( "pax_id", otInteger );
 
-  Qry.Clear();
+  TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT pax.ticket_no, pax.wl_type, pax.tid, "
     "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_weight, "

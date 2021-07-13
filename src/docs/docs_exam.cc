@@ -29,9 +29,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TODO"), STDLOG);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
-    ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");

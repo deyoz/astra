@@ -857,8 +857,8 @@ class TSimplePaxItem
     static boost::optional<TComplexClass> getCrsClass(const PaxId_t& paxId, bool onlyIfClassChange);
     static boost::optional<TBagQuantity> getCrsBagNorm(const PaxId_t& paxId);
 
-    template <typename T>
-    static boost::optional<TBagQuantity> getCrsBagNorm(TQuery &Qry, const T& quantityField, const T& unitField)
+    template <typename TQueryT, typename T>
+    static boost::optional<TBagQuantity> getCrsBagNorm(TQueryT &Qry, const T& quantityField, const T& unitField)
     {
       if (!Qry.FieldIsNULL(quantityField) && !Qry.FieldIsNULL(unitField))
         return TBagQuantity(Qry.FieldAsInteger(quantityField),

@@ -1554,8 +1554,7 @@ static void CreateNoRecResponse(const TInquiryGroupSummary &sum, xmlNodePtr resN
 
 static void CreateCrewResponse(int point_dep, const TInquiryGroupSummary &sum, xmlNodePtr resNode)
 {
-  TQuery FltQry(&OraSession);
-  FltQry.Clear();
+  DB::TQuery FltQry(PgOra::getROSession("POINTS"), STDLOG);
   FltQry.SQLText=
     "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
     "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
@@ -2046,7 +2045,7 @@ struct SearchGroupResult
   int seats;
 };
 
-std::vector<SearchGroupResult> fetchSearchGroupResult(TQuery& Qry)
+std::vector<SearchGroupResult> fetchSearchGroupResult(DB::TQuery& Qry)
 {
   std::vector<SearchGroupResult> result;
   for(;!Qry.Eof;Qry.Next()) {
@@ -2065,7 +2064,7 @@ std::vector<SearchGroupResult> fetchSearchGroupResult(TQuery& Qry)
 std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int seats,
                                               const TPaxStatus& pax_status)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX"}), STDLOG);
   string sql;
   sql=  "SELECT crs_pnr.pnr_id, \n"
         "       MIN(crs_pnr.grp_name) AS grp_name, \n"
@@ -2080,7 +2079,8 @@ std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int se
                              false,
                              false,
                              true,
-                             "");
+                             "",
+                             true);
 
   sql+= "  ) ids  \n"
         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
@@ -7053,7 +7053,7 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
 
         std::string bagNormAndBrand;
 
-        boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm<string>(PaxQry, "crs_bag_norm", "crs_bag_norm_unit");
+        boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm<TQuery, string>(PaxQry, "crs_bag_norm", "crs_bag_norm_unit");
 
         TETickItem etick;
         if (pax.tkn.validET())
@@ -8123,7 +8123,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(segNode,"classes",cfg.str());
         }
 
-        TQuery CrsQry(&OraSession);
+        DB::TQuery CrsQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX,PAX"}), STDLOG);
         getTCkinSearchPaxQuery(CrsQry);
         //класс пассажиров
         CrsQry.SetVariable("point_id", currSeg.pointDep().get());

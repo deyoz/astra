@@ -162,7 +162,9 @@ void TCompElemTypes::Update()
     if (PgOra::supportsPg("COMP_ELEM_TYPES")) {
         UpdatePg(QUERY, is_places, max_time_create, default_elem_code);
     }
+#ifdef ENABLE_ORACLE
     UpdateOra(QUERY, is_places, max_time_create, default_elem_code);
+#endif
 }
 
 TCompElemTypes::TCompElemTypes()
@@ -255,7 +257,9 @@ void TCompElemTypes::toDB()
         if (PgOra::supportsPg("COMP_ELEM_TYPES")) {
             ToDbPg(is_places);
         }
+#ifdef ENABLE_ORACLE
         ToDbOra(is_places);
+#endif
     } catch (const std::exception& e) {
         cout << e.what() << endl;
         throw e;

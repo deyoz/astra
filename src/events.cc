@@ -42,8 +42,7 @@ int getMoveId(TDateTime part_key, int point_id)
         }
     }
     else {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         Qry.SQLText=
                 "SELECT move_id FROM points "
                 "WHERE point_id=:point_id AND pr_del>=0";

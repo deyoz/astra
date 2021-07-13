@@ -975,17 +975,18 @@ void get_wb_franchise_flts(const TTripInfo &trip_info, vector<TTripInfo> &franch
 {
     franchise_flts.clear();
     if(trip_info.airp.empty()) {
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(PgOra::getROSession("FRANCHISE_SETS"),
                 "select * from franchise_sets where "
                 "   airline_franchisee = :airline and "
                 "   flt_no_franchisee = :flt_no and "
-                "   nvl(suffix_franchisee, ' ') = nvl(:suffix, ' ') and "
+                "   coalesce(suffix_franchisee, ' ') = coalesce(:suffix, ' ') and "
                 "   pr_wb <> 0 and "
                 "   pr_denial = 0 ",
                 QParams()
                 << QParam("airline", otString, trip_info.airline)
                 << QParam("flt_no", otInteger, trip_info.flt_no)
-                << QParam("suffix", otString, trip_info.suffix));
+                << QParam("suffix", otString, trip_info.suffix),
+                             STDLOG);
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next()) {
             TTripInfo _info = trip_info;

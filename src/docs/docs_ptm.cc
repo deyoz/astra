@@ -100,6 +100,27 @@ void TPMPax::fromDB(TQuery &Qry)
     }
 }
 
+void TPMPax::fromDB(DB::TQuery &Qry)
+{
+    TPax::fromDB(Qry);
+    target = Qry.FieldAsString("target");
+    last_target = get_last_target(Qry, get_pax_list().rpt_params);
+    point_num = Qry.FieldAsInteger("point_num");
+    status = Qry.FieldAsString("status");
+    point_id = Qry.FieldAsInteger("trip_id");
+    class_grp = Qry.FieldAsInteger("class_grp");
+    priority = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
+    cls = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).cl;
+    if(get_pax_list().rpt_params.pr_trfer) {
+        pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        trfer_airline = Qry.FieldAsString("trfer_airline");
+        trfer_flt_no = Qry.FieldAsInteger("trfer_flt_no");
+        trfer_suffix = Qry.FieldAsString("trfer_suffix");
+        trfer_airp_arv = Qry.FieldAsString("trfer_airp_arv");
+        trfer_scd = Qry.FieldAsDateTime("trfer_scd");
+    }
+}
+
 void TPMPax::trace(TRACE_SIGNATURE)
 {
     TPax::trace(TRACE_PARAMS);

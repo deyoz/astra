@@ -1191,8 +1191,7 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   if (info.sendInfo.point_id!=NoExists)
   {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText=
       "SELECT airline,flt_no,airp,point_num,first_point,pr_tranzit "
       "FROM points WHERE point_id=:point_id AND pr_del>=0";

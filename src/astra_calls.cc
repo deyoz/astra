@@ -155,8 +155,7 @@ static bool seat_plan_change(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int seat_plan_id = NodeAsInteger( "args/seat_plan_id", reqNode );
   LogTrace(TRACE5) << __func__ << " seat_plan_id=" << seat_plan_id;
-  TQuery Qry(&OraSession);
-  ComponCreator::signalChangesComp( Qry, seat_plan_id );
+  ComponCreator::signalChangesComp( seat_plan_id );
   return true;
 }
 
@@ -165,8 +164,7 @@ static bool configuration_change(xmlNodePtr reqNode, xmlNodePtr resNode)
   int seat_plan_id = NodeAsInteger( "args/seat_plan_id", reqNode );
   int configuration_id = NodeAsInteger( "args/configuration_id", reqNode );
   LogTrace(TRACE5) << __func__ << " seat_plan_id=" << seat_plan_id << ", configuration_id=" << configuration_id;
-  TQuery Qry(&OraSession);
-  ComponCreator::signalChangesComp( Qry, seat_plan_id, configuration_id );
+  ComponCreator::signalChangesComp( seat_plan_id, configuration_id );
   return true;
 }
 //=========запрос на СПП от Либры==============
@@ -375,10 +373,9 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   if ( !componSetter.isLibraMode() ) {
     throw EXCEPTIONS::Exception("Mode is not Libra");
   }
-  TQuery Qry(&OraSession);
   ComponCreator::ComponLibraFinder::AstraSearchResult res =
       ComponCreator::ComponLibraFinder::checkChangeAHMFromCompId( componSetter.getBort(),
-                                                                  componSetter.getCompId(), Qry );
+                                                                  componSetter.getCompId() );
   if ( !res.isOk( ) ) {
    throw EXCEPTIONS::Exception("Compon is not valid");
  }
@@ -407,7 +404,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
       search_layers.insert( layer_type );
     }
   }
-  Qry.Clear();
+  TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT "
     "       pax.pax_id,pax_grp.airp_arv,pax_grp.airp_dep, "

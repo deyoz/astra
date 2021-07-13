@@ -26,6 +26,7 @@ pkgIndex.tcl
 ntlmapp
 now.run
 astra.tcl
+supervisor.tcl
 date_time_zonespec.csv
 nosir.tcl
 /*.creator

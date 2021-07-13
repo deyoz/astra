@@ -194,6 +194,11 @@ namespace REPORT_PAX_REMS {
         return get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
     }
 
+    void get(DB::TQuery &Qry, const std::string &lang, std::multiset<CheckIn::TPaxRemItem> &final_rems)
+    {
+        return get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
+    }
+
     void get_rem_codes(TQuery &Qry, const string &lang, set<string> &rem_codes)
     {
         multiset<CheckIn::TPaxRemItem> final_rems;
@@ -242,3 +247,22 @@ string get_last_target(TQuery &Qry, TRptParams &rpt_params)
     return result;
 }
 
+std::string get_last_target(DB::TQuery &Qry, TRptParams &rpt_params)
+{
+    string result;
+    if(rpt_params.pr_trfer) {
+        string airline = Qry.FieldAsString("trfer_airline");
+        if(!airline.empty()) {
+            ostringstream buf;
+            buf
+                << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
+                << "("
+                << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
+                << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
+                << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
+                << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
+            result = buf.str();
+        }
+    }
+    return result;
+}

@@ -221,7 +221,7 @@ bool calc_overload_alarm( int point_id )
     overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
   };
   return overload_alarm;
-};
+}
 
 bool check_overload_alarm( int point_id )
 {
@@ -489,11 +489,10 @@ void check_crew_alarms(int point_id)
   bool crew_number = false;
   bool crew_diff = false;
 
-  TQuery Qry(&OraSession);
   bool do_check=CheckStageACT(point_id, sOpenCheckIn);
   if (!do_check)
   {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_TASKS"), STDLOG);
     Qry.SQLText=
       "SELECT point_id FROM trip_tasks "
       "WHERE point_id=:point_id AND name=:name AND "
@@ -510,25 +509,26 @@ void check_crew_alarms(int point_id)
   {
     int sopp_num=NoExists;
     int checkin_num=NoExists;
-    TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText =
-      "SELECT NVL(cockpit,0)+NVL(cabin,0) AS num "
+    DB::TQuery Qry1(PgOra::getROSession("TRIP_CREW"), STDLOG);
+      Qry1.SQLText =
+      "SELECT COALESCE(cockpit,0)+COALESCE(cabin,0) AS num "
       "FROM trip_crew "
       "WHERE point_id=:point_id AND (cockpit IS NOT NULL OR cabin IS NOT NULL)";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if (!Qry.Eof) sopp_num=Qry.FieldAsInteger("num");
+    Qry1.CreateVariable( "point_id", otInteger, point_id );
+    Qry1.Execute();
+    if (!Qry1.Eof) sopp_num=Qry1.FieldAsInteger("num");
 
-    Qry.SQLText=
+    DB::TQuery Qry2(PgOra::getROSession({"PAX", "PAX_GRP"}), STDLOG);
+    Qry2.SQLText=
       "SELECT COUNT(*) AS num "
       "FROM pax_grp, pax "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.point_dep=:point_id AND "
       "      pax_grp.status IN ('E') AND "
       "      pax.refuse IS NULL";
-    Qry.Execute();
-    if (!Qry.Eof && Qry.FieldAsInteger("num")!=0) checkin_num=Qry.FieldAsInteger("num");
+    Qry2.CreateVariable("point_id", otInteger, point_id);
+    Qry2.Execute();
+    if (!Qry2.Eof && Qry2.FieldAsInteger("num")!=0) checkin_num=Qry2.FieldAsInteger("num");
 
     crew_diff=sopp_num!=NoExists && checkin_num!=NoExists && sopp_num!=checkin_num;
 
@@ -634,8 +634,7 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
              "      pax.refuse IS NULL ";
       if (need_crs_pax)
         sql << "      AND pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 ";
-      TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_CALC_DATA"}), STDLOG);
       Qry.SQLText=sql.str().c_str();
       Qry.CreateVariable("point_id", otInteger, point_id);
       Qry.Execute();
@@ -654,8 +653,8 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
 
           string name=Qry.FieldAsString(col_name);
           string airp_arv=Qry.FieldAsString(col_airp_arv);
-          TPaxStatus status=DecodePaxStatus(Qry.FieldAsString(col_status));
-          ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString(col_crew_type));
+          TPaxStatus status=DecodePaxStatus(Qry.FieldAsString(col_status).c_str());
+          ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString(col_crew_type).c_str());
           ASTRA::TPaxTypeExt pax_ext(status, crew_type);
           bool docoConfirmed=Qry.FieldAsInteger(col_doco_confirm)!=0;
           bool crsExists=!Qry.FieldIsNULL(col_crs_pax_id);

@@ -1,5 +1,6 @@
 #include "apis_settings.h"
 #include "astra_utils.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -20,7 +21,7 @@ const std::set<std::string>& allFormats()
   {
     formats=boost::in_place();
 
-    TQuery ApisSetsQry(&OraSession);
+    DB::TQuery ApisSetsQry(PgOra::getROSession("APIS_FORMATS"), STDLOG);
     ApisSetsQry.SQLText=
         "SELECT code AS format FROM apis_formats ORDER BY code";
     ApisSetsQry.Execute();
@@ -31,7 +32,7 @@ const std::set<std::string>& allFormats()
   return formats.get();
 }
 
-Settings& Settings::fromDB(TQuery &Qry)
+Settings& Settings::fromDB(DB::TQuery &Qry)
 {
   clear();
   m_countryControl=Qry.FieldAsString("country_control");
@@ -84,7 +85,7 @@ SettingsList& SettingsList::getByCountries(const std::string& airline,
 {
   clear();
 
-  TQuery ApisSetsQry(&OraSession);
+  DB::TQuery ApisSetsQry(PgOra::getROSession("APIS_SETS"), STDLOG);
   ApisSetsQry.SQLText=
     "SELECT apis_sets.*,"
     "       (CASE WHEN country_arv IS NOT NULL THEN 2 ELSE 0 END + "
@@ -124,7 +125,7 @@ SettingsList& SettingsList::getByAddrs(const std::string& ediAddr,
 {
   clear();
 
-  TQuery ApisSetsQry(&OraSession);
+  DB::TQuery ApisSetsQry(PgOra::getROSession("APIS_SETS"), STDLOG);
   ApisSetsQry.SQLText=
     "SELECT apis_sets.* "
     "FROM apis_sets "
@@ -202,8 +203,7 @@ void AirlineOfficeList::get(const std::string& airline,
 {
   clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("AIRLINE_OFFICES"), STDLOG);
   Qry.SQLText=
     "SELECT contact_name, phone, fax "
     "FROM airline_offices "
@@ -238,7 +238,7 @@ const map<string/*country_depend*/, string/*country_regul*/>& customs()
   {
     customsMapByDepend=boost::in_place();
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("APIS_CUSTOMS"), STDLOG);
     Qry.SQLText="SELECT country_depend, country_regul FROM apis_customs";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())

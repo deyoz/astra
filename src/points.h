@@ -404,6 +404,7 @@ public:
     comp_id = ASTRA::NoExists;
   }
   void getDestData( TQuery &Qry );
+  void getDestData( DB::TQuery &Qry );
   void Load( int vpoint_id, BitSet<TUseDestData> FUseData );
   void LoadProps( int vpoint_id, BitSet<TUseDestData> FUseData );
   void getEvents( const TPointsDest &vdest );

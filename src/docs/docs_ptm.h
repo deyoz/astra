@@ -24,8 +24,8 @@ namespace REPORTS {
 
     struct TPMPax: public TPax {
 
-
         void fromDB(TQuery &Qry);
+        void fromDB(DB::TQuery &Qry);
         void trace(TRACE_SIGNATURE);
         TPMPaxList &get_pax_list() const;
 

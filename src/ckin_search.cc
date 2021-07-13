@@ -119,7 +119,8 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
                                  const bool& exclude_checked,
                                  const bool& exclude_deleted,
                                  const bool& select_pad_with_ok,
-                                 const std::string& sql_filter)
+                                 const std::string& sql_filter,
+                                 bool forOracle)
 {
   ostringstream sql;
   string status_param;
@@ -188,7 +189,7 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
     if (pass==1)
       sql << "   UNION \n";
     else
-      sql << "   MINUS \n";
+      sql << (forOracle ? "   MINUS \n" : "   EXCEPT \n");
 
     if (return_pnr_ids)
       sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
@@ -231,7 +232,7 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
   return sql.str();
 }
 
-void bindSearchPaxQuery(TQuery& Qry, const PointId_t& point_id, const TPaxStatus& pax_status)
+void bindSearchPaxQuery(DB::TQuery& Qry, const PointId_t& point_id, const TPaxStatus& pax_status)
 {
   switch (pax_status)
   {
@@ -271,11 +272,9 @@ static const std::string& getSearchPaxQueryOrderByPart()
   return result;
 }
 
-void getTCkinSearchPaxQuery(TQuery& Qry)
+void getTCkinSearchPaxQuery(DB::TQuery& Qry)
 {
-    Qry.Clear();
-
-    ostringstream sql;
+    std::ostringstream sql;
 
     sql << getSearchPaxQuerySelectPart()
         << "FROM tlg_binding,crs_pnr,crs_pax,pax "
@@ -306,16 +305,20 @@ void getTCkinSearchPaxQuery(TQuery& Qry)
 
 std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id)
 {
-  TQuery Qry(&OraSession);
-  ostringstream sql;
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX"}), STDLOG);
+  std::ostringstream sql;
 
   sql << getSearchPaxQuerySelectPart()
-      << "FROM crs_pnr,crs_pax,pax "
-         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-         "      crs_pax.pax_id=pax.pax_id(+) AND "
-         "      crs_pnr.pnr_id=:pnr_id AND "
-         "      crs_pax.pr_del=0 AND "
-         "      pax.pax_id IS NULL "
+      << "FROM crs_pnr "
+         "  JOIN ( "
+         "    crs_pax "
+         "      LEFT OUTER JOIN pax "
+         "        ON crs_pax.pax_id = pax.pax_id "
+         "  ) "
+         "    ON crs_pnr.pnr_id = crs_pax.pnr_id "
+         "WHERE crs_pnr.pnr_id = :pnr_id "
+         "AND crs_pax.pr_del = 0 "
+         "AND pax.pax_id IS NULL "
       << getSearchPaxQueryOrderByPart();
 
   Qry.SQLText = sql.str().c_str();
@@ -326,7 +329,8 @@ std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id)
 
 std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
                                const bool& return_pnr_ids,
-                               const std::string& sql_filter)
+                               const std::string& sql_filter,
+                               bool forOracle)
 {
   //обычный поиск
   ostringstream sql;
@@ -340,7 +344,8 @@ std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
                               true,
                               true,
                               true,
-                              sql_filter);
+                              sql_filter,
+                              forOracle);
 
   sql << "  ) ids  \n"
          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
@@ -399,7 +404,7 @@ std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
   return result;
 }
 
-std::vector<SearchPaxResult> fetchSearchPaxResults(TQuery& Qry)
+std::vector<SearchPaxResult> fetchSearchPaxResults(DB::TQuery& Qry)
 {
   std::vector<SearchPaxResult> result;
   for(;!Qry.Eof;Qry.Next()) {
@@ -434,8 +439,9 @@ std::vector<SearchPaxResult> runSearchPax(const PointId_t& point_dep,
 {
   LogTrace(TRACE6) << __func__;
   std::vector<SearchPaxResult> result;
-  TQuery Qry(&OraSession);
-  Qry.SQLText = makeSearchPaxQuery(pax_status, return_pnr_ids, sql_filter);
+  auto& sess = PgOra::getROSession({"CRS_PNR", "CRS_PAX", "TLG_BINDING", "PAX"});
+  DB::TQuery Qry(sess, STDLOG);
+  Qry.SQLText = makeSearchPaxQuery(pax_status, return_pnr_ids, sql_filter, sess.isOracle());
   bindSearchPaxQuery(Qry, point_dep, pax_status);
   const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(point_dep);
   if (items.empty()) {

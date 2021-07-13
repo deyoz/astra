@@ -26,12 +26,12 @@ namespace Franchise {
         oper.airline = info.airline;
         oper.flt_no = info.flt_no;
         oper.suffix = info.suffix;
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(PgOra::getROSession("FRANCHISE_SETS"),
                 "select * from franchise_sets where "
                 "   airp_dep = :airp and "
                 "   airline = :airline and "
                 "   flt_no = :flt_no and "
-                "   nvl(suffix, ' ') = nvl(:suffix, ' ') and "
+                "   coalesce(suffix, ' ') = coalesce(:suffix, ' ') and "
                 "   :scd_out >= first_date and "
                 "   (last_date is null or :scd_out < last_date) and "
                 "   pr_denial = 0 ",
@@ -40,8 +40,8 @@ namespace Franchise {
                 << QParam("airline", otString, info.airline)
                 << QParam("flt_no", otInteger, info.flt_no)
                 << QParam("suffix", otString, info.suffix)
-                << QParam("scd_out", otDate, scd_local)
-                );
+                << QParam("scd_out", otDate, scd_local),
+                             STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             franchisee.airline = Qry.get().FieldAsString("airline_franchisee");
@@ -75,12 +75,12 @@ namespace Franchise {
       franchisee.flt_no = info.flt_no;
       franchisee.suffix = info.suffix;
       ProgTrace( TRACE5, "airline=%s, flt_no=%d", franchisee.airline.c_str(),franchisee.flt_no );
-      TCachedQuery Qry(
+      DB::TCachedQuery Qry(PgOra::getROSession("FRANCHISE_SETS"),
           "select * from franchise_sets where "
           "   airp_dep = :airp and "
           "   airline_franchisee = :airline and "
           "   flt_no_franchisee = :flt_no and "
-          "   nvl(suffix_franchisee, ' ') = nvl(:suffix, ' ') and "
+          "   coalesce(suffix_franchisee, ' ') = coalesce(:suffix, ' ') and "
           "   :scd_out >= first_date and "
           "   (last_date is null or :scd_out < last_date) and "
           "   pr_denial = 0 ",
@@ -89,8 +89,8 @@ namespace Franchise {
                   << QParam("airline", otString, info.airline)
                   << QParam("flt_no", otInteger, info.flt_no)
                   << QParam("suffix", otString, info.suffix)
-                  << QParam("scd_out", otDate, scd_local)
-                  );
+                  << QParam("scd_out", otDate, scd_local),
+                           STDLOG);
           Qry.get().Execute();
           tst();
           if(not Qry.get().Eof) {

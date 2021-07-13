@@ -2075,7 +2075,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  TQuery PointsQry( &OraSession );
+  DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
 
@@ -2113,13 +2113,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       throw Exception( "internal_ReadData: invalid params" );
     }
   }
-  TQuery RegQry( &OraSession );
+  DB::TQuery RegQry(PgOra::getROSession("COUNTERS2"), STDLOG);
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  TQuery Trfer_inQry( &OraSession );
-
-  TQuery DelaysQry( &OraSession );
+  DB::TQuery DelaysQry(PgOra::getROSession("TRIP_DELAYS"), STDLOG);
   if ( module == TSOPPTrips::tISG ) {
       DelaysQry.SQLText = trip_delays_SQL;
       DelaysQry.DeclareVariable( "point_id", otInteger );
@@ -3168,21 +3166,21 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   TCkinQry.DeclareVariable("grp_num",otInteger);
 
   ostringstream sql;
-  sql << "SELECT pax_grp.grp_id, pax_grp.class, pax_grp.status, \n"
-         "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num \n"
-         "FROM pax_grp, tckin_pax_grp \n"
-         "WHERE pax_grp.point_dep=:point_id \n";
-  if ( filter.inbound_point_dep!=NoExists )
-    sql << "      AND pax_grp.grp_id=tckin_pax_grp.grp_id    AND tckin_pax_grp.transit_num=0 \n";
-  else
-    sql << "      AND pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND tckin_pax_grp.transit_num(+)=0 \n";
+  sql << "SELECT pax_grp.grp_id, pax_grp.class, pax_grp.status, "
+         "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
+         "FROM pax_grp ";
+  if( filter.inbound_point_dep==NoExists )
+      sql << "LEFT OUTER ";
+  sql << "JOIN tckin_pax_grp ON ( pax_grp.grp_id = tckin_pax_grp.grp_id ";
+  if( filter.inbound_point_dep==NoExists )
+      sql << " AND tckin_pax_grp.transit_num = 0 ";
+  sql << ") WHERE pax_grp.point_dep=:point_id ";
   if ( !filter.status.empty() )
-    sql << "      AND pax_grp.status=:status \n";
+    sql << " AND pax_grp.status=:status ";
   if ( filter.inbound_point_dep!=NoExists )
-    sql << "      AND pax_grp.bag_refuse=0 AND pax_grp.status<>'T' \n";
+    sql << " AND pax_grp.bag_refuse=0 AND pax_grp.status<>'T' ";
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText=sql.str().c_str();
   if ( !filter.status.empty() )
     Qry.CreateVariable( "status", otString, filter.status );
@@ -3194,7 +3192,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   for(;!Qry.Eof;Qry.Next())
   {
     if (Qry.FieldIsNULL("class") &&
-            (!filter.with_crew || DecodePaxStatus(Qry.FieldAsString("status"))!=psCrew))
+            (!filter.with_crew || DecodePaxStatus(Qry.FieldAsString("status").c_str())!=psCrew))
       continue;  //несопровождаемый багаж и иногда crew не разрегистрируем!
 
     int tckin_id=Qry.FieldIsNULL("tckin_id")?NoExists:Qry.FieldAsInteger("tckin_id");
@@ -3349,17 +3347,25 @@ void UpdateCrew(int point_id, std::string commander, int cockpit, int cabin, TSo
 {
     LEvntPrms params;
     params << PrmLexema("owner",owner==ownerLDM?string("EVT.TLG.LDM"):string(""));
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "BEGIN "
-      "  UPDATE trip_crew "
-      "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
-      "  WHERE point_id=:point_id; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
-      "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
-      "  END IF;"
-      "END;";
+    auto& sess = PgOra::getRWSession("TRIP_CREW");
+    DB::TQuery Qry(sess, STDLOG);
+    Qry.SQLText = sess.isOracle()
+        ? "BEGIN "
+          "  UPDATE trip_crew "
+          "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
+          "  WHERE point_id=:point_id; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
+          "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
+          "  END IF;"
+          "END;"
+        : "INSERT INTO trip_crew AS tc (point_id, commander, cockpit, cabin) "
+          "VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin) "
+          "ON CONFLICT(point_id) "
+          "  DO UPDATE  "
+          "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
+          "  WHERE tc.point_id=:point_id ";
+
     Qry.CreateVariable( "point_id", otInteger, point_id );
     validateField( commander, "КВС" );
     Qry.CreateVariable( "commander", otString, commander );
@@ -4993,7 +4999,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
     if ( set_pr_del ) {
         ch_dests = true;
-        DB::TQuery Qry(PgOra::getRWSession({"POINTS", "PAX_GRP"}), STDLOG);
+        auto &sess = PgOra::getRWSession({"POINTS", "PAX_GRP"});
+        DB::TQuery Qry(sess, STDLOG);
         Qry.SQLText =
             "SELECT COUNT(*) c FROM ( "
             "(SELECT 1 FROM pax_grp,points "
@@ -5008,6 +5015,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             " AND bag_refuse=0 "
             " FETCH FIRST 1 ROWS ONLY) "
             ") ";
+        if(!sess.isOracle()) {
+            Qry.SQLText += "AS a";
+        }
         Qry.CreateVariable( "point_id", otInteger, id->point_id );
         Qry.Execute();
         if ( Qry.FieldAsInteger( "c" ) ) {
@@ -5746,7 +5756,7 @@ std::vector<tcrs_displ> loadCrsDisplaces(const PointId_t& point_id)
 void deleteCrsDisplaces(const PointId_t& point_id)
 {
   DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"), STDLOG);
-  Qry.SQLText = "DELETE crs_displace2 WHERE point_id_spp=:point_id_spp";
+  Qry.SQLText = "DELETE FROM crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id.get() );
   Qry.Execute();
 }

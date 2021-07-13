@@ -77,7 +77,7 @@ struct CompRoute {
 bool isAutoCompChg( int point_id )
 {
   LogTrace(TRACE5) << __func__;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText = "SELECT auto_comp_chg FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -92,7 +92,7 @@ void setManualCompChg( int point_id )
   if ( compSetter.isLibraMode() ) {
     return; //???
   }
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   Qry.SQLText =
     "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -110,12 +110,12 @@ private:
 
   void push_routes( const CompRoute &currroute,
                     const TTripRoute &routes,
-                    bool pr_before,
-                    TQuery &Qry ) {
-    Qry.Clear();
+                    bool pr_before)
+  {
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
       "SELECT airline,flt_no,airp,bort,craft,pr_reg FROM points "
-      " WHERE point_id=:point_id AND pr_del!=-1";
+      " WHERE point_id=:point_id AND pr_del != -1";
     Qry.DeclareVariable( "point_id", otInteger );
     for ( const auto& i : routes ) {
       //выделяем маршрут удовлетворяющий след. условиям:
@@ -144,14 +144,15 @@ private:
   }
 
 public:
-  const TCompsRoutes& get( bool pr_tranzit_routes, int point_id, TQuery &Qry ) {
+  const TCompsRoutes& get( bool pr_tranzit_routes, int point_id)
+  {
     clear();
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
     "SELECT point_num,first_point,pr_tranzit,"
     "       airline,flt_no,suffix,airp,scd_out,bort,craft,pr_reg "
     " FROM points "
-    " WHERE point_id=:point_id AND pr_del!=-1";
+    " WHERE point_id=:point_id AND pr_del != -1";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( Qry.Eof )
@@ -194,11 +195,11 @@ public:
       return *this;
     }
     if ( pr_tranzit_routes ) { //задание компоновки для всего маршрута
-      push_routes( currroute, routesB, true, Qry );
+      push_routes( currroute, routesB, true );
     }
     push_back( currroute );
     if ( pr_tranzit_routes ) { //задание компоновки для всего маршрута
-      push_routes( currroute, routesA, false, Qry );
+      push_routes( currroute, routesA, false );
     }
     for ( const auto& i : *this ) {
       LogTrace( TRACE5 ) << __func__ << ": point_id=" << i.point_id << ",inRoutes=" << i.inRoutes << ",pr_reg=" << i.pr_reg;
@@ -234,8 +235,7 @@ public:
   static void check_diffcomp_alarm( int point_id ) {
     LogTrace(TRACE5) << __func__;
     TCompsRoutes routes;
-    TQuery Qry(&OraSession);
-    routes.get( true, point_id, Qry );
+    routes.get( true, point_id );
     routes.check_diffcomp_alarm();
   }
 };
@@ -637,20 +637,22 @@ void setFlightClasses( int point_id ) {
   tripClasses.processSalonsCfg();
 }
 
-bool ComponFinder::isExistsCraft( const std::string& craft, TQuery& Qry ) {
-  Qry.Clear();
+bool ComponFinder::isExistsCraft( const std::string& craft )
+{
+  DB::TQuery Qry(PgOra::getROSession("COMPS"), STDLOG);
   Qry.SQLText =
   "SELECT comp_id FROM comps "
-  " WHERE craft=:craft AND rownum < 2";
+  " WHERE craft=:craft "
+  " FETCH FIRST 1 ROWS ONLY";
   Qry.CreateVariable( "craft", otString, craft );
   Qry.Execute();
   return !Qry.Eof;
 }
 
-int ComponFinder::GetCompIdFromBort( const std::string& craft,
-                                     const std::string& bort,
-                                     TQuery& Qry ) {
- Qry.Clear();
+int ComponFinder::GetCompIdFromBort(const std::string& craft,
+                                     const std::string& bort)
+{
+ DB::TQuery Qry(PgOra::getROSession("COMPS"), STDLOG);
  Qry.SQLText =
    "SELECT comp_id FROM comps "
    "WHERE craft=:craft AND bort=:bort";
@@ -661,15 +663,14 @@ int ComponFinder::GetCompIdFromBort( const std::string& craft,
 }
 
 
-void ComponLibraFinder::AstraSearchResult::getLibraCompStatus( const std::string& airline,
+void ComponLibraFinder::AstraSearchResult::getLibraCompStatus(const std::string& airline,
                                                                const std::string& bort,
-                                                               TQuery& Qry,
                                                                const int& comp_id )
 {
   //!!! нет проверки на тип ВС, только борт
   plan_id = ASTRA::NoExists;
   conf_id = ASTRA::NoExists;
-  ReadFromAHMCompId( bort, comp_id, Qry ); //прочитали конфиг, которого может и не быть
+  ReadFromAHMCompId( bort, comp_id ); //прочитали конфиг, которого может и не быть
   int p_id = ComponLibraFinder::getPlanId( bort );
   if ( p_id == ASTRA::NoExists ) {
     clear();
@@ -990,10 +991,10 @@ void ComponLibraFinder::AstraSearchResult::Write() {
   Qry.Execute();
 }
 
-void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry ) {
+void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id ) {
   this->plan_id = plan_id;
   this->conf_id = conf_id;
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"LIBRA_COMPS, COMPS"}), STDLOG);
   Qry.SQLText =
     "SELECT l.time_create, l.time_change, c.comp_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
@@ -1015,13 +1016,13 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( const std::string& bo
   }
 }
 
-void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( const std::string& bort, int comp_id, TQuery& Qry ) {
+void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId(const std::string& bort, int comp_id) {
   clear();
   this->comp_id = comp_id;
   if ( comp_id == ASTRA::NoExists ) {
     return;
   }
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"LIBRA_COMPS", "COMPS"}), STDLOG);
   Qry.SQLText =
     "SELECT l.time_create, l.time_change, l.plan_id, l.conf_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
@@ -1043,29 +1044,30 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( const std::string&
 
 bool LibraComps::isLibraComps( int id, bool isComps, BASIC::date_time::TDateTime& time_create ) {
   if ( !LIBRA::LIBRA_ENABLED() ) return false;
-  TQuery Qry(&OraSession);
+  DB::TQuery TQry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   if ( !isComps ) {
-    Qry.SQLText =
+    TQry.SQLText =
       "SELECT comp_id FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, id );
-    Qry.Execute();
-    if ( Qry.Eof ) {
+    TQry.CreateVariable( "point_id", otInteger, id );
+    TQry.Execute();
+    if ( TQry.Eof ) {
       throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" );
     }
-    if ( Qry.FieldIsNULL( "comp_id" ) ) {
+    if ( TQry.FieldIsNULL( "comp_id" ) ) {
       time_create = ASTRA::NoExists;
       return false;
     }
-    id = Qry.FieldAsInteger( "comp_id" );
+    id = TQry.FieldAsInteger( "comp_id" );
   }
-  Qry.Clear();
-  Qry.SQLText =
+
+  DB::TQuery LQry(PgOra::getROSession("LIBRA_COMPS"), STDLOG);
+  LQry.SQLText =
     "SELECT time_create FROM libra_comps WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, id );
-  Qry.Execute();
-  time_create = Qry.Eof?ASTRA::NoExists:Qry.FieldAsDateTime( "time_create" );
-  LogTrace(TRACE5) << __func__ << " time_create=" << time_create << " SELECT " << !Qry.Eof;
-  return !Qry.Eof;
+  LQry.CreateVariable( "comp_id", otInteger, id );
+  LQry.Execute();
+  time_create = LQry.Eof?ASTRA::NoExists:LQry.FieldAsDateTime( "time_create" );
+  LogTrace(TRACE5) << __func__ << " time_create=" << time_create << " SELECT " << !LQry.Eof;
+  return !LQry.Eof;
 }
 
 bool LibraComps::isLibraComps( int id, CompType compType ) {
@@ -1077,33 +1079,34 @@ bool LibraComps::isLibraMode( const TTripInfo &info  ) {
   return GetTripSets( tsLIBRACent, info );
 }
 
-ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry ) {
+ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromCompId( const std::string& bort, int comp_id ) {
   AstraSearchResult res;
-  res.ReadFromAHMCompId( bort, comp_id, Qry );
+  res.ReadFromAHMCompId( bort, comp_id );
   return res;
 }
 
-ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry ) {
+ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromAHMIds(const std::string& bort, int plan_id, int conf_id) {
   AstraSearchResult res;
-  res.ReadFromAHMIds( bort, plan_id, conf_id, Qry );
+  res.ReadFromAHMIds( bort, plan_id, conf_id );
   return res;
 }
 
-void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
-  Qry.Clear();
+void signalChangesComp( int plan_id, int conf_id ) {
   std::string sql =
     "UPDATE libra_comps SET time_change=NULL "
     " WHERE plan_id = :plan_id ";
   if ( conf_id != ASTRA::NoExists ) {
     sql += " AND conf_id = :conf_id ";
   }
-  Qry.SQLText = sql;
-  Qry.CreateVariable( "plan_id", otInteger, plan_id );
+  DB::TQuery UQry(PgOra::getRWSession("LIBRA_COMPS"), STDLOG);
+  UQry.SQLText = sql;
+  UQry.CreateVariable( "plan_id", otInteger, plan_id );
   if ( conf_id != ASTRA::NoExists ) {
-    Qry.CreateVariable( "conf_id", otInteger, conf_id );
+    UQry.CreateVariable( "conf_id", otInteger, conf_id );
   }
-  Qry.Execute();
+  UQry.Execute();
   ASTRA::commit();
+
   sql =
     "SELECT t.point_id, l.comp_id, l.plan_id, l.conf_id "
     " FROM libra_comps l "
@@ -1113,6 +1116,7 @@ void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
     sql += " AND conf_id = :conf_id ";
   }
   sql += " ORDER BY plan_id, conf_id ";
+  DB::TQuery Qry(PgOra::getROSession({"LIBRA_COMPS", "TRIP_SETS"}), STDLOG);
   Qry.SQLText = sql;
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
   if ( conf_id != ASTRA::NoExists ) {
@@ -1162,8 +1166,8 @@ ARCH delete libra_comps по аналогии с trip_sets
 */
 
 int ComponFinder::GetCompId( const std::string& craft, const std::string& bort, const std::string& airline,
-                             const std::vector<std::string>& airps,  int f, int c, int y, bool pr_ignore_fcy,
-                             TQuery& Qry ) {
+                             const std::vector<std::string>& airps,  int f, int c, int y, bool pr_ignore_fcy)
+{
   if ( f + c + y == 0 ) {
     return ASTRA::NoExists;
   }
@@ -1174,6 +1178,7 @@ int ComponFinder::GetCompId( const std::string& craft, const std::string& bort, 
   }
   std::map<int,TComp,std::less<int> > CompMap;
   int idx;
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
   "SELECT * FROM "
@@ -1256,11 +1261,13 @@ int ComponFinder::GetCompId( const std::string& craft, const std::string& bort, 
 
 void ComponSetter::Init( int point_id ) {
   TSetsCraftPoints();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession({"POINTS, TRIP_SETS"}), STDLOG);
   Qry.SQLText =
-    "SELECT points.point_id, point_num,first_point,pr_tranzit,bort,flt_no,suffix,airline,craft,scd_out,airp,comp_id "
-    " FROM points, trip_sets "
-    " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+     "SELECT points.point_id, point_num, first_point, pr_tranzit, bort, flt_no, suffix, airline, craft, scd_out, airp, comp_id "
+     "FROM points "
+     "  LEFT OUTER JOIN trip_sets "
+     "  ON points.point_id = trip_sets.point_id "
+     "WHERE points.point_id = :point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof )
@@ -1271,9 +1278,8 @@ void ComponSetter::Init( int point_id ) {
 
 ComponSetter::TStatus ComponSetter::IntSetCraftFreeSeating( ) { //свободная рассадка, интересуют только цифровые данные
   LogTrace( TRACE5 ) << __func__ << ", point_id=" << fltInfo.point_id <<",craft=" << fltInfo.craft << ",bort=" << fltInfo.bort;
-  TQuery Qry(&OraSession);
   if ( !fltInfo.bort.empty() && !fltInfo.craft.empty() ) {
-    int comp_id = ComponCreator::ComponFinder::GetCompIdFromBort( fltInfo.craft, fltInfo.bort, Qry );
+    int comp_id = ComponCreator::ComponFinder::GetCompIdFromBort( fltInfo.craft, fltInfo.bort );
     if ( comp_id != ASTRA::NoExists ) {
       TTripClasses trip_classes1( fltInfo.point_id ), trip_classes2( fltInfo.point_id );
       trip_classes1.read( TTripClasses::reCfg ); //начитка old cfg from trip_classes
@@ -1321,10 +1327,9 @@ ComponSetter::TStatus ComponSetter::IntSetCraftFreeSeating( ) { //свободная расс
 }
 
 
-int ComponSetter::SearchCompon( bool pr_tranzit_routes,
-                                const std::vector<std::string>& airps,
-                                TQuery &Qry,
-                                int libra_plan_id ) {
+int ComponSetter::SearchCompon(bool pr_tranzit_routes,
+                               const std::vector<std::string>& airps,
+                               int libra_plan_id ) {
   LogTrace(TRACE5) << __func__ << "plan_id=" << libra_plan_id;
   int comp_id = ASTRA::NoExists;
   std::shared_ptr<TCounters> p;
@@ -1366,7 +1371,7 @@ int ComponSetter::SearchCompon( bool pr_tranzit_routes,
       else {
         comp_id = ComponCreator::ComponFinder::GetCompId( fltInfo.craft, fltInfo.bort, fltInfo.airline, airps,
                                                           i.second.f, i.second.c, i.second.y,
-                                                          pr_ignore_fcy, Qry );
+                                                          pr_ignore_fcy );
       }
       LogTrace(TRACE5) << comp_id;
       if ( comp_id != ASTRA::NoExists ) {
@@ -1387,7 +1392,7 @@ int ComponSetter::SearchCompon( bool pr_tranzit_routes,
       }
       else {
         return ComponCreator::ComponFinder::GetCompId( fltInfo.craft, fltInfo.bort, fltInfo.airline,
-                                                       airps, 0, 0, 1, true, Qry );
+                                                       airps, 0, 0, 1, true );
       }
     }
   }
@@ -1400,20 +1405,21 @@ const int REM_VIP_F = 1;
 const int REM_VIP_C = 1;
 const int REM_VIP_Y = 3;
 
-void InitVIP( const CompRoute &route, TQuery &Qry ) {
+void InitVIP( const CompRoute &route )
+{
   TTripInfo info;
   info.airline = route.airline;
   info.flt_no = route.flt_no;
   info.airp = route.airp;
-  InitVIP( info, Qry );
+  InitVIP( info );
 }
 
-void InitVIP( const TTripInfo &fltInfo, TQuery &Qry ) {
+void InitVIP(const TTripInfo &fltInfo) {
   if ( !GetTripSets( tsCraftInitVIP, fltInfo ) ) {
     return;
   }
     // инициализация - разметка салона по умолчани
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_ELEMS", "COMP_ELEM_TYPES"}), STDLOG);
   Qry.SQLText =
     "SELECT num, class, MIN( y ) miny, MAX( y ) maxy "
     " FROM trip_comp_elems, comp_elem_types "
@@ -1424,7 +1430,7 @@ void InitVIP( const TTripInfo &fltInfo, TQuery &Qry ) {
   Qry.CreateVariable( "point_id", otInteger, fltInfo.point_id );
   Qry.Execute();
 
-  TQuery QryVIP(&OraSession);
+  DB::TQuery QryVIP(PgOra::getRWSession({"TRIP_COMP_REM", "TRIP_COMP_ELEMS", "COMP_ELEM_TYPES", "TRIP_COMP_RANGES"}), STDLOG);
   QryVIP.SQLText =
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " SELECT :point_id,num,x,y,'VIP', 0 FROM "
@@ -1447,7 +1453,7 @@ void InitVIP( const TTripInfo &fltInfo, TQuery &Qry ) {
   QryVIP.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   for ( ; !Qry.Eof; Qry.Next() ) {
     int ycount;
-    switch( DecodeClass( Qry.FieldAsString( "class" ) ) ) {
+    switch( DecodeClass( Qry.FieldAsString( "class" ).c_str() ) ) {
         case ASTRA::F: ycount = REM_VIP_F;
             break;
         case ASTRA::C: ycount = REM_VIP_C;
@@ -1877,8 +1883,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
                                           const std::string& craft,
                                           const std::string& bort ) {
   LogTrace( TRACE5 ) << __func__ << " plan_id=" << res.plan_id << ", conf_id=" << res.conf_id << ", comp_id=" << res.conf_id;
-  TQuery Qry(&OraSession);
-  res.ReadFromAHMIds( bort, res.plan_id, res.conf_id, Qry ); //
+  res.ReadFromAHMIds( bort, res.plan_id, res.conf_id ); //
   //начитываем инфу по классах рядов
   //начитываем инфу по местам
   //создаем базовую компоновку
@@ -2056,21 +2061,21 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
   res.Write();
 }
 
-void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) {
+void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
+{
   LogTrace(TRACE5) << __func__ << ",comp_id=" << comp_id;
   if ( comp_id == ASTRA::NoExists ) {
     LogError(STDLOG) << __func__ << " comp_id is not set";
     return;
   }
-  TQuery QryVIP(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery CQry(PgOra::getROSession("COMPS"), STDLOG);
+  CQry.SQLText =
       "SELECT pr_lat_seat FROM comps WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  int pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
+  CQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CQry.Execute();
+  int pr_lat_seat = CQry.FieldAsInteger( "pr_lat_seat" );
 
-  TQuery QryTripSets(&OraSession);
+  DB::TQuery QryTripSets(PgOra::getRWSession("TRIP_SETS"), STDLOG);
   QryTripSets.SQLText =
     "UPDATE trip_sets SET comp_id=:comp_id,pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
   QryTripSets.CreateVariable( "comp_id", otInteger, comp_id==ASTRA::NoExists?FNull:comp_id );
@@ -2078,7 +2083,8 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) 
   QryTripSets.DeclareVariable( "point_id", otInteger );
   QryTripSets.DeclareVariable( "crc_comp", otInteger );
   QryTripSets.DeclareVariable( "crc_base_comp", otInteger );
-  Qry.Clear();
+
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "BEGIN "
     "DELETE trip_comp_rates WHERE point_id = :point_id;"
@@ -2154,7 +2160,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) 
       if ( checksum.base_crc32 == 0 ) {
         checksum = SALONS2::CompCheckSum::calcFromDB( i.point_id );
       }
-      InitVIP( i, QryVIP );
+      InitVIP( i );
       TTripClasses trip_classes( i.point_id );
       trip_classes.processSalonsCfg( );
       QryTripSets.SetVariable( "point_id", i.point_id );
@@ -2184,7 +2190,6 @@ bool ComponSetter::isLibraMode() {
 ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
   // проверка на существование заданной компоновки по типу ВС
   LogTrace(TRACE5) << __func__ << " fcomp_id=" << fcomp_id;
-  TQuery Qry(&OraSession);
   Clear();
   ComponLibraFinder::AstraSearchResult compState;
   if ( isLibraMode() ) {
@@ -2193,7 +2198,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
       return NotCrafts;
     }
     //начитываем ид. компоновки и конфигурации из таблицы libra_comps, если есть plan_id, conf_id
-    compState.getLibraCompStatus( fltInfo.airline, fltInfo.bort, Qry, fcomp_id ); //
+    compState.getLibraCompStatus( fltInfo.airline, fltInfo.bort, fcomp_id ); //
     LogTrace(TRACE5) << "plan_id=" << compState.plan_id;
     switch ( compState.evtStatus ) {
       case ComponLibraFinder::AstraSearchResult::TEventLibraStatus::evNoExists: //компоновка и конфигурации не найдены, нечего назначать
@@ -2209,13 +2214,13 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
     }
   }
   else {
-    if ( fltInfo.craft.empty() || !ComponFinder::isExistsCraft( fltInfo.craft, Qry ) ) {
+    if ( fltInfo.craft.empty() || !ComponFinder::isExistsCraft( fltInfo.craft ) ) {
       LogTrace( TRACE5 ) << __func__ << " craft is empty or not found in base comps, craft=" << fltInfo.craft;
       return NotCrafts;
     }
   }
   TCompsRoutes routes;
-  routes.get( pr_tranzit_routes, fltInfo.point_id, Qry );
+  routes.get( pr_tranzit_routes, fltInfo.point_id );
   std::vector<std::string> airps;
   for ( const auto& i : routes ) {
     if ( i.inRoutes && i.auto_comp_chg && i.pr_reg ) {
@@ -2235,7 +2240,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
     search_comp_id = compState.conf_id;
   }
   else {
-    search_comp_id = SearchCompon( pr_tranzit_routes, airps, Qry, isLibraMode()?compState.plan_id:ASTRA::NoExists );
+    search_comp_id = SearchCompon( pr_tranzit_routes, airps, isLibraMode()?compState.plan_id:ASTRA::NoExists );
     LogTrace(TRACE5) << search_comp_id;
     if ( search_comp_id == ASTRA::NoExists ) {
       LogTrace( TRACE5 ) << __func__ << ": return NotFound";
@@ -2263,7 +2268,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
 
   fcomp_id = search_comp_id;
   LogTrace(TRACE5) << fcomp_id;
-  CreateFlightCompon( routes, fcomp_id, Qry );
+  CreateFlightCompon( routes, fcomp_id );
   LogTrace( TRACE5 ) << __func__ << ": return Created";
   return Created;
 }
@@ -2309,14 +2314,13 @@ ComponSetter::TStatus AutoSetCraft( int point_id, bool pr_tranzit_routes ) {
 void SychAHMCompsFromBort( const std::string& airline, const std::string& craft, const std::string& bort  )
 {
   LogTrace(TRACE5) << __func__ << " airline=" <<airline << " craft=" << craft << " bort=" << bort;
-  TQuery Qry(&OraSession);
   //выбрали все конфиги
   const int plan_id = ComponLibraFinder::getPlanId( bort );
   const std::vector<int> configs = ComponLibraFinder::getLibraConfigs( airline, bort, ASTRA::NoExists, plan_id );
   //удалим те, которые уже есть в базовых компоновках
   for ( const auto& conf_id : configs ) {
     ComponLibraFinder::AstraSearchResult res;
-    res.ReadFromAHMIds( bort, plan_id, conf_id, Qry );
+    res.ReadFromAHMIds( bort, plan_id, conf_id );
     if ( !res.isOk() ) { //создать компоновку в базовых
       ComponSetter::createBaseLibraCompon( res, airline, craft, bort );
     }

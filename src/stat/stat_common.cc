@@ -613,21 +613,24 @@ string TAirpArvInfo::get(TQuery &Qry)
 
 bool TDeskAccess::get(const string &desk)
 {
-    map<string, bool>::iterator result = items.find(desk);
-    if(result == items.end()) {
-      if(!DEMO_MODE()) {
-        // ‚ „…Œ-‚…‘ˆˆ … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
-        TCachedQuery Qry(
-            "select adm.check_desk_view_access(:desk, :SYS_user_id) from dual",
-            QParams()
-            << QParam("desk", otString, desk)
-            << QParam(":SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id));
-        Qry.get().Execute();
-        pair<map<string, bool>::iterator, bool> res = items.insert(make_pair(desk, Qry.get().FieldAsInteger(0) != 0));
-        result = res.first;
-      }
+    if(!DEMO_MODE()) {
+        map<string, bool>::iterator result = items.find(desk);
+        if(result == items.end()) {
+            TCachedQuery Qry(
+                "select adm.check_desk_view_access(:desk, :SYS_user_id) from dual",
+                QParams()
+                << QParam("desk", otString, desk)
+                << QParam(":SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id));
+            Qry.get().Execute();
+            pair<map<string, bool>::iterator, bool> res = items.insert(make_pair(desk, Qry.get().FieldAsInteger(0) != 0));
+            result = res.first;
+        }
+        return result->second;
+    } else {
+        TST();
+        // ‚ DEMO … ‚…Ÿ…Œ €‚€ „‘’“€ „ ……‚„€ ¯ ª¥â  ADM ­  c++
+        return true;
     }
-    return result->second;
 }
 
 int MAX_STAT_ROWS()

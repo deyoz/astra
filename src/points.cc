@@ -43,14 +43,6 @@ const char* points_delays_SQL =
   "WHERE point_id=:point_id "
   "ORDER BY delay_num";
 
-const char* points_dest_SQL =
-  "SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,craft,"
-  "       bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"
-  "       park_in,park_out,remark,pr_reg,pr_del,tid,airp_fmt,airline_fmt,"
-  "       suffix_fmt,craft_fmt"
-  " FROM points WHERE point_id=:point_id";
-
-
 void TCheckerFlt::parseFltNo( const string &value, TFltNo &fltNo )
 {
   ProgTrace( TRACE5, "parseFlt: value=%s", value.c_str() );
@@ -427,6 +419,68 @@ void TPointsDest::getDestData( TQuery &Qry )
   ProgTrace( TRACE5, "point_id=%d, trip_type=%s", point_id, trip_type.c_str() );
 }
 
+void TPointsDest::getDestData( DB::TQuery &Qry )
+{
+    if ( Qry.GetFieldIndex( "point_id" ) >= 0 ) {
+      point_id = Qry.FieldAsInteger( "point_id" );
+    }
+    point_num = Qry.FieldAsInteger( "point_num" );
+    if ( !Qry.FieldIsNULL( "first_point" ) ) {
+      first_point = Qry.FieldAsInteger( "first_point" );
+    }
+    else {
+      first_point = NoExists;
+    }
+    airp = Qry.FieldAsString( "airp" );
+    airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
+    airline = Qry.FieldAsString( "airline" );
+    airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
+    if ( !Qry.FieldIsNULL( "flt_no" ) ) {
+      flt_no = Qry.FieldAsInteger( "flt_no" );
+    }
+    else {
+      flt_no = NoExists;
+    }
+    suffix = Qry.FieldAsString( "suffix" );
+    suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
+    craft = Qry.FieldAsString( "craft" );
+    craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
+    bort = Qry.FieldAsString( "bort" );
+    if ( !Qry.FieldIsNULL( "scd_in" ) )
+        scd_in = Qry.FieldAsDateTime( "scd_in" );
+      else
+        scd_in = NoExists;
+    if ( !Qry.FieldIsNULL( "est_in" ) )
+      est_in = Qry.FieldAsDateTime( "est_in" );
+    else
+      est_in = NoExists;
+    if ( !Qry.FieldIsNULL( "act_in" ) )
+      act_in = Qry.FieldAsDateTime( "act_in" );
+    else
+      act_in = NoExists;
+    if ( !Qry.FieldIsNULL( "scd_out" ) )
+      scd_out = Qry.FieldAsDateTime( "scd_out" );
+    else
+      scd_out = NoExists;
+    if ( !Qry.FieldIsNULL( "est_out" ) )
+      est_out = Qry.FieldAsDateTime( "est_out" );
+    else
+      est_out = NoExists;
+    if ( !Qry.FieldIsNULL( "act_out" ) )
+      act_out = Qry.FieldAsDateTime( "act_out" );
+    else
+      act_out = NoExists;
+    trip_type = Qry.FieldAsString( "trip_type" );
+    litera = Qry.FieldAsString( "litera" );
+    park_in = Qry.FieldAsString( "park_in" );
+    park_out = Qry.FieldAsString( "park_out" );
+    pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
+    pr_reg = Qry.FieldAsInteger( "pr_reg" );
+    pr_del = Qry.FieldAsInteger( "pr_del" );
+    remark = Qry.FieldAsString( "remark" );
+    ProgTrace( TRACE5, "point_id=%d, trip_type=%s", point_id, trip_type.c_str() );
+}
+
 void TPointsDest::LoadProps( int vpoint_id, BitSet<TUseDestData> FUseData )
 {
   if ( UseData.isFlag( udStages ) ) {
@@ -459,8 +513,13 @@ void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
   status = tdUpdate;
   point_id = vpoint_id;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText = points_dest_SQL;
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+  Qry.SQLText =
+"SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,craft,"
+"       bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"
+"       park_in,park_out,remark,pr_reg,pr_del,tid,airp_fmt,airline_fmt,"
+"       suffix_fmt,craft_fmt"
+" FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, vpoint_id );
   Qry.Execute();
   getDestData( Qry );
@@ -2191,10 +2250,10 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
   }
   else local_scd_out = NoExists;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, scd_in, scd_out, move_id, point_id, point_num FROM points "
-    "  WHERE move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
+    "  WHERE move_id != :move_id AND airp = :airp AND pr_del != -1 AND "
     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
     "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 ) "
     "ORDER BY move_id,point_num ";
@@ -2235,7 +2294,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
       prior_flt_no = NoExists;
       TTripRoute route;
       if ( route.GetRouteBefore( NoExists, Qry.FieldAsInteger( "point_id" ), trtNotCurrent, trtWithCancelled ) && !route.empty() ) {
-        TQuery QryFlt(&OraSession);
+        DB::TQuery QryFlt(PgOra::getROSession("POINTS"), STDLOG);
         QryFlt.SQLText = "SELECT airline,flt_no,suffix FROM points WHERE point_id=:point_id";
         QryFlt.CreateVariable( "point_id", otInteger, route.back().point_id );
         QryFlt.Execute();
@@ -2411,6 +2470,8 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
 /////////////////////Cargos/////////////////////////////////////////////////////
 void TFlightCargos::Load( int point_id, bool pr_tranzit, int first_point, int point_num, int pr_cancel )
 {
+#ifdef ENABLE_ORACLE
+  // çÖ êÄáéÅêÄãëü Åõëíêé ë áÄèêéëéå - àÉçéêàêìû Ñãü ÑÖåé
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT cargo,mail,a.airp airp_arv,a.airp_fmt airp_arv_fmt, a.point_id point_arv, a.point_num "
@@ -2442,6 +2503,7 @@ void TFlightCargos::Load( int point_id, bool pr_tranzit, int first_point, int po
     Add( cargo );
     Qry.Next();
   }
+#endif//ENABLE_ORACLE
 }
 
 void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
@@ -2597,7 +2659,7 @@ void TFlightMaxCommerce::Save( int point_id )
 
 void TFlightDelays::Load( int point_id )
 {
-   TQuery Qry(&OraSession);
+   DB::TQuery Qry(PgOra::getROSession("TRIP_DELAYS"), STDLOG);
    Qry.SQLText = points_delays_SQL;
    Qry.CreateVariable( "point_id", otInteger, point_id );
    Qry.Execute();
@@ -2613,26 +2675,26 @@ void TFlightDelays::Load( int point_id )
 
 void TFlightDelays::Save( int point_id )
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  auto& sess = PgOra::getRWSession("TRIP_DELAYS");
+  DB::TQuery DelQry(sess, STDLOG);
+  DelQry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
+  DelQry.CreateVariable( "point_id", otInteger, point_id );
+  DelQry.Execute();
   if ( !delays.empty() ) {
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery InsQry(sess, STDLOG);
+    InsQry.SQLText =
      "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
      " VALUES(:point_id,:delay_num,:delay_code,:time) ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.DeclareVariable( "delay_num", otInteger );
-    Qry.DeclareVariable( "delay_code", otString );
-    Qry.DeclareVariable( "time", otDate );
+    InsQry.CreateVariable( "point_id", otInteger, point_id );
+    InsQry.DeclareVariable( "delay_num", otInteger );
+    InsQry.DeclareVariable( "delay_code", otString );
+    InsQry.DeclareVariable( "time", otDate );
     int r=0;
     for ( vector<TPointsDestDelay>::iterator q=delays.begin(); q!=delays.end(); q++ ) {
-        Qry.SetVariable( "delay_num", r );
-        Qry.SetVariable( "delay_code", q->code );
-        Qry.SetVariable( "time", q->time );
-        Qry.Execute();
+        InsQry.SetVariable( "delay_num", r );
+        InsQry.SetVariable( "delay_code", q->code );
+        InsQry.SetVariable( "time", q->time );
+        InsQry.Execute();
         r++;
     }
   }
@@ -2669,7 +2731,7 @@ void TFlightStages::Save( int point_id )
 void TPointDests::Load( int move_id, BitSet<TUseDestData> FUseData )
 {
   items.clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT point_id,point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,craft,"
     "       bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"

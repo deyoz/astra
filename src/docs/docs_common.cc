@@ -253,7 +253,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         ArxPaxListVars(point_id, rpt_params, variablesNode, part_key);
     } else {
         LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
         string SQLText =
             "select "
             "   airp, "
