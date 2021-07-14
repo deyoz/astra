@@ -203,7 +203,8 @@ void ArxRunTrferPaxStat(
         DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         LogTrace(TRACE5) << __func__ << "    " << SQLText;
-        int pr_lat = static_cast<int>(TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+        using namespace CKIN;
+        std::map<PointId_t, BagReader> bag_readers;
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -216,9 +217,14 @@ void ArxRunTrferPaxStat(
             int col_full_name = Qry.get().FieldIndex("full_name");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
             for(; not Qry.get().Eof; Qry.get().Next()) {
-                TDateTime part_key = NoExists;
+                PointId_t point_id{Qry.get().FieldAsInteger("point_id")};
+                std::optional<Dates::DateTime_t> part_key = std::nullopt;
                 if(not Qry.get().FieldIsNULL(col_part_key))
-                    part_key = Qry.get().FieldAsDateTime(col_part_key);
+                    part_key = DateTimeToBoost(Qry.get().FieldAsDateTime(col_part_key));
+                if(!algo::contains(bag_readers, point_id)) {
+                    bag_readers[point_id] = BagReader(point_id, part_key, READ::BAGS_AND_TAGS);
+                }
+
                 int pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
                 int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
@@ -226,10 +232,13 @@ void ArxRunTrferPaxStat(
                 string segments = Qry.get().FieldAsString(col_segments);
                 string full_name = Qry.get().FieldAsString(col_full_name);
                 string pers_type = Qry.get().FieldAsString(col_pers_type);
-                int grp_id = Qry.get().FieldAsInteger(col_grp_id);
-                int bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
-                string tags = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key),
-                                               TReqInfo::Instance()->desk.lang).value_or("");
+                GrpId_t grp_id(Qry.get().FieldAsInteger(col_grp_id));
+                std::optional<int> opt_bag_pool_num = std::nullopt;
+                if(!Qry.get().FieldIsNULL(col_bag_pool_num)) {
+                    opt_bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+                }
+                string tags = bag_readers[point_id].tags(grp_id, opt_bag_pool_num,
+                     TReqInfo::Instance()->desk.lang);
 
                 list<pair<TTripInfo, string> > seg_list;
                 getSegList(segments, seg_list);
@@ -384,7 +393,7 @@ void RunTrferPaxStat(
             if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
                 continue;
             }
-            TDateTime part_key = NoExists;
+
             int pax_id = Qry.get().FieldAsInteger(col_pax_id);
             int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
             int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
@@ -435,7 +444,7 @@ void RunTrferPaxStat(
                     item.airp_arv = flt->second;
                     item.pax_name = transliter(pax.full_name(), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
-                    item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
+                    item.pax_doc = CheckIn::GetPaxDocStr(std::nullopt, pax_id, false);
                     typedef map<bool, TSegCategories::Enum> TSeg2Map;
                     typedef map<bool, TSeg2Map> TCategoryMap;
 

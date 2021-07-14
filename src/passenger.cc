@@ -1235,7 +1235,7 @@ boost::optional<TPaxDocItem> TPaxDocItem::get(const PaxOrigin& origin, const Pax
   switch(origin)
   {
     case paxCheckIn:
-      if (LoadPaxDoc(ASTRA::NoExists, paxId.get(), result.get())) return result;
+      if (LoadPaxDoc(paxId.get(), result.get())) return result;
       break;
     case paxPnl:
       if (LoadCrsPaxDoc(paxId.get(), result.get())) return result;
@@ -1275,17 +1275,17 @@ TPaxDocItem fromPaxDoc(dbo::PAX_DOC & pax_doc)
   return doc;
 }
 
-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
+bool LoadPaxDoc(std::optional<Dates::DateTime_t> part_key, PaxId_t pax_id, TPaxDocItem &doc)
 {
-  if(part_key == ASTRA::NoExists)
+  if(!part_key)
   {
-      return LoadPaxDoc(pax_id, doc);
+      return LoadPaxDoc(pax_id.get(), doc);
   }
   doc.clear();
   dbo::Session session;
   std::optional<dbo::ARX_PAX_DOC> pax_doc = session.query<dbo::ARX_PAX_DOC>()
           .where("part_key=:part_key AND pax_id=:pax_id")
-          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+          .setBind({{"pax_id", pax_id.get()}, {":part_key", *part_key}});
   if(pax_doc) {
       doc = fromPaxDoc(*pax_doc);
   }
@@ -1305,7 +1305,7 @@ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 };
 
 
-std::string GetPaxDocStr(TDateTime part_key,
+std::string GetPaxDocStr(std::optional<Dates::DateTime_t> part_key,
                          int pax_id,
                          bool with_issue_country,
                          const string &lang)
@@ -1313,7 +1313,7 @@ std::string GetPaxDocStr(TDateTime part_key,
   ostringstream result;
 
   TPaxDocItem doc;
-  if (LoadPaxDoc(part_key, pax_id, doc) && !doc.no.empty())
+  if (LoadPaxDoc(part_key, PaxId_t(pax_id), doc) && !doc.no.empty())
   {
     result << doc.no;
     if (with_issue_country && !doc.issue_country.empty())
@@ -2677,27 +2677,6 @@ bool TSimplePaxItem::cabinClassToDB() const
   Qry.get().Execute();
 
   return Qry.get().RowsProcessed()>0;
-}
-
-bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
-{
-  totals.clear();
-  if (id==ASTRA::NoExists) return false;
-
-  TCachedQuery Qry(
-    "SELECT NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS amount, "
-    "       NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS weight "
-    "FROM pax "
-    "WHERE pax_id=:pax_id",
-    QParams() << QParam("pax_id", otInteger, id));
-  Qry.get().Execute();
-  if (!Qry.get().Eof)
-  {
-    totals.amount=Qry.get().FieldAsInteger("amount");
-    totals.weight=Qry.get().FieldAsInteger("weight");
-  }
-
-  return !Qry.get().Eof;
 }
 
 boost::optional<WeightConcept::TPaxNormComplex> TSimplePaxItem::getRegularNorm() const

@@ -1958,7 +1958,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild( paxNode, "apisFlags", allAPIAttrs.view(Qry5, paxNotRefused), "" );
           }
 
-          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
+          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, false), "");
           NewTextChild(paxNode, "tid", Qry5.FieldAsInteger(col_tid));
 
           excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry5.FieldAsInteger( col_pax_id )), true /*include_all_svc*/)),

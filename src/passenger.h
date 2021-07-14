@@ -839,7 +839,6 @@ class TSimplePaxItem
     }
     std::string getSeatNo(const std::string& fmt) const;
 
-    bool getBaggageInHoldTotals(TBagTotals& totals) const;
     boost::optional<WeightConcept::TPaxNormComplex> getRegularNorm() const;
     void getBaggageListForSBDO(TRFISCListWithProps &list) const;
     void getBaggageListForSBDO(TBagTypeList& list) const;
@@ -1162,8 +1161,8 @@ class TPaxGrpItem : public TSimplePaxGrpItem
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc);
-std::string GetPaxDocStr(TDateTime part_key,
+bool LoadPaxDoc(std::optional<Dates::DateTime_t> part_key, PaxId_t pax_id, TPaxDocItem &doc);
+std::string GetPaxDocStr(std::optional<Dates::DateTime_t> part_key,
                          int pax_id,
                          bool with_issue_country=false,
                          const std::string &lang="");

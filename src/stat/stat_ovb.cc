@@ -112,7 +112,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
         grpParams << QParam("point_id", otInteger, point_id);
         TDateTime part_key = Qry.get().FieldAsDateTime("part_key");
         grpParams << QParam("part_key", otDate, part_key);
-
+        std::optional<Dates::DateTime_t> opt_part_key = DateTimeToBoost(part_key);
         DB::TCachedQuery grpQry(PgOra::getROSession("ARX_PAX_GRP"), grpSQL, grpParams, STDLOG);
         grpQry.get().Execute();
         for(; not grpQry.get().Eof; grpQry.get().Next()) {
@@ -131,9 +131,9 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
             DB::TCachedQuery paxQry(PgOra::getROSession("ARX_PAX"), paxSQL, paxParams, STDLOG);
             paxQry.get().Execute();
             for(; not paxQry.get().Eof; paxQry.get().Next()) {
-                int pax_id = paxQry.get().FieldAsInteger("pax_id");
+                PaxId_t pax_id(paxQry.get().FieldAsInteger("pax_id"));
                 CheckIn::TPaxDocItem doc;
-                LoadPaxDoc(part_key, pax_id, doc);
+                LoadPaxDoc(opt_part_key, pax_id, doc);
                 if(doc.type != "P") continue;
                 string no_begin = doc.no.substr(0, 2);
                 if(
@@ -144,7 +144,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
                         no_begin == "01"
                   ) {
                     cout
-                        << setw(10) << pax_id
+                        << setw(10) << pax_id.get()
                         << setw(20) << doc.no
                         << setw(4) << dep_airp
                         << "(" << DateTimeToStr(dep_scd_out, ServerFormatDateTimeAsString) << ")"
@@ -228,7 +228,7 @@ void collect(map<string, int> &result, TDateTime from, TDateTime to)
             for(; not paxQry.get().Eof; paxQry.get().Next()) {
                 int pax_id = paxQry.get().FieldAsInteger("pax_id");
                 CheckIn::TPaxDocItem doc;
-                LoadPaxDoc(part_key, pax_id, doc);
+                LoadPaxDoc(pax_id, doc);
                 if(doc.type != "P") continue;
                 string no_begin = doc.no.substr(0, 2);
                 if(

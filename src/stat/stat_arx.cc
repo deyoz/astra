@@ -85,19 +85,18 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
 
   using namespace CKIN;
   std::map<PointId_t, BagReader> bag_readers;
-  ExcessWt viewEx;
+  MainPax viewEx;
   for( ; !Qry.Eof; Qry.Next()) {
       xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
-      TDateTime part_key=NoExists;
+      std::optional<Dates::DateTime_t> part_key;
       if(!Qry.FieldIsNULL(col_part_key)) {
-          part_key=Qry.FieldAsDateTime(col_part_key);
-          NewTextChild(paxNode, "part_key",  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
+          part_key = DateTimeToBoost(Qry.FieldAsDateTime(col_part_key));
+          NewTextChild(paxNode, "part_key", DateTimeToStr(BoostToDateTime(*part_key), ServerFormatDateTimeAsString));
       }
       PointId_t point_id{Qry.FieldAsInteger(col_point_id)};
-      std::optional<Dates::DateTime_t> opt_part_key = std::nullopt;
-      if(part_key != NoExists) opt_part_key = DateTimeToBoost(part_key);
+
       if(!algo::contains(bag_readers, point_id)) {
-          bag_readers[point_id] = BagReader(point_id, opt_part_key, READ::BAGS_AND_TAGS);
+          bag_readers[point_id] = BagReader(point_id, part_key, READ::BAGS_AND_TAGS);
       }
       GrpId_t grp_id(Qry.FieldAsInteger(col_grp_id));
       PaxId_t pax_id(Qry.FieldAsInteger(col_pax_id));
@@ -106,7 +105,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       std::optional<int> opt_bag_pool_num = std::nullopt;
       if(!Qry.FieldIsNULL(col_bag_pool_num)) {
           opt_bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
-          viewEx.saveMainPax(grp_id, pax_id);
+          viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
       }
       NewTextChild(paxNode, "point_id", point_id.get());
       NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
@@ -141,11 +140,11 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
           int excess = Qry.FieldAsInteger("excess");
           int excess_nvl = excess==0 ? excess_wt : excess;
           excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_nvl, bag_refuse!=0)));
+            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_nvl)));
 
       } else {
           excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(pax_id)),
-            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt, bag_refuse!=0)));
+            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt)));
       }
       NewTextChild(paxNode, "tags", bag_readers[point_id].tags(grp_id, opt_bag_pool_num, TReqInfo::Instance()->desk.lang));
       if(isArch) {
@@ -1597,7 +1596,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
 
   using namespace CKIN;
   BagReader bag_reader(point_dep, part_key, READ::BAGS_AND_TAGS);
-  ExcessWt viewGrp;
+  MainPax viewGrp;
   for(;!Qry.Eof;Qry.Next())
   {
       xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
@@ -1639,11 +1638,11 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
           int excess = Qry.FieldAsInteger("excess");
           int excess_nvl = excess==0 ? excess_wt : excess;
           excessNodeList.add(paxNode, "excess", TBagPieces(0),
-            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse)));
+            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse!=0)));
 
       } else {
           excessNodeList.add(paxNode, "excess", TBagPieces(0),
-            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_wt, bag_refuse)));
+            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_wt, bag_refuse!=0)));
       }
 
       NewTextChild(paxNode, "tags", bag_reader.tagsUnaccomp(grp_id, TReqInfo::Instance()->desk.lang));
@@ -1891,6 +1890,7 @@ public:
     std::map<std::string,std::string>::const_iterator ip;
     switch ( senderType ) {
       case tsPaxListRun:
+      {
         params.insert( make_pair( "request", "PaxListRun(Поиск списка пассажиров)" ) );
         int point_id;
         TDateTime part_key;
@@ -1900,12 +1900,16 @@ public:
         else
           part_key = NoExists;
         StrToInt( params.find( "point_id" )->second.c_str(), point_id );
-        tripInfo.getByPointId(part_key,point_id);
+        std::optional<Dates::DateTime_t> opt_part_key;
+        if(part_key != NoExists) { opt_part_key = DateTimeToBoost(part_key);}
+        tripInfo.getByPointId(opt_part_key,point_id);
         params.insert( make_pair("airline", tripInfo.airline) );
         params.insert( make_pair("flt_no", IntToString(tripInfo.flt_no) + tripInfo.suffix) );
         params.insert( make_pair("scd_out", DateTimeToStr( tripInfo.scd_out ) ) );
         break;
+      }
       case tsPaxSrcRun:
+      {
         params.insert( make_pair( "request", "PaxSrcRun(Поиск одного пассажира)" ) );
         if ( (ip = params.find( "airline" )) != params.end() ) {
           tripInfo.airline = ip->second;
@@ -1917,6 +1921,7 @@ public:
           tripInfo.airp = ip->second; //здесь направление - аэропорт прилета, а не вылета (скорее всего не будет использовано никогда)
         }
         break;
+      }
       default:
         return;
     }

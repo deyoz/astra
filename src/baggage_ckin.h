@@ -47,15 +47,24 @@ enum class READ : uint32_t
     BAGS_AND_TAGS
 };
 
-class ExcessWt
+class MainPax
 {
 public:
-    int excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse);
+    MainPax() : is_unnacomp(false) {}
+    MainPax(bool unnacomp) : is_unnacomp(unnacomp) {}
+    int excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw) const;
     int excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse);
-    bool isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse);
-    void saveMainPax(GrpId_t grp_id, PaxId_t pax_id);
+    bool isMainPax(GrpId_t grp_id, PaxId_t pax_id) const;
+    bool isUnnacomp() const {return is_unnacomp;}
+    void saveMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse);
 private:
-    std::map<GrpId_t, PaxId_t> first_paxes;
+    struct PaxInfo
+    {
+        PaxId_t pax_id;
+        bool bag_refuse;
+    };
+    std::map<GrpId_t, PaxInfo> first_paxes;
+    bool is_unnacomp = false;
     std::set<GrpId_t> groups;
 };
 
@@ -115,22 +124,22 @@ private:
     std::unordered_map<GrpId_t, std::map<BagNum_t, std::vector<TagInfo>>> grp_tags;
 };
 
-std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+//std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+//std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+//std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+//std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
 
-std::optional<BagInfo> get_bagInfo2(GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> bag_pool_num,
-                      std::optional<DateTime_t> part_key);
+//std::optional<BagInfo> get_bagInfo2(GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> bag_pool_num,
+//                      std::optional<DateTime_t> part_key);
 
-std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
+std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
                                        std::optional<DateTime_t> part_key, int include_refused = 1);
 
-std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key);
+//std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key);
 
 int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::string> vclass, int bag_refuse,
                          std::optional<DateTime_t> part_key);
@@ -140,10 +149,6 @@ std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id,
 
 //std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
 //                                     int pr_lat, std::optional<DateTime_t> part_key );
-
-std::optional<int> get_main_pax_id(GrpId_t grp_id, int include_refused,  std::optional<DateTime_t> part_key);
-
-std::optional<std::string> get_next_airp(int first_point, int point_num, std::optional<DateTime_t> part_key);
 
 std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> excess_wt,
                                  std::optional<int> excess_nvl, int bag_refuse,

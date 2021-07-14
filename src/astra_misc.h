@@ -347,7 +347,7 @@ class TTripInfo
       init(Qry);
     }
   public:
-    virtual bool getByPointId (const TDateTime part_key, const int point_id,
+    virtual bool getByPointId (std::optional<Dates::DateTime_t> part_key, const int point_id,
                                const FlightProps& props = FlightProps() );
     virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
     virtual bool getByPointIdTlg ( const int point_id_tlg );

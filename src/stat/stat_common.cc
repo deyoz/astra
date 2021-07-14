@@ -551,7 +551,7 @@ const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
     if(i == this->end()) {
         TTripInfo info;
         if(part_key != NoExists)
-            info.getByPointId(part_key, point_id);
+            info.getByPointId(DateTimeToBoost(part_key), point_id);
         else
             info.getByPointId(point_id);
         TFltInfoCacheItem item;

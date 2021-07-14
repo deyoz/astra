@@ -94,7 +94,7 @@ std::string build_birks_str(const Container & tags, const std::string& lang)
     return res;
 }
 
-std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
+std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
                                     std::optional<DateTime_t> part_key, int include_refused)
 {
     LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
@@ -103,7 +103,7 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
     if(!bag_pool_num) {
         return std::nullopt;
     }
-    std::optional<int> res;
+    std::optional<PaxId_t> res;
     int pax_id;
     std::string refuse;
     std::string table = part_key? "ARX_PAX" :"PAX" ;
@@ -126,7 +126,7 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
        if(part_key) { cur.bind(":part_key", *part_key);};
        cur.exec();
     if(!cur.fen()) {
-        res = pax_id;
+        res = PaxId_t(pax_id);
         if(include_refused == 0 && !refuse.empty()) {
             res = std::nullopt;
         }
@@ -134,83 +134,115 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
     return res;
 }
 
-std::optional<BagInfo> get_bagInfo2( GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> bag_pool_num,
-                       std::optional<DateTime_t> part_key)
-{
-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time) << " grp_id: " << grp_id
-              << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
-    BagInfo bagInfo{};
+//std::optional<BagInfo> get_bagInfo2( GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> bag_pool_num,
+//                       std::optional<DateTime_t> part_key)
+//{
+//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time) << " grp_id: " << grp_id
+//              << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
+//    BagInfo bagInfo{};
 
-    std::optional<int> pool_pax_id = pax_id;
-    if(pax_id) {
-        if(!bag_pool_num) {
-            return bagInfo;
+//    std::optional<PaxId_t> pool_pax_id = pax_id;
+//    if(pax_id) {
+//        if(!bag_pool_num) {
+//            return bagInfo;
+//        }
+//        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
+//    }
+
+//    std::string table = part_key? "ARX_BAG2" : "BAG2";
+
+//    if(!pax_id || (pool_pax_id && pool_pax_id == pax_id)) {
+//        std::string query = "SELECT "
+//                            "SUM(CASE WHEN pr_cabin=0 THEN amount ELSE NULL END) AS bagAmount, "
+//                            "SUM(CASE WHEN pr_cabin=0 THEN weight ELSE NULL END) AS bagWeight, "
+//                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE amount END) AS rkAmount, "
+//                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE weight END) AS rkWeight "
+//                            "FROM " + table +
+//                            " WHERE GRP_ID=:grp_id " + (part_key ? "and PART_KEY=:part_key " : "") +
+//                            (pax_id ? " and BAG_POOL_NUM=:bag_pool_num " : "");
+//        auto cur = make_db_curs(query, PgOra::getROSession(table));
+//        cur.stb()
+//           .defNull(bagInfo.bagAmount,0)
+//           .defNull(bagInfo.bagWeight,0)
+//           .defNull(bagInfo.rkAmount,0)
+//           .defNull(bagInfo.rkWeight,0)
+//           .bind(":grp_id", grp_id.get());
+//        if(part_key) { cur.bind(":part_key", *part_key);};
+//        if(pax_id) {
+//            cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
+//        }
+//        cur.EXfet();
+//        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+//            LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
+//                             << " part_key: " << part_key.value_or(not_a_date_time) ;
+//            return bagInfo;
+//        }
+//    }
+//    return bagInfo;
+//}
+
+//std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+//{
+//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+//    if(!bagInfo) return std::nullopt;
+//    return bagInfo->bagAmount;
+//}
+
+//std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+//{
+//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+//    if(!bagInfo) return std::nullopt;
+//    return bagInfo->bagWeight;
+//}
+
+//std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+//{
+//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+//    if(!bagInfo) return std::nullopt;
+//    return bagInfo->rkAmount;
+//}
+
+//std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+//{
+//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+//    if(!bagInfo) return std::nullopt;
+//    return bagInfo->rkWeight;
+//}
+
+std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
+{
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+                     << " grp_id: " << grp_id << " include_refused: " << include_refused;
+    std::optional<int> res;
+    int pax_id;
+    std::string refuse;
+    std::string table = part_key? "ARX_PAX" : "PAX";
+    auto cur = make_db_curs("select PAX_ID, REFUSE "
+                            "from " + table +
+                            " where GRP_ID=:grp_id " + (part_key ? " and PART_KEY=:part_key " : "") +
+                            " order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
+                            "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
+                            "         case when SEATS=0 THEN 1 else 0 end, "
+                            "         case when REFUSE is null then 0 else 1 end, "
+                            "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
+                            "         reg_no",
+                            PgOra::getROSession(table));
+    cur.def(pax_id)
+       .defNull(refuse, "")
+       .bind(":grp_id", grp_id.get());
+    if(part_key) {cur.bind(":part_key", *part_key);}
+    cur.exec();
+    if(!cur.fen()) {
+        res = pax_id;
+        if(include_refused == 0 && !refuse.empty()) {
+            res = std::nullopt;
         }
-        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
     }
-
-    std::string table = part_key? "ARX_BAG2" : "BAG2";
-
-    if(!pax_id || (pool_pax_id && pool_pax_id == pax_id)) {
-        std::string query = "SELECT "
-                            "SUM(CASE WHEN pr_cabin=0 THEN amount ELSE NULL END) AS bagAmount, "
-                            "SUM(CASE WHEN pr_cabin=0 THEN weight ELSE NULL END) AS bagWeight, "
-                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE amount END) AS rkAmount, "
-                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE weight END) AS rkWeight "
-                            "FROM " + table +
-                            " WHERE GRP_ID=:grp_id " + (part_key ? "and PART_KEY=:part_key " : "") +
-                            (pax_id ? " and BAG_POOL_NUM=:bag_pool_num " : "");
-        auto cur = make_db_curs(query, PgOra::getROSession(table));
-        cur.stb()
-           .defNull(bagInfo.bagAmount,0)
-           .defNull(bagInfo.bagWeight,0)
-           .defNull(bagInfo.rkAmount,0)
-           .defNull(bagInfo.rkWeight,0)
-           .bind(":grp_id", grp_id.get());
-        if(part_key) { cur.bind(":part_key", *part_key);};
-        if(pax_id) {
-            cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
-        }
-        cur.EXfet();
-        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
-            LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
-                             << " part_key: " << part_key.value_or(not_a_date_time) ;
-            return bagInfo;
-        }
-    }
-    return bagInfo;
-}
-
-std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
-{
-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
-    if(!bagInfo) return std::nullopt;
-    return bagInfo->bagAmount;
-}
-
-std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
-{
-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
-    if(!bagInfo) return std::nullopt;
-    return bagInfo->bagWeight;
-}
-
-std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
-{
-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
-    if(!bagInfo) return std::nullopt;
-    return bagInfo->rkAmount;
-}
-
-std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
-{
-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
-    if(!bagInfo) return std::nullopt;
-    return bagInfo->rkWeight;
+    return res;
 }
 
 std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id,
@@ -257,39 +289,6 @@ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id,
     return excess;
 }
 
-
-std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
-{
-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
-                     << " grp_id: " << grp_id << " include_refused: " << include_refused;
-    std::optional<int> res;
-    int pax_id;
-    std::string refuse;
-    std::string table = part_key? "ARX_PAX" : "PAX";
-    auto cur = make_db_curs("select PAX_ID, REFUSE "
-                            "from " + table +
-                            " where GRP_ID=:grp_id " + (part_key ? " and PART_KEY=:part_key " : "") +
-                            " order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
-                            "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
-                            "         case when SEATS=0 THEN 1 else 0 end, "
-                            "         case when REFUSE is null then 0 else 1 end, "
-                            "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
-                            "         reg_no",
-                            PgOra::getROSession(table));
-    cur.def(pax_id)
-       .defNull(refuse, "")
-       .bind(":grp_id", grp_id.get());
-    if(part_key) {cur.bind(":part_key", *part_key);}
-    cur.exec();
-    if(!cur.fen()) {
-        res = pax_id;
-        if(include_refused == 0 && !refuse.empty()) {
-            res = std::nullopt;
-        }
-    }
-    return res;
-}
-
 int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::string> vclass, int bag_refuse,
                      std::optional<DateTime_t> part_key)
 {
@@ -299,12 +298,12 @@ int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::st
     if(!vclass) return 0;
     int n = 0;
     std::string table = part_key? "ARX_PAX" : "PAX";
-    auto cur = make_db_curs("select sum(case when REFUSE is null then 1 else 0 end) "
+    auto cur = make_db_curs("select refuse "
                             " from " + table +
                             " where GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num " +
                               (part_key ? " and PART_KEY=:part_key" : ""),
                             PgOra::getROSession(table));
-    cur.def(n)
+    cur.defNull(n, 1)
        .bind(":grp_id", grp_id.get())
        .bind(":bag_pool_num", bag_pool_num);
     if(part_key) {cur.bind(":part_key", *part_key);}
@@ -404,40 +403,40 @@ std::set<TagInfo> read_birks(GrpId_t grp_id, int bag_pool_num, std::optional<Dat
     return birks;
 }
 
-std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
-                                      std::optional<DateTime_t> part_key, const std::string& lang)
-{
-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
-                     << " grp_id: "<<grp_id << " bag_pool_num: " << bag_pool_num;
-    std::optional<int> pool_pax_id;
-    if(pax_id) {
-        if(!bag_pool_num) return std::nullopt;
-        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
-    }
+//std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
+//                                      std::optional<DateTime_t> part_key, const std::string& lang)
+//{
+//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+//                     << " grp_id: "<<grp_id << " bag_pool_num: " << bag_pool_num;
+//    std::optional<int> pool_pax_id;
+//    if(pax_id) {
+//        if(!bag_pool_num) return std::nullopt;
+//        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
+//    }
 
-    std::set<TagInfo> birks;
-    if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
-        if(!pax_id) {
-            birks = read_birks(grp_id, part_key);
-        }else {
-            if(bag_pool_num==1) {
-                /*для тех групп которые регистрировались с терминала без обязательной привязки */
-                std::set<TagInfo> birks1 = read_birks(grp_id, bag_pool_num, part_key);
-                std::set<TagInfo> birks2 = read_birks(grp_id, part_key);
-                //вместо SQL UNION
-                std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
-                           std::inserter(birks, birks.begin()));
-            } else {
-                birks = read_birks(grp_id, bag_pool_num, part_key);
-            }
-        }
-    }
-    LogTrace5 << " tags_range size: " << birks.size();
-    for(const TagInfo& tag : birks) {
-        LogTrace5 << " tag_no: " << tag.no << " tag_type: " <<tag.tag_type << "tag_no_len: " << tag.no_len;
-    }
-    return build_birks_str(birks,lang);
-}
+//    std::set<TagInfo> birks;
+//    if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
+//        if(!pax_id) {
+//            birks = read_birks(grp_id, part_key);
+//        }else {
+//            if(bag_pool_num==1) {
+//                /*для тех групп которые регистрировались с терминала без обязательной привязки */
+//                std::set<TagInfo> birks1 = read_birks(grp_id, bag_pool_num, part_key);
+//                std::set<TagInfo> birks2 = read_birks(grp_id, part_key);
+//                //вместо SQL UNION
+//                std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
+//                           std::inserter(birks, birks.begin()));
+//            } else {
+//                birks = read_birks(grp_id, bag_pool_num, part_key);
+//            }
+//        }
+//    }
+//    LogTrace5 << " tags_range size: " << birks.size();
+//    for(const TagInfo& tag : birks) {
+//        LogTrace5 << " tag_no: " << tag.no << " tag_type: " <<tag.tag_type << "tag_no_len: " << tag.no_len;
+//    }
+//    return build_birks_str(birks,lang);
+//}
 
 std::optional<std::string> next_airp(int first_point, int point_num, std::optional<Dates::DateTime_t> part_key)
 {
@@ -627,7 +626,9 @@ std::string BagReader::tags(GrpId_t grp_id, std::optional<int> bag_pool_num, con
 
 BagReader::BagReader(PointId_t point_dep, std::optional<Dates::DateTime_t> part_key, READ var)
 {
-//    ASTRA::dumpTable("BAG2", TRACE5);
+    ASTRA::dumpTable("BAG2", TRACE5);
+    ASTRA::dumpTable("PAX", TRACE5);
+    ASTRA::dumpTable("PAX_GRP", TRACE5);
 //    ASTRA::dumpTable("BAG_TAGS", TRACE5);
     switch (var) {
     case READ::BAGS_AND_TAGS:
@@ -672,19 +673,25 @@ int BagReader::bagAmount(GrpId_t grp_id, std::optional<int> bag_pool_num) const
     auto opt_bags = bagInfo(grp_id, bag_pool_num);
     int total_amount = 0;
     if(opt_bags) {
-        for(const auto & bag: opt_bags->get()) {total_amount += bag.bagAmount;}
+        for(const auto & bag: opt_bags->get()) {
+            LogTrace5 << "-----bag.bagAm: " << bag.bagAmount;
+            total_amount += bag.bagAmount;
+        }
     }
     return total_amount;
 }
 
 int BagReader::bagWeight(GrpId_t grp_id, std::optional<int> bag_pool_num) const
 {
-    LogTrace5 << __func__ << " grp_id: " << grp_id << " bag_pool_num: " << bag_pool_num.value_or(-1);
+    LogTrace5 << __func__ << " grp_id: " << grp_id << " bag_pool_num: " ; bag_pool_num.value_or(-1);
     if(!bag_pool_num) return 0;
     auto opt_bags = bagInfo(grp_id, bag_pool_num);
     int total_weight = 0;
     if(opt_bags) {
-        for(const auto & bag: opt_bags->get()) {total_weight += bag.bagWeight;}
+        for(const auto & bag: opt_bags->get()) {
+            LogTrace5 << "-----bag.bagWg: " << bag.bagWeight;
+            total_weight += bag.bagWeight;
+        }
     }
     return total_weight;
 }
@@ -696,7 +703,10 @@ int BagReader::rkAmount(GrpId_t grp_id, std::optional<int> bag_pool_num) const
     auto opt_bags = bagInfo(grp_id, bag_pool_num);
     int total_rkAmount = 0;
     if(opt_bags) {
-        for(const auto & bag: opt_bags->get()) {total_rkAmount += bag.rkAmount;}
+        for(const auto & bag: opt_bags->get()) {
+            LogTrace5 << "-----bag.rkAm: " << bag.rkAmount;
+            total_rkAmount += bag.rkAmount;
+        }
     }
     return total_rkAmount;
 }
@@ -708,17 +718,21 @@ int BagReader::rkWeight(GrpId_t grp_id, std::optional<int> bag_pool_num) const
     auto opt_bags = bagInfo(grp_id, bag_pool_num);
     int total_rkWeight = 0;
     if(opt_bags) {
-        for(const auto & bag: opt_bags->get()) {total_rkWeight += bag.rkWeight;}
+        for(const auto & bag: opt_bags->get()) {
+            LogTrace5 << "-----bag.rkWg: " << bag.rkWeight ;
+            total_rkWeight += bag.rkWeight;
+        }
     }
     return total_rkWeight;
 }
 
-int ExcessWt::excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse)
+int MainPax::excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw) const
 {
-    return isMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse) ? excess_wt_raw : 0;
+    return isMainPax(GrpId_t(grp_id), PaxId_t(pax_id)) ? excess_wt_raw : 0;
 }
 
-int ExcessWt::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse)
+
+int MainPax::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse)
 {
     LogTrace5 << __func__ << " grp_id: " << grp_id << " excess_wt_raw: " << excess_wt_raw
               << " bag_refuse: " << bag_refuse;
@@ -732,22 +746,21 @@ int ExcessWt::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refus
     return 0;
 }
 
-bool ExcessWt::isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
+bool MainPax::isMainPax(GrpId_t grp_id, PaxId_t pax_id) const
 {
-    if(!bag_refuse) {
-        if(algo::contains(first_paxes, grp_id)) {
-            if(first_paxes.at(grp_id) == pax_id) {
-                return true;
-            }
+    if(algo::contains(first_paxes, grp_id)) {
+        const PaxInfo &pax = first_paxes.at(grp_id);
+        if(!pax.bag_refuse && pax.pax_id == pax_id) {
+            return true;
         }
     }
     return false;
 }
 
-void ExcessWt::saveMainPax(GrpId_t grp_id, PaxId_t pax_id)
+void MainPax::saveMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
 {
     if(!algo::contains(first_paxes, GrpId_t(grp_id))) {
-        first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxId_t{pax_id}));
+        first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxInfo{pax_id, bag_refuse}));
     }
 }
 

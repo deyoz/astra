@@ -1134,7 +1134,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
             surname = doc.surname;
             name = doc.first_name;
         }
-        document = CheckIn::GetPaxDocStr(NoExists, pax_id, false, tag_lang.GetLang());
+        document = CheckIn::GetPaxDocStr(std::nullopt, pax_id, false, tag_lang.GetLang());
         ticket_rem = Qry.FieldAsString("ticket_rem");
         ticket_no = Qry.FieldAsString("ticket_no");
         coupon_no = Qry.FieldAsInteger("coupon_no");

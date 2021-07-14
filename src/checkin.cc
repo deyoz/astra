@@ -2523,7 +2523,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   using namespace CKIN;
   BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
-  ExcessWt viewEx;
+  MainPax viewEx;
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2576,7 +2576,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       std::optional<int> bag_pool_num = std::nullopt;
       if(!Qry.FieldIsNULL(col_bag_pool_num)) {
           bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
-          viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id));
+          viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse!=0);
       }
       int reg_no = Qry.FieldAsInteger(col_reg_no);
       string cl = Qry.FieldAsString(col_class);
@@ -2658,7 +2658,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"seat_no",seat_no.str());
       NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
       NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
-      NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true), "");
+      NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, true), "");
 
       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
       NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
@@ -2668,7 +2668,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
-        TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw, bag_refuse!=0)));
+        TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw)));
       NewTextChild(paxNode,"tags",bag_reader.tags(GrpId_t(grp_id), bag_pool_num, reqInfo->desk.lang),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
 
@@ -2798,7 +2798,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   node=NewTextChild(resNode,"unaccomp_bag");
-  ExcessWt viewExUnac;
+  MainPax viewExUnac(true);
   if (!Qry.Eof)
   {
     createDefaults=true;

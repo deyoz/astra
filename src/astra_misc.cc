@@ -129,20 +129,20 @@ void TTripInfo::fromArxPoint(const dbo::Arx_Points & arx_point)
     point_id = arx_point.point_id;
 };
 
-bool TTripInfo::getByPointId ( const TDateTime part_key,
+bool TTripInfo::getByPointId ( std::optional<Dates::DateTime_t> part_key,
                                const int point_id,
                                const FlightProps &props )
 {
-    if (part_key==NoExists)
+    if (!part_key)
     {
         return getByPointId(point_id, props);
     }
     dbo::Session session;
     std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
             .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
-            .setBind({{":point_id",point_id}, {":part_key", DateTimeToBoost(part_key)}});
+            .setBind({{":point_id",point_id}, {":part_key", *part_key}});
     if(!arx_point) {
-        LogTrace5 << " not found arx_point by point_id: " << point_id << " part_key: " << DateTimeToBoost(part_key);
+        LogTrace5 << " not found arx_point by point_id: " << point_id << " part_key: " << *part_key;
         return false;
     }
     if (!::match(arx_point->pr_del, arx_point->pr_reg, props)) return false;

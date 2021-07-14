@@ -50,9 +50,14 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
     paxQry.SQLText = SQLText;
     paxQry.Execute();
     TAirpArvInfo airp_arv_info;
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), DateTimeToBoost(part_key), READ::BAGS);
     for(; not paxQry.Eof; paxQry.Next()) {
-        int pax_id = paxQry.FieldAsInteger("pax_id");
-        int bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
+        PaxId_t pax_id(paxQry.FieldAsInteger("pax_id"));
+        std::optional<int> opt_bag_pool_num = std::nullopt;
+        if(!paxQry.FieldIsNULL("bag_pool_num")) {
+            opt_bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
+        }
         int grp_id = paxQry.FieldAsInteger("grp_id");
         int reg_no = paxQry.FieldAsInteger("reg_no");
         string name = paxQry.FieldAsString("name");
@@ -78,7 +83,7 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         string pnr_addr;
 
         CheckIn::TPaxDocItem doc;
-        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
+        LoadPaxDoc(DateTimeToBoost(part_key), pax_id, doc);
         string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
         string gender = doc.gender;
 
@@ -106,9 +111,9 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
             // До
             << airp_arv_info.get(paxQry) << delim
             // Багаж мест
-             <<  CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim
+            << bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num) << delim
             // Багаж вес
-            << CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim;
+            << bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num) << delim;
         // Время регистрации
         TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
         if(evt != events.end())
@@ -154,6 +159,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 
     string SQLText =
         "select \n"
+        "   pax.bag_pool_num, \n"
         "   pax.name, \n"
         "   pax.surname, \n"
         "   pax.ticket_no, \n"
@@ -163,9 +169,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         "   pax.reg_no, \n"
         "   pax_grp.client_type, \n"
         "   pax_grp.airp_arv, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no, "
-        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
+        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no ";
     SQLText +=  "from pax, pax_grp \n"
                 "where pax_grp.point_dep = :point_id and \n"
                 "      pax_grp.grp_id = pax.grp_id \n";
@@ -175,8 +179,17 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
     paxQry.SQLText = SQLText;
     paxQry.Execute();
     TAirpArvInfo airp_arv_info;
+
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
+
     for(; not paxQry.Eof; paxQry.Next()) {
         int grp_id = paxQry.FieldAsInteger("grp_id");
+        std::optional<int> opt_bag_pool_num = std::nullopt;
+        if(!paxQry.FieldIsNULL("bag_pool_num")) {
+            opt_bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
+        }
+
         int reg_no = paxQry.FieldAsInteger("reg_no");
         string name = paxQry.FieldAsString("name");
         string surname = paxQry.FieldAsString("surname");
@@ -204,7 +217,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         const bool term_bp = existsConfirmPrint(TDevOper::PrnBP, paxQry.FieldAsInteger("pax_id"));
 
         CheckIn::TPaxDocItem doc;
-        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
+        LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);
         string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
         string gender = doc.gender;
 
@@ -232,9 +245,9 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
             // До
             << airp_arv_info.get(paxQry) << delim
             // Багаж мест
-            << paxQry.FieldAsInteger("bag_amount") << delim
+            << bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num) << delim
             // Багаж вес
-            << paxQry.FieldAsInteger("bag_weight") << delim;
+            << bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num) << delim;
         // Время регистрации
         TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
         if(evt != events.end())

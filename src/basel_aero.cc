@@ -527,15 +527,15 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
     LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
     stats.clear();
     TTripInfo operFlt;
-    if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
+    if (!operFlt.getByPointId(DateTimeToBoost(part_key), point_id, FlightProps(FlightProps::NotCancelled,
                                                   FlightProps::WithCheckIn))) return;
     TRegEvents events;
     events.fromDB(part_key, point_id);
 
-    int grp_id = 0;
+    int grp_id_raw = 0;
     std::string grp_class;
     int piece_concept = 0;
-    int pax_id = NoExists;
+    int pax_id_raw = NoExists;
     std::string surname;
     std::string name;
     std::string refuse;
@@ -543,7 +543,7 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
     int reg_no;
     int excess_pc;
     int bag_pool_num;
-    int excess_wt;
+    int excess_wt_raw;
     int excess;
     int bag_refuse;
 
@@ -562,10 +562,10 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
 "ORDER BY arx_pax.reg_no NULLS LAST, arx_pax.seats DESC NULLS LAST",
                 PgOra::getROSession("ARX_PAX_GRP"));
     cur.stb()
-       .def(grp_id)
+       .def(grp_id_raw)
        .defNull(grp_class, "")
        .defNull(piece_concept, ASTRA::NoExists)
-       .defNull(pax_id, ASTRA::NoExists)
+       .defNull(pax_id_raw, ASTRA::NoExists)
        .def(surname)
        .defNull(name, "")
        .defNull(refuse,"")
@@ -573,35 +573,59 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
        .def(reg_no)
        .defNull(excess_pc, 0)
        .defNull(bag_pool_num, ASTRA::NoExists)
-       .defNull(excess_wt, ASTRA::NoExists)
+       .defNull(excess_wt_raw, ASTRA::NoExists)
        .defNull(excess, ASTRA::NoExists)
        .def(bag_refuse)
        .bind(":part_key", DateTimeToBoost(part_key))
        .bind(":point_id", point_id)
        .exec();
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), DateTimeToBoost(part_key), READ::BAGS_AND_TAGS);
+    MainPax viewEx;
     while(!cur.fen()) {
-        int arch_excess_wt = CKIN::get_excess_wt(GrpId_t(grp_id), pax_id, excess_wt, excess, bag_refuse, DateTimeToBoost(part_key)).value_or(0);
-        std::string tags  = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key), "RU").value_or("");
+        GrpId_t grp_id(grp_id_raw);
+        PaxId_t pax_id(pax_id_raw);
+        int excess_nvl = dbo::coalesce(excess_wt_raw, excess);
+        std::optional<int> opt_bag_pool_num = std::nullopt;
+        if(bag_pool_num != NoExists) {
+            opt_bag_pool_num = bag_pool_num;
+            viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
+        }
         TBaselStat stat;
         stat.point_id = point_id;
         stat.airp = operFlt.airp;
-        stat.viewGroup = grp_id;
-        stat.pax_id = pax_id;
+        stat.viewGroup = grp_id.get();
+        stat.pax_id = pax_id.get();
         stat.viewDate = operFlt.scd_out;
         stat.viewFlight = operFlt.airline;
         string tmp = std::to_string(operFlt.flt_no);
         while ( tmp.size() < 3 ) tmp = "0" + tmp;
         stat.viewFlight += tmp + operFlt.suffix;
-        if (stat.pax_id!=NoExists)
+        if (stat.pax_id!=NoExists) {
           stat.viewName = surname + '/' + name;
-        else
+
+          stat.viewPCT = bag_reader.bagAmount(grp_id, bag_pool_num);
+          stat.viewWeight =bag_reader.bagWeight(grp_id, bag_pool_num);
+          stat.viewCarryon =bag_reader.rkWeight(grp_id, bag_pool_num);
+
+          int arch_excess_wt = viewEx.excessWt(grp_id, pax_id, excess_nvl);
+          stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
+          stat.viewTag = bag_reader.tags(grp_id, bag_pool_num, "RU").substr(0,100);
+        }
+        else {
           stat.viewName = "ÅÄÉÄÜ ÅÖá ëéèêéÇéÜÑÖçàü";
+
+          stat.viewPCT = bag_reader.bagAmountUnaccomp(grp_id);
+          stat.viewWeight =bag_reader.bagWeightUnaccomp(grp_id);
+          stat.viewCarryon =bag_reader.rkWeightUnaccomp(grp_id);
+
+          int arch_excess_wt = viewEx.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse!=0);
+          stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
+          stat.viewTag = bag_reader.tagsUnaccomp(grp_id, "RU").substr(0,100);
+        }
         stat.viewName = stat.viewName.substr(0,130);
-        stat.viewPCT = CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
-        stat.viewWeight = CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
-        stat.viewCarryon = CKIN::get_rkWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
-        stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
-        stat.viewTag = tags.substr(0,100);
+
+
         pair<TDateTime, TDateTime> times(NoExists, NoExists);
         WeightConcept::TPaxNormComplexContainer norms;
         if (stat.pax_id != NoExists)
@@ -644,7 +668,7 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
             stat.viewBagNorms += n.normStr(AstraLocale::LANG_RU);
           }
         }
-        stat.viewPCTWeightPaidByType = baselStatPaidInfo(stat, part_key, point_id, grp_id, piece_concept);
+        stat.viewPCTWeightPaidByType = baselStatPaidInfo(stat, part_key, point_id, grp_id.get(), piece_concept);
         stat.viewClass = ElemIdToNameLong(etClass, grp_class);
         stats.push_back(stat);
     }
@@ -659,8 +683,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   stats.clear();
 
   TTripInfo operFlt;
-  if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
-                                                            FlightProps::WithCheckIn))) return;
+  if (!operFlt.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
+                                                  FlightProps::WithCheckIn))) return;
 
   TRegEvents events;
   events.fromDB(part_key, point_id);
@@ -670,16 +694,14 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   TQuery TimeQry(&OraSession);
 
     bag_sql=
-      "SELECT bag2.* "
+      "SELECT bag2.*, pax_grp.class "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id AND "
-      "      pax_grp.grp_id=:grp_id AND "
-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
+      "      pax_grp.grp_id=:grp_id ";
     bag_pc_sql=
       "SELECT bag2.* "
       "FROM bag2 "
-      "WHERE bag2.grp_id=:grp_id AND "
-      "      ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num,0)=:pax_id";
+      "WHERE bag2.grp_id=:grp_id ";
 
     TimeQry.SQLText =
       "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
@@ -696,15 +718,9 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   ostringstream sql;
   sql <<
     "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
+    "       pax_grp.bag_refuse, pax_grp.excess_wt, "
     "       pax.pax_id, pax.surname, pax.name, "
-    "       pax.refuse, pax.pr_brd, pax.reg_no, "
-    "         "
-    "ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-    "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-    "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-    "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
-    "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
+    "       pax.refuse, pax.pr_brd, pax.reg_no, pax.bag_pool_num "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
     "      pax_grp.point_dep=:point_id AND "
@@ -714,10 +730,14 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
+  MainPax viewEx;
   for(;!Qry.Eof;Qry.Next())
   {
     bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-    int main_pax_id=Qry.FieldIsNULL("main_pax_id")?NoExists:Qry.FieldAsInteger("main_pax_id");
+
+    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
 
     TBaselStat stat;
     stat.point_id = point_id;
@@ -729,17 +749,38 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     string tmp = IntToString( operFlt.flt_no );
     while ( tmp.size() < 3 ) tmp = "0" + tmp;
     stat.viewFlight += tmp + operFlt.suffix;
-    if (stat.pax_id!=NoExists)
+    int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
+    int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+    std::optional<int> opt_bag_pool_num = std::nullopt;
+
+    if (stat.pax_id!=NoExists) {
+        PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
+        if(!Qry.FieldIsNULL("bag_pool_num")) {
+            opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+            viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
+        }
+
       stat.viewName = string(Qry.FieldAsString("surname")) + "/" + Qry.FieldAsString("name");
-    else
+
+      stat.viewPCT = bag_reader.bagAmount(grp_id, opt_bag_pool_num);
+      stat.viewWeight = bag_reader.bagWeight(grp_id, opt_bag_pool_num);
+      stat.viewCarryon = bag_reader.rkWeight(grp_id, opt_bag_pool_num);
+      stat.viewPayWeight = TComplexBagExcess(TBagPieces(countPaidExcessPC(pax_id)),
+        TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt_raw))).getDeprecatedInt();
+      stat.viewTag = bag_reader.tags(grp_id, opt_bag_pool_num, "RU").substr(0,100);
+    }
+    else {
       stat.viewName = "ÅÄÉÄÜ ÅÖá ëéèêéÇéÜÑÖçàü";
+
+      stat.viewPCT = bag_reader.bagAmountUnaccomp(grp_id);
+      stat.viewWeight = bag_reader.bagWeightUnaccomp(grp_id);
+      stat.viewCarryon = bag_reader.rkWeightUnaccomp(grp_id);
+      stat.viewPayWeight = TComplexBagExcess(TBagPieces(0),
+        TBagKilos(viewEx.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse!=0))).getDeprecatedInt();
+      stat.viewTag = bag_reader.tagsUnaccomp(grp_id, "RU").substr(0,100);
+    }
     stat.viewName = stat.viewName.substr(0,130);
-    stat.viewPCT = Qry.FieldAsInteger("bag_amount");
-    stat.viewWeight = Qry.FieldAsInteger("bag_weight");
-    stat.viewCarryon = Qry.FieldAsInteger("rk_weight");
-    stat.viewPayWeight = TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" )))),
-                                           TBagKilos(Qry.FieldAsInteger("excess_wt"))).getDeprecatedInt();
-    stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
+
     pair<TDateTime, TDateTime> times(NoExists, NoExists);
     WeightConcept::TPaxNormComplexContainer norms;
     if (stat.pax_id!=NoExists)
@@ -784,58 +825,65 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     TPaidToLogInfo paidInfo;
     BagQry.Clear();
     BagQry.CreateVariable("grp_id", otInteger, stat.viewGroup);
+    bool is_bag_pc = false;
     if (piece_concept && stat.pax_id!=NoExists)
     {
       BagQry.SQLText=bag_pc_sql;
       BagQry.CreateVariable("pax_id", otInteger, stat.pax_id);
+      is_bag_pc = true;
     }
-    else if (stat.pax_id==NoExists || stat.pax_id==main_pax_id)
+    else if (stat.pax_id==NoExists || viewEx.isMainPax(grp_id, PaxId_t(stat.pax_id)))
     {
       BagQry.SQLText = bag_sql;
+      is_bag_pc = false;
     };
     if (!BagQry.SQLText.IsEmpty())
     {
-      BagQry.Execute();
-      if (!BagQry.Eof)
-      {
-        for(;!BagQry.Eof;BagQry.Next())
-        {
-          CheckIn::TBagItem bagItem;
-          bagItem.fromDB(BagQry);
-          paidInfo.add(bagItem);
-        };
-        if (!piece_concept)
-        {
-          WeightConcept::TPaidBagList paid;
-          WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
-          for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-            paidInfo.add(*p);
-        }
-        else
-        {
-            TPaidRFISCListWithAuto paid;
-            paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
-            for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-            {
-              if (p->second.trfer_num!=0) continue;
-              paidInfo.add(p->second);
-            };
-        };
-        ostringstream str;
-        for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
-        {
-          if (b->second.empty()) continue;
+      if (is_bag_pc ||  (!is_bag_pc && !CKIN::get_bag_pool_refused(grp_id, opt_bag_pool_num.value_or(0),
+                                        Qry.FieldAsString("class"), bag_refuse, std::nullopt))) {
 
-          if (!str.str().empty()) str << ", ";
-          if (!b->first.bag_type_view.empty())
-            str << b->first.bag_type_view << ":";
-          if (b->first.is_trfer)
-            str << "T:";
-          str << b->second.amount << "/" << b->second.weight << "/" << b->second.paid;
-        };
-        stat.viewPCTWeightPaidByType=str.str();
-      };
-    };
+          BagQry.Execute();
+          if (!BagQry.Eof)
+          {
+            for(;!BagQry.Eof;BagQry.Next())
+            {
+              CheckIn::TBagItem bagItem;
+              bagItem.fromDB(BagQry);
+              paidInfo.add(bagItem);
+            };
+            if (!piece_concept)
+            {
+              WeightConcept::TPaidBagList paid;
+              WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
+              for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+                paidInfo.add(*p);
+            }
+            else
+            {
+                TPaidRFISCListWithAuto paid;
+                paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
+                for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+                {
+                  if (p->second.trfer_num!=0) continue;
+                  paidInfo.add(p->second);
+                };
+            };
+            ostringstream str;
+            for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
+            {
+              if (b->second.empty()) continue;
+
+              if (!str.str().empty()) str << ", ";
+              if (!b->first.bag_type_view.empty())
+                str << b->first.bag_type_view << ":";
+              if (b->first.is_trfer)
+                str << "T:";
+              str << b->second.amount << "/" << b->second.weight << "/" << b->second.paid;
+            };
+            stat.viewPCTWeightPaidByType=str.str();
+          };
+      }
+    }
 
     stat.viewClass = ElemIdToNameLong(etClass, Qry.FieldAsString("class"));
     if ( stat.pax_id!=NoExists ) {

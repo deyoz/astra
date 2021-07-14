@@ -108,7 +108,7 @@ namespace RCPT_PAX_DOC {
         ostringstream result;
 
         CheckIn::TPaxDocItem doc;
-        if (LoadPaxDoc(NoExists, pax_id, doc) && !doc.no.empty())
+        if (LoadPaxDoc(std::nullopt, PaxId_t(pax_id), doc) && !doc.no.empty())
         {
             if (!doc.type_rcpt.empty())
               result << doc.type_rcpt;

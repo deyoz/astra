@@ -8442,7 +8442,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
       NewTextChild( passNode, "isseat", (int)waitListReason.status == layerValid || ipass->is_jmp, (int)def.isSeat );
       NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
       NewTextChild( passNode, "document",
-                    CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, true),
+                    CheckIn::GetPaxDocStr(std::nullopt, ipass->pax_id, true),
                     def.document );
       NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
       NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );

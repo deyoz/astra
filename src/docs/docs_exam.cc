@@ -62,7 +62,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
                 NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
                 NewTextChild(paxNode, "seat_no", pax.seat_no);
-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax.id, false, rpt_params.GetLang()));
+                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax.id, false, rpt_params.GetLang()));
                 NewTextChild(paxNode, "ticket_no", pax.tkn.no);
                 NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
                 NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
@@ -106,7 +106,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(paxNode, "pr_exam", (int)pax->simple.pr_exam, (int)false);
                 NewTextChild(paxNode, "pr_brd", (int)pax->simple.pr_brd, (int)false);
                 NewTextChild(paxNode, "seat_no", pax->seat_no());
-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax->simple.id, false, rpt_params.GetLang()));
+                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax->simple.id, false, rpt_params.GetLang()));
                 NewTextChild(paxNode, "ticket_no", pax->tkn_str());
                 NewTextChild(paxNode, "bag_amount", pax->bag_amount());
                 NewTextChild(paxNode, "bag_weight", pax->bag_weight());

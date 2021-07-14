@@ -32,7 +32,7 @@ void TMoveIds::get_for_airp(TDateTime first_date, TDateTime last_date, const std
         insert(make_pair(i->part_key, i->move_id));
 }
 
-int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
+int arx_stat_belgorod(Dates::DateTime_t part_key, int move_id, int& processed,
                       std::ofstream& farv, std::ofstream& fdep)
 {
     LogTrace5 << " part_key : " << part_key << " move_id: " << move_id;
@@ -63,7 +63,7 @@ int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
        .bind(":move_id", move_id)
        .exec();
 
-    map< pair<TDateTime, int>, TTripInfo > flights;
+    map< pair<Dates::DateTime_t, int>, TTripInfo > flights;
     const string delim="\t";
     const string endl="\r\n";
 
@@ -85,9 +85,9 @@ int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
         }
         pax.fromPax(*arx_pax);
         CheckIn::TPaxDocItem doc;
-        if (!CheckIn::LoadPaxDoc(part_key, pax.id, doc)) continue;
+        if (!CheckIn::LoadPaxDoc(part_key, PaxId_t(pax.id), doc)) continue;
 
-        map< pair<TDateTime, int>, TTripInfo >::iterator flt =
+        map< pair<Dates::DateTime_t, int>, TTripInfo >::iterator flt =
                 flights.insert(make_pair(make_pair(part_key, arx_points_point_id), TTripInfo())).first;
         if (flt==flights.end())
             throw EXCEPTIONS::Exception("%s: strange situation flt==flights.end()!", __FUNCTION__);
@@ -218,7 +218,7 @@ int stat_belgorod(int argc, char **argv)
                 int move_id=i->second;
 
                 if(part_key != ASTRA::NoExists) {
-                    arx_stat_belgorod(part_key, move_id, processed, farv, fdep);
+                    arx_stat_belgorod(DateTimeToBoost(part_key), move_id, processed, farv, fdep);
                 }
                 else {
 
@@ -230,7 +230,7 @@ int stat_belgorod(int argc, char **argv)
                         CheckIn::TSimplePaxItem pax;
                         pax.fromDB(PQry);
                         CheckIn::TPaxDocItem doc;
-                        if (!CheckIn::LoadPaxDoc(part_key, pax.id, doc)) continue;
+                        if (!CheckIn::LoadPaxDoc(pax.id, doc)) continue;
 
                         string airp_dep=PQry.FieldAsString("airp_dep");
                         string airp_arv=PQry.FieldAsString("airp_arv");
@@ -241,7 +241,7 @@ int stat_belgorod(int argc, char **argv)
                             throw EXCEPTIONS::Exception("%s: strange situation flt==flights.end()!", __FUNCTION__);
 
                         if (flt->second.airline.empty())
-                            flt->second.getByPointId(part_key, point_id);
+                            flt->second.getByPointId(point_id);
 
                         for(int pass=0; pass<2; pass++)
                         {

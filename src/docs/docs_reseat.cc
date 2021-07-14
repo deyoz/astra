@@ -106,7 +106,7 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                                                   i_cls->second,
                                                   i->second.pax.cabin.cl.empty()?i_cls->second:i->second.pax.cabin.cl));
 
-        NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(NoExists, i->second.pax.id, false, rpt_params.GetLang()));
+        NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(std::nullopt, i->second.pax.id, false, rpt_params.GetLang()));
 
         ostringstream ticket_no;
         ticket_no << i->second.pax.tkn.no;
