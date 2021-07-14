@@ -4,6 +4,8 @@
 #include "stat/stat_utils.h"
 #include "docs_utils.h"
 #include "xml_unit.h"
+#include "baggage_ckin.h"
+
 #include "serverlib/xmllibcpp.h"
 
 #define NICKNAME "DENIS"
@@ -47,6 +49,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
             TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
+            using namespace CKIN;
+            BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
+            MainPax viewPax;
             for( ; !Qry.Eof; Qry.Next()) {
                 CheckIn::TSimplePaxItem pax;
                 pax.fromDB(Qry);
@@ -65,16 +70,26 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax.id, false, rpt_params.GetLang()));
                 NewTextChild(paxNode, "ticket_no", pax.tkn.no);
                 NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
-                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-                NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
-                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+
+                const int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+                std::optional<int> opt_bag_pool_num;
+                if(!Qry.FieldIsNULL("bag_pool_num")) {
+                    opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+                    viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax.paxId()), bag_refuse!=0);
+                }
+
+                const int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
+
+                NewTextChild(paxNode, "bag_amount", bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num));
+                NewTextChild(paxNode, "bag_weight", bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num));
+                NewTextChild(paxNode, "rk_amount", bag_reader.rkAmount(GrpId_t(grp_id), opt_bag_pool_num));
+                NewTextChild(paxNode, "rk_weight", bag_reader.rkWeight(GrpId_t(grp_id), opt_bag_pool_num));
                 excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                        TBagKilos(Qry.FieldAsInteger("excess_wt")));
+                        TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax.paxId()), excess_wt_raw)));
                 bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
                     WeightConcept::BagPaymentCompleted(grp_id);
                 NewTextChild(paxNode, "pr_payment", (int)pr_payment);
-                NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+                NewTextChild(paxNode, "tags", bag_reader.tags(GrpId_t(grp_id), opt_bag_pool_num, rpt_params.GetLang()));
                 NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
             }
         }

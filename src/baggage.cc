@@ -5,6 +5,7 @@
 #include "term_version.h"
 #include "qrys.h"
 #include "baggage_tags.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -701,29 +702,41 @@ bool TGroupBagItem::completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNo
 
 bool TGroupBagItem::tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, int& tagOwner/*pax_id*/)
 {
-  tagOwner=ASTRA::NoExists;
-  if (pax_id==ASTRA::NoExists) return false;
+    tagOwner=ASTRA::NoExists;
+    if (pax_id==ASTRA::NoExists) return false;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) AS pax_id "
-      "FROM pax, bag_tags, bag2 "
-      "WHERE pax.grp_id=bag_tags.grp_id AND "
-      "      bag_tags.grp_id=bag2.grp_id(+) AND "
-      "      bag_tags.bag_num=bag2.num(+) AND "
-      "      pax.pax_id=:pax_id AND bag_tags.no=:no";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.CreateVariable("no", otFloat, tag.numeric_part);
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    if (!Qry.FieldIsNULL("pax_id"))
-      tagOwner=Qry.FieldAsInteger("pax_id");
-    return true;
-  }
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    int grp_id = NoExists;
+    Qry.SQLText =
+      "select grp_id "
+      "from PAX "
+      "where pax_id = :pax_id ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        if (!Qry.FieldIsNULL("grp_id"))
+          grp_id=Qry.FieldAsInteger("grp_id");
+    }
 
-  return false;
+    TQuery QryBag(&OraSession);
+    QryBag.SQLText =
+        "select bag_tags.grp_id "
+        "from BAG_TAGS, BAG2 "
+        "where bag_tags.grp_id=bag2.grp_id AND bag_tags.bag_num=bag2.num AND bag_tags.no=:no";
+    QryBag.CreateVariable("no", otFloat, tag.numeric_part);
+    QryBag.Execute();
+    int bag_grp_id = NoExists;
+    if (!QryBag.Eof)
+    {
+        if (!QryBag.FieldIsNULL("grp_id"))
+          bag_grp_id=QryBag.FieldAsInteger("grp_id");
+    }
+    if(bag_grp_id!=NoExists && grp_id!=NoExists && bag_grp_id == grp_id) {
+      tagOwner = pax_id;
+      return true;
+    }
+    return false;
 }
 
 void TBagMap::add(const TUnaccompInfoItem& unaccomp, bool throwIfProblem)
@@ -1635,22 +1648,14 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
     if (!bag_refuse)
     {
       //точно не весь багаж разрегистрирован
-      BagQry.Clear();
-      BagQry.SQLText=
-        "SELECT ckin.bag_pool_refused(:grp_id, :bag_pool_num, :class, :bag_refuse) AS refused FROM dual";
-      BagQry.CreateVariable("grp_id",otInteger,grp_id);
-      BagQry.DeclareVariable("bag_pool_num",otInteger);
-      BagQry.CreateVariable("class",otString,cl);
-      BagQry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
       set<int/*bag_pool_num*/> del_pools;
       for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
       {
         if (del_pools.find(i->second.bag_pool_num)==del_pools.end())
         {
-          BagQry.SetVariable("bag_pool_num",i->second.bag_pool_num);
-          BagQry.Execute();
-          if (BagQry.Eof || BagQry.FieldAsInteger("refused")!=0)
-            del_pools.insert(i->second.bag_pool_num);
+            if(CKIN::get_bag_pool_refused(GrpId_t(grp_id), i->second.bag_pool_num, cl, (int)bag_refuse, std::nullopt)) {
+                del_pools.insert(i->second.bag_pool_num);
+            }
         };
       };
       filterPools(del_pools, false);

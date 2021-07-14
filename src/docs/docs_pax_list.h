@@ -6,6 +6,7 @@
 #include "db_tquery.h"
 #include "docs_consts.h"
 #include "pers_weights.h"
+#include "baggage_ckin.h"
 
 namespace REPORTS {
 
@@ -102,6 +103,7 @@ namespace REPORTS {
         int weight;
         TBagKilos excess_wt;
         TBagPieces excess_pc;
+        std::string tags;
         void clear()
         {
             rk_amount = 0;
@@ -127,8 +129,10 @@ namespace REPORTS {
                 excess_wt.empty() or
                 excess_pc.empty();
         }
-        void fromDB(TQuery &Qry);
-        void fromDB(DB::TQuery &Qry);
+
+        void fromBagReader(const CheckIn::TSimplePaxItem & pax, const CKIN::BagReader & bag_reader,
+                           const CKIN::MainPax & view_pax, const TOptions &options,
+                           int excess_pc, int excess_wt);
         void trace(TRACE_SIGNATURE);
     };
 
@@ -156,9 +160,7 @@ namespace REPORTS {
         std::string seat_no() const;
         std::string tkn_str() const;
         std::string _seat_no; // # места с пробелами в начале, для сортировки
-
-        std::multiset<TBagTagNumber> _tags;
-        std::string get_tags() const;
+        std::string get_tags() {return baggage.tags;}
 
         std::multiset<CheckIn::TPaxRemItem> _rems;
         virtual std::string rems() const;
@@ -171,7 +173,6 @@ namespace REPORTS {
             _seat_no.clear();
             user_descr.clear();
             baggage.clear();
-            _tags.clear();
             _rems.clear();
         }
 

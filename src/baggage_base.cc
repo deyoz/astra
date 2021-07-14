@@ -1,6 +1,7 @@
 #include "baggage_base.h"
 #include "astra_locale.h"
 #include "qrys.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -98,20 +99,6 @@ TBagQuantity& TBagQuantity::operator += (const TBagQuantity &item)
   return *this;
 }
 
-std::optional<PaxId_t> getPaxIdByBagPool(const GrpId_t& grp_id, int bag_pool_num)
-{
-  TQuery Qry(&OraSession, STDLOG);
-  Qry.SQLText =
-      "SELECT ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) AS pax_id FROM DUAL";
-  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
-  Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
-  Qry.Execute();
-  if (Qry.Eof) {
-    return {};
-  }
-  return PaxId_t(Qry.FieldAsInteger("pax_id"));
-}
-
 std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                                   boost::optional<TServiceCategory::Enum> category)
 {
@@ -150,7 +137,7 @@ std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_nu
 
   if (way==ServiceGetItemWay::ByBagPool)
   {
-    const std::optional<PaxId_t> pax_id = getPaxIdByBagPool(GrpId_t(id), bag_pool_num);
+    const std::optional<PaxId_t> pax_id = CKIN::get_bag_pool_pax_id(GrpId_t(id), bag_pool_num, std::nullopt);
     QryParams << QParam("id", otInteger, pax_id ? pax_id->get() : ASTRA::NoExists);
   } else {
     QryParams << QParam("id", otInteger, id);

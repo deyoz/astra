@@ -11,6 +11,29 @@ using namespace REPORTS;
 using namespace std;
 using namespace ASTRA;
 
+
+// Может, вынести в утилиты?
+template<class TQueryT>
+string FieldAsString(TQueryT &Qry, const string &name)
+{
+    string result;
+    int col_idx = Qry.GetFieldIndex(name);
+    if(col_idx >= 0)
+        result = Qry.FieldAsString(col_idx);
+    return result;
+}
+
+template<class TQueryT>
+int FieldAsInteger(TQueryT &Qry, const string &name)
+{
+    int result = NoExists;
+    int col_idx = Qry.GetFieldIndex(name);
+    if(col_idx >= 0)
+        result = Qry.FieldAsInteger(col_idx);
+    return result;
+}
+
+
 TPaxPtr TPaxList::getPaxPtr()
 {
     return TPaxPtr(new TPax(*this));
@@ -59,21 +82,9 @@ void TPaxList::fromDB()
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
     string SQLText =
-        "select "
+        "select  pax_grp.excess_wt, pax_grp.bag_refuse, "
         "   nvl2(pax.grp_id, NULL, pax_grp.grp_id) empty_pax_grp_id, "
         "   pax.* ";
-    if(options.flags.isFlag(oeBagAmount))
-        SQLText += "   ,ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
-    if(options.flags.isFlag(oeBagWeight))
-        SQLText += "   ,ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight ";
-    if(options.flags.isFlag(oeRkAmount))
-        SQLText += "   ,ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount ";
-    if(options.flags.isFlag(oeRkWeight))
-        SQLText += "   ,ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight ";
-    if(options.flags.isFlag(oeExcess))
-        SQLText +=
-            "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
-            "   ,0 AS excess_pc ";
     SQLText +=
         "from pax_grp, pax where "
         "   pax_grp.point_dep = :point_id and "
@@ -106,9 +117,19 @@ void TPaxList::fromDB()
 
 void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
 {
+    CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
+    CKIN::MainPax view_pax;
     for(; !Qry.Eof; Qry.Next()) {
         TPaxPtr pax = getPaxPtr();
         pax->fromDB(Qry);
+
+        int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+        if(pax->simple.bag_pool_num != NoExists) {
+            view_pax.saveMainPax(GrpId_t(pax->simple.grp_id), PaxId_t(pax->simple.paxId()), bag_refuse !=0);  // Установка главного пакса в группе
+        }
+        pax->baggage.fromBagReader(pax->simple, bag_reader, view_pax, options,
+                                   Qry.FieldAsInteger("excess_pc"), Qry.FieldAsInteger("excess_wt"));
+
         if (countExcessPC) {
           pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
         }
@@ -131,9 +152,19 @@ void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
 
 void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
 {
+    CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
+    CKIN::MainPax view_pax;
     for(; !Qry.Eof; Qry.Next()) {
         TPaxPtr pax = getPaxPtr();
         pax->fromDB(Qry);
+
+        int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+        if(pax->simple.bag_pool_num != NoExists) {
+            view_pax.saveMainPax(GrpId_t(pax->simple.grp_id), PaxId_t(pax->simple.paxId()), bag_refuse !=0);  // Установка главного пакса в группе
+        }
+        pax->baggage.fromBagReader(pax->simple, bag_reader, view_pax, options,
+                                   Qry.FieldAsInteger("excess_pc"), Qry.FieldAsInteger("excess_wt"));
+
         if (countExcessPC) {
           pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
         }
@@ -152,6 +183,26 @@ void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
             unbound_cbbg_list.bind_cbbg(back());
         }
     }
+}
+
+void TBaggage::fromBagReader(const CheckIn::TSimplePaxItem & pax,
+                             const CKIN::BagReader & bag_reader, const CKIN::MainPax & view_pax,
+                             const TOptions& options, int excess_pc, int excess_wt)
+{
+    std::optional<int> opt_bag_pool_num;
+    if(pax.bag_pool_num != NoExists) {
+        opt_bag_pool_num = pax.bag_pool_num;
+    }
+    amount = bag_reader.bagAmount(GrpId_t(pax.grp_id), opt_bag_pool_num);
+    weight = bag_reader.bagWeight(GrpId_t(pax.grp_id), opt_bag_pool_num);
+    rk_amount = bag_reader.rkAmount(GrpId_t(pax.grp_id), opt_bag_pool_num);
+    rk_weight = bag_reader.rkWeight(GrpId_t(pax.grp_id), opt_bag_pool_num);
+    excess_pc = excess_pc;
+    excess_wt = view_pax.excessWt(GrpId_t(pax.grp_id), PaxId_t(pax.paxId()), excess_wt);
+    if(options.flags.isFlag(oeTags) && opt_bag_pool_num) {
+        tags = bag_reader.tags(GrpId_t(pax.grp_id), opt_bag_pool_num, options.lang);
+    }
+    trace(TRACE5);
 }
 
 void TBaggage::trace(TRACE_SIGNATURE)
@@ -178,27 +229,6 @@ void TPax::trace(TRACE_SIGNATURE)
             LogTrace(TRACE_PARAMS) << "  surname: " << cbbg.pax_info->simple.surname;
         }
     }
-}
-
-// Может, вынести в утилиты?
-template<class TQueryT>
-string FieldAsString(TQueryT &Qry, const string &name)
-{
-    string result;
-    int col_idx = Qry.GetFieldIndex(name);
-    if(col_idx >= 0)
-        result = Qry.FieldAsString(col_idx);
-    return result;
-}
-
-template<class TQueryT>
-int FieldAsInteger(TQueryT &Qry, const string &name)
-{
-    int result = NoExists;
-    int col_idx = Qry.GetFieldIndex(name);
-    if(col_idx >= 0)
-        result = Qry.FieldAsInteger(col_idx);
-    return result;
 }
 
 void TPax::fromDB(TQuery &Qry)
@@ -235,10 +265,7 @@ void TPax::fromDB(TQuery &Qry)
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
-    baggage.fromDB(Qry);
-    baggage.trace(TRACE5);
-    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
-        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
+
     if(pax_list.rem_grp)
         GetRemarks(simple.id, pax_list.options.lang, _rems);
 }
@@ -277,10 +304,7 @@ void TPax::fromDB(DB::TQuery &Qry)
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
-    baggage.fromDB(Qry);
-    baggage.trace(TRACE5);
-    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
-        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
+
     if(pax_list.rem_grp)
         GetRemarks(simple.id, pax_list.options.lang, _rems);
 }
@@ -375,26 +399,6 @@ string TPax::tkn_str() const
     return result;
 }
 
-void TBaggage::fromDB(TQuery &Qry)
-{
-    rk_amount = FieldAsInteger(Qry, "rk_amount");
-    rk_weight = FieldAsInteger(Qry, "rk_weight");
-    amount = FieldAsInteger(Qry, "bag_amount");
-    weight = FieldAsInteger(Qry, "bag_weight");
-    excess_wt = FieldAsInteger(Qry, "excess_wt");
-    excess_pc = FieldAsInteger(Qry, "excess_pc");
-}
-
-void TBaggage::fromDB(DB::TQuery &Qry)
-{
-    rk_amount = FieldAsInteger(Qry, "rk_amount");
-    rk_weight = FieldAsInteger(Qry, "rk_weight");
-    amount = FieldAsInteger(Qry, "bag_amount");
-    weight = FieldAsInteger(Qry, "bag_weight");
-    excess_wt = FieldAsInteger(Qry, "excess_wt");
-    excess_pc = FieldAsInteger(Qry, "excess_pc");
-}
-
 int TPax::bag_amount() const
 {
     int result = baggage.amount;
@@ -470,17 +474,17 @@ TBagPieces TPax::excess_pc() const
     return result;
 }
 
-string TPax::get_tags() const
-{
-    multiset<TBagTagNumber> result = _tags;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result.insert(
-                    cbbg.pax_info->_tags.begin(),
-                    cbbg.pax_info->_tags.end());
-    }
-    return GetTagRangesStrShort(result);
-}
+//string TPax::get_tags() const
+//{
+//    multiset<TBagTagNumber> result = _tags;
+//    for(const auto &cbbg: cbbg_list) {
+//        if(cbbg.pax_info)
+//            result.insert(
+//                    cbbg.pax_info->_tags.begin(),
+//                    cbbg.pax_info->_tags.end());
+//    }
+//    return GetTagRangesStrShort(result);
+//}
 
 string TPax::rems() const
 {

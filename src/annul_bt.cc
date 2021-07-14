@@ -1,5 +1,6 @@
 #include "annul_bt.h"
 #include "qrys.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -8,22 +9,6 @@ using namespace std;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 
-int get_pax_id(int grp_id, int bag_pool_num)
-{
-    int result = ASTRA::NoExists;
-    TCachedQuery Qry(
-            "select "
-            "   ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) "
-            "from "
-            "   dual",
-            QParams()
-            << QParam("grp_id", otInteger, grp_id)
-            << QParam("bag_pool_num", otInteger, bag_pool_num));
-    Qry.get().Execute();
-    if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
-        result = Qry.get().FieldAsInteger(0);
-    return result;
-}
 
 void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
 {
@@ -391,7 +376,8 @@ void TAnnulBT::get(int grp_id)
             bag_item.user_id = TReqInfo::Instance()->user.user_id;
             if(bag_item.pr_cabin) continue;
             TBagTags &bag_tags = items[bag_item.id];
-            bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
+            std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(GrpId_t(grp_id), bag_item.bag_pool_num,std::nullopt);
+            bag_tags.pax_id = opt_pax_id ? opt_pax_id->get() : NoExists;
             bag_tags.bag_item = bag_item;
 
             DB::TCachedQuery tagQry(

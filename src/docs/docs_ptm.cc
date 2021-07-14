@@ -367,7 +367,7 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
           };
           NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.simple.getTrickyGender()));
           NewTextChild(rowNode, "gender", gender);
-          NewTextChild(rowNode, "tags", pax.get_tags());
+          NewTextChild(rowNode, "tags", pax.baggage.tags);
           NewTextChild(rowNode, "seat_no", pax_item->seat_no());
           NewTextChild(rowNode, "remarks", pax.rems());
         }

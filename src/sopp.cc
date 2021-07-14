@@ -3564,16 +3564,7 @@ std::string GetTagsOfNotBoardedPax(int point_id)
     "      bag_tags.tag_type=tag_types.code AND "
     "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
     "      ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 AND "
-    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 "
-    "UNION "
-    "SELECT bag_tags.color, bag_tags.no, tag_types.no_len "
-    "FROM pax_grp, bag_tags, tag_types "
-    "WHERE pax_grp.grp_id=bag_tags.grp_id AND "
-    "      bag_tags.bag_num IS NULL AND "
-    "      bag_tags.tag_type=tag_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
-    "      ckin.bag_pool_refused(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 AND "
-    "      ckin.bag_pool_boarded(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 ";
+    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   multiset<TBagTagNumber> tags;

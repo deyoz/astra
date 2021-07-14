@@ -7,6 +7,7 @@
 #include "jms/jms.hpp"
 #include "apis_settings.h"
 #include "flt_settings.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "GRISHA"
 #include "serverlib/test.h"
@@ -59,9 +60,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
     "SELECT pax.*, "
-    "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no, "
-    "       ckin.get_bagAmount2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_amount, "
-    "       ckin.get_bagWeight2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_weight "
+    "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
     "FROM pax_grp,pax,tckin_segments "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
@@ -143,6 +142,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       PaxQry.SetVariable("point_arv",rd.arvInfo().point_id);
       PaxQry.Execute();
 
+      using namespace CKIN;
+      BagReader bag_reader{PointId_t(point_id), std::nullopt, READ::BAGS};
       for (;!PaxQry.Eof;PaxQry.Next())
       {
         TApisPaxData pax;
@@ -167,12 +168,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         for(;!SeatsQry.Eof;SeatsQry.Next())
           pax.seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
 
-        pax.amount = 0;
-        if (!PaxQry.FieldIsNULL("bag_amount"))
-          pax.amount = PaxQry.FieldAsInteger("bag_amount");
-        pax.weight = 0;
-        if (!PaxQry.FieldIsNULL("bag_weight"))
-          pax.weight = PaxQry.FieldAsInteger("bag_weight");
+        pax.amount = bag_reader.bagAmount(GrpId_t{pax.grp_id}, pax.bag_pool_num);
+        pax.weight = bag_reader.bagWeight(GrpId_t{pax.grp_id}, pax.bag_pool_num);
 
         multiset<TBagTagNumber> tags;
         GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, false);

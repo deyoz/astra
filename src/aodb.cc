@@ -42,6 +42,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "trip_tasks.h"
 #include "code_convert.h"
 #include "franchise.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -577,13 +578,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         "       pax.pers_type, NVL(pax.is_female, 1) AS is_female, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
         "       pax.seats seats, "
-        "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-        "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
-        "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
-        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
-        "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
-        "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
         "       pax.bag_pool_num, "
+        "       pax_grp.bag_refuse, "
         "       pax.pr_brd, "
         "       pax_grp.status, "
         "       pax_grp.client_type, "
@@ -617,6 +613,9 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   vector<string> baby_names;
   int length_time_value;
 
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
+  MainPax viewEx;
   while ( !Qry.Eof ) {
     if ( !pr_unaccomp && Qry.FieldAsInteger( "seats" ) == 0 ) {
       if ( Qry.FieldIsNULL( "refuse" ) )
@@ -710,14 +709,22 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         default:
           record<<1;
       }
+      GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+      PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
+      int bag_refuse =  Qry.FieldAsInteger("bag_refuse");
+      std::optional<int> bag_pool_num = std::nullopt;
+      if(!Qry.FieldIsNULL("bag_pool_num")) {
+        viewEx.saveMainPax(grp_id, pax_id, bag_refuse==0);
+        bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+      }
       record<<setw(5)<<Qry.FieldAsString( "seat_no" );
       record<<setw(2)<<Qry.FieldAsInteger( "seats" )-1;
-      record<<setw(4)<<TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" )))),
-                                         TBagKilos(Qry.FieldAsInteger( "excess_wt" ))).getDeprecatedInt();
-      record<<setw(3)<<Qry.FieldAsInteger( "rkamount" );
-      record<<setw(4)<<Qry.FieldAsInteger( "rkweight" );
-      record<<setw(3)<<Qry.FieldAsInteger( "bagamount" );
-      record<<setw(4)<<Qry.FieldAsInteger( "bagweight" );
+      record<<setw(4)<<TComplexBagExcess(TBagPieces(countPaidExcessPC(pax_id)),
+        TBagKilos(viewEx.excessWt(grp_id, pax_id, Qry.FieldAsInteger("excess_wt")))).getDeprecatedInt();
+      record<<setw(3)<<bag_reader.rkAmount(grp_id, bag_pool_num);
+      record<<setw(4)<<bag_reader.rkWeight(grp_id, bag_pool_num);
+      record<<setw(3)<<bag_reader.bagAmount(grp_id, bag_pool_num);
+      record<<setw(4)<<bag_reader.bagWeight(grp_id, bag_pool_num);
       record<<setw(10)<<""; // номер объединенного рейса
       record<<setw(16)<<""; // дата объединенного рейса
       record<<setw(3)<<""; // старый рег. номер пассажира
@@ -770,9 +777,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
     STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
     STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
     aodb_pax.push_back( STRAO );
-    if ( pr_unaccomp ||
-         ( !Qry.FieldIsNULL( "bag_pool_pax_id" ) && !Qry.FieldIsNULL( "bag_pool_num" ) &&
-           Qry.FieldAsInteger( "bag_pool_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) ) {
+    if ( pr_unaccomp || !Qry.FieldIsNULL( "bag_pool_num" )) {
       BagQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
       if (pr_unaccomp)
         BagQry.SetVariable( "bag_pool_num", 1 );
