@@ -438,7 +438,7 @@ void nosir_rfisc_stat_point(int point_id)
     flightsForLock.Get( point_id, ftTranzit );
     flightsForLock.Lock(__FUNCTION__);
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
@@ -449,17 +449,26 @@ void nosir_rfisc_stat_point(int point_id)
     }
 
     bool pr_stat = false;
-    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
-    Qry.Execute();
-    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
+    DB::TQuery PrStatQry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    PrStatQry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
+    PrStatQry.CreateVariable("point_id", otInteger, point_id);
+    PrStatQry.Execute();
+    if (not PrStatQry.Eof) {
+        pr_stat = PrStatQry.FieldAsInteger(0) != 0;
+    }
 
     int count = 0;
-    Qry.SQLText = "select count(*) from rfisc_stat where point_id=:point_id";
-    Qry.Execute();
-    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+    DB::TQuery RfiscQry(PgOra::getROSession("RFISC_STAT"), STDLOG);
+    RfiscQry.SQLText = "select count(*) from rfisc_stat where point_id=:point_id";
+    RfiscQry.CreateVariable("point_id", otInteger, point_id);
+    RfiscQry.Execute();
+    if (not RfiscQry.Eof) {
+        count = RfiscQry.FieldAsInteger(0);
+    }
 
-    if(pr_stat and count == 0)
+    if (pr_stat and count == 0) {
         get_rfisc_stat(point_id);
+    }
 
     ASTRA::commit();
 }
@@ -468,8 +477,8 @@ int nosir_rfisc_stat(int argc,char **argv)
 {
     cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
     list<int> point_ids;
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select point_id from trip_sets";
+    DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    Qry.SQLText = "SELECT point_id FROM trip_sets";
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
     ASTRA::rollback();

@@ -313,8 +313,8 @@ void nosir_lim_capab_stat_point(int point_id)
     flightsForLock.Get( point_id, ftTranzit );
     flightsForLock.Lock(__FUNCTION__);
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+    Qry.SQLText = "SELECT count(*) FROM points WHERE point_id = :point_id AND pr_del = 0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
@@ -324,17 +324,26 @@ void nosir_lim_capab_stat_point(int point_id)
     }
 
     bool pr_stat = false;
-    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
-    Qry.Execute();
-    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
+    DB::TQuery PrStatQry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    PrStatQry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id = :point_id";
+    PrStatQry.Execute();
+
+    if (not PrStatQry.Eof) {
+        pr_stat = PrStatQry.FieldAsInteger(0) != 0;
+    }
 
     int count = 0;
-    Qry.SQLText = "select count(*) from limited_capability_stat where point_id=:point_id";
-    Qry.Execute();
-    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+    DB::TQuery CountQry(PgOra::getROSession("LIMITED_CAPABILITY_STAT"), STDLOG);
+    CountQry.SQLText = "SELECT COUNT(*) FROM limited_capability_stat WHERE point_id = :point_id";
+    CountQry.Execute();
 
-    if(pr_stat and count == 0)
+    if (not CountQry.Eof) {
+        count = CountQry.FieldAsInteger(0);
+    }
+
+    if (pr_stat and count == 0) {
         get_limited_capability_stat(point_id);
+    }
 
     ASTRA::commit();
 }
@@ -343,8 +352,8 @@ int nosir_lim_capab_stat(int argc,char **argv)
 {
     cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
     list<int> point_ids;
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select point_id from trip_sets";
+    DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    Qry.SQLText = "SELECT point_id FROM trip_sets";
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
     ASTRA::rollback();

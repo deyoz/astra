@@ -377,10 +377,9 @@ public:
 class TSeasonCounters: public TCounters {
 public:
   virtual void get() {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
     Qry.SQLText =
-    "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
+    "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id = :point_id";
     Qry.DeclareVariable( "point_id", otInteger );
     TCounter pcounter;
     for ( auto &i : *this ) {

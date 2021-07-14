@@ -776,13 +776,16 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
     "       pax_grp.status NOT IN ('E') AND "
     "       rownum<2";
   PaxQry.DeclareVariable( "point_id", otInteger );
-  TQuery TranzQry( &OraSession );
+  DB::TQuery TranzQry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
   TranzQry.SQLText =
-    "SELECT NVL(pr_tranz_reg,0) pr_tranz_reg FROM points, trip_sets "
-     " WHERE move_id=:move_id AND "
-     "      point_num BETWEEN :point_num_dep+1 AND :point_num AND "
-     "      points.point_id=trip_sets.point_id AND pr_del=0 AND pr_reg<>0 "
-     " ORDER BY 1 DESC";
+     "SELECT COALESCE(pr_tranz_reg, 0) AS pr_tranz_reg "
+       "FROM points INNER JOIN trip_sets "
+         "ON points.point_id = trip_sets.point_id "
+      "WHERE move_id = :move_id "
+        "AND point_num BETWEEN :point_num_dep + 1 AND :point_num "
+        "AND pr_del = 0 "
+        "AND pr_reg <> 0 "
+      "ORDER BY 1 DESC";
   TranzQry.CreateVariable( "move_id", otInteger, move_id );
   TranzQry.CreateVariable( "point_num", otInteger, point_num );
   TranzQry.DeclareVariable( "point_num_dep", otInteger );
@@ -871,24 +874,24 @@ void TFilterLayers::getIntFilterLayers( int point_id,
   }
     clearFlags();
     for ( int l=0; l!=cltTypeNum; l++ ) {
-    ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)l;
-    if ( layer_type == cltTranzit ||
-         layer_type == cltProtTrzt ||
-         layer_type == cltBlockTrzt ||
-         layer_type == cltTranzit ||
-         layer_type == cltSOMTrzt ||
-         layer_type == cltPRLTrzt ||
-         layer_type == cltProtBeforePay ||
-         layer_type == cltProtAfterPay ||
-         layer_type == cltPNLBeforePay ||
-         layer_type == cltPNLAfterPay ||
-         layer_type == cltUnknown )
-      continue;
-    if ( only_compon_props && !isEditableMenuLayers( layer_type, menuLayers ) ) {
-      continue;
+        ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)l;
+        if (layer_type == cltTranzit ||
+            layer_type == cltProtTrzt ||
+            layer_type == cltBlockTrzt ||
+            layer_type == cltTranzit ||
+            layer_type == cltSOMTrzt ||
+            layer_type == cltPRLTrzt ||
+            layer_type == cltProtBeforePay ||
+            layer_type == cltProtAfterPay ||
+            layer_type == cltPNLBeforePay ||
+            layer_type == cltPNLAfterPay ||
+            layer_type == cltUnknown) {
+            continue;
+        } else if ( only_compon_props && !isEditableMenuLayers( layer_type, menuLayers ) ) {
+            continue;
+        }
+        setFlag( layer_type );
     }
-      setFlag( layer_type );
-  }
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
@@ -903,31 +906,29 @@ void TFilterLayers::getIntFilterLayers( int point_id,
       setFlag( cltPNLAfterPay );
     }
 
-    // см. C++ ф-ю get_pr_tranzit
-    Qry.Clear();
-    Qry.SQLText =
-    "SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
-    "FROM trip_sets "
-    "WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
+    DB::TQuery BlockQry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+    BlockQry.SQLText =
+     "SELECT pr_tranz_reg, pr_block_trzt "
+     "FROM trip_sets "
+     "WHERE point_id = :point_id";
+    BlockQry.CreateVariable( "point_id", otInteger, point_id );
+    BlockQry.Execute();
 
-    if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
-        if ( Qry.FieldAsInteger( "pr_tranz_reg" ) ) {
-      setFlag( cltProtTrzt );
-      setFlag( cltTranzit );
-        }
-        else {
-            if ( Qry.FieldAsInteger( "pr_block_trzt" ) ) {
-              setFlag( cltBlockTrzt );
-      }
-            else {
-                 ASTRA::TCompLayerType layer_tlg;
-         TFilterLayer_SOM_PRL FilterLayer_SOM_PRL;
-         FilterLayer_SOM_PRL.ReadOnTranzitRoutes( point_id, routes );
-         if ( FilterLayer_SOM_PRL.Get( point_dep, layer_tlg ) ) {
-                   setFlag( layer_tlg );
-                 }
+    PointId_t point(point_id);
+
+    if ( !BlockQry.Eof && CheckIn::get_pr_tranzit(point)) { // это транзитный рейс
+        if ( BlockQry.FieldAsInteger( "pr_tranz_reg" ) ) {
+            setFlag( cltProtTrzt );
+            setFlag( cltTranzit );
+        } else  if ( BlockQry.FieldAsInteger( "pr_block_trzt" ) ) {
+            setFlag( cltBlockTrzt );
+        } else {
+            ASTRA::TCompLayerType layer_tlg;
+            TFilterLayer_SOM_PRL FilterLayer_SOM_PRL;
+            FilterLayer_SOM_PRL.ReadOnTranzitRoutes( point_id, routes );
+
+            if ( FilterLayer_SOM_PRL.Get( point_dep, layer_tlg ) ) {
+                setFlag( layer_tlg );
             }
         }
     }
@@ -2714,24 +2715,25 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   DB::TQuery Qry( PgOra::getROSession({"TRIP_SETS", "POINTS"}), STDLOG);
   Qry.SQLText =
     "SELECT airline, "
-    "       flt_no, "
-    "       suffix, "
-    "       scd_out, "
-    "       act_out, "
-    "       pr_lat_seat, "
-    "       COALESCE(comp_id,-1) comp_id, "
-    "       crc_comp, "
-    "       COALESCE(crc_base_comp,crc_comp) as crc_base_comp, "
-    "       craft, "
-    "       bort, "
-    "       airp, "
-    "       trip_type, "
-    "       pr_reg, "
-    "       pr_tranzit, "
-    "       pr_tranz_reg "
-    " FROM trip_sets, points "
-    "WHERE points.point_id = :point_id AND "
-    "      points.point_id = trip_sets.point_id";
+           "flt_no, "
+           "suffix, "
+           "scd_out, "
+           "act_out, "
+           "pr_lat_seat, "
+           "COALESCE(comp_id, -1) comp_id, "
+           "crc_comp, "
+           "COALESCE(crc_base_comp, crc_comp) as crc_base_comp, "
+           "craft, "
+           "bort, "
+           "airp, "
+           "trip_type, "
+           "pr_reg, "
+           "pr_tranzit, "
+           "pr_tranz_reg "
+    "FROM trip_sets "
+    "INNER JOIN points "
+    "ON points.point_id = trip_sets.point_id "
+    "WHERE points.point_id = :point_id";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.Execute();
   if ( Qry.Eof ) {
@@ -5200,100 +5202,102 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
     return;
   }
   /* сохранение компоновки */
-  TQuery Qry( &OraSession );
-  if ( componSets.modify == mAdd ) {
-    Qry.SQLText = "SELECT id__seq.nextval as comp_id FROM dual";
-    Qry.Execute();
-    vcomp_id = Qry.FieldAsInteger( "comp_id" );
-  }
-  Qry.Clear();
   std::vector<std::string> elem_types;
   constructiveElemTypes( elem_types );
-  string sqlStr;
+  Dates::DateTime_t time_create = Dates::second_clock::universal_time();
   switch ( (int)componSets.modify ) {
     case mChange:
-      sqlStr =
-        "BEGIN "
-        " UPDATE comps SET airline=:airline,airp=:airp,craft=:craft,bort=:bort,descr=:descr, "
-        "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "
-        "  WHERE comp_id=:comp_id; "
-        " DELETE comp_rem WHERE comp_id=:comp_id; "
-        " DELETE comp_baselayers WHERE comp_id=:comp_id; "
-        " DELETE comp_rfisc WHERE comp_id=:comp_id; "
-        " DELETE comp_rates WHERE comp_id=:comp_id; ";
-      if ( saveContructivePlaces ) {
-        sqlStr +=
-        " DELETE comp_elems WHERE comp_id=:comp_id AND elem_type NOT IN ";
-        sqlStr += GetSQLEnum( elem_types );
-      }
-      else {
-        sqlStr +=
-        " DELETE comp_elems WHERE comp_id=:comp_id ";
-      }
-      sqlStr += ";";
-      sqlStr +=
-        " DELETE comp_classes WHERE comp_id=:comp_id; "
-        "END; ";
-      ProgTrace( TRACE5, "sql=%s", sqlStr.c_str() );
-      Qry.SQLText = sqlStr;
-      break;
-    case mAdd:
-      Qry.SQLText =
-        "INSERT INTO comps(comp_id,airline,airp,craft,bort,descr,time_create,classes,pr_lat_seat) "
-        " VALUES(:comp_id,:airline,:airp,:craft,:bort,:descr,system.UTCSYSDATE,:classes,:pr_lat_seat) ";
-      break;
-    case mDelete:
-      Qry.SQLText =
-        "BEGIN "
-        " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "
-        " DELETE comp_rem WHERE comp_id=:comp_id; "
-        " DELETE comp_baselayers WHERE comp_id=:comp_id; "
-        " DELETE comp_rates WHERE comp_id=:comp_id; "
-        " DELETE comp_rfisc WHERE comp_id=:comp_id; "
-        " DELETE comp_elems WHERE comp_id=:comp_id; "
-        " DELETE comp_sections WHERE comp_id=:comp_id; "
-        " DELETE comp_classes WHERE comp_id=:comp_id; "
-        " DELETE comps WHERE comp_id=:comp_id; "
-        "END; ";
-      break;
-  }
-  Qry.CreateVariable( "comp_id", otInteger, vcomp_id );
-  if ( componSets.modify != mDelete ) {
-    Qry.CreateVariable( "airline", otString, componSets.airline );
-    Qry.CreateVariable( "airp", otString, componSets.airp );
-    Qry.CreateVariable( "craft", otString, componSets.craft );
-    Qry.CreateVariable( "descr", otString, componSets.descr );
-    Qry.CreateVariable( "bort", otString, componSets.bort );
-    Qry.CreateVariable( "classes", otString, componSets.classes );
-    Qry.CreateVariable( "pr_lat_seat", otString, isCraftLat() );
-  }
-  Qry.Execute();
-  if ( componSets.modify == mDelete )
-    return; /* удалили компоновку */
+      make_db_curs(
+       "UPDATE comps "
+          "SET airline = :airline, airp = :airp, craft = :craft, bort = :bort, descr = :descr, "
+              "time_create = :time_create, classes = :classes, pr_lat_seat = :pr_lat_seat "
+        "WHERE comp_id = :comp_id",
+        PgOra::getRWSession("COMPS"))
+       .stb()
+       .bind(":airline", componSets.airline)
+       .bind(":airp", componSets.airp)
+       .bind(":craft", componSets.craft)
+       .bind(":bort", componSets.bort)
+       .bind(":descr", componSets.descr)
+       .bind(":time_create", time_create)
+       .bind(":classes", componSets.classes)
+       .bind(":pr_lat_seat", isCraftLat())
+       .bind(":comp_id", vcomp_id)
+       .exec();
 
-  TQuery QryRemarks( &OraSession );
+      make_db_curs("DELETE comp_rem WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_REM")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_baselayers WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_BASELAYERS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_rates WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_RATES")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_rfisc WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_RFISC")).stb().bind(":comp_id", vcomp_id).exec();
+
+      if ( saveContructivePlaces ) {
+        std::string sqlStr("DELETE comp_elems WHERE comp_id = :comp_id AND elem_type NOT IN ");
+        sqlStr += GetSQLEnum(elem_types);
+        make_db_curs(sqlStr, PgOra::getRWSession("COMP_ELEMS")).stb().bind(":comp_id", vcomp_id).exec();
+      } else {
+        make_db_curs("DELETE comp_elems WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_ELEMS")).stb().bind(":comp_id", vcomp_id).exec();
+      }
+      make_db_curs("DELETE comp_classes WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_CLASSES")).stb().bind(":comp_id", vcomp_id).exec();
+      break;
+
+    case mAdd:
+      vcomp_id = PgOra::getSeqNextVal_int("ID__SEQ");
+      make_db_curs("UPDATE trip_sets SET comp_id = NULL WHERE comp_id = :comp_id", PgOra::getRWSession("TRIP_SETS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs(
+       "INSERT INTO comps( comp_id, airline, airp, craft, bort, descr, time_create, classes, pr_lat_seat) "
+                  "VALUES(:comp_id,:airline,:airp,:craft,:bort,:descr,:time_create,:classes,:pr_lat_seat)",
+        PgOra::getRWSession("COMPS"))
+       .stb()
+       .bind(":comp_id", vcomp_id)
+       .bind(":airline", componSets.airline)
+       .bind(":airp", componSets.airp)
+       .bind(":craft", componSets.craft)
+       .bind(":bort", componSets.bort)
+       .bind(":descr", componSets.descr)
+       .bind(":time_create", time_create)
+       .bind(":classes", componSets.classes)
+       .bind(":pr_lat_seat", isCraftLat())
+       .exec();
+      break;
+
+    case mDelete:
+      make_db_curs("UPDATE trip_sets SET comp_id = NULL WHERE comp_id = :comp_id", PgOra::getRWSession("TRIP_SETS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_rem WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_REM")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_baselayers WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_BASELAYERS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_rates WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_RATES")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_rfisc WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_RFISC")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_elems WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_ELEMS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_sections WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_SECTIONS")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comp_classes WHERE comp_id = :comp_id", PgOra::getRWSession("COMP_CLASSES")).stb().bind(":comp_id", vcomp_id).exec();
+      make_db_curs("DELETE comps WHERE comp_id = :comp_id", PgOra::getRWSession("COMPS")).stb().bind(":comp_id", vcomp_id).exec();
+      return; /* удалили компоновку */
+  }
+
+  DB::TQuery QryRemarks(PgOra::getRWSession("COMP_REM"), STDLOG);
   QryRemarks.SQLText =
-    "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "
-    " VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
+    "INSERT INTO comp_rem( comp_id, num, x, y, rem, pr_denial) "
+                  "VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
   QryRemarks.CreateVariable( "comp_id", otInteger, vcomp_id );
   QryRemarks.DeclareVariable( "num", otInteger );
   QryRemarks.DeclareVariable( "x", otInteger );
   QryRemarks.DeclareVariable( "y", otInteger );
   QryRemarks.DeclareVariable( "rem", otString );
   QryRemarks.DeclareVariable( "pr_denial", otInteger );
-  TQuery QryBaseLayers( &OraSession );
+
+  DB::TQuery QryBaseLayers(PgOra::getRWSession("COMP_BASELAYERS"), STDLOG);
   QryBaseLayers.SQLText =
-    "INSERT INTO comp_baselayers(comp_id,num,x,y,layer_type) "
-    " VALUES(:comp_id,:num,:x,:y,:layer_type)";
+    "INSERT INTO comp_baselayers( comp_id, num, x, y, layer_type) "
+                         "VALUES(:comp_id,:num,:x,:y,:layer_type)";
   QryBaseLayers.CreateVariable( "comp_id", otInteger, vcomp_id );
   QryBaseLayers.DeclareVariable( "num", otInteger );
   QryBaseLayers.DeclareVariable( "x", otInteger );
   QryBaseLayers.DeclareVariable( "y", otInteger );
   QryBaseLayers.DeclareVariable( "layer_type", otString );
-  TQuery QryTariffs( &OraSession );
+
+  DB::TQuery QryTariffs(PgOra::getRWSession("COMP_RATES"), STDLOG);
   QryTariffs.SQLText =
-    "INSERT INTO comp_rates(comp_id,num,x,y,color,rate,rate_cur) "
-    " VALUES(:comp_id,:num,:x,:y,:color,:rate,:rate_cur)";
+    "INSERT INTO comp_rates( comp_id, num, x, y, color, rate, rate_cur) "
+                    "VALUES(:comp_id,:num,:x,:y,:color,:rate,:rate_cur)";
   QryTariffs.CreateVariable( "comp_id", otInteger, vcomp_id );
   QryTariffs.DeclareVariable( "num", otInteger );
   QryTariffs.DeclareVariable( "x", otInteger );
@@ -5302,20 +5306,20 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
   QryTariffs.DeclareVariable( "rate", otFloat );
   QryTariffs.DeclareVariable( "rate_cur", otString );
 
-  TQuery QryRFISC( &OraSession );
+  DB::TQuery QryRFISC(PgOra::getRWSession("COMP_RFISC"), STDLOG);
   QryRFISC.SQLText =
-    "INSERT INTO comp_rfisc(comp_id,num,x,y,color) "
-    " VALUES(:comp_id,:num,:x,:y,:color)";
+    "INSERT INTO comp_rfisc( comp_id, num, x, y, color) "
+                    "VALUES(:comp_id,:num,:x,:y,:color)";
   QryRFISC.CreateVariable( "comp_id", otInteger, vcomp_id );
   QryRFISC.DeclareVariable( "num", otInteger );
   QryRFISC.DeclareVariable( "x", otInteger );
   QryRFISC.DeclareVariable( "y", otInteger );
   QryRFISC.DeclareVariable( "color", otString );
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("COMP_ELEMS"), STDLOG);
   Qry.SQLText =
-    "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
-    " VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class,:xname,:yname) ";
+    "INSERT INTO comp_elems( comp_id, num, x, y, elem_type, xprior, yprior, agle, class, xname, yname) "
+                    "VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class,:xname,:yname)";
   Qry.DeclareVariable( "comp_id", otInteger );
   Qry.SetVariable( "comp_id", vcomp_id );
   Qry.DeclareVariable( "num", otInteger );
@@ -5450,18 +5454,19 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
     } //for place
   }
   // сохраняем конфигурацию мест
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO comp_classes(comp_id,class,cfg) VALUES(:comp_id,:class,:cfg)";
-  Qry.CreateVariable( "comp_id", otInteger, vcomp_id );
-  Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "cfg", otInteger );
   for ( map<TClass,int>::iterator i=countersClass.begin(); i!=countersClass.end(); i++ ) {
-    if ( i->second > 999 )
+    if ( i->second > 999 ) {
       throw UserException( "MSG.SALONS.MATCH_PLACES" );
-    Qry.SetVariable( "class", EncodeClass( i->first ) );
-    Qry.SetVariable( "cfg", i->second );
-    Qry.Execute();
+    }
+    make_db_curs(
+     "INSERT INTO comp_classes( comp_id, class, cfg) "
+                       "VALUES(:comp_id,:class,:cfg)",
+      PgOra::getRWSession("COMP_CLASSES"))
+     .stb()
+     .bind(":comp_id", vcomp_id)
+     .bind(":class", EncodeClass( i->first ))
+     .bind(":cfg", i->second)
+     .exec();
   }
 }
 
@@ -6917,9 +6922,13 @@ CompCheckSum CompCheckSum::calcFromDB( int point_id ) {
 }
 
 CompCheckSum CompCheckSum::keyFromDB( int point_id ) {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
   Qry.SQLText =
-    "SELECT crc_comp,NVL(crc_base_comp,crc_comp) as crc_base_comp,comp_id FROM trip_sets WHERE point_id=:point_id";
+     "SELECT crc_comp, "
+            "COALESCE(crc_base_comp,crc_comp) AS crc_base_comp, "
+            "comp_id "
+       "FROM trip_sets "
+      "WHERE point_id = :point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof ) {
@@ -8060,22 +8069,16 @@ int getCrsPaxPointArv( int crs_pax_id, int point_id_spp )
 
 void DeleteSalons( int point_id )
 {
-  TFlights flights;
+    TFlights flights;
     flights.Get( point_id, ftTranzit );
     flights.Lock(__FUNCTION__);
-    TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "BEGIN "
-    " UPDATE trip_sets SET comp_id=NULL WHERE point_id=:point_id; "
-    " DELETE trip_comp_rem WHERE point_id=:point_id; "
-    " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
-    " DELETE trip_comp_rates WHERE point_id=:point_id; "
-    " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
-    " DELETE trip_comp_elems WHERE point_id=:point_id; "
-    "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  ComponCreator::setFlightClasses( point_id );
+    make_db_curs("UPDATE trip_sets SET comp_id = NULL WHERE point_id = :point_id", PgOra::getRWSession("TRIP_SETS")).stb().bind(":point_id", point_id).exec();
+    make_db_curs("DELETE trip_comp_rem WHERE point_id = :point_id", PgOra::getRWSession("TRIP_COMP_REM")).stb().bind(":point_id", point_id).exec();
+    make_db_curs("DELETE trip_comp_baselayers WHERE point_id = :point_id", PgOra::getRWSession("TRIP_COMP_BASELAYERS")).stb().bind(":point_id", point_id).exec();
+    make_db_curs("DELETE trip_comp_rates WHERE point_id = :point_id", PgOra::getRWSession("TRIP_COMP_RATES")).stb().bind(":point_id", point_id).exec();
+    make_db_curs("DELETE trip_comp_rfisc WHERE point_id = :point_id", PgOra::getRWSession("TRIP_COMP_RFISC")).stb().bind(":point_id", point_id).exec();
+    make_db_curs("DELETE trip_comp_elems WHERE point_id = :point_id", PgOra::getRWSession("TRIP_COMP_ELEMS")).stb().bind(":point_id", point_id).exec();
+    ComponCreator::setFlightClasses( point_id );
 }
 
 bool isEmptySalons( int point_id )

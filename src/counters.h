@@ -274,6 +274,10 @@ class TCounters
     static int totalRegisteredPassengers(int point_id);
 };
 
+bool get_pr_tranzit(const PointId_t& point_id);
+
+bool get_pr_tranz_reg(const PointId_t& point_id);
+
 } //namespace CheckIn
 
 namespace Timing

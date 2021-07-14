@@ -5817,28 +5817,26 @@ void fillFltDetails(TypeB::TDetailCreateInfo &info)
 
     QParams QryParams;
     QryParams << QParam("vpoint_id", otInteger, info.point_id);
-    TCachedQuery Qry(
-            "SELECT "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.scd_out, "
-            "   points.est_out, "
-            "   points.act_out, "
-            "   points.bort, "
-            "   points.craft, "
-            "   points.airp, "
-            "   points.point_num, "
-            "   points.first_point, "
-            "   points.pr_tranzit, "
-            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
-            "from "
-            "   points, "
-            "   trip_sets "
-            "where "
-            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
-            "   points.point_id = trip_sets.point_id(+) ",
-        QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS"}),
+       "SELECT points.airline, "
+              "points.flt_no, "
+              "points.suffix, "
+              "points.scd_out, "
+              "points.est_out, "
+              "points.act_out, "
+              "points.bort, "
+              "points.craft, "
+              "points.airp, "
+              "points.point_num, "
+              "points.first_point, "
+              "points.pr_tranzit, "
+              "COALESCE(trip_sets.pr_lat_seat, 1) pr_lat_seat "
+         "FROM points "
+         "LEFT OUTER JOIN trip_sets "
+           "ON points.point_id = trip_sets.point_id "
+        "WHERE points.point_id = :vpoint_id "
+          "AND points.pr_del >= 0 ",
+        QryParams, STDLOG);
     Qry.get().Execute();
     if(Qry.get().Eof)
         throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
@@ -7889,8 +7887,9 @@ void TIDM::appendArv(
 void TIDM::get()
 {
     // fetch pr_tranz_reg
-    TCachedQuery Qry("select pr_tranz_reg from trip_sets where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, info.point_id));
+    DB::TCachedQuery Qry(PgOra::getROSession("TRIP_SETS"),
+       "SELECT pr_tranz_reg FROM trip_sets WHERE point_id = :point_id",
+        QParams() << QParam("point_id", otInteger, info.point_id), STDLOG);
     Qry.get().Execute();
     pr_tranz_reg = false;
     if(not Qry.get().Eof and not Qry.get().FieldIsNULL("pr_tranz_reg"))
@@ -10040,20 +10039,17 @@ namespace CKIN_REPORT {
             LogTrace(TRACE5) << "TReportData::get: before_route failed: unexpected";
         }
 
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
         Qry.SQLText =
-            "select "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.scd_out, "
-            "   trip_sets.pr_tranz_reg "
-            "from "
-            "   points, "
-            "   trip_sets "
-            "where "
-            "   points.point_id = :point_id and "
-            "   points.point_id = trip_sets.point_id ";
+            "SELECT points.airline, "
+                   "points.flt_no, "
+                   "points.suffix, "
+                   "points.scd_out, "
+                   "trip_sets.pr_tranz_reg "
+              "FROM points "
+             "INNER JOIN trip_sets "
+                "ON points.point_id = trip_sets.point_id "
+             "WHERE points.point_id = :point_id";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
 

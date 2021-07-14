@@ -827,22 +827,23 @@ void get_full_stat(TDateTime utcdate)
     //соберем статистику по истечении двух дней от вылета,
     //если не проставлен признак окончательного сбора статистики pr_stat
 
-    TQuery PointsQry(&OraSession);
-  PointsQry.Clear();
-  PointsQry.SQLText =
-    "SELECT points.point_id FROM points,trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
-    "      time_out<:stat_date AND time_out>TO_DATE('01.01.1900','DD.MM.YYYY')";
-  PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
-  PointsQry.Execute();
-  for(;!PointsQry.Eof;PointsQry.Next())
-  {
-    get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
-    ASTRA::commit();
-    //ASTRA::commit();
-  };
-};
+    DB::TQuery PointsQry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
+    PointsQry.SQLText =
+       "SELECT points.point_id FROM points "
+        "INNER JOIN trip_sets "
+           "ON points.point_id = trip_sets.point_id "
+        "WHERE points.pr_del = 0 "
+          "AND points.pr_reg <> 0 "
+          "AND trip_sets.pr_stat = 0 "
+          "AND time_out > TO_DATE('01.01.1900','DD.MM.YYYY') "
+          "AND time_out < :stat_date";
+    PointsQry.CreateVariable("stat_date", otDate, utcdate - 2); // 2 дня
+
+    for (PointsQry.Execute(); !PointsQry.Eof; PointsQry.Next()) {
+        get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
+        ASTRA::commit();
+    }
+}
 
 namespace {
 
@@ -1541,7 +1542,10 @@ void get_flight_stat(int point_id, bool final_collection)
      QParams QryParams;
      QryParams << QParam("point_id", otInteger, point_id);
      QryParams << QParam("final_collection", otInteger, (int)final_collection);
-     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
+
+     DB::TCachedQuery Qry(PgOra::getROSession("TRIP_SETS"),
+        "UPDATE trip_sets SET pr_stat = :final_collection "
+         "WHERE point_id = :point_id AND pr_stat = 0", QryParams, STDLOG);
      Qry.get().Execute();
      if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
    };

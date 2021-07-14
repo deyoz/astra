@@ -335,9 +335,11 @@ void ETCheckStatusFlt(void)
     DB::TQuery ETQry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
     ETQry.SQLText=
       "SELECT " + TAdvTripInfo::selectedFields("points") + ", pr_etstatus "
-      "FROM points,trip_sets "
-      "WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
-      "      (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)";
+        "FROM points "
+       "INNER JOIN trip_sets "
+          "ON points.point_id = trip_sets.point_id "
+       "WHERE points.pr_del >= 0 "
+         "AND (act_out IS NOT NULL AND pr_etstatus = 0 OR pr_etstatus < 0)";
     ETQry.Execute();
     for(;!ETQry.Eof;ETQry.Next())
     {

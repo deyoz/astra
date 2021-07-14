@@ -265,32 +265,49 @@ void getFlightBaseCompRef( int point_id,
                            const CompParams& compParams,
                            vector<TShowComps> &comps )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "COMPS", "LIBRA_COMPS", "TRIP_SETS"}), STDLOG);
   string sql;
   if ( !compParams.conds.isFlag( CompParams::TCond::fcOnlySetCompon ) ) {
     sql =
-      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
-      "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
-      " FROM comps, points ";
+       "SELECT comps.comp_id, "
+              "comps.craft, "
+              "comps.bort, "
+              "comps.classes, "
+              "comps.descr, "
+              "0 AS pr_comp, "
+              "comps.airline, "
+              "comps.airp "
+         "FROM points "
+        "INNER JOIN comps "
+           "ON points.craft = comps.craft "
+          "AND points.bort = comps.bort ";
     if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
-      sql += ",libra_comps ";
+      sql +=
+        "INNER JOIN libra_comps "
+           "ON comps.comp_id = libra_comps.comp_id ";
     }
     sql +=
-      "WHERE points.craft = comps.craft AND points.point_id = :point_id ";
-    if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
-      sql += " AND libra_comps.comp_id=comps.comp_id AND points.bort=comps.bort ";
-    }
-    sql +=  " UNION ";
+        "WHERE points.point_id = :point_id "
+        "UNION ";
   }
   sql +=
-    "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
-    "       comps.descr,1 as pr_comp, null airline, null airp "
-    " FROM comps, points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.craft = comps.craft AND "
-    " points.point_id = :point_id AND "
-    " trip_sets.comp_id = comps.comp_id "
-    "ORDER BY craft, bort, classes, descr";
+       "SELECT comps.comp_id, "
+              "comps.craft, "
+              "comps.bort, "
+              "comps.classes, "
+              "comps.descr, "
+              "1 AS pr_comp, "
+              "null AS airline, "
+              "null AS airp "
+         "FROM points "
+        "INNER JOIN trip_sets "
+           "ON points.point_id = trip_sets.point_id "
+        "INNER JOIN comps "
+           "ON points.craft = comps.craft "
+          "AND trip_sets.comp_id = comps.comp_id "
+        "WHERE points.point_id = :point_id "
+        "ORDER BY craft, bort, classes, descr";
+
   LogTrace(TRACE5) << sql;
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -456,7 +473,6 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if ( tmpNode ) {
     tariff_pax_id = NodeAsInteger( tmpNode );
   }
-  TQuery Qry( &OraSession );
   SALONS2::GetTripParams( point_id, dataNode );
   if ( point_arv == NoExists && pax_id != NoExists ) {
     point_arv = getPointArvFromPaxId( pax_id, point_id );
@@ -466,11 +482,16 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   ProgTrace( TRACE5, "trip_id=%d, point_arv=%d, pax_id=%d, pr_comps=%d, pr_images=%d",
              point_id, point_arv, pax_id, pr_comps, pr_images );
   if ( pr_comps ) {
+    DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
     Qry.SQLText =
-      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
-      "       bort, NVL(comp_id,-1) comp_id "
-      " FROM points, trip_sets "
-      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+) AND points.pr_del>=0";
+     "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+             "bort, "
+             "COALESCE(comp_id, -1) AS comp_id "
+        "FROM points "
+        "LEFT OUTER JOIN trip_sets "
+          "ON points.point_id = trip_sets.point_id "
+       "WHERE points.point_id = :point_id "
+         "AND points.pr_del >= 0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
@@ -652,10 +673,10 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
     }
   }
-  Qry.Clear();
-  Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.DeclareVariable( "comp_id", otInteger );
+  DB::TQuery UpdQry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
+  UpdQry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+  UpdQry.CreateVariable( "point_id", otInteger, trip_id );
+  UpdQry.DeclareVariable( "comp_id", otInteger );
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
   bool pr_notchangecraft = isComponSeatsNoChanges( info );
   if ( pr_notchangecraft ) {
@@ -665,8 +686,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if ( comp_id == -2 && pr_base_change ) // была старая компоновка
       throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
     if ( comp_id != -2 && !cSet ) { //новая компоновку
-      Qry.SetVariable( "comp_id", comp_id );
-      Qry.Execute();
+      UpdQry.SetVariable( "comp_id", comp_id );
+      UpdQry.Execute();
     }
   }
   else {
@@ -674,12 +695,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       comp_id = -2;
     }
     if ( comp_id == -2 ) {
-      Qry.SetVariable( "comp_id", FNull );
+      UpdQry.SetVariable( "comp_id", FNull );
     }
     else {
-      Qry.SetVariable( "comp_id", comp_id );
+      UpdQry.SetVariable( "comp_id", comp_id );
     }
-    Qry.Execute();
+    UpdQry.Execute();
   }
 
   salonList.WriteFlight( trip_id, saveContructivePlaces );
@@ -714,12 +735,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //set flag auto change in false state
   ComponCreator::setManualCompChg( trip_id );
   SALONS2::CompCheckSum checksum = SALONS2::CompCheckSum::calcFromDB( trip_id );
-  Qry.Clear();
-  Qry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.CreateVariable( "crc_comp", otInteger, checksum.total_crc32 );
-  Qry.CreateVariable( "crc_base_comp", otString, checksum.base_crc32 );
-  Qry.Execute();
+  DB::TQuery CrcUpdQry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
+  CrcUpdQry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
+  CrcUpdQry.CreateVariable( "point_id", otInteger, trip_id );
+  CrcUpdQry.CreateVariable( "crc_comp", otInteger, checksum.total_crc32 );
+  CrcUpdQry.CreateVariable( "crc_base_comp", otString, checksum.base_crc32 );
+  CrcUpdQry.Execute();
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
   // надо перечитать заново
@@ -760,7 +781,6 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   xmlNodePtr tmpNode = GetNode( "comp_id", reqNode );
   int comp_id = NodeAsInteger( tmpNode );
   int prior_point_id = NoExists, point_id = NoExists;
-  TQuery Qry( &OraSession );
   xmlNodePtr pNode = GetNode( "point_id", reqNode );
   if ( comp_id < 0 && ( pNode ) ) { // выбрана компоновка пред. пункта в транзитном маршруте
     point_id = NodeAsInteger( pNode );
@@ -768,11 +788,16 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if ( GetNode( "@crc_comp", tmpNode ) )
       crc_comp = NodeAsInteger( "@crc_comp", tmpNode );
     ProgTrace( TRACE5, "point_id=%d, crc_comp=%d", point_id, crc_comp );
+    DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
     Qry.SQLText =
-      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
-      "       bort, crc_comp "
-      " FROM points, trip_sets "
-      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+) AND points.pr_del>=0";
+     "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+             "bort, "
+             "crc_comp "
+        "FROM points "
+        "LEFT OUTER JOIN trip_sets "
+          "ON points.point_id = trip_sets.point_id "
+       "WHERE points.point_id = :point_id "
+         "AND points.pr_del >= 0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
