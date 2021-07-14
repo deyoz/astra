@@ -6800,23 +6800,27 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   };
   NewTextChild( dataNode, "travel_time", travel_time_str);
 
-  Qry.Clear();
-  Qry.SQLText = "SELECT "\
-                "       DECODE( trip_sets.comp_id, NULL, DECODE( e.pr_comp_id, 0, -2, -1 ), "\
-                "               trip_sets.comp_id ) comp_id, "\
-                "       comp.descr "\
-                " FROM trip_sets, "\
-                "  ( SELECT COUNT(*) pr_comp_id FROM trip_comp_elems "\
-                "    WHERE point_id=:point_id AND rownum<2 ) e, "\
-                "  ( SELECT comp_id, craft, bort, descr FROM comps ) comp "\
-                " WHERE trip_sets.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  DB::TQuery CompIdQry(PgOra::getROSession({"TRIP_SETS", "COMPS"}), STDLOG);
+  CompIdQry.SQLText =
+   "SELECT COALESCE(trip_sets.comp_id, "
+                   "CASE WHEN EXISTS "
+                       "(SELECT 1 FROM trip_comp_elems WHERE trip_comp_elems.point_id = trip_sets.point_id) "
+                   "THEN -1 "
+                   "ELSE -2 "
+                   "END) AS comp_id, "
+          "comps.descr "
+     "FROM trip_sets "
+     "LEFT OUTER JOIN comps "
+       "ON trip_sets.comp_id = comps.comp_id "
+    "WHERE trip_sets.point_id = :point_id";
+
+  CompIdQry.CreateVariable( "point_id", otInteger, trip_id );
+  CompIdQry.Execute();
+  if (CompIdQry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   /* comp_id>0 - базовый; comp_id=-1 - измененный; comp_id=-2 - не задан */
-  NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-  NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );
+  NewTextChild( dataNode, "comp_id", CompIdQry.FieldAsInteger( "comp_id" ) );
+  NewTextChild( dataNode, "descr", CompIdQry.FieldAsString( "descr" ) );
 }
 
 void GetCompParams( int comp_id, xmlNodePtr dataNode )

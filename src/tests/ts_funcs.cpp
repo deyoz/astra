@@ -1536,8 +1536,8 @@ static std::string FP_getCompId(const std::vector<std::string>& p)
 {
   assert(p.size() == 1);
   auto cur = make_db_curs(
-      "select COMP_ID FROM TRIP_SETS WHERE POINT_ID=:point_id",
-      PgOra::getROSession("TLG_BINDING"));
+     "SELECT comp_id FROM trip_sets WHERE point_id = :point_id",
+      PgOra::getROSession("TRIP_SETS"));
    int comp_id = 0;
    cur
       .stb()
