@@ -845,8 +845,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
 
 static std::string getTagTypeOnFlight(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TRIP_BT"), STDLOG);
   Qry.SQLText=
     "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);

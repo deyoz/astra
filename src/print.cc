@@ -929,31 +929,30 @@ string PrintDataParser::parse_tag(int offset, string tag)
 void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_model, const string &fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT bp_type, "
-        "       class, "
-        "       0 AS priority "
-        "FROM trip_bp "
-        "WHERE point_id=:point_id AND op_type=:op_type "
-        "ORDER BY class, priority DESC ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-    Qry.Execute();
+    DB::TQuery TripBpQry(PgOra::getROSession("TRIP_BP"), STDLOG);
+    TripBpQry.SQLText =
+       "SELECT bp_type, "
+              "class, "
+              "0 AS priority "
+       "FROM trip_bp "
+       "WHERE point_id = :point_id AND op_type = :op_type "
+       "ORDER BY class, priority DESC";
+    TripBpQry.CreateVariable("point_id", otInteger, point_id);
+    TripBpQry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
+    TripBpQry.Execute();
     vector<string> bp_types;
     string prior_class;
-    for(;!Qry.Eof;Qry.Next())
+    for(;!TripBpQry.Eof;TripBpQry.Next())
     {
-      if (bp_types.empty() || prior_class!=Qry.FieldAsString("class"))
+      if (bp_types.empty() || prior_class!=TripBpQry.FieldAsString("class"))
       {
-        const char* bp_type=Qry.FieldAsString("bp_type");
+        std::string bp_type=TripBpQry.FieldAsString("bp_type");
         if (find(bp_types.begin(), bp_types.end(), bp_type)==bp_types.end()) bp_types.push_back(bp_type);
-        prior_class=Qry.FieldAsString("class");
+        prior_class=TripBpQry.FieldAsString("class");
       };
     };
 
-    Qry.Clear();
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
         "   prn_form_vers.form "
@@ -994,21 +993,18 @@ void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_mo
 void GetTripBTPectabs(int point_id, const string &dev_model, const string &fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"BT_MODELS", "PRN_FORM_VERS", "TRIP_BT"}), STDLOG);
     Qry.SQLText =
-        "select "
-        "   prn_form_vers.form "
-        "from "
-        "   bt_models, "
-        "   prn_form_vers "
-        "where "
-        "   bt_models.form_type IN (SELECT DISTINCT tag_type FROM trip_bt WHERE point_id=:point_id) and "
-        "   bt_models.dev_model = :dev_model and "
-        "   bt_models.fmt_type = :fmt_type and "
-        "   bt_models.id = prn_form_vers.id and "
-        "   bt_models.version = prn_form_vers.version and "
-        "   prn_form_vers.form IS NOT NULL";
+       "SELECT prn_form_vers.form "
+         "FROM bt_models "
+         "JOIN prn_form_vers "
+           "ON bt_models.id = prn_form_vers.id "
+          "AND bt_models.version = prn_form_vers.version "
+        "WHERE bt_models.form_type "
+           "IN (SELECT DISTINCT tag_type FROM trip_bt WHERE point_id = :point_id) "
+          "AND bt_models.dev_model = :dev_model "
+          "AND bt_models.fmt_type = :fmt_type "
+          "AND prn_form_vers.form IS NOT NULL";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -1912,15 +1908,15 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
 
 void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum op_type, int point_id, const string &cl)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_BP"), STDLOG);
     Qry.SQLText =
-        "SELECT bp_type, "
-        "       DECODE(class,NULL,0,1) AS priority "
-        "FROM trip_bp "
-        "WHERE point_id=:point_id AND "
-        "      (class IS NULL OR class=:class) AND "
-        "      op_type=:op_type "
-        "ORDER BY priority DESC ";
+       "SELECT bp_type, "
+              "CASE class WHEN NULL THEN 0 ELSE 1 END AS priority "
+       "FROM trip_bp "
+       "WHERE point_id = :point_id "
+         "AND (class IS NULL OR class = :class) "
+         "AND op_type = :op_type "
+       "ORDER BY priority DESC";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));

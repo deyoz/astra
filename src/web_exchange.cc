@@ -518,8 +518,14 @@ void PaxList::complete(const ProtLayerRequest::SegList& segListReq)
   if (segListReq.layer_type==cltProtBeforePay)
   {
     //разметка платными слоями
-    TCachedQuery Qry("SELECT pr_permit, prot_timeout FROM trip_paid_ckin WHERE point_id=:point_id",
-                     QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery Qry(
+      PgOra::getROSession("TRIP_PAID_CKIN"),
+     "SELECT pr_permit, prot_timeout "
+     "FROM trip_paid_ckin "
+     "WHERE point_id = :point_id",
+      QParams() << QParam("point_id", otInteger, point_id),
+      STDLOG
+    );
     Qry.get().Execute();
     if ( Qry.get().Eof || Qry.get().FieldAsInteger("pr_permit")==0 )
       throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );

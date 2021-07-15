@@ -201,6 +201,50 @@ void TGeneratedTags::generateUsingDeferred(int grp_id, int tag_count)
   }
 }
 
+bool addLastRange(const int range, const int aircode)
+{
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "INSERT INTO last_tag_ranges2( aircode, range) "
+                             "VALUES(:aircode,:range)",
+        PgOra::getRWSession("LAST_TAG_RANGES2")
+    );
+
+    cur.stb()
+       .bind(":aircode", aircode)
+       .bind(":range", range)
+       .exec();
+
+    if (DbCpp::ResultCode::ConstraintFail == cur.err()) {
+        return false;
+    }
+
+    return true;
+}
+
+std::optional<int> getLastRange(const int aircode)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT range FROM last_tag_ranges2 "
+       "WHERE aircode = :aircode "
+       "FOR UPDATE",
+        PgOra::getRWSession("LAST_TAG_RANGES2")
+    );
+
+    int last_range;
+
+    cur.stb()
+       .bind(":aircode", aircode)
+       .def(last_range)
+       .EXfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return std::nullopt;
+    }
+
+    return last_range;
+}
+
 void TGeneratedTags::generate(int grp_id, int tag_count)
 {
   LogTrace(TRACE5) << __FUNCTION__;
@@ -249,67 +293,57 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
       int k;
       for(k=1;k<=5;k++)
       {
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession({"TAG_RANGES2", "POINTS"}), STDLOG);
         Qry.CreateVariable("aircode",otInteger,aircode);
-        ostringstream sql;
+        std::string sql;
+        sql.reserve(600);
 
-        sql << "SELECT range,no FROM tag_ranges2 ";
-        if (k>=2) sql << ",points ";
-        sql << "WHERE aircode=:aircode AND ";
+        sql +=   "SELECT range, no FROM tag_ranges2 ";
+        if (k >= 2) {
+          sql += "LEFT OUTER JOIN points "
+                 "ON tag_ranges2.point_id = points.point_id ";
+        }
+        sql +=   "WHERE aircode = :aircode ";
 
-
-        if (k==1)
-        {
-          sql <<
-            "      point_id=:point_id AND airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
-            "      (class IS NULL AND :class IS NULL OR class=:class) ";
+        if (k == 1) {
+          sql +=   "AND point_id = :point_id AND airp_dep = :airp_dep AND airp_arv = :airp_arv "
+                   "AND (class IS NULL AND :class IS NULL OR class = :class) ";
           Qry.CreateVariable("point_id",otInteger,point_id);
           Qry.CreateVariable("airp_dep",otString,airp_dep);
           Qry.CreateVariable("airp_arv",otString,airp_arv);
           Qry.CreateVariable("class",otString,cl);
-        };
 
-        if (k>=2)
-        {
-          sql <<
-            "      tag_ranges2.point_id=points.point_id(+) AND "
-            "      (points.point_id IS NULL OR "
-            "       points.pr_del<>0 OR "
-            "       NVL(points.act_out,NVL(points.est_out,points.scd_out))<:now_utc AND last_access<:now_utc-2/24 OR "
-            "       NVL(points.act_out,NVL(points.est_out,NVL(points.scd_out,:now_utc+1)))>=:now_utc AND last_access<:now_utc-2) AND ";
+        } else if (k >= 2) {
+          sql +=   "AND (points.point_id IS NULL "
+                     "OR points.pr_del <> 0 "
+                     "OR COALESCE(points.act_out, points.est_out, points.scd_out) < :now_utc AND last_access < :now_utc - 2/24 "
+                     "OR COALESCE(points.act_out, points.est_out, points.scd_out, :now_utc +1) >= :now_utc AND last_access < :now_utc - 2) ";
           Qry.CreateVariable("now_utc",otDate, BASIC::date_time::NowUTC());
-          if (k==2)
-          {
-            sql <<
-              "      airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
-              "      (class IS NULL AND :class IS NULL OR class=:class) ";
+          if (k == 2) {
+            sql += "AND airp_dep = :airp_dep "
+                   "AND airp_arv = :airp_arv "
+                   "AND (class IS NULL AND :class IS NULL OR class = :class) ";
             Qry.CreateVariable("airp_dep",otString,airp_dep);
             Qry.CreateVariable("airp_arv",otString,airp_arv);
             Qry.CreateVariable("class",otString,cl);
-          };
-          if (k==3)
-          {
-            sql <<
-              "      airp_dep=:airp_dep AND airp_arv=:airp_arv ";
+
+          } else if (k == 3) {
+            sql += "AND airp_dep = :airp_dep "
+                   "AND airp_arv = :airp_arv ";
             Qry.CreateVariable("airp_dep",otString,airp_dep);
             Qry.CreateVariable("airp_arv",otString,airp_arv);
-          };
-          if (k==4)
-          {
-            sql <<
-              "      airp_dep=:airp_dep ";
+
+          } else if (k == 4) {
+            sql += "AND airp_dep = :airp_dep ";
             Qry.CreateVariable("airp_dep",otString,airp_dep);
-          };
-          if (k==5)
-          {
-            sql <<
-              "      last_access<:now_utc-1 ";
-          };
-        };
-        sql << "ORDER BY last_access FOR UPDATE";
 
+          } else if (k == 5) {
+            sql += "AND last_access < :now_utc - 1 ";
+          }
+        }
+        sql +=   "ORDER BY last_access FOR UPDATE";
 
-        Qry.SQLText=sql.str().c_str();
+        Qry.SQLText = sql.c_str();
         Qry.Execute();
         if (!Qry.Eof)
         {
@@ -318,31 +352,20 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
           break;
         };
       };
-      if (k>5) //среди уже существующих диапазонов нет подходящего - берем новый
+      if (k > 5) //среди уже существующих диапазонов нет подходящего - берем новый
       {
         use_new_range=true;
 
         if (last_range==ASTRA::NoExists)
         {
-          Qry.Clear();
-          Qry.SQLText=
-              "BEGIN "
-              "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-              "EXCEPTION "
-              "  WHEN NO_DATA_FOUND THEN "
-              "  BEGIN "
-              "    :range:=9999; "
-              "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
-              "  EXCEPTION "
-              "    WHEN DUP_VAL_ON_INDEX THEN "
-              "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-              "  END; "
-              "END;";
-          Qry.CreateVariable("aircode",otInteger,aircode);
-          Qry.CreateVariable("range",otInteger,FNull);
-          Qry.Execute();
-          //получим последний использованный диапазон (+лочка):
-          last_range=Qry.GetVariableAsInteger("range");
+            if (std::optional<int> opt_last_range = getLastRange(aircode)) {
+                last_range = opt_last_range.value();
+            } else if (addLastRange(9999, aircode)) {
+                last_range = 9999;
+            } else {
+                opt_last_range = getLastRange(aircode);
+                last_range = opt_last_range.value();
+            }
         };
 
         range=last_range;
@@ -363,7 +386,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
       if (range==last_range)
         throw EXCEPTIONS::Exception("%s: free range not found (aircode=%d)", __FUNCTION__, aircode);
 
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession("TAG_RANGES2"), STDLOG);
       Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
       Qry.CreateVariable("aircode",otInteger,aircode);
       Qry.CreateVariable("range",otInteger,range);
@@ -387,42 +410,54 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
     double last_no=aircode*1000000+range*100+no; //последняя использовання бирка нового диапазона
     add(TBagTagRange("", first_no, last_no, 10));
 
-    Qry.Clear();
-    Qry.CreateVariable("aircode",otInteger,aircode);
-    Qry.CreateVariable("range",otInteger,range);
-    if (no>=99)
-      Qry.SQLText="DELETE FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
-    else
-    {
-      Qry.SQLText=
-        "BEGIN "
-        "  UPDATE tag_ranges2 "
-        "  SET no=:no, airp_dep=:airp_dep, airp_arv=:airp_arv, class=:class, point_id=:point_id, "
-        "      last_access=system.UTCSYSDATE "
-        "  WHERE aircode=:aircode AND range=:range; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO tag_ranges2(aircode,range,no,airp_dep,airp_arv,class,point_id,last_access) "
-        "    VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,system.UTCSYSDATE); "
-        "  END IF; "
-        "END;";
-      Qry.CreateVariable("no",otInteger,no);
-      Qry.CreateVariable("airp_dep",otString,airp_dep);
-      Qry.CreateVariable("airp_arv",otString,airp_arv);
-      Qry.CreateVariable("class",otString,cl);
-      Qry.CreateVariable("point_id",otInteger,point_id);
+    DB::TQuery Qry(PgOra::getROSession("TAG_RANGES2"), STDLOG);
+    Qry.CreateVariable("aircode", otInteger, aircode);
+    Qry.CreateVariable("range", otInteger, range);
+    if (no >= 99) {
+        Qry.SQLText =
+         "DELETE FROM tag_ranges2 "
+         "WHERE aircode = :aircode "
+         "AND range = :range";
+    } else {
+        Qry.SQLText = PgOra::supportsPg("TAG_RANGES2")
+         ? "INSERT INTO tag_ranges2( aircode, range, no, airp_dep, airp_arv, class, point_id, last_access) "
+                            "VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,:last_access) "
+           "ON CONFLICT(aircode, range) "
+           "DO UPDATE SET no = :no, airp_dep = :airp_dep, airp_arv = :airp_arv,  "
+                         "class = :class, point_id = :point_id, last_access = :last_access"
+         : "BEGIN "
+             "UPDATE tag_ranges2 "
+             "SET no=:no, airp_dep=:airp_dep, airp_arv=:airp_arv, class=:class, point_id=:point_id, "
+                 "last_access=:last_access "
+             "WHERE aircode=:aircode AND range=:range; "
+             "IF SQL%NOTFOUND THEN "
+               "INSERT INTO tag_ranges2( aircode, range, no, airp_dep, airp_arv, class, point_id, last_access) "
+                                "VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,:last_access); "
+             "END IF; "
+           "END;";
+        Qry.CreateVariable("no", otInteger, no);
+        Qry.CreateVariable("airp_dep", otString, airp_dep);
+        Qry.CreateVariable("airp_arv", otString, airp_arv);
+        Qry.CreateVariable("class", otString, cl);
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.CreateVariable("last_access", otDate, BASIC::date_time::NowUTC());
     };
     Qry.Execute();
   };
   if (use_new_range)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE last_tag_ranges2 SET range=:range WHERE aircode=:aircode; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
-      "  END IF; "
-      "END;";
+    DB::TQuery Qry(PgOra::getROSession("LAST_TAG_RANGES2"), STDLOG);
+    Qry.SQLText = PgOra::supportsPg("LAST_TAG_RANGES2")
+         ? "INSERT INTO last_tag_ranges2( aircode, range) "
+                                 "VALUES(:aircode,:range) "
+           "ON CONFLICT(aircode) "
+           "DO UPDATE SET range = :range"
+         : "BEGIN "
+             "UPDATE last_tag_ranges2 SET range=:range WHERE aircode=:aircode; "
+             "IF SQL%NOTFOUND THEN "
+               "INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+             "END IF; "
+           "END;";
     Qry.CreateVariable("aircode",otInteger,aircode);
     Qry.CreateVariable("range",otInteger,range);
     Qry.Execute();

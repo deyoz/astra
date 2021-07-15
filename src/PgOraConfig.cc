@@ -116,7 +116,9 @@ namespace PgOra
                                       "DEV_SESS_TYPES",   "DEV_FMT_TYPES","DEV_MODELS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
         } },
-
+        { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_BP", "TRIP_SETS", "TRIP_STATIONS"
+                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_BT", "TRIP_HALL",
+        } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
 
         // ASTRA MINIMUM

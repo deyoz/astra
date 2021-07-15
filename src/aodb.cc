@@ -1981,14 +1981,18 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   checkin = ( stages[ sOpenCheckIn ].act > NoExists && stages[ sCloseCheckIn ].act == NoExists );
   boarding = ( stages[ sOpenBoarding ].act > NoExists && stages[ sCloseBoarding ].act == NoExists );
   record<<setw(1)<<checkin<<setw(1)<<boarding<<setw(1)<<Qry.FieldAsInteger( "overload_alarm" );
-  TQuery StationsQry( &OraSession );
 
-  StationsQry.Clear();
+  DB::TQuery StationsQry(PgOra::getROSession({"TRIP_STATIONS", "STATIONS"}), STDLOG);
   StationsQry.SQLText =
-      "SELECT name, start_time FROM trip_stations, stations "
-      " WHERE point_id=:point_id AND trip_stations.work_mode='' AND "
-      "       trip_stations.desk=stations.desk AND trip_stations.work_mode=stations.work_mode";
-  StationsQry.CreateVariable( "point_id", otInteger, point_id );
+      "SELECT name, start_time "
+        "FROM trip_stations "
+        "JOIN stations "
+          "ON trip_stations.desk = stations.desk "
+         "AND trip_stations.work_mode = stations.work_mode "
+       "WHERE point_id = :point_id "
+         "AND trip_stations.work_mode = :work_mode";
+  StationsQry.CreateVariable("point_id", otInteger, point_id);
+  StationsQry.CreateVariable("work_mode", otString, "");
   StationsQry.Execute();
   while ( !StationsQry.Eof ) {
     string term = StationsQry.FieldAsString( "name" );

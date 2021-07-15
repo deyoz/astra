@@ -5134,11 +5134,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           {
             //при сквозной регистрации совместная регистрация с посадкой м.б. только на первом рейса
             //при web-регистрации посадка строго раздельная
-            Qry.Clear();
+            DB::TQuery Qry(PgOra::getROSession("TRIP_HALL"), STDLOG);
             Qry.SQLText=
               "SELECT pr_misc FROM trip_hall "
               "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
-              "ORDER BY DECODE(hall,NULL,1,0)";
+              "ORDER BY CASE hall WHEN NULL THEN 1 ELSE 0 END";
             Qry.CreateVariable("point_id",otInteger,grp.point_dep);
             Qry.CreateVariable("hall",otInteger,grp.hall);
             Qry.DeclareVariable("type",otInteger);
@@ -7651,18 +7651,19 @@ void CheckInInterface::readTripData(int point_id, xmlNodePtr dataNode)
   TripsInterface::readHalls(operFlt.airp, "Р", tripdataNode);
 
   //выходы на посадку для каждого из залов регистрации, назначенные на рейс
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"TRIP_STATIONS", "STATIONS", "STATION_HALLS"}), STDLOG);
   Qry.SQLText =
     "SELECT name AS gate_name "
-    "FROM stations,trip_stations,station_halls "
-    "WHERE stations.desk=trip_stations.desk AND "
-    "      stations.work_mode=trip_stations.work_mode AND "
-    "      station_halls.airp=stations.airp AND "
-    "      station_halls.station=stations.name AND "
-    "      trip_stations.point_id=:point_id AND "
-    "      trip_stations.work_mode=:work_mode AND "
-    "      station_halls.hall=:hall ";
+      "FROM stations "
+      "JOIN trip_stations "
+        "ON stations.desk = trip_stations.desk "
+       "AND stations.work_mode = trip_stations.work_mode "
+      "JOIN station_halls "
+        "ON stations.airp = station_halls.airp "
+       "AND stations.name = station_halls.station "
+     "WHERE trip_stations.point_id = :point_id "
+       "AND trip_stations.work_mode = :work_mode "
+       "AND station_halls.hall = :hall";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("work_mode",otString,"П");
   Qry.DeclareVariable("hall",otInteger);
@@ -7767,12 +7768,16 @@ void CheckInInterface::OpenDESKInfo(xmlNodePtr reqNode,
   int open = NodeAsInteger("Open",reqNode);
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace( TRACE5, "Open=%d", open );
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_STATIONS"), STDLOG);
   Qry.SQLText =
-   "UPDATE trip_stations SET start_time=DECODE(:open, 1, system.UTCSYSDATE, NULL) "
-   " WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";
+   "UPDATE trip_stations "
+      "SET start_time = CASE :open WHEN 1 THEN :utc ELSE NULL END "
+    "WHERE point_id = :point_id "
+      "AND desk = :desk "
+      "AND work_mode = :work_mode";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "open", otInteger, open );
+  Qry.CreateVariable( "utc", otDate, NowUTC() );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "work_mode", otString, work_mode );
   Qry.Execute();

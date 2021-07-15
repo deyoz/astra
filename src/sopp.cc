@@ -757,13 +757,16 @@ void tstations::fromDB( int point_id, const std::string& work_mode )
 {
   DB::TQuery Qry(PgOra::getROSession({"STATIONS", "TRIP_STATIONS"}), STDLOG);
   std::string sql =
-    "SELECT stations.name,stations.work_mode,trip_stations.desk "
-    "FROM stations,trip_stations "
-    "WHERE point_id=:point_id AND "
-    "      stations.desk=trip_stations.desk AND "
-    "      stations.work_mode=trip_stations.work_mode ";
+    "SELECT stations.name, "
+           "stations.work_mode, "
+           "trip_stations.desk "
+      "FROM stations "
+      "JOIN trip_stations "
+        "ON stations.desk = trip_stations.desk "
+       "AND stations.work_mode = trip_stations.work_mode "
+     "WHERE point_id = :point_id";
   if ( !work_mode.empty() ) {
-    sql += " AND trip_stations.work_mode=:work_mode";
+    sql += " AND trip_stations.work_mode = :work_mode";
     Qry.CreateVariable( "work_mode", otString, work_mode );
   }
   Qry.SQLText = sql;
@@ -817,14 +820,20 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
   bool changes = false;
   std::set_difference( dbStations.begin(), dbStations.end(), currStations.begin(), currStations.end(), back_inserter(chStations) ); // dbStations - curr -  в БД есть, а в новом варианте нет
   changes |= !chStations.empty();
-  Qry.Clear();
-  Qry.SQLText =
-    "DELETE trip_stations WHERE point_id=:point_id AND work_mode=:work_mode AND desk IN "
-    "( SELECT desk FROM stations,points "
-    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name )";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "work_mode", otString );
+  DB::TQuery DelQry(PgOra::getRWSession({"TRIP_STATIONS", "STATIONS", "POINTS"}), STDLOG);
+  DelQry.SQLText =
+    "DELETE FROM trip_stations "
+    "WHERE point_id = :point_id "
+      "AND work_mode = :work_mode "
+      "AND desk IN "
+       "( SELECT desk FROM stations "
+           "JOIN points "
+             "ON stations.airp = points.airp "
+          "WHERE points.point_id = :point_id "
+            "AND name = :name )";
+  DelQry.CreateVariable( "point_id", otInteger, point_id );
+  DelQry.DeclareVariable( "name", otString );
+  DelQry.DeclareVariable( "work_mode", otString );
   PrmEnum del_terms_prmenum("names", ",");
   PrmEnum del_gates_prmenum("names", ",");
   {
@@ -833,9 +842,9 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
            (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Terms) && st.isTerm()) || //пришла инфа по стойкам - стойки или пусто, значит все удалено - удалем, иначе ничего не делаем
            (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Gates) && st.isGate()) ) {
         LogTrace(TRACE5) << "delete " << st.name;
-        Qry.SetVariable( "name", st.name );
-        Qry.SetVariable( "work_mode", st.work_mode );
-        Qry.Execute();
+        DelQry.SetVariable( "name", st.name );
+        DelQry.SetVariable( "work_mode", st.work_mode );
+        DelQry.Execute();
         if ( st.isTerm() ) {
           del_terms_prmenum.prms << PrmSmpl<std::string>("", st.name);
         }
@@ -853,15 +862,18 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
       }
     }
   }
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "
-    " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "
-    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "work_mode", otString );
-  Qry.DeclareVariable( "pr_main", otInteger );
+  DB::TQuery InsQry(PgOra::getRWSession({"TRIP_STATIONS", "STATIONS", "POINTS"}), STDLOG);
+  InsQry.SQLText =
+    "INSERT INTO trip_stations( point_id, desk, work_mode, pr_main) "
+                       "SELECT :point_id, desk,:work_mode,:pr_main "
+                         "FROM stations INNER JOIN points "
+                           "ON stations.airp = points.airp "
+                        "WHERE points.point_id = :point_id AND "
+                          "AND name = :name";
+  InsQry.CreateVariable( "point_id", otInteger, point_id );
+  InsQry.DeclareVariable( "name", otString );
+  InsQry.DeclareVariable( "work_mode", otString );
+  InsQry.DeclareVariable( "pr_main", otInteger );
   chStations.clear();
   std::set_difference( currStations.begin(), currStations.end(), dbStations.begin(), dbStations.end(), back_inserter(chStations) ); // новые, которых нет в БД
   changes |= !chStations.empty();
@@ -870,10 +882,10 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
     PrmEnum gates_prmenum("names", ",");
     for ( const auto st : chStations ) {
       LogTrace(TRACE5) << "insert " << st.name;
-      Qry.SetVariable( "name", st.name );
-      Qry.SetVariable( "work_mode", st.work_mode );
-      Qry.SetVariable( "pr_main", st.pr_main );
-      Qry.Execute();
+      InsQry.SetVariable( "name", st.name );
+      InsQry.SetVariable( "work_mode", st.work_mode );
+      InsQry.SetVariable( "pr_main", st.pr_main );
+      InsQry.Execute();
     }
     if ( mode == toDbMode::dbRewriteAll ) { //записываем в лог то, что пришло
       chStations = *this;
@@ -881,7 +893,6 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
     for ( const auto st : chStations ) {
       if ( st.isTerm() ) {
         if ( st.pr_main ) {
-          Qry.SetVariable( "pr_main", st.pr_main );
           PrmLexema prmlexema("", "EVT.DESK_MAIN");
           prmlexema.prms << PrmSmpl<std::string>("", st.name);
           terms_prmenum.prms << prmlexema;

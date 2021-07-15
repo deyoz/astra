@@ -1468,16 +1468,18 @@ std::string readBPGate(int pointId)
 {
     std::string gate;
     make_db_curs(
-"select STATIONS.NAME from STATIONS, TRIP_STATIONS "
-"where POINT_ID=:point_id "
-"and STATIONS.DESK=TRIP_STATIONS.DESK "
-"and STATIONS.WORK_MODE=TRIP_STATIONS.WORK_MODE "
-"and STATIONS.WORK_MODE=:work_mode",
-PgOra::getROSession({"STATIONS", "TRIP_STATIONS"}))
-            .def(gate)
-            .bind(":point_id",  pointId)
-            .bind(":work_mode", "è")
-            .exfet();
+       "SELECT stations.name "
+         "FROM stations "
+         "JOIN trip_stations "
+           "ON stations.desk = trip_stations.desk "
+          "AND stations.work_mode = trip_stations.work_mode "
+        "WHERE point_id = :point_id "
+          "AND stations.work_mode = :work_mode",
+        PgOra::getROSession({"STATIONS", "TRIP_STATIONS"}))
+       .def(gate)
+       .bind(":point_id",  pointId)
+       .bind(":work_mode", "è")
+       .exfet();
 
     LogTrace(TRACE3) << __FUNCTION__ << " by point_id:" << pointId << " returns " << gate;
     return gate;

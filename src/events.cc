@@ -1527,9 +1527,8 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
 bool GetAutoWeighing(int point_id, const string &work_mode)
 {
     TReqInfo* reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery Qry(PgOra::getRWSession("STATIONS"), STDLOG);
+    Qry.SQLText =
             "SELECT stations.using_scales "
             "FROM stations "
             "WHERE stations.desk=:desk AND stations.work_mode=:work_mode";
@@ -1541,17 +1540,18 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
         auto_weighing=TTripSetList().fromDB(point_id).value(tsAutoWeighing, false) &&
                 Qry.FieldAsInteger("using_scales")!=0;
 
-    Qry.Clear();
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("desk", otString, reqInfo->desk.code);
     if (auto_weighing)
     {
-        Qry.SQLText=
+        DB::TQuery InsQry(PgOra::getRWSession("TRIP_AUTO_WEIGHING"), STDLOG);
+        InsQry.SQLText =
                 "INSERT INTO trip_auto_weighing(point_id, desk) VALUES(:point_id, :desk)";
+        InsQry.CreateVariable("point_id", otInteger, point_id);
+        InsQry.CreateVariable("desk", otString, reqInfo->desk.code);
+
         try
         {
-            Qry.Execute();
-            if (Qry.RowsProcessed()>0)
+            InsQry.Execute();
+            if (InsQry.RowsProcessed()>0)
                 reqInfo->LocaleToLog("EVT.SET_LUGGAGE_AUTO_WEIGHTING_CONTROL",
                                      LEvntPrms() << PrmSmpl<std::string>("desk", reqInfo->desk.code), ASTRA::evtFlt, point_id);
         }
@@ -1562,10 +1562,13 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
     }
     else
     {
-        Qry.SQLText=
+        DB::TQuery DelQry(PgOra::getRWSession("TRIP_AUTO_WEIGHING"), STDLOG);
+        DelQry.SQLText =
                 "DELETE FROM trip_auto_weighing WHERE point_id=:point_id AND desk=:desk";
-        Qry.Execute();
-        if (Qry.RowsProcessed()>0)
+        DelQry.CreateVariable("point_id", otInteger, point_id);
+        DelQry.CreateVariable("desk", otString, reqInfo->desk.code);
+        DelQry.Execute();
+        if (DelQry.RowsProcessed()>0)
             reqInfo->LocaleToLog("EVT.CANCEL_LUGGAGE_AUTO_WEIGHTING_CONTROL",
                                  LEvntPrms() << PrmSmpl<std::string>("desk", reqInfo->desk.code), ASTRA::evtFlt, point_id);
     };

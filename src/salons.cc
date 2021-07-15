@@ -892,10 +892,11 @@ void TFilterLayers::getIntFilterLayers( int point_id,
         }
         setFlag( layer_type );
     }
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_PAID_CKIN"), STDLOG);
     Qry.SQLText =
-    "SELECT pr_permit FROM trip_paid_ckin WHERE point_id=:point_id";
+     "SELECT pr_permit "
+     "FROM trip_paid_ckin "
+     "WHERE point_id = :point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
 
