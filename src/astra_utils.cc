@@ -1919,6 +1919,11 @@ XMLDoc createXmlDoc2(const std::string& xml)
 void syncHistory(const string& table_name, int id,
                  const std::string& sys_user_descr, const std::string& sys_desk_code)
 {
+  if(DEMO_MODE()) {
+      // ‚ „…Œ … ‚›‡›‚€…Œ ”“Š–ˆˆ €Š…’‚ „ ˆ• ……‚„€ € C++
+      TST();
+      return;
+  }
   TQuery Qry(&OraSession, STDLOG);
   Qry.SQLText =
       "BEGIN "

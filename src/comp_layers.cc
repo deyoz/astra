@@ -727,8 +727,7 @@ void InsertTripCompLayers(int point_id_tlg,
 {
   if (!IsTlgCompLayer(layer_type)) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"TLG_COMP_LAYERS", "CRS_PAX", "TLG_BINDING"}), STDLOG);
   if (point_id_tlg!=NoExists)
   {
     Qry.SQLText=
@@ -736,9 +735,10 @@ void InsertTripCompLayers(int point_id_tlg,
       "       first_xname,last_xname,first_yname,last_yname,rem_code, "
       "       crs_pax_id, "
       "       surname, name, pers_type "
-      "FROM tlg_comp_layers, crs_pax "
-      "WHERE tlg_comp_layers.crs_pax_id=crs_pax.pax_id(+) AND "
-      "      point_id=:point_id_tlg AND layer_type=:layer_type "
+      "FROM tlg_comp_layers "
+      "       LEFT OUTER JOIN crs_pax "
+      "         ON tlg_comp_layers.crs_pax_id=crs_pax.pax_id "
+      "WHERE point_id=:point_id_tlg AND layer_type=:layer_type "
       "ORDER BY point_id_tlg, airp_arv, crs_pax_id";
     Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
   }
@@ -751,10 +751,11 @@ void InsertTripCompLayers(int point_id_tlg,
         "       first_xname,last_xname,first_yname,last_yname,rem_code, "
         "       crs_pax_id, "
         "       surname, name, pers_type "
-        "FROM tlg_binding, tlg_comp_layers, crs_pax "
-        "WHERE tlg_binding.point_id_tlg=tlg_comp_layers.point_id AND "
-        "      tlg_comp_layers.crs_pax_id=crs_pax.pax_id(+) AND "
-        "      tlg_binding.point_id_spp=:point_id_spp AND layer_type=:layer_type "
+        "FROM tlg_binding"
+        "  JOIN (tlg_comp_layers LEFT OUTER JOIN crs_pax "
+        "            ON tlg_comp_layers.crs_pax_id=crs_pax.pax_id) "
+        "  ON tlg_binding.point_id_tlg=tlg_comp_layers.point_id "
+        "WHERE tlg_binding.point_id_spp=:point_id_spp AND layer_type=:layer_type "
         "ORDER BY point_id_tlg, airp_arv, crs_pax_id";
       Qry.CreateVariable("point_id_spp",otInteger,point_id_spp);
     }
@@ -776,8 +777,8 @@ void InsertTripCompLayers(int point_id_tlg,
     int curr_point_id_tlg=Qry.FieldAsInteger("point_id_tlg");
     string airp_arv=Qry.FieldAsString("airp_arv");
     int crs_pax_id=(Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id"));
-    string crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                                   Qry.FieldAsString("name"));
+    string crs_pax_name=GetPaxName(Qry.FieldAsString("surname").c_str(),
+                                   Qry.FieldAsString("name").c_str());
     string pers_type = Qry.FieldAsString("pers_type");
     Qry.Next();
 
@@ -809,9 +810,9 @@ void InsertTripCompLayers(int point_id_tlg,
                            point_ids_spp);
       ranges_for_sync.clear();
       UsePriorContext=true;
-    };
-  };
-};
+    }
+  }
+}
 
 void DeleteTripCompLayers(int point_id_tlg,
                           int point_id_spp,
@@ -820,19 +821,21 @@ void DeleteTripCompLayers(int point_id_tlg,
 {
   if (!IsTlgCompLayer(layer_type)) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_LAYERS", "TLG_COMP_LAYERS", "CRS_PAX"}), STDLOG);
   if (point_id_tlg!=NoExists)
   {
-    ostringstream sql;
+    ostringstream sql;    
     sql << "SELECT tlg_comp_layers.range_id, "
            "       tlg_comp_layers.crs_pax_id, "
            "       surname, name, pers_type "
-           "FROM trip_comp_layers, tlg_comp_layers, crs_pax "
-           "WHERE trip_comp_layers.range_id=tlg_comp_layers.range_id AND "
-           "      tlg_comp_layers.crs_pax_id=crs_pax.pax_id(+) AND "
-           "      tlg_comp_layers.point_id=:point_id_tlg AND "
-           "      tlg_comp_layers.layer_type=:layer_type ";
+           "FROM trip_comp_layers "
+           "JOIN ("
+           "    tlg_comp_layers LEFT OUTER JOIN crs_pax "
+           "    ON tlg_comp_layers.crs_pax_id = crs_pax.pax_id "
+           ") ON trip_comp_layers.range_id = tlg_comp_layers.range_id "
+           "WHERE tlg_comp_layers.point_id = :point_id_tlg "
+           "AND tlg_comp_layers.layer_type = :layer_type ";
+
     if (point_id_spp!=NoExists)
     {
       sql << "AND trip_comp_layers.point_id=:point_id_spp ";
@@ -848,14 +851,15 @@ void DeleteTripCompLayers(int point_id_tlg,
     if (point_id_spp!=NoExists)
     {
       Qry.SQLText=
-        "SELECT trip_comp_layers.range_id, "
-        "       trip_comp_layers.crs_pax_id, "
-        "       surname, name, pers_type "
-        "FROM trip_comp_layers, crs_pax "
-        "WHERE trip_comp_layers.crs_pax_id=crs_pax.pax_id(+) AND "
-        "      trip_comp_layers.point_id=:point_id_spp AND "
-        "      trip_comp_layers.layer_type=:layer_type "
-        "ORDER BY range_id,crs_pax_id";
+              "SELECT trip_comp_layers.range_id, "
+              "       trip_comp_layers.crs_pax_id,"
+              "       surname, name, pers_type "
+              "FROM trip_comp_layers "
+              "  LEFT OUTER JOIN crs_pax "
+              "     ON trip_comp_layers.crs_pax_id = crs_pax.pax_id "
+              "WHERE trip_comp_layers.point_id=:point_id_spp AND "
+              "      trip_comp_layers.layer_type=:layer_type "
+              "ORDER BY range_id,crs_pax_id";
       Qry.CreateVariable("point_id_spp",otInteger,point_id_spp);
     }
     else return;
@@ -873,8 +877,8 @@ void DeleteTripCompLayers(int point_id_tlg,
       ranges_for_sync.insert( range_id );
     };
     int crs_pax_id=(Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id"));
-    string crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                                   Qry.FieldAsString("name"));
+    string crs_pax_name=GetPaxName(Qry.FieldAsString("surname").c_str(),
+                                   Qry.FieldAsString("name").c_str());
     string pers_type = Qry.FieldAsString("pers_type");
     Qry.Next();
 
@@ -896,9 +900,9 @@ void DeleteTripCompLayers(int point_id_tlg,
                            point_ids_spp);
       ranges_for_sync.clear();
       prior_range_id=NoExists; //можно этого было и не делать
-    };
-  };
-};
+    }
+  }
+}
 
 void InsertTripCompLayers(int point_id_tlg,
                           int point_id_spp,

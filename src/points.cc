@@ -2423,14 +2423,14 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
 {
   //range_hours - диапазон
   flts.clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   string sql =
      "SELECT point_id, move_id, airp, scd_out, pr_del "
      " FROM points "
    "WHERE airline=:airline AND flt_no=:flt_no AND "
      "     ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
      "     airp=:airp AND "
-     "     scd_out>=:scd_out-1 AND scd_out<:scd_out+1";
+     "     scd_out>=:scd_out_min AND scd_out<:scd_out_max";
   if ( !withDeleted )
     sql += " AND pr_del != -1";
   Qry.SQLText = sql;
@@ -2443,7 +2443,8 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
     string region = AirpTZRegion( airp, true );
     TDateTime  utc_scd_out =  LocalToUTC( local_scd_out, region );
     modf( utc_scd_out, &utc_scd_out );
-    Qry.CreateVariable( "scd_out", otDate, utc_scd_out );
+    Qry.CreateVariable( "scd_out_min", otDate, utc_scd_out-1 );
+    Qry.CreateVariable( "scd_out_max", otDate, utc_scd_out+1 );
     Qry.CreateVariable( "airp", otString, airp );
     Qry.Execute();
     TDateTime lso;

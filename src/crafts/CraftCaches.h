@@ -46,7 +46,7 @@ class CraftCaches
 {
 private:
   const unsigned int MAX_ELEM_SIZE = 100;
-  TQuery *SeatsQry;
+  std::unique_ptr<DB::TQuery> SeatsQry;
   std::map<CraftKey,CraftSeats> caches;
   std::queue<CraftKey> qCaches;
   void checkSize();

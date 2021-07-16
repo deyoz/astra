@@ -15,7 +15,7 @@ CraftSeats::~CraftSeats()
 CraftCaches::CraftCaches()
 {
   LogTrace(TRACE5) << __func__;
-  SeatsQry = new TQuery(&OraSession);
+  SeatsQry.reset(new DB::TQuery(PgOra::getROSession("TRIP_COMP_ELEMS"), STDLOG));
   SeatsQry->SQLText =
     "SELECT num, x, y, elem_type, xprior, yprior, agle,"
     "       xname, yname, class "

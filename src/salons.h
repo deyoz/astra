@@ -384,6 +384,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
     void get(TQuery &Qry, const std::string &traceDetail);
+    void get(DB::TQuery &Qry, const std::string &traceDetail);
     void get_rfisc_colors_internal(const std::string &airline_oper);
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
@@ -1696,7 +1697,7 @@ typedef std::pair<int,TPlace> TSalonSeat;
 class CraftSeats: public std::vector<TPlaceList*> {
   public:
     void Clear();
-    void read( TQuery &Qry, const std::string &cls );
+    void read( DB::TQuery &Qry, const std::string &cls );
     int basechecksum( );
 };
 
@@ -1726,21 +1727,21 @@ class TSalonList {
     void Clear();
     inline bool findSeat( std::map<int,TPlaceList*> &salons, TPlaceList** placelist,
                           const TSalonPoint &point_s );
-    void ReadRemarks( TQuery &Qry, FilterRoutesProperty &filterSegments,
+    void ReadRemarks( DB::TQuery &Qry, FilterRoutesProperty &filterSegments,
                       int prior_compon_props_point_id );
-    void ReadLayers( TQuery &Qry, FilterRoutesProperty &filterSegments,
+    void ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterSegments,
                      TFilterLayers &filterLayers, TPaxList &pax_list,
                      int prior_compon_props_point_id );
-    void ReadTariff( TQuery &Qry, FilterRoutesProperty &filterSegments,
+    void ReadTariff( DB::TQuery &Qry, FilterRoutesProperty &filterSegments,
                      int prior_compon_props_point_id );
-    void ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+    void ReadRFISCColors( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
                           int prior_compon_props_point_id );
     void SetRFISC( int point_id, TSeatTariffMap &tariffMap );
     //void AddRFISCRemarks( int key, TSeatTariffMap &tariffMap );
     //void DropRFISCRemarks( TSeatTariffMap &tariffMap );
     //void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
-    void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
-    void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
+    void ReadPaxs( DB::TQuery &Qry, TPaxList &pax_list );
+    void ReadCrsPaxs( DB::TQuery &Qry, TPaxList &pax_list,
                       int pax_id, std::string &airp_arv );
     void validateLayersSeats( bool read_all_notPax_layers );
     void CommitLayers();

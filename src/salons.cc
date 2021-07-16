@@ -224,6 +224,47 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
   };
 }
 
+void TSeatTariffMap::get(DB::TQuery &Qry, const std::string &traceDetail)
+{
+    clear();
+
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next())
+    {
+      // след.блок лучше выполнять до цикла, но проверяя Eof
+      int airps_priority_idx=Qry.GetFieldIndex("airps_priority");
+      int brand_priority_idx=Qry.GetFieldIndex("brand_priority");
+      int brand_code_idx=Qry.GetFieldIndex("brand_code");
+      TExtRFISC rfisc;
+      rfisc.color=Qry.FieldAsString("rate_color");
+      rfisc.rate=Qry.FieldAsFloat("rate");
+      rfisc.currency_id=Qry.FieldAsString("rate_cur");
+      rfisc.code=Qry.FieldAsString("rfisc");
+      rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
+      if (airps_priority_idx>=0)
+        rfisc.airps_priority=Qry.FieldAsInteger(airps_priority_idx);
+      if (brand_priority_idx>=0)
+        rfisc.brand_priority=Qry.FieldAsInteger(brand_priority_idx);
+      if (brand_code_idx>=0)
+        rfisc.brand_code=Qry.FieldAsString(brand_code_idx);
+
+      pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
+      if (!i.second && rfisc!=i.first->second &&
+          rfisc.brand_priority==i.first->second.brand_priority &&
+          rfisc.brand_code==i.first->second.brand_code &&
+          rfisc.airps_priority==i.first->second.airps_priority)
+      {
+        ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", rfisc.color.c_str(), traceDetail.c_str());
+        trace(TRACE5);
+        if (rfisc.rate<i.first->second.rate)
+        {
+          i.first->second=rfisc;
+          trace(TRACE5);
+        };
+      };
+    };
+}
+
 void TSeatTariffMap::get_rfisc_colors(const std::string &airline_oper)
 {
   get_rfisc_colors_internal(airline_oper);
@@ -245,10 +286,12 @@ void TSeatTariffMap::get_rfisc_colors_internal(const std::string &airline_oper)
   if (iRFISColors==rfisc_colors.end())
   {
     _real_queries++;
-    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc, pr_prot_ckin "
+    DB::TCachedQuery Qry(PgOra::getROSession("RFISC_COMP_PROPS"),
+                     "SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc, pr_prot_ckin "
                      "FROM rfisc_comp_props "
                      "WHERE airline=:airline",
-                     QParams() << QParam("airline", otString, airline_oper));
+                     QParams() << QParam("airline", otString, airline_oper),
+                     STDLOG);
 
     ostringstream s;
     s << "airline_oper=" << airline_oper;
@@ -2074,17 +2117,19 @@ inline bool TSalonList::findSeat( std::map<int,TPlaceList*> &salons, TPlaceList*
   return ( *placelist != NULL );
 }
 
-void TSalonList::ReadRemarks( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+void TSalonList::ReadRemarks( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
                               int prior_compon_props_point_id )
 {
-  int col_point_id = Qry.GetFieldIndex( "point_id" );
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_rem = Qry.FieldIndex( "rem" );
-  int col_pr_denial = Qry.FieldIndex( "pr_denial" );
   map<int,TPlaceList*> salons; // для быстрой адресации к салону
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int col_point_id = Qry.GetFieldIndex( "point_id" );
+    int col_num = Qry.FieldIndex( "num" );
+    int col_x = Qry.FieldIndex( "x" );
+    int col_y = Qry.FieldIndex( "y" );
+    int col_rem = Qry.FieldIndex( "rem" );
+    int col_pr_denial = Qry.FieldIndex( "pr_denial" );
+
     TPlaceList* placelist = NULL;
     TSalonPoint point_s;
     point_s.num = Qry.FieldAsInteger( col_num );
@@ -2125,7 +2170,7 @@ void TSalonList::ReadRemarks( TQuery &Qry, FilterRoutesProperty &filterRoutes,
 }
 
 // pax_list - должен быть заполнен к этому моменту
-void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+void TSalonList::ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
                              TFilterLayers &filterLayers, TPaxList &pax_list,
                              int prior_compon_props_point_id )
 {
@@ -2134,22 +2179,24 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
   BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
                                                   BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
                                                   BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
-  int col_point_id = Qry.GetFieldIndex( "point_id" );
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_layer_type = Qry.FieldIndex( "layer_type" );
-  int col_time_create = Qry.GetFieldIndex( "time_create" );
-  int col_pax_id = Qry.GetFieldIndex( "pax_id" );
-  int col_crs_pax_id = Qry.GetFieldIndex( "crs_pax_id" );
-  int col_point_dep = Qry.GetFieldIndex( "point_dep" );
-  int col_point_arv = Qry.GetFieldIndex( "point_arv" );
-  int idx_first_xname = Qry.GetFieldIndex( "first_xname" );
-  int idx_first_yname = Qry.GetFieldIndex( "first_yname" );
-  int idx_last_xname = Qry.GetFieldIndex( "last_xname" );
-  int idx_last_yname = Qry.GetFieldIndex( "last_yname" );
   map<int,TPlaceList*> salons; // для быстрой адресации к салону
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int col_point_id = Qry.GetFieldIndex( "point_id" );
+    int col_num = Qry.FieldIndex( "num" );
+    int col_x = Qry.FieldIndex( "x" );
+    int col_y = Qry.FieldIndex( "y" );
+    int col_layer_type = Qry.FieldIndex( "layer_type" );
+    int col_time_create = Qry.GetFieldIndex( "time_create" );
+    int col_pax_id = Qry.GetFieldIndex( "pax_id" );
+    int col_crs_pax_id = Qry.GetFieldIndex( "crs_pax_id" );
+    int col_point_dep = Qry.GetFieldIndex( "point_dep" );
+    int col_point_arv = Qry.GetFieldIndex( "point_arv" );
+    int idx_first_xname = Qry.GetFieldIndex( "first_xname" );
+    int idx_first_yname = Qry.GetFieldIndex( "first_yname" );
+    int idx_last_xname = Qry.GetFieldIndex( "last_xname" );
+    int idx_last_yname = Qry.GetFieldIndex( "last_yname" );
+
     TLayerSeat layer;
         if ( col_point_id < 0 || Qry.FieldIsNULL( col_point_id ) )
       layer.point_id = NoExists;
@@ -2180,7 +2227,7 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
       layer.crs_pax_id = NoExists;
     else
       layer.crs_pax_id = Qry.FieldAsInteger( col_crs_pax_id );
-    layer.layer_type = DecodeCompLayerType( Qry.FieldAsString( col_layer_type ) );
+    layer.layer_type = DecodeCompLayerType( Qry.FieldAsString( col_layer_type ).c_str() );
     if ( col_time_create < 0 || Qry.FieldIsNULL( col_time_create ) )
       layer.time_create = NoExists;
     else
@@ -2459,17 +2506,19 @@ void TSalonList::SetRFISC( int point_id, TSeatTariffMap &tariffMap )
   }
 }
 
-void TSalonList::ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+void TSalonList::ReadRFISCColors( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
                                   int prior_compon_props_point_id )
 {
   ProgTrace( TRACE5, "TSalonList::ReadRFISCColors, prior_compon_props_point_id=%d", prior_compon_props_point_id );
-  int col_point_id = Qry.GetFieldIndex( "point_id" );
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_color = Qry.FieldIndex( "color" );
   map<int,TPlaceList*> salons; // для быстрой адресации к салону
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int col_point_id = Qry.GetFieldIndex( "point_id" );
+    int col_num = Qry.FieldIndex( "num" );
+    int col_x = Qry.FieldIndex( "x" );
+    int col_y = Qry.FieldIndex( "y" );
+    int col_color = Qry.FieldIndex( "color" );
+
     TPlaceList* placelist = NULL;
     TSalonPoint point_s;
     point_s.num = Qry.FieldAsInteger( col_num );
@@ -2509,19 +2558,21 @@ void TSalonList::ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoute
   }
 }
 
-void TSalonList::ReadTariff( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+void TSalonList::ReadTariff( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
                              int prior_compon_props_point_id )
 {
   ProgTrace( TRACE5, "TSalonList::ReadTariff, prior_compon_props_point_id=%d", prior_compon_props_point_id );
-  int col_point_id = Qry.GetFieldIndex( "point_id" );
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_color = Qry.FieldIndex( "color" );
-  int col_rate = Qry.FieldIndex( "rate" );
-  int col_rate_cur = Qry.FieldIndex( "rate_cur" );
   map<int,TPlaceList*> salons; // для быстрой адресации к салону
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int col_point_id = Qry.GetFieldIndex( "point_id" );
+    int col_num = Qry.FieldIndex( "num" );
+    int col_x = Qry.FieldIndex( "x" );
+    int col_y = Qry.FieldIndex( "y" );
+    int col_color = Qry.FieldIndex( "color" );
+    int col_rate = Qry.FieldIndex( "rate" );
+    int col_rate_cur = Qry.FieldIndex( "rate_cur" );
+
     TPlaceList* placelist = NULL;
     TSalonPoint point_s;
     point_s.num = Qry.FieldAsInteger( col_num );
@@ -2560,30 +2611,32 @@ void TSalonList::ReadTariff( TQuery &Qry, FilterRoutesProperty &filterRoutes,
   }
 }
 
-void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
+void TSalonList::ReadPaxs( DB::TQuery &Qry, TPaxList &pax_list )
 {
   pax_list.clear();
-  int idx_pax_id = Qry.FieldIndex( "pax_id" );
-  int idx_grp_id = Qry.FieldIndex( "grp_id" );
-  int idx_status = Qry.FieldIndex( "status" );
-  int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
-  int idx_reg_no = Qry.FieldIndex( "reg_no" );
-  int idx_seats = Qry.FieldIndex( "seats" );
-  int idx_is_jmp = Qry.FieldIndex( "is_jmp" );
-  int idx_pers_type = Qry.FieldIndex( "pers_type" );
-  int idx_name = Qry.FieldIndex( "name" );
-  int idx_surname = Qry.FieldIndex( "surname" );
-  int idx_is_female = Qry.FieldIndex( "is_female" );
-  int idx_orig_class = Qry.FieldIndex( "orig_class" );
-  int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
-  int idx_cabin_class_grp = Qry.FieldIndex( "cabin_class_grp" );
-  int idx_point_dep = Qry.FieldIndex( "point_dep" );
-  int idx_point_arv = Qry.FieldIndex( "point_arv" );
-  int idx_pr_web = Qry.FieldIndex( "pr_web" );
-  int idx_crew_type = Qry.FieldIndex( "crew_type" );
   vector<TPass> InfItems, AdultItems;
   //TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int idx_pax_id = Qry.FieldIndex( "pax_id" );
+    int idx_grp_id = Qry.FieldIndex( "grp_id" );
+    int idx_status = Qry.FieldIndex( "status" );
+    int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
+    int idx_reg_no = Qry.FieldIndex( "reg_no" );
+    int idx_seats = Qry.FieldIndex( "seats" );
+    int idx_is_jmp = Qry.FieldIndex( "is_jmp" );
+    int idx_pers_type = Qry.FieldIndex( "pers_type" );
+    int idx_name = Qry.FieldIndex( "name" );
+    int idx_surname = Qry.FieldIndex( "surname" );
+    int idx_is_female = Qry.FieldIndex( "is_female" );
+    int idx_orig_class = Qry.FieldIndex( "orig_class" );
+    int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
+    int idx_cabin_class_grp = Qry.FieldIndex( "cabin_class_grp" );
+    int idx_point_dep = Qry.FieldIndex( "point_dep" );
+    int idx_point_arv = Qry.FieldIndex( "point_arv" );
+    int idx_pr_web = Qry.FieldIndex( "pr_web" );
+    int idx_crew_type = Qry.FieldIndex( "crew_type" );
+
     TPass pass;
     pass.pax_id = Qry.FieldAsInteger( idx_pax_id );
     pass.grp_id = Qry.FieldAsInteger( idx_grp_id );
@@ -2595,7 +2648,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     pass.surname = Qry.FieldAsString( idx_surname );
     pass.is_female = Qry.FieldIsNULL( idx_is_female )?ASTRA::NoExists:Qry.FieldAsInteger( idx_is_female );
     pass.parent_pax_id = Qry.FieldAsInteger( idx_parent_pax_id );
-    pass.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
+    pass.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ).c_str() );
     pass.pr_web = ( Qry.FieldAsInteger( idx_pr_web ) != 0 );
     if(not Qry.FieldIsNULL(idx_crew_type))
         pass.crew_type = TCrewTypes().decode(Qry.FieldAsString(idx_crew_type));
@@ -2647,20 +2700,22 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   }
 }
 /* если пассажир зарегистрирован, то в этой выборке он не участует*/
-void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
+void TSalonList::ReadCrsPaxs( DB::TQuery &Qry, TPaxList &pax_list,
                               int pax_id, std::string &airp_arv )
 {
   airp_arv.clear();
-  int idx_pax_id = Qry.FieldIndex( "pax_id" );
-  int idx_seats = Qry.FieldIndex( "seats" );
-  int idx_pers_type = Qry.FieldIndex( "pers_type" );
-  int idx_name = Qry.FieldIndex( "name" );
-  int idx_surname = Qry.FieldIndex( "surname" );
-  int idx_orig_class = Qry.FieldIndex( "orig_class" );
-  int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
-  int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
-  int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
   for ( ; !Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int idx_pax_id = Qry.FieldIndex( "pax_id" );
+    int idx_seats = Qry.FieldIndex( "seats" );
+    int idx_pers_type = Qry.FieldIndex( "pers_type" );
+    int idx_name = Qry.FieldIndex( "name" );
+    int idx_surname = Qry.FieldIndex( "surname" );
+    int idx_orig_class = Qry.FieldIndex( "orig_class" );
+    int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
+    int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
+    int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
+
     int id = Qry.FieldAsInteger( idx_pax_id );
     if ( pax_list.find( id ) != pax_list.end() ) {
       continue;
@@ -2672,7 +2727,7 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
     TSalonPax pax;
     pax.seats = Qry.FieldAsInteger( idx_seats );
     pax.reg_no = NoExists;
-    pax.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
+    pax.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ).c_str() );
     pax.orig_cl = Qry.FieldAsString( idx_orig_class );
     pax.cabin_cl = Qry.FieldAsString( idx_cabin_class );
     pax.name = Qry.FieldAsString( idx_name );
@@ -2967,18 +3022,18 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
   TFilterLayers filterLayers;
   TPaxList pax_list;
   filterLayers.clearFlags();
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  DB::TQuery CompsQry(PgOra::getROSession("COMPS"), STDLOG);
+  CompsQry.SQLText =
     "SELECT pr_lat_seat,airline FROM comps WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  if ( Qry.Eof ) throw UserException("MSG.SALONS.NOT_FOUND.REFRESH_DATA");
-  pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
-  string airline = Qry.FieldAsString( "airline" );
+  CompsQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompsQry.Execute();
+  if ( CompsQry.Eof ) throw UserException("MSG.SALONS.NOT_FOUND.REFRESH_DATA");
+  pr_craft_lat = CompsQry.FieldAsInteger( "pr_lat_seat" );
+  string airline = CompsQry.FieldAsString( "airline" );
   TTripInfo fltInfo;
   if ( point_id != ASTRA::NoExists ) {
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
+    PointsQry.SQLText =
       "SELECT point_id,"
       "       airline, "
       "       flt_no, "
@@ -2987,10 +3042,10 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
       "       airp "
       " FROM points "
       "WHERE points.point_id = :point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if ( !Qry.Eof ) {
-      fltInfo.Init(Qry);
+    PointsQry.CreateVariable( "point_id", otInteger, point_id );
+    PointsQry.Execute();
+    if ( !PointsQry.Eof ) {
+      fltInfo.Init(PointsQry);
     }
   }
   else {
@@ -3004,48 +3059,52 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
   if ( prSeatDescription ) {
     ProgTrace( TRACE5, "SeatDectription mode" );
   }
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery CompElemsQry(PgOra::getROSession("COMP_ELEMS"), STDLOG);
+  CompElemsQry.SQLText =
     "SELECT num,x,y,elem_type,xprior,yprior,agle,xname,yname,class "
     " FROM comp_elems "
     "WHERE comp_id=:comp_id "
     "ORDER BY num, x desc, y desc ";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  if ( Qry.Eof )
+  CompElemsQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompElemsQry.Execute();
+  if ( CompElemsQry.Eof )
     throw UserException( "MSG.SALONS.NOT_FOUND" );
   pax_lists.clear();
 
-  _seats.read( Qry, filterSets.filterClass );
-  Qry.Clear();
-  Qry.SQLText =
+  _seats.read( CompElemsQry, filterSets.filterClass );
+
+  DB::TQuery CompRemQry(PgOra::getROSession("COMP_REM"), STDLOG);
+  CompRemQry.SQLText =
     "SELECT num,x,y,rem,pr_denial FROM comp_rem "
     " WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  ReadRemarks( Qry, filterRoutes, NoExists );
+  CompRemQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompRemQry.Execute();
+  ReadRemarks( CompRemQry, filterRoutes, NoExists );
   //начитываем тарифы мест по маршруту
-  Qry.Clear();
-  Qry.SQLText =
+
+  DB::TQuery CompRatesQry(PgOra::getROSession("COMP_RATES"), STDLOG);
+  CompRatesQry.SQLText =
     "SELECT num,x,y,color,rate,rate_cur FROM comp_rates "
     " WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  ReadTariff( Qry, filterRoutes, ASTRA::NoExists );
-  Qry.Clear();
-  Qry.SQLText =
+  CompRatesQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompRatesQry.Execute();
+  ReadTariff( CompRatesQry, filterRoutes, ASTRA::NoExists );
+
+  DB::TQuery CompBaseLyrsQry(PgOra::getROSession("COMP_BASELAYERS"), STDLOG);
+  CompBaseLyrsQry.SQLText =
     "SELECT num,x,y,layer_type FROM comp_baselayers "
     " WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  ReadLayers( Qry, filterRoutes, filterLayers, pax_list, NoExists );
-  Qry.Clear();
-  Qry.SQLText =
+  CompBaseLyrsQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompBaseLyrsQry.Execute();
+  ReadLayers( CompBaseLyrsQry, filterRoutes, filterLayers, pax_list, NoExists );
+
+  DB::TQuery CompRfiscQry(PgOra::getROSession("COMP_RFISC"), STDLOG);
+  CompRfiscQry.SQLText =
     "SELECT num,x,y,color FROM comp_rfisc "
     " WHERE comp_id=:comp_id";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  ReadRFISCColors( Qry, filterRoutes, NoExists );
+  CompRfiscQry.CreateVariable( "comp_id", otInteger, comp_id );
+  CompRfiscQry.Execute();
+  ReadRFISCColors( CompRfiscQry, filterRoutes, NoExists );
   RFISCMode = rAll;
   if ( !airline.empty() ) {
     TSeatTariffMap tariffMap;
@@ -4156,7 +4215,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   if ( !params.for_calc_waitlist && SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
     throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
   }
-  TQuery Qry( &OraSession );
   bool only_compon_props = ( params.prior_compon_props_point_id != ASTRA::NoExists );
   ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
              params.filterClass.c_str(), params.prior_compon_props_point_id );
@@ -4215,18 +4273,18 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     CraftCache::CraftCaches::Instance()->get(filterRoutes.getDepartureId(),filterSets.filterClass,_seats);
   }
   else {
-    Qry.Clear();
+    DB::TQuery TripCompElemsQry(PgOra::getROSession("TRIP_COMP_ELEMS"), STDLOG);
     //начитываем компоновку только по нашему пункту посадки
-    Qry.SQLText =
+    TripCompElemsQry.SQLText =
       "SELECT num, x, y, elem_type, xprior, yprior, agle,"
       "       xname, yname, class "
       " FROM trip_comp_elems "
       "WHERE point_id = :point_id "
       "ORDER BY num, x desc, y desc";
-    Qry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
-    Qry.Execute();
+    TripCompElemsQry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
+    TripCompElemsQry.Execute();
     _seats.Clear();
-    _seats.read(Qry,filterSets.filterClass);
+    _seats.read(TripCompElemsQry,filterSets.filterClass);
   }
   if ( _seats.empty() && !params.for_calc_waitlist ) {
     ProgTrace( TRACE5, "point_id=%d", filterRoutes.getDepartureId() );
@@ -4234,30 +4292,30 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   }
   if ( /*!for_calc_waitlist*/ true ) { //при расчете WL требуются ремарки
     //начитываем ремарки по маршруту
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery TripCompRemQry(PgOra::getROSession("TRIP_COMP_REM"), STDLOG);
+    TripCompRemQry.SQLText =
       "SELECT point_id, num, x, y, rem, pr_denial "
       " FROM trip_comp_rem "
       " WHERE point_id = :point_id ";
-    Qry.DeclareVariable( "point_id", otInteger );
+    TripCompRemQry.DeclareVariable( "point_id", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
       if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
         continue;
       }
-      Qry.SetVariable( "point_id", iseg->point_id );
-      Qry.Execute();
-      ReadRemarks( Qry, filterRoutes, params.prior_compon_props_point_id );
+      TripCompRemQry.SetVariable( "point_id", iseg->point_id );
+      TripCompRemQry.Execute();
+      ReadRemarks( TripCompRemQry, filterRoutes, params.prior_compon_props_point_id );
     }
   }
   if ( /*!for_calc_waitlist*/ true ) { //в расчете WL уже требуются тарифы
     //начитываем тарифы мест по маршруту
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery TripCompRatesQry(PgOra::getROSession("TRIP_COMP_RATES"), STDLOG);
+    TripCompRatesQry.SQLText =
       "SELECT point_id,num,x,y,color,rate,rate_cur "
       " FROM trip_comp_rates "
       " WHERE point_id=:point_id ";
-    Qry.DeclareVariable( "point_id", otInteger );
+    TripCompRatesQry.DeclareVariable( "point_id", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
       if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
@@ -4267,45 +4325,48 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
            filtersLayers[ iseg->point_id ].CanUseLayer( cltProtAfterPay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
            filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLBeforePay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
            filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLAfterPay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ) {
-        Qry.SetVariable( "point_id", iseg->point_id );
-        Qry.Execute();
-        ReadTariff( Qry, filterRoutes, params.prior_compon_props_point_id );
+        TripCompRatesQry.SetVariable( "point_id", iseg->point_id );
+        TripCompRatesQry.Execute();
+        ReadTariff( TripCompRatesQry, filterRoutes, params.prior_compon_props_point_id );
       }
     }
-    Qry.Clear();
-    Qry.SQLText =
+
+    DB::TQuery TripCompRficsQry(PgOra::getROSession("TRIP_COMP_RFISC"), STDLOG);
+    TripCompRficsQry.SQLText =
       "SELECT point_id,num,x,y,color FROM trip_comp_rfisc "
       " WHERE point_id=:point_id";
-    Qry.DeclareVariable( "point_id", otInteger );
+    TripCompRficsQry.DeclareVariable( "point_id", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
       if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
         continue;
       }
-      Qry.SetVariable( "point_id", iseg->point_id );
-      Qry.Execute();
-      ReadRFISCColors( Qry, filterRoutes, params.prior_compon_props_point_id );
+      TripCompRficsQry.SetVariable( "point_id", iseg->point_id );
+      TripCompRficsQry.Execute();
+      ReadRFISCColors( TripCompRficsQry, filterRoutes, params.prior_compon_props_point_id );
     }
   }
   std::string pax_airp_arv;
   if ( !only_compon_props ) {
     // начитываем список зарегистрированных пассажиров по маршруту  pax_list
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "CRS_INF"}), STDLOG);
     Qry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, "
-      "        NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
-      "        NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
+      "        COALESCE(pax.cabin_class, pax_grp.class) AS cabin_class, "
+      "        COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
       "        pax_grp.class AS orig_class, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
-      "        DECODE(client_type,:web_client,1,:mobile_client,1,0) pr_web, "
+      "        (CASE WHEN client_type IN (:web_client,:mobile_client) THEN 1 ELSE 0 END) AS pr_web, "
       "        crew_type, "
       "        pax_grp.airp_arv "
-      "    FROM pax_grp, pax, crs_inf "
-      "   WHERE pax.grp_id=pax_grp.grp_id AND "
-      "         pax_grp.point_dep=:point_dep AND "
-      "         pax.pax_id=crs_inf.inf_id(+) AND "
+      "   FROM pax_grp "
+      "     JOIN (pax "
+      "        LEFT OUTER JOIN crs_inf "
+      "          ON pax.pax_id=crs_inf.inf_id) "
+      "       ON pax.grp_id=pax_grp.grp_id  "
+      "   WHERE pax_grp.point_dep=:point_dep AND "
       "         pax_grp.status NOT IN ('E') AND "
       "         pax.refuse IS NULL ";
     Qry.DeclareVariable( "point_dep", otInteger );
@@ -4319,12 +4380,12 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
 //      ProgTrace( TRACE5, "TSalonList::ReadFlight: pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
     // начитываем список забронированных пассажиров по рейсу  pax_list
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery CrsPaxQry(PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}), STDLOG);
+    CrsPaxQry.SQLText =
       "SELECT crs_pax.pax_id, seats, pers_type, name, surname, "+
       CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "+
       CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class, "
-      "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id, "
+      "       (CASE WHEN crs_pax.inf_id IS NULL THEN NULL ELSE crs_pax.pax_id END) AS parent_pax_id, "
       "       crs_pnr.airp_arv "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -4332,55 +4393,57 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "         tlg_binding.point_id_spp=:point_dep AND "
       "         crs_pnr.system='CRS' AND "
       "         crs_pax.pr_del=0 ";
-    Qry.DeclareVariable( "point_dep", otInteger );
+    CrsPaxQry.DeclareVariable( "point_dep", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
-      Qry.SetVariable( "point_dep", iseg->point_id );
-      Qry.Execute();
-      ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ], params.tariff_pax_id, pax_airp_arv );
+      CrsPaxQry.SetVariable( "point_dep", iseg->point_id );
+      CrsPaxQry.Execute();
+      ReadCrsPaxs( CrsPaxQry, pax_lists[ iseg->point_id ], params.tariff_pax_id, pax_airp_arv );
 //      ProgTrace( TRACE5, "TSalonList::ReadFlight: crs_pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
   }
   ProgTrace( TRACE5, "prior_compon_props_point_id=%d", params.prior_compon_props_point_id );
   //начитываем базовые слои по маршруту
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery TripCompBaseLyrsQry(PgOra::getROSession("TRIP_COMP_BASELAYERS"), STDLOG);
+  TripCompBaseLyrsQry.SQLText =
     "SELECT point_id,num,x,y,layer_type,NULL as time_create, "
     "       NULL as pax_id, NULL as crs_pax_id, NULL as point_dep, "
     "       NULL as point_arv "
     " FROM trip_comp_baselayers "
     " WHERE point_id=:point_id ";
-  Qry.DeclareVariable( "point_id", otInteger );
+  TripCompBaseLyrsQry.DeclareVariable( "point_id", otInteger );
   //!!!важна сортировка для addLayer по маршруту point_id
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
     if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
-    Qry.SetVariable( "point_id", iseg->point_id );
-    Qry.Execute();
-    ReadLayers( Qry, filterRoutes, filtersLayers[ iseg->point_id ],
+    TripCompBaseLyrsQry.SetVariable( "point_id", iseg->point_id );
+    TripCompBaseLyrsQry.Execute();
+    ReadLayers( TripCompBaseLyrsQry, filterRoutes, filtersLayers[ iseg->point_id ],
                 pax_lists[ iseg->point_id ],
                 params.prior_compon_props_point_id );
   }
   //начитываем слои по маршруту, К этому моменту должен быть заполнен pax_list
-  Qry.Clear();
-    Qry.SQLText =
+  DB::TQuery TTQry(PgOra::getROSession({"TRIP_COMP_RANGES", "TRIP_COMP_LAYERS"}), STDLOG);
+  TTQry.SQLText =
     "SELECT num, x, y, trip_comp_layers.layer_type, crs_pax_id, pax_id, time_create, "
     "       trip_comp_layers.point_id, point_dep, point_arv, "
     "       first_xname, first_yname, last_xname, last_yname "
-    " FROM trip_comp_ranges, trip_comp_layers "
-    " WHERE trip_comp_layers.point_id = :point_id AND "
-    "       trip_comp_layers.range_id = trip_comp_ranges.range_id(+)";
-  Qry.DeclareVariable( "point_id", otInteger );
+    " FROM trip_comp_ranges "
+    "   LEFT OUTER JOIN trip_comp_layers "
+    "          ON trip_comp_layers.range_id = trip_comp_ranges.range_id "
+    " WHERE trip_comp_layers.point_id = :point_id";
+
+  TTQry.DeclareVariable( "point_id", otInteger );
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
     if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
-    Qry.SetVariable( "point_id", iseg->point_id );
-    Qry.Execute();
-    ReadLayers( Qry, filterRoutes, filtersLayers[ iseg->point_id ],
+    TTQry.SetVariable( "point_id", iseg->point_id );
+    TTQry.Execute();
+    ReadLayers( TTQry, filterRoutes, filtersLayers[ iseg->point_id ],
                 pax_lists[ iseg->point_id ],
                 params.prior_compon_props_point_id );
   }
@@ -4898,19 +4961,17 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   TFlights flights;
   flights.Get( vpoint_id, ftTranzit );
   flights.Lock(__FUNCTION__);
-  TQuery Qry( &OraSession );
-  TQuery QryLayers( &OraSession );
+  int range_id = PgOra::getSeqNextVal_int("COMP_LAYERS__SEQ");
+  DB::TQuery QryLayers(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
   QryLayers.SQLText =
-    "BEGIN "
-    "  SELECT comp_layers__seq.nextval INTO :range_id FROM dual; "
     "  INSERT INTO trip_comp_layers "
     "    (range_id,point_id,point_dep,point_arv,layer_type, "
     "     first_xname,last_xname,first_yname,last_yname,crs_pax_id,pax_id,time_create) "
     "  VALUES "
     "    (:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
-    "     :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,:pax_id,:time_create); "
-    "END; ";
-  QryLayers.CreateVariable( "range_id", otInteger, FNull );
+    "     :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,:pax_id,:time_create) ";
+
+  QryLayers.CreateVariable( "range_id", otInteger, range_id );
   QryLayers.CreateVariable( "point_id", otInteger, vpoint_id );
   QryLayers.DeclareVariable( "point_dep", otInteger );
   QryLayers.DeclareVariable( "point_arv", otInteger );
@@ -4922,11 +4983,11 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   QryLayers.DeclareVariable( "first_yname", otString );
   QryLayers.DeclareVariable( "last_yname", otString );
   QryLayers.DeclareVariable( "time_create", otDate );
-  TQuery QryReadX( &OraSession );
+
   FilterRoutesProperty filterRoutes;
   filterRoutes.Read( TFilterRoutesSets( vpoint_id ) );
   if ( getRFISCMode() == rRFISC ) { //!!!
-    QryReadX.Clear();
+    DB::TQuery QryReadX(PgOra::getROSession("TRIP_COMP_RATES"), STDLOG);
     QryReadX.SQLText =
       "SELECT point_id,num,x,y,color,rate,rate_cur "
       " FROM trip_comp_rates "
@@ -4936,7 +4997,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
     ReadTariff( QryReadX, filterRoutes, ASTRA::NoExists );
   }
   if ( getRFISCMode() == rTariff )  { //!!!
-    QryReadX.Clear();
+    DB::TQuery QryReadX(PgOra::getROSession("TRIP_COMP_RFISC"), STDLOG);
     QryReadX.SQLText =
       "SELECT point_id,num,x,y,color "
       " FROM trip_comp_rfisc "
@@ -4947,29 +5008,30 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   }
   std::vector<std::string> elem_types;
   constructiveElemTypes( elem_types );
-  string sqlStr =
-      "BEGIN "
-      " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
-      " DELETE trip_comp_rem WHERE point_id=:point_id; "
-      " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
-      " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
-      " DELETE trip_comp_rates WHERE point_id=:point_id; "
-      " DELETE trip_comp_rfisc WHERE point_id=:point_id; ";
+
+  bool pr_lat_seat = isCraftLat();
+  make_db_curs("UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_SETS")).bind(":pr_lat_seat", pr_lat_seat).bind(":point_id", vpoint_id).exec();
+  make_db_curs("DELETE trip_comp_rem WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_COMP_REM")).bind(":point_id", vpoint_id).exec();
+  make_db_curs("DELETE trip_comp_rfisc WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_COMP_RFISC")).bind(":point_id", vpoint_id).exec();
+  make_db_curs("DELETE trip_comp_baselayers WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_COMP_BASELAYERS")).bind(":point_id", vpoint_id).exec();
+  make_db_curs("DELETE trip_comp_rates WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_COMP_RATES")).bind(":point_id", vpoint_id).exec();
+  make_db_curs("DELETE trip_comp_rfisc WHERE point_id=:point_id",
+               PgOra::getRWSession("TRIP_COMP_RFISC")).bind(":point_id", vpoint_id).exec();
+
   if ( saveContructivePlaces ) {
-      sqlStr +=
-      " DELETE trip_comp_elems WHERE point_id=:point_id AND elem_type NOT IN ";
-      sqlStr += GetSQLEnum( elem_types );
+      make_db_curs("DELETE trip_comp_elems WHERE point_id=:point_id "
+                   "AND elem_type NOT IN " + GetSQLEnum(elem_types),
+                   PgOra::getRWSession("TRIP_COMP_ELEMS")).bind(":point_id", vpoint_id).exec();
   }
-  else {
-    sqlStr +=
-      " DELETE trip_comp_elems WHERE point_id=:point_id ";
+  else { 
+      make_db_curs("DELETE trip_comp_elems WHERE point_id=:point_id",
+                   PgOra::getRWSession("TRIP_COMP_ELEMS")).bind(":point_id", vpoint_id).exec();
   }
-  sqlStr += ";";
-  sqlStr += "END;";
-  Qry.SQLText = sqlStr;
-  Qry.CreateVariable( "point_id", otInteger, vpoint_id );
-  Qry.CreateVariable( "pr_lat_seat", otInteger, isCraftLat() );
-  Qry.Execute();
   //начитка фильтра слоев по нашему пункту посадки
   std::map<int,TFilterLayers> &filtersLayers = filterSets.filtersLayers;
   BitSet<TDrawPropsType> props;
@@ -4978,34 +5040,36 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
   getMenuLayers( vpoint_id, filterSets.filtersLayers[ vpoint_id ], menuLayers, isLibraRequest );
   //удаление все редактируемых слоев
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery DelTripCompLyrsQry(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
+  DelTripCompLyrsQry.SQLText =
       "DELETE trip_comp_layers "
       " WHERE point_id=:point_id AND layer_type=:layer_type";
-  Qry.CreateVariable( "point_id", otInteger, vpoint_id );
-  Qry.DeclareVariable( "layer_type", otString );
+  DelTripCompLyrsQry.CreateVariable( "point_id", otInteger, vpoint_id );
+  DelTripCompLyrsQry.DeclareVariable( "layer_type", otString );
   for ( int ilayer=0; ilayer<ASTRA::cltTypeNum; ilayer++ ) {
     if ( isEditableMenuLayers( (ASTRA::TCompLayerType)ilayer, menuLayers ) ) {
-        Qry.SetVariable( "layer_type", EncodeCompLayerType( (ASTRA::TCompLayerType)ilayer ) );
-        Qry.Execute();
+        DelTripCompLyrsQry.SetVariable( "layer_type", EncodeCompLayerType( (ASTRA::TCompLayerType)ilayer ) );
+        DelTripCompLyrsQry.Execute();
     }
   }
-  Qry.Clear();
-  Qry.SQLText =
+
+  DB::TQuery InsTripCompLyrsQry(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
+  InsTripCompLyrsQry.SQLText =
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
     " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, :xname,:yname)";
-  Qry.CreateVariable( "point_id", otInteger, vpoint_id );
-  Qry.DeclareVariable( "num", otInteger );
-  Qry.DeclareVariable( "x", otInteger );
-  Qry.DeclareVariable( "y", otInteger );
-  Qry.DeclareVariable( "elem_type", otString );
-  Qry.DeclareVariable( "xprior", otInteger );
-  Qry.DeclareVariable( "yprior", otInteger );
-  Qry.DeclareVariable( "agle", otInteger );
-  Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "xname", otString );
-  Qry.DeclareVariable( "yname", otString );
-  TQuery QryRemarks( &OraSession );
+  InsTripCompLyrsQry.CreateVariable( "point_id", otInteger, vpoint_id );
+  InsTripCompLyrsQry.DeclareVariable( "num", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "x", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "y", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "elem_type", otString );
+  InsTripCompLyrsQry.DeclareVariable( "xprior", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "yprior", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "agle", otInteger );
+  InsTripCompLyrsQry.DeclareVariable( "class", otString );
+  InsTripCompLyrsQry.DeclareVariable( "xname", otString );
+  InsTripCompLyrsQry.DeclareVariable( "yname", otString );
+
+  DB::TQuery QryRemarks(PgOra::getRWSession("TRIP_COMP_REM"), STDLOG);
   QryRemarks.SQLText =
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
@@ -5015,7 +5079,8 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   QryRemarks.DeclareVariable( "y", otInteger );
   QryRemarks.DeclareVariable( "rem", otString );
   QryRemarks.DeclareVariable( "pr_denial", otInteger );
-  TQuery QryTariffs( &OraSession );
+
+  DB::TQuery QryTariffs(PgOra::getRWSession("TRIP_COMP_RATES"), STDLOG);
   QryTariffs.SQLText =
     "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
     " VALUES(:point_id,:num,:x,:y,:color,:rate,:rate_cur)";
@@ -5026,7 +5091,8 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   QryTariffs.DeclareVariable( "color", otString );
   QryTariffs.DeclareVariable( "rate", otFloat );
   QryTariffs.DeclareVariable( "rate_cur", otString );
-  TQuery QryRFISC( &OraSession );
+
+  DB::TQuery QryRFISC(PgOra::getRWSession("TRIP_COMP_RFISC"), STDLOG);
   QryRFISC.SQLText =
     "INSERT INTO trip_comp_rfisc(point_id,num,x,y,color) "
     " VALUES(:point_id,:num,:x,:y,:color)";
@@ -5035,7 +5101,8 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   QryRFISC.DeclareVariable( "x", otInteger );
   QryRFISC.DeclareVariable( "y", otInteger );
   QryRFISC.DeclareVariable( "color", otString );
-  TQuery QryBaseLayers( &OraSession );
+
+  DB::TQuery QryBaseLayers(PgOra::getRWSession("TRIP_COMP_BASELAYERS"), STDLOG);
   QryBaseLayers.SQLText =
     "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
     " VALUES(:point_id,:num,:x,:y,:layer_type)";
@@ -5053,7 +5120,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   std::map<int, TSetOfLayerPriority,classcomp > layers;
   TDateTime layer_time_create = NowUTC();
   for ( CraftSeats::iterator plist=_seats.begin(); plist!=_seats.end(); plist++ ) {
-    Qry.SetVariable( "num", (*plist)->num );
+    InsTripCompLyrsQry.SetVariable( "num", (*plist)->num );
     QryRFISC.SetVariable( "num", (*plist)->num );
     QryTariffs.SetVariable( "num", (*plist)->num );
     QryRemarks.SetVariable( "num", (*plist)->num );
@@ -5065,30 +5132,30 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
            isConstructivePlace( iseat->elem_type, elem_types ) ) {
         continue;
       }
-      Qry.SetVariable( "x", iseat->x );
-      Qry.SetVariable( "y", iseat->y );
-      Qry.SetVariable( "elem_type", iseat->elem_type );
+      InsTripCompLyrsQry.SetVariable( "x", iseat->x );
+      InsTripCompLyrsQry.SetVariable( "y", iseat->y );
+      InsTripCompLyrsQry.SetVariable( "elem_type", iseat->elem_type );
       if ( iseat->xprior < 0 )
-        Qry.SetVariable( "xprior", FNull );
+        InsTripCompLyrsQry.SetVariable( "xprior", FNull );
       else
-        Qry.SetVariable( "xprior", iseat->xprior );
+        InsTripCompLyrsQry.SetVariable( "xprior", iseat->xprior );
       if ( iseat->yprior < 0 )
-        Qry.SetVariable( "yprior", FNull );
+        InsTripCompLyrsQry.SetVariable( "yprior", FNull );
       else
-        Qry.SetVariable( "yprior", iseat->yprior );
-      Qry.SetVariable( "agle", iseat->agle );
+        InsTripCompLyrsQry.SetVariable( "yprior", iseat->yprior );
+      InsTripCompLyrsQry.SetVariable( "agle", iseat->agle );
       if ( iseat->clname.empty() || !TCompElemTypes::Instance()->isSeat( iseat->elem_type ) )
-        Qry.SetVariable( "class", FNull );
+        InsTripCompLyrsQry.SetVariable( "class", FNull );
       else {
-        Qry.SetVariable( "class", iseat->clname );
+        InsTripCompLyrsQry.SetVariable( "class", iseat->clname );
         cl = DecodeClass( iseat->clname.c_str() );
         if ( cl != NoClass ) {
           countersClass[ cl ]++;
         }
       }
-      Qry.SetVariable( "xname", iseat->xname );
-      Qry.SetVariable( "yname", iseat->yname );
-      Qry.Execute();
+      InsTripCompLyrsQry.SetVariable( "xname", iseat->xname );
+      InsTripCompLyrsQry.SetVariable( "yname", iseat->yname );
+      InsTripCompLyrsQry.Execute();
       iseat->GetRemarks( remarks );
       if ( !remarks.empty() ) {
         QryRemarks.SetVariable( "x", iseat->x );
@@ -6042,8 +6109,13 @@ void CheckWaitListToLog( TQuery &QryAirp,
 }
 
 void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged  )
-{
+{    
   ProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm" );
+  if(DEMO_MODE()) {
+      // Не осилил в рамках подготовки Демо
+      TST();
+      return;
+  }
   TSalonPassengers passengers;
   TGetPassFlags flgGetPass;
   flgGetPass.setFlag( gpWaitList );
@@ -8809,7 +8881,7 @@ void CraftSeats::Clear()
   clear();
 }
 
-void CraftSeats::read( TQuery &Qry, const std::string &cls )
+void CraftSeats::read( DB::TQuery &Qry, const std::string &cls )
 {
   LogTrace(TRACE5) << "CraftSeats::" << __func__;
   Clear();
@@ -8818,17 +8890,19 @@ void CraftSeats::read( TQuery &Qry, const std::string &cls )
   TPlaceList *placeList = NULL;
   int num = -1;
   TPoint point_p;
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_elem_type = Qry.FieldIndex( "elem_type" );
-  int col_xprior = Qry.FieldIndex( "xprior" );
-  int col_yprior = Qry.FieldIndex( "yprior" );
-  int col_agle = Qry.FieldIndex( "agle" );
-  int col_xname = Qry.FieldIndex( "xname" );
-  int col_yname = Qry.FieldIndex( "yname" );
-  int col_class = Qry.FieldIndex( "class" );
   for ( ;!Qry.Eof; Qry.Next() ) {
+    // след.блок лучше выполнять до цикла, но проверяя Eof
+    int col_num = Qry.FieldIndex( "num" );
+    int col_x = Qry.FieldIndex( "x" );
+    int col_y = Qry.FieldIndex( "y" );
+    int col_elem_type = Qry.FieldIndex( "elem_type" );
+    int col_xprior = Qry.FieldIndex( "xprior" );
+    int col_yprior = Qry.FieldIndex( "yprior" );
+    int col_agle = Qry.FieldIndex( "agle" );
+    int col_xname = Qry.FieldIndex( "xname" );
+    int col_yname = Qry.FieldIndex( "yname" );
+    int col_class = Qry.FieldIndex( "class" );
+
     if ( num != Qry.FieldAsInteger( col_num ) ) { //новый салон
       if ( placeList && !cls.empty() && ClassName.find( cls ) == string::npos ) {
         //есть салон и задан фильт по классам и это не наш класс
