@@ -783,22 +783,23 @@ bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft )
 void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteItem> &routes )
 {
   Clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText=
+  DB::TQuery Qry1(PgOra::getROSession("POINTS"), STDLOG);
+  Qry1.SQLText=
   "SELECT move_id, point_num, "
-  "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-  " FROM points "
-  " WHERE points.point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof ) {
+  "       (CASE WHEN pr_tranzit=0 THEN point_id ELSE first_point END) AS first_point "
+  "FROM points "
+  "WHERE points.point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
+  Qry1.CreateVariable( "point_id", otInteger, point_id );
+  Qry1.Execute();
+  if ( Qry1.Eof ) {
     ProgTrace( TRACE5, "TFilterLayer_SOM_PRL::Read point_id=%d, layer not found", point_id );
     return;
   }
-  int move_id = Qry.FieldAsInteger( "move_id" );
-  int point_num = Qry.FieldAsInteger( "point_num" );
-  int first_point = Qry.FieldAsInteger( "first_point" );
-  Qry.Clear();
+  int move_id = Qry1.FieldAsInteger( "move_id" );
+  int point_num = Qry1.FieldAsInteger( "point_num" );
+  int first_point = Qry1.FieldAsInteger( "first_point" );
+
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT points.point_id AS point_dep, points.point_num AS point_num_dep "
     "FROM "
@@ -812,12 +813,12 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
   Qry.CreateVariable( "point_num", otInteger, point_num );
   tst();
   Qry.Execute();
-  TQuery PaxQry( &OraSession );
+  DB::TQuery PaxQry(PgOra::getROSession("PAX_GRP"), STDLOG);
   PaxQry.SQLText =
     "SELECT pax_grp.point_dep FROM pax_grp "
     " WHERE pax_grp.point_dep=:point_id AND "
     "       pax_grp.status NOT IN ('E') AND "
-    "       rownum<2";
+    "       FETCH FIRST 1 ROWS ONLY";
   PaxQry.DeclareVariable( "point_id", otInteger );
   DB::TQuery TranzQry(PgOra::getROSession({"POINTS", "TRIP_SETS"}), STDLOG);
   TranzQry.SQLText =
@@ -833,7 +834,7 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
   TranzQry.CreateVariable( "point_num", otInteger, point_num );
   TranzQry.DeclareVariable( "point_num_dep", otInteger );
 
-  DB::TQuery TlgQry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDNING"}), STDLOG);
+  DB::TQuery TlgQry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}), STDLOG);
   TlgQry.SQLText =
     "SELECT (CASE WHEN tlgs_in.type = 'PRL' THEN :prl_layer ELSE :som_layer END) AS layer_type "
     "FROM tlg_binding,tlg_source,tlgs_in "

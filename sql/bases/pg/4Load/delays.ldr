@@ -1,0 +1,269 @@
+LOAD DATA
+INFILE *
+INTO TABLE delays
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+num
+,code_lat
+,name
+,name_lat
+,code
+,id
+)
+BEGINDATA
+191||"Отказы и неисправности в работе стационарных средств заправки и перекачки топлива"|"Failures and malfunctions of stationary fuel filling and dispensing equipment operation"|"Г01"|1
+193||"Несвоевременная заправка спецтранспорта из-за отсутствия автоГСМ"|"Untimely refuelling of special machines due to lack of auto-fuels"|"Г03"|2
+195||"Несвоевременная доставка (перекачка) ГСМ от прирельсового или берегового склада ГСМ аэропорта до емкостей расходного склада или системы централизованной заправки ВС топливом"|"Untimely delivery (dispensing) of fuels from airport fuels stockpile or coastal depot to active storage tanks or to aircraft pressure refuelling system"|"Г05"|3
+223||"Несвоевременный вызов резервных экипажей на вылет по вине АДП"|"Untimely call of reserve crews for flight due to ACP (Aerodrome Control Point) fault"|"Д03"|4
+224||"Несогласованное с ПДСП принятие решения на прием ВС или планирование ВС на вылет без учета пропускной способности аэропорта (кроме ситуаций, связанных с безопасностью полетов)"|"Making a decision on aircraft reception without PDS approval or aircraft scheduling for departure without taking into account airport capacity (except for the situations related to flight operating safety)"|"Д04"|5
+227||"Эвакуация ВС с летного поля, если его занятость произошла по вине службы движения"|"Aircraft evacuation from airfield if its occupancy has happened due to traffic service fault"|"Д07"|6
+229||"Несвоевременная информация о технической годности аэропорта, работающего по регламенту"|"Untimely information about technical feasibility of airport operated under regulations"|"Д09"|7
+231||"Временные режимы (включая время официальных церемоний встречи и проводов)"|"Temporary modes (including time of official arrival and departure ceremonies)"|"Д11"|8
+302||"Болезнь членов экипажа в промежуточном или оборотном аэропорту"|"Crew members sickness in intermediate or turnaround airport"|"Е02"|9
+303||"Медосвидетельствование пассажира для определения алкогольного, наркотического опьянения"|"Passenger health examination to detect drug, alcoholic intoxication"|"Е03"|10
+341||"Неоправдавшийся прогноз, если в течение одного часа от предполагаемого момента ухудшения погоды не составлен корректив погоды"|"Faulty forecast, if within one hour from estimated weather deterioration time the weather correction isn't made"|"Ж01"|11
+342||"Несвоевременное составление, передача прогнозов и коррективов к ним, штормовых предупреждений и оповещений по аэродромам посадки (и запасных) диспетчерам службы движения, ПДСП, и в другие аэропорты в соответствии с установленными НМО ГА порядком"|"Untimely compilation, transfer of forecasts and corrections to them, of storm warnings and notices for landing (and reserve) aerodromes to air traffic controllers, PDS, and to other airports in accordance with the routine established by CAMSI (Civil Aviation Meteorological Support Instructions)"|"Ж02"|12
+102||"Нарушение технологического графика подготовки ВС к отправлению"|"Violation of aircraft departure preparation process schedule"|"И03"|13
+104||"Ошибки в планировании технического обслуживания, приведшие к необеспечению суточного плана полетов"|"Mistakes in technical maintenance planning, resulting in failure to ensure a daily flight plan"|"И05"|14
+332||"Устранение неисправности ВС"|"Repair of aircraft malfunction"|"Ф02"|15
+333||"Поздняя подготовка ВС, позднее оформление и посадка пассажиров"|"Late aircraft preparation, late checking-in and boarding"|"Ф03"|16
+334||"Нарушение технологии подготовки ВС к вылету (генагент, туристская фирма, аэропортовые власти, бортпитание и т.д.)"|"Violation of aircraft departure preparation process (gen. agent, travel agency, airport authorities, inflight food etc.)"|"Ф04"|17
+335||"Нарушение квоты мест представительства 2Аэрофлота"" по маршруту полета"|"Violation of seat quota for Aeroflot agency for en-route flight"|"Ф05"|18
+336||"Нарушение Табеля сообщения о движении ВС ГА"|"Violation of time sheet of report about CA aircraft movement"|"Ф06"|19
+337||"Несвоевременная доставка экипажей и их подготовка"|"Untimely delivery of crews and their preparation"|"Ф07"|20
+371||"Занятость летного поля по вине ведомственной авиации в связи со стихийными бедствиями и авариями (визируются руководителем полетов)"|"Airfield occupancy due to departmental aviation in connection with natural disasters and accidents (signed off by flight operations officer)"|"Х01"|21
+372||"Временное закрытие аэропорта из-за конфликтных ситуаций"|"Temporary airport closure due to conflict situations"|"Х02"|22
+281||"Изменение времени вылета и маршрута полета по указанию оперативных смен, без согласования с заинтересованными сторонами"|"Departure time and flight route change by operating shifts order without concerned parties approval"|"Ц01"|23
+283||"Изменение времени вылета и маршрута полетов с согласованием с заинтересованными сторонами"|"Departure time and flight route change with concerned parties approval"|"Ц03"|24
+165||"Выделение средств перронной механизации, в том числе трапов, меньше установленных норм"|"Providing apron mechanical appliances including airstairs less than specified standards"|"Ш01"|25
+166||"Несвоевременная подача и отгон трапа"|"Untimely delivery and drive away of airstair"|"Ш02"|26
+168||"Несвоевременная подача контейнеров для погрузки, разгрузки багажа и груза"|"Untimely delivery of containers for baggage and cargo loading, unloading"|"Ш05"|27
+169||"Несвоевременная разгрузка и загрузка ВС багажом"|"Untimely aircraft cargo loading and unloading"|"Ш06"|28
+251||"Отказы и неисправности электросветотехнических средств обеспечения полетов"|"Failures and malfunctions of flight support electro-lighting-technical facilities"|"Э01"|29
+253||"Отказы и неисправности внутриаэропортового электроснабжения"|"Failures and malfunctions of intra-airport electric power supply"|"Э03"|30
+321||"Забастовки рабочих и служащих аэропортов"|"Airport workers and employees strikes"|"Ю01"|31
+323||"Временное отсутствие топлива, некондиционность топлива"|"Temporary unavailability of fuel, fuel off-quality"|"Ю03"|32
+325||"Технические причины, неисправность электросвязи, попадание посторонних предметов в самолет (птицы)"|"Technical reasons, telecommunication malfunction, foreign objects (bird) penetration to aircraft"|"Ю05"|33
+242||"Нарушение связи"|"Communication disturbance"|"Я02"|34
+243||"Несвоевременная передача и доставка информации, искажение телеграмм"|"Untimely transfer and delivery of information, distortion of telegrams"|"Я03"|35
+183||"Внеплановый ремонт ВПП,РД,МС и перронов"|"Unscheduled repair of runways, taxiways, ramps and aprons"|"А03"|36
+184||"Повреждение ВС и наземных светотехнических средств по вине службы"|"Aircraft and ground lighting appliance damage due to service fault"|"А04"|37
+185||"Невыдерживание установленных плановых сроков ремонта элементов летного поля по вине аэродромной службы"|"Non-observance of specified scheduled terms of repair of airfield elements due to aerodrome service fault"|"А05"|38
+187||"Несвоевременная подготовка ВПП на аэродромах совместного базирования"|"Untimely runway preparation at joint deployment aerodromes"|"А07"|39
+153||"Опоздание на вылет в базовом, промежуточном и конечном аэропортах, в том числе из-за отсутствия резерва бригад бортпроводников"|"Being late for departure in base, intermediate and terminal airport including due to lack of cabin crew complements"|"Б01"|40
+155||"Нарушение режима предполетного отдыха"|"Preflight rest regime violation"|"Б03"|41
+157||"Неправильная информация командиру ВС о наличии пассажиров, багажа, груза, почты и контейнеров на борту"|"Incorrect information for aircraft captain about onboard available passengers, baggage, cargo, mail and containers"|"Б05"|42
+159||"Нарушение предполетной подготовки"|"Preflight preparation violation"|"Б07"|43
+192||"Несвоевременная заправка ВС горюче-смазочными материалами по вине личного состава службы"|"Untimely aircraft fuels filling due to service personnel fault"|"Г02"|44
+194||"Несвоевременное обеспечение поставок ГСМ"|"Untimely providing for fuels delivery"|"Г04"|45
+196||"Подача на заправку некондиционных ГСМ и спецжидкостей"|"Off-quality fuels and special liquids delivery for filling"|"Г06"|46
+197||"Повреждение ВС по вине службы"|"Aircraft damage due to service fault"|"Г07"|47
+221||"Нарушение Табеля сообщений о движении ВС ГА"|"Violation of time sheet of reports about CA aircraft movement"|"Д01"|48
+222||"Выдача разрешения на руление по неустановленной схеме"|"Clearing for off-procedure taxiing"|"Д02"|49
+225||"Несвоевременная информация ПДСП об изменениях аэронавигационного запаса топлива и других видов ограничений в аэропортах по трассам"|"Untimely information from PDS about changes of en-route fuel reserve and other types of limitations in airports per airways"|"Д05"|50
+226||"Невыдерживание расчетного времени взлета сверх установленного допуска на руление и обеспечение безопасности полетов, кроме сбойных ситуаций"|"Non-observance of estimated takeoff time in excess of specified allowance for taxiing and flight safety ensuring, except for failure situations"|"Д06"|51
+228||"Несвоевременная передача информации в ПДСП о принятии экипажем решения на вылет"|"Untimely information transfer to PDS about departure decision made by crew"|"Д08"|52
+230||"Повреждение ВС из-за попадания в ""болтанку"" или грозу по вине службы движения"|"Aircraft damage caused by bumpings or thunderstorm penetration due to traffic service fault"|"Д10"|53
+301||"Оказание медицинской помощи пассажирам (акты визируются здравпунктом аэропорта)"|"Medical aid delivery for passengers (acts are signed off by airport health post)"|"Е01"|54
+304||"Посадка, не предусмотренная расписанием (планом полета), для вывоза или доставки тяжелобольного пассажира"|"Landing which is not provided by schedule (flight plan) for pickup and delivery of a seriously ill passenger"|"Е04"|55
+343||"Отказы метеоролического оборудования, установленного на аэродроме для обеспечения посадок ВС по метеоминимум I, II и  III категорий"|"Failures of meteorological equipment installed in aerodrome and aimed to ensure aircraft landing at meteorological minimum of I, II and III categories"|"Ж03"|56
+344||"Несвоевременная выдача метеоданных на предполетную подготовку летного состава"|"Untimely delivery of weather data for preflight preparation of flight personnel"|"Ж04"|57
+345||"Повреждения ВС из-за попадания в ""болтанку"" или грозу, если они не были предупреждены прогнозом"|"Aircraft damage caused by bumpings or thunderstorm penetration, if they haven't been warned by forecast"|"Ж05"|58
+100||"Отказы и неисправности авиатехники"|"Failures and malfunctions of aerotechnics"|"И01"|59
+101||"Нарушение технологий технического обслуживания ВС"|"Violation of aircraft technical maintenance process"|"И02"|60
+103||"Повреждение ВСпо вине ИАС"|"Aircraft damage due to CAM fault"|"И04"|61
+9|"SG"|"SCHEDULED GROUND TIME. Planned turnaround time less than declared minimum."|"SCHEDULED GROUND TIME. Planned turnaround time less than declared minimum."|"SG"|62
+11|"PD"|"LATE CHECK-IN. Check-in reopened for late passengers."|"LATE CHECK-IN. Check-in reopened for late passengers."|"PD"|63
+12|"PL"|"LATE CHECK-IN. Check-in not completed by flight closure time."|"LATE CHECK-IN. Check-in not completed by flight closure time."|"PL"|64
+13|"PE"|"CHECK-IN ERROR. Error with passenger or baggage details."|"CHECK-IN ERROR. Error with passenger or baggage details."|"PE"|65
+14|"PO"|"OVERSALES. Booking errors - not resolved at check-in."|"OVERSALES. Booking errors - not resolved at check-in."|"PO"|66
+15|"PH"|"BOARDING. Discrepancies and paging, missing checked in passengers."|"BOARDING. Discrepancies and paging, missing checked in passengers."|"PH"|67
+16|"PS"|"COMMERCIAL PUBLICITY/PASSENGER CONVENIENCE. Local decision to delay for VIP or press;delay due to offload of passengers following family bereavement."|"COMMERCIAL PUBLICITY/PASSENGER CONVENIENCE. Local decision to delay for VIP or press;delay due to offload of passengers following family bereavement."|"PS"|68
+17|"PC"|"CATERING ORDER. Late or incorrect order given to supplier."|"CATERING ORDER. Late or incorrect order given to supplier."|"PC"|69
+18|"PB"|"BAGGEGE PROCESSING. Late or incorrect sorted baggege."|"BAGGEGE PROCESSING. Late or incorrect sorted baggege."|"PB"|70
+21|"CD"|"DOCUMENTATION. Late or incorrect documentation for bookrd cargo."|"DOCUMENTATION. Late or incorrect documentation for bookrd cargo."|"CD"|71
+22|"CP"|"LATE POSITIONING. Late delinery of booked cargo to airport/aircraft."|"LATE POSITIONING. Late delinery of booked cargo to airport/aircraft."|"CP"|72
+23|"CC"|"LATE ACCEPTANCE. Acceptance of cargo after deadline."|"LATE ACCEPTANCE. Acceptance of cargo after deadline."|"CC"|73
+6|"OA"|"NO GATE/STAND AVALIBALE. Due to own airline activity."|"NO GATE/STAND AVALIBALE. Due to own airline activity."|"OA"|74
+24|"CI"|"INADEQUATE PACKING. Repacking and/or re-labelling of booked cargo."|"INADEQUATE PACKING. Repacking and/or re-labelling of booked cargo."|"CI"|75
+25|"CO"|"OVERSALES. Booked load in excess of saleable load capacity (weight or volume), resulting in reloading or off-load."|"OVERSALES. Booked load in excess of saleable load capacity (weight or volume), resulting in reloading or off-load."|"CO"|76
+27|"CE"|"DOCUMENTATION, PACKING. Incomplete and/or inaccurate documentation."|"DOCUMENTATION, PACKING. Incomplete and/or inaccurate documentation."|"CE"|77
+28|"CL"|"LATE POSITIONING. Late delinery of mail to airport/aircraft."|"LATE POSITIONING. Late delinery of mail to airport/aircraft."|"CL"|78
+29|"CA"|"LATE ACCEPTANCE. Acceptance of mail after deadline."|"LATE ACCEPTANCE. Acceptance of mail after deadline."|"CA"|79
+31|"GD"|"LATE/INACCURATE AIRCRAFT DOCUMENTATION.Late or inaccurate mass and balance documentation, general declaration, passenger manifest."|"LATE/INACCURATE AIRCRAFT DOCUMENTATION.Late or inaccurate mass and balance documentation, general declaration, passenger manifest."|"GD"|80
+32|"GL"|"LOARDING/UNLOARDING. Bulky items, special load, lack loading staff."|"LOARDING/UNLOARDING. Bulky items, special load, lack loading staff."|"GL"|81
+33|"GE"|"LOADING EQUIPMENT. Lack of and/or breakdown; lack of operating staff."|"LOADING EQUIPMENT. Lack of and/or breakdown; lack of operating staff."|"GE"|82
+34|"GS"|"SEVICING EQUIPMENT. Lack of and/or breakdown; lack of operating staff."|"SEVICING EQUIPMENT. Lack of and/or breakdown; lack of operating st"|"GS"|83
+35|"GC"|"AIRCRAFT CLEANING. Late completion of aircraft clearning."|"AIRCRAFT CLEANING. Late completion of aircraft clearning."|"GC"|84
+105||"Дополнительные разовые осмотры (проверки авиационной техники по указанию АТБ предприятия (ИАС УГА)"|"Additional casual inspections (aircraft checks by order of company AMB (Aircraft Maintenance Base) (CAM CAD (Civil Aviation department))"|"И06"|85
+106||"Неисправность наземного спецоборудования и авиационного оборудования, установленного на спец транспорте, закрепленным для технического обслуживания за ИАС"|"Fault of ground special equipment and aircraft equipment installed at spec. machines assigned to CAM for technical maintenance"|"И07"|86
+107||"Несвоевременное использование возвратно-обменного фонда"|"Untimely use of reusable stock and floats"|"И08"|87
+108||"Эвакуация ВС С летного поля, если его занятость, а также превышение сроков эвакуации произошли по вине ИАС"|"Aircraft evacuation from airfield if its occupancy as well as missed deadlines for evacuation have happened due to CAM fault"|"И09"|88
+109||"Дополнительные осмотры двигателей из-за выключения реверса на скорости менее рекомендуемой, если это вызвано неисправностью авиатехники, происшедшей по вине ИАС"|"Additional engine inspections due to returning to forward thrust at a speed less than recommended, if it is caused by aerotechnics malfunction by CAM (Continuous Airworthiness Management) fault"|"И10"|89
+110||"Замена типа ВС (компоновки), вызванная неисправностью запланированного ВС, приведшая к непрохождению предельной коммерческой загрузки"|"Aircraft type (arrangement) change caused by planned aircraft malfunction, resulting in limit payload failure"|"И11"|90
+111||"Авиационное происшествие или инциденты к нему по вине службы"|"Air accident or its incidents due to service fault"|"И12"|91
+112||"Уборка салона самолета"|"Aircraft cabin cleaning"|"И13"|92
+115||"Несвоевременное пополнение неснижаемых запасов авиатехимущества на складах предприятий ГА"|"Untimely replenishment of minimum level of aero-technical supplies at CA enterprise storages"|"И16"|93
+117||"Несвоевременное обеспечение поставок по разнарядкам запасных частей и агрегатов для ВС"|"Untimely providing for delivery of aircraft spare parts and units by allotments"|"И18"|94
+119||"Невыполнение предприятиями промышленности договорных поставок авиатехники и авиатехимущества"|"Industry enterprises failure to make contractual deliveries of aerotechnics and aerotechnic facilities"|"И20"|95
+120||"Отказы и неисправности авиатехники, находящейся на гарантии заводов ГА"|"Failures and malfunctions of aerotechnics being under warranty of CA plants"|"И21"|96
+291||"Изменение времени вылета по решению руководителя"|"Departure time change by director's decision"|"К01"|97
+201||"Нарушение экипажем графика предполетной подготовки"|"Preflight preparation schedule violation by crew"|"Л01"|98
+203||"Отсутствие установленного резерва экипажей"|"Lack of specified crew reserve"|"Л03"|99
+204||"Отстранение экипажа (членов экипажа) от выполнения работ за нарушение правил производства полетов"|"Crew (crew members) working suspension as a result of flight operation regulation violation"|"Л04"|100
+207||"Повреждение ВС, допущенное экипажем"|"Aircraft damage caused by crew"|"Л07"|101
+209||"Болезнь экипажа в базовом аэропорту"|"Crew sickness in base airport"|"Л09"|102
+210||"Опоздание членов экипажа на вылет"|"Crew members being late for departure"|"Л10"|103
+211||"Нарушение ""Руководства по летной эксплуатации ВС"""|"""Flight Crew Operating Manual"" violation"|"Л11"|104
+212||"Несдача (утеря) документации, ключей"|"Failure to deliver (loss) documentation, keys"|"Л12"|105
+213||"Эвакуация ВС с летного поля, если его занятость произошла по вине летного экипажа"|"Aircraft evacuation from airfield if its occupancy has happened due to flight crew fault"|"Л13"|106
+214||"Дополнительный осмотр двигателя из-за выключения реверса на скорости менее рекомендуемой, если это вызвано неправильными действиями летного экипажа"|"Additional engine inspection due to returning to forward thrust at a speed less than recommended, if it is caused by aircrew maloperation"|"Л14"|107
+216||"Несвоевременные (менее 30 мин до вылета) изменения заявок на бортовое питание для экипажа или неправомерное его требование"|"Untimely (less than 30 min prior to departure) changes of inquiries for crew inflight food or  unauthorised request for it"|"Л16"|108
+217||"Повреждение ВС из-за попадания в ""болтанку"" или грозу"|"Aircraft damage caused by bumpings or thunderstorm penetration"|"Л17"|109
+353||"Встречный (попутный) ветер на маршруте полета 100 км/ч и более (при невозможности выбора эшелона с меньшей скоростью ветра)"|"En-route quartering head (tail) wind of 100 km/h and more (if it is impossible to select a flight level with less wind speed)"|"М03"|110
+354||"Изменение маршрута и дозаправка ВС из-за ухудшения метеоусловий (ВНГО, видимость на ВПП, боковой ветер, коэффицент сцепления и т.п.) в пунктах посадки или на запасных аэродромах"|"Route change and aircraft refuelling due to weather deterioration (cloud ceiling, runway visibility, cross wind, friction Mu-factor etc.) at landing points or at alternate airports"|"М04"|111
+357||"Задержки от начала опасного для авиации метеорологического явления до устранения его последствий (уборка снега, гололеда) в сроки, установленные НАС ГА"|"Delays starting from aviation dangerous weather event up to elimination of its consequences (snow, glaze frost removal) within the terms set by AMSSM CA (Airfield Maintenance and Supply Service Manual in Civil Aviation)"|"М07"|112
+358||"Кратковременное размокание аэродрома"|"Short-time aerodrome slaking"|"М08"|113
+360||"Запреты полетов, связанные с проведением противоградовых стрельб"|"Curfews related to hail suppression shooting"|"М10"|114
+361||"Ожидание групп трансферных пассажиров из-за неблагоприятных метеоусловий в аэропортах вылета или пересчадки"|"Expecting for transit passenger groups caused by unfavorable weather conditions of departure and transfer airports"|"М11"|115
+363||"Естественное охлаждение колес шасси ВС (Як-42) при температуре окружающего воздуха +20C и выше"|"Natural cooling of aircraft landing wheels (Yak-42) at ambient air temperature of +20C and higher"|"М13"|116
+162||"Несвоевременная доставка пассажиров в аэропорт из городского аэровокзала"|"Untimely delivery of passengers to airport from city terminal"|"Н02"|117
+163||"Нарушение брони мест"|"Seat reservation violation"|"Н03"|118
+123||"Поздняя регистрация билетов и оформление багажа"|"Late registration of tickets and baggage processing"|"П01"|119
+124||"Несвоевременная посадка пассажиров"|"Untimely boarding"|"П02"|120
+127||"Несвоевременная разгурузка и загрузка ВС почтой"|"Untimely aircraft mail loading and unloading"|"П05"|121
+129||"Несоответствие доставленного груза и почты указанным в перевозочных документах"|"Discrepancy between delivered cargo and mail and the ones specified in traffic documents"|"П07"|122
+131||"Нарушение упаковки груза и почты"|"Damage of cargo and mail package"|"П09"|123
+133||"Нарушение установленной очередности загрузки и разгрузки багажа, груза и почты"|"Violation of established procedure of baggage, cargo and mail loading and unloading"|"П11"|124
+135||"Отказ пассажиров от полета после окончания посадки"|"Passengers denial of flight after boarding"|"П13"|125
+137||"Неправильное оформление перевозочных документов"|"Incorrect execution of traffic documents"|"П15"|126
+138||"Ошибки в расчете нормы продажи билетов по вине службы"|"Mistakes in ticket sales norm calculation due to service fault"|"П16"|127
+141||"Поздняя доставка экипажу перевозочных документов"|"Late delivery of traffic documents to crew"|"П19"|128
+143||"Повреждение ВС по вине службы"|"Aircraft damage due to service fault"|"П21"|129
+113||"Несвоевременный ремонт контейнеров и средств пакетирования"|"Untimely repair of containers and packaging devices"|"И14"|130
+114||"Сверхнормативный простой авиатехники при доработках силами промышленности"|"Above-standard stand-down of aerotechnics in case of retrofits by industry forces"|"И15"|131
+116||"Несвоевременное обеспечение заявок представительств Аэрофлота в зарубежных аэропортах"|"Untimely providing for inquiries of Aeroflot agencies in foreign airports"|"И17"|132
+118||"Отказы и неисправности авиатехники, находящейся на гарантии предприятий промышленности, по которым предъявлены рекламационные акты"|"Failures and malfunctions of aerotechnics being under warranty of industry enterprises for which reclamation reports have been submitted"|"И19"|133
+121||"Нарушение сроков приема в ремонт и из ремонта авиатехники по вине заводов ГА"|"Violation of terms of aircraft taking to and receiving from repair by CA plants fault"|"И22"|134
+122||"Ненесвоевременное обеспечение поставок авиадвигателей ремонтными заводами ГА по разнарядкам МГА или прямым договорам"|"Untimely deliveries of aircraft engines by CA repair plants by MCA (Ministry of Civil Aviation) allotments or under direct agreements"|"И23"|135
+202||"Неподготовленность экипажа к выполнению запланированного рейса ( в т.ч. на категорированные аэродромы)"|"Crew unreadiness for scheduled flight operation (incl. to categorized aerodromes)"|"Л02"|136
+205||"Нарушение членами экипажа предполетного отдыха"|"Preflight rest violation by crew members"|"Л05"|137
+206||"Дополнительный осмотр ВС по причине грубой посадки или выкатывания за пределы ВПП при исправной авиационной технике при эксплуатационном коэффициенте сцепления"|"Additional aircraft inspection due to heavy landing or overrun with unfaulty aircrafts with operating  friction Mu-factor"|"Л06"|138
+208||"Отсутствие информации экипажа с борта ВС о выявленных (индицируемых) неисправностях авиатехники, наличии коммер. загр. (по перевоз. док.), потребного для заправки топлива (для транзит. рейса), больных, нужд. в оказании мед.помощи (при исправ.радиосвязи)"|"Lack of information from aircraft crew about discovered (display) malfunctions of aerotechnics availability of payload (acc. to traf. doc.), fuel required for filling (for trans. flight), sick men requiring medical aid (with prop. oper. radio)"|"Л08"|139
+215||"Несвоевременная информация (менее чем за 50 мин до отправления, а при стоянках менее 1ч не позднее 25 мин) об изменении заправки ГСМ, предельной коммерческой загрузки"|"Untimely information (less than 50 min prior to departure, and during less than 1 h standing - 25 min at the latest) about change of fuels filling, limit payload"|"Л15"|140
+218||"Неправильный расчет продолжительности полета"|"Incorrect calculation of flight endurance"|"Л18"|141
+351||"На аэродроме вылета фактическая погода ниже минимума, установленного для взлета"|"At departure aerodrome the actual weather is below take-off minimum"|"М01"|142
+352||"Прогноз и фактическая погода в пункте посадки, на запасных аэродромах и по маршруту не позволяет принять решение на вылет в соответствии с требованиями НПП ГА"|"Forecast and actual weather at landing point, at  alternate airports and en-route don't allow making a decision to departure pursuant to AMSSM CA requirements"|"М02"|143
+355||"На аэродроме вылета температура окружающего воздуха не позволяет произвести взлет ВС с необходимой заправкой топливом"|"At departure aerodrome the ambient air temperature does not allow aircraft taking-off with required fuelling"|"М05"|144
+346||"Сбойная ситуация из-за скопления ВС в аэропорту по метеоусловиям или занятости воздушного пространства УВД аэродрома по метеоусловиям"|"Failure situation caused by accumulation of aircrafts in airport due to weather conditions or airspace occupancy of aerodrome ATC (Air Traffic Control) due to weather conditions"|"М06"|145
+359||"Повторное удаление гололеда, инея, снега с поверхности ВС. Превышение силы ветра, гроза, град и т.п. явления, препятствующие безопасному техническому обслуживанию ВС"|"Repeated removal of glaze frost, hoarfrost, snow from aircraft surface. Wind force exceeding, thunderstorm, hail etc., phenomena obstructing aircraft safety technical maintenance"|"М09"|146
+362||"Проведение дополнительных осмотров ВС после попадания в грозу или ""болтанку"", при отсутствии вины служб ГА"|"Additional inspections of aircrafts after bumpings or thunderstorm penetration, if there's no CA services fault"|"М12"|147
+161||"Неправильное оформление перевозочной документации (в т.ч. групп пассажиров)"|"Incorrect execution of traffic documentation (incl. groups of passengers)"|"Н01"|148
+164||"Оформление оплаты сверхнормативного и негабаритного багажа (реквизита)"|"Processing of excess and oversized baggage (properties) payment"|"Н04"|149
+125||"Несвоевременная разгрузка и загрузка ВС багажом"|"Untimely aircraft cargo loading and unloading"|"П03"|150
+126||"Несвоевременная разгрузка и загрузка ВС грузом"|"Untimely aircraft cargo loading and unloading"|"П04"|151
+128||"Несвоевременная разгрузка и загрузка ВС бортпитанием"|"Untimely aircraft inflight food loading and unloading"|"П06"|152
+130||"Несоответствие доставленного багажа указанному в перевозочных документах"|"Discrepancy between delivered baggage and the one specified in traffic documents"|"П08"|153
+132||"Неправильный расчет и нарушение расчетной центровки"|"Incorrect calculation and violation of design balance"|"П10"|154
+134||"Снятие багажа неявившихся к вылету пассажиров"|"Withdrawal of no-show passenger's baggage"|"П12"|155
+136||"Оформление оплаты сверхнормативного и негабаритного багажа (реквизита), если эту функцию выполняет СОП аэропорта"|"Processing of excess and oversized baggage (properties) payment, if this function is performed by airport SOP (Transport Management Service)"|"П14"|156
+139||"Несвоевременная подача и отгон трапов"|"Untimely delivery and drive away of airstairs"|"П17"|157
+140||"Досмотр пассажиров и багажа в интересах безопасности полетов"|"Passenger and baggage inspection in interests of flight safety"|"П18"|158
+142||"Несвоевременная или неправильная информация служб аэропорта о коммерческой загрузке ВС"|"Untimely or incorrect information from airport services about aircraft payload"|"П20"|159
+144||"Несвоевременное внесение изменений в расписание"|"Untimely introduction of schedule changes"|"П22"|160
+145||"Прием ценного и скоропортящегося груза на складе"|"Receipt of high-value and perishable cargo in storage"|"П23"|161
+146||"Превышение плановой предельной коммерческой загрузки"|"Exceeding of scheduled limit payload"|"П24"|162
+147||"Несвоевременная доставка вахтовых бригад заказчиком"|"Untimely delivery of rotational shifts by Customer"|"П25"|163
+148||"Ожидание пассажиров ВИП"|"Expecting for VIP passengers"|"П26"|164
+149||"Неправильный заказ бортпитания"|"Incorrect order of inflight food"|"П27"|165
+150||"Несвоевременная доставка груза и почты заказчиком"|"Untimely delivery of cargo and mail by Customer"|"П28"|166
+151||"Допосадка пассажиров, дозагрузка груза"|"Additional passenger boarding, additional cargo loading"|"П29"|167
+152||"Несвоевременный досмотр пассажиров таможней и карантинной службой"|"Untimely inspection of passengers by customs and quarantine service"|"П30"|168
+311||"Задержки, связанные с работой ОКПП"|"Delays related to OKPP (checkpoint) operation"|"Р01"|169
+312||"Необходимость проведения дополнительного осмотра ВС и досмотра пассажиров по анонимной информации о возможном нарушении безопасности полетов"|"Need for aircraft additional inspection and passengers examination based on anonymous information about possible flight safety violation"|"Р02"|170
+313||"Ограничение приема и выпуска ВС по сигналу ""Набат"" и др."|"Limitation of aircraft reception and release upon ""Alarm"" etc signals."|"Р03"|171
+171||"Несвоевременное прибытие спецтранспорта для выполнения работ по подготовке ВС к отправлению"|"Untimely arrival of special machines for execution of aircraft departure preparation works"|"С01"|172
+172||"Несвоевременная замена вышедшего из строя спецтранспорта"|"Untimely replacement of out-of-service special machines"|"С02"|173
+173||"Повреждение ВС спецтранспортом"|"Aircraft damage caused by special machines"|"С03"|174
+174||"Выделение спецтранспорта меньше производственной потребности"|"Providing special machines less than operation needs"|"С04"|175
+271||"Задержки в согласовании предложений по совмещению рейсов, замене типов ВС, организации дополнительных посадок"|"Delays in approval of proposals for joint flights, aircraft type change, arrangement of additional landings"|"Т01"|176
+272||"Доставка республиканской, областной печати в связи с важнейшими политическими событиями (съезд компартии республики, конференция, выборы в руководящие советские и партийные органы в масштабе республики, края, области)"|"Republican, regional press delivery in view of essential political events (Republican Communist Party Congress, conference, elections to governing Soviet and Party bodies on republic, territory, region level etc.)"|"Т02"|177
+273||"Изменение времени вылета по решению ПДСУ без согласования с заинтересованными сторонами"|"Departure time change by decision of PDS without concerned parties approval"|"Т03"|178
+274||"Изменение времени вылета по решению ПДСУ с согласованием этого решения с заинтересованными сторонами"|"Departure time change by decision of PDS with this decision being approved by concerned parties"|"Т04"|179
+261||"Ожидание групп транзитных пассажиров при передаче Аэрофлоту пассажиров иностранными авиакомпаниями (за исключением задержек ВС по метеоусловиям аэропортов отправления или пересадки)"|"Expecting for transit passenger groups in case if passengers are transferred to Aeroflot by foreign airlines (except for aircraft delays caused by weather conditions of departure and transfer airports)"|"У01"|180
+262||"Несвоевременное принятие решения на использование резервного ВС"|"Untimely making a decision on reserve aircraft usage"|"У02"|181
+263||"Несвоевременная или неправильная информация служб, участвующих в подготовке ВС к вылету и обеспечении его полета, об изменении суточного плана полетов"|"Untimely or incorrect information from services involved in aircraft flight preparation and flight support, about  daily flight plan change"|"У03"|182
+264||"Доставка областной печати в связи с важнейшими политическими событиями (конференция, выборы в руководящие советские и партийные органы и др.)"|"Regional press delivery in view of essential political events (conference, elections to governing Soviet and Party bodies etc.)"|"У04"|183
+265||"Изменение времени вылета по решению ПДСП"|"Departure time change by decision of PDS (Production and Dispatcher Service)"|"У05"|184
+266||"Неправильный расчет и нарушение расчетной центровки, если функции по расчету центровки переданы в ПДСП"|"Incorrect calculation and violation of design balance, if balance calculation functioned have been transferred to PDS"|"У06"|185
+267||"Несвоевременное внесение изменений в расписание, если работу с расписанием выполняют ПДСП"|"Untimely introduction of schedule changes, if the schedule work is performed by PDS"|"У07"|186
+331||"Разгрузка и загрузка почты, багажа и груза"|"Mail, baggage and cargo unloading and loading"|"Ф01"|187
+153||"позднее прибытие"|"Later arrival"|"ППС"|188
+282||"Доставка центральной печати в связи с важнейшими политическими событиями (съезд, конференция, выборы в руководящие советские и партийные органы в масштабе страны и др.)"|"Central press delivery in view of essential political events (congress, conference, elections to governing Soviet and Party bodies on country level etc.)"|"Ц02"|189
+167||"Отказы и неисправности стационарных и подвижных внутриаэропортовых средств механизации, спецоборудования"|"Failures and malfunctions of stationary and mobile intra-airport mechanical appliances, special equipment"|"Ш03"|190
+170||"Несвоевременная разгрузка и загрузка ВС грузом, почтой"|"Untimely aircraft cargo and mail loading and unloading"|"Ш07"|191
+252||"Отказы и неисправности резервных источников электропитания службы"|"Failures and malfunctions of service standby electric power supply"|"Э02"|192
+254||"Отказы и неисправности светосигнального обеспечения полетов"|"Failures and malfunctions of flight support lighting facilities"|"Э04"|193
+322||"Временное закрытие аэропортов и воздушных трасс по маршрутам полета Аэрофлота"|"Temporary airports and airways closure on Aeroflot flight routes"|"Ю02"|194
+324||"Повреждение ВС по вине служб загранаэропорта, эвакуация самолета с полосы и пр."|"Aircraft damage due to foreign airport services fault, aircraft evacuation from runway etc."|"Ю04"|195
+241||"Отказы и неисправности средств радиотехнического обеспечения полетов"|"Failures and malfunctions of flight support radio-technical facilities"|"Я01"|196
+244||"Отказы досмотровой техники"|"Inspection equipment failure"|"Я04"|197
+181||"Неудовлетворительное содержание элементов летного поля"|"Unsatisfactory maintenance of airfield elements"|"А01"|198
+182|"ERR"|"Превышение установленных НАС ГА нормативов времени очистки ВПП, РД, МС, считая от момента прекращения осадков (образования гололеда) по заключению метеослужбы"|"Exceeding of standard time specified by AMSSM CA for runways,taxiways,ramps cleaning, starting from precipitation stopping moment (glaze frost creation) upon meteorological service conclusion"|"А02"|199
+186||"Повреждение ВС и двигателей из-за столкновения с птицами"|"Aircraft and engines damage due to bird collision"|"А06"|200
+188||"Несвоевременная информация службы движения и запись в журнале годности аэродрома о техническом состоянии летного поля"|"Untimely information from traffic service and entry of aerodrome airworthiness log about airfield technical condition"|"А08"|201
+154||"Пересчет груза и почты после посадки пассажиров и окончания загрузки по вине бортпроводника"|"Cargo and mail recalculation after passenger boarding and loading completion due to cabin attendant's fault"|"Б02"|202
+156||"Утеря и засылка багажа, почты, груза (по вине бортпроводника)"|"Loss and sending of baggage, mail, cargo (due to cabin attendant's fault)"|"Б04"|203
+158||"Несвоевременный прием бортпитания, бытового имущества"|"Untimely acceptance of inflight food, household goods"|"Б06"|204
+160||"Болезнь бортпроводника в базовом аэропорту"|"Cabin attendant sickness in base airport"|"Б08"|205
+36|"GF"|"FUELLING/DEFUELLING. Late delivery of fuel; excludes late request."|"FUELLING/DEFUELLING. Late delivery of fuel; excludes late request."|"GF"|206
+37|"GB"|"CATERING. Late and/or incomplate delivery;late loarding."|"CATERING. Late and/or incomplate delivery;late loarding."|"GB"|207
+38|"GU"|"ULD. Lack of and/or unservuceable ULD's or pallets."|"ULD. Lack of and/or unservuceable ULD's or pallets."|"GU"|208
+39|"GT"|"TECHNICAL EQUIPMENT. Lack and/or breakdown;lack of operating staff; includes GPU, air staff, pushback tug, de-icing."|"TECHNICAL EQUIPMENT. Lack and/or breakdown;lack of operating staff; includes GPU, air staff, pushback tug, de-icing."|"GT"|209
+41|"TD"|"TECHNICAL DEFECTS. Aircraft defects including itmes covered by MEL."|"TECHNICAL DEFECTS. Aircraft defects including itmes covered by MEL."|"TD"|210
+42|"TM"|"SCHEDULED MAINTENANCE. Late release from maintenance."|"SCHEDULED MAINTENANCE. Late release from maintenance."|"TM"|211
+43|"TN"|"NON-SCHEDULED MAINTANCE. Special check and/or additional works beyond normal maintance"|"NON-SCHEDULED MAINTANCE. Special check and/or additional works beyond normal maintance"|"TN"|212
+44|"TS"|"SPARES AND MAINTENANCE. Lack of spares, lack of and/or breakdown of specialist equipment required for defect rectification."|"SPARES AND MAINTENANCE. Lack of spares, lack of and/or breakdown of specialist equipment required for defect rectification."|"TS"|213
+45|"TA"|"AOG SPARES. Awaiting AOG spare(s) to be carried to another station."|"AOG SPARES. Awaiting AOG spare(s) to be carried to another station."|"TA"|214
+46|"TC"|"AIRCRAFT CHANGE. For technical reasons,e.g. a prolonged technical delay."|"AIRCRAFT CHANGE. For technical reasons,e.g. a prolonged technical delay."|"TC"|215
+47|"TL"|"STANDBY AIRCRAFT. Standby aircraft unavailable for technical reasons."|"STANDBY AIRCRAFT. Standby aircraft unavailable for technical reasons."|"TL"|216
+51|"DF"|"DAMAGE DURING FLIGHT OPERATIONS. Bird or lightning strike, turbulence, heavy or overweight landing, collisions during taxiing."|"DAMAGE DURING FLIGHT OPERATIONS. Bird or lightning strike, turbulence, heavy or overweight landing, collisions during taxiing."|"DF"|217
+52|"DG"|"DAMAGE DURING GROUND OPERATIONS. Collisions (oter then taxiing), loading/offloading damage, towing, contamination, extreme weather conditions."|"DAMAGE DURING GROUND OPERATIONS. Collisions (oter then taxiing), loading/offloading damage, towing, contamination, extreme weather conditions."|"DG"|218
+55|"ED"|"DEPARTURE CONTROL. Failure of automated systems, including check-in; load control systems producing mass and balance."|"DEPARTURE CONTROL. Failure of automated systems, including check-in; load control systems producing mass and balance."|"ED"|219
+56|"EC"|"CARGO PREPARATION DOCUMENTATION. Failure of documentation and/or load control systems covering cargo."|"CARGO PREPARATION DOCUMENTATION. Failure of documentation and/or load control systems covering cargo."|"EC"|220
+57|"EF"|"FLIGHT PLANS. Failure of automated flight plan systems."|"FLIGHT PLANS. Failure of automated flight plan systems."|"EF"|221
+61|"FP"|"FLIGHT PLAN. Late complection of or change to flight plan."|"FLIGHT PLAN. Late complection of or change to flight plan."|"FP"|222
+62|"FF"|"OPERATIONAL REQUIREMENT. Late alteration to fuel or payload."|"OPERATIONAL REQUIREMENT. Late alteration to fuel or payload."|"FF"|223
+63|"FT"|"LATE CREW BOARDING OR DEPARTURE PROCEDURES. Late flight check, or entire crew, other than standby; late completion of flight deck crew check."|"LATE CREW BOARDING OR DEPARTURE PROCEDURES. Late flight check, or entire crew, other than standby; late completion of flight deck crew check."|"FT"|224
+69|"FB"|"CAPITAN REQUEST FOR SECURITY CHECK. Extraordinary requests outside mandatory reuirements."|"CAPITAN REQUEST FOR SECURITY CHECK. Extraordinary requests outside mandatory reuirements."|"FB"|225
+71|"WO"|"DEPARTURE STATION. Below operating limits."|"DEPARTURE STATION. Below operating limits."|"WO"|226
+72|"WT"|"DESTINATION STATION. Below operating limits."|"DESTINATION STATION. Below operating limits."|"WT"|227
+73|"WR"|"EN-ROUTE OR ALTERNATE. Below operating limits."|"EN-ROUTE OR ALTERNATE. Below operating limits."|"WR"|228
+75|"WI"|"DE-ICING OF AIRCRAFT. Removal of ice and/or snow; excludes equipment - lack of or breakdown."|"DE-ICING OF AIRCRAFT. Removal of ice and/or snow; excludes equipment - lack of or breakdown."|"WI"|229
+76|"WS"|"REMOVAL OF SNOW, ICE, WATER, AND SAND FROM AIRPORT. Runway, taxiway conditions."|"REMOVAL OF SNOW, ICE, WATER, AND SAND FROM AIRPORT. Runway, taxiway conditions."|"WS"|230
+77|"WG"|"GROUND HANDLING IMPAIRED BY ADVERSE WEATHER CONDITIONS. High winds, heavy rain, blizzards, monsoons, etc."|"GROUND HANDLING IMPAIRED BY ADVERSE WEATHER CONDITIONS. High winds, heavy rain, blizzards, monsoons, etc."|"WG"|231
+81|"AT"|"ATFM DUE TO ATC EN-ROUTE DEMAND/CAPACITY. Standard demand/capacity problems."|"ATFM DUE TO ATC EN-ROUTE DEMAND/CAPACITY. Standard demand/capacity problems."|"AT"|232
+82|"AX"|"ATFM DUE TO ATC STAFF/EQUIPMENT ENROUTE. Reduced capacity caused by industrial aaction or staff shortage,equipment failure,military exercise or extraordinary demand due to capacity reduction in neighbouring."|"ATFM DUE TO ATC STAFF/EQUIPMENT ENROUTE. Reduced capacity caused by industrial aaction or staff shortage,equipment failure,military exercise or extraordinary demand due to capacity reduction in neighbouring."|"AX"|233
+83|"AE"|"ATFM DUE TO RESTRICTION AT DESTINATION AIRPORT.Airport and/or runmay close due to obstruction,industrial action,staff shortage,political unrest,noise abatement,night curfew,special flights."|"ATFM DUE TO RESTRICTION AT DESTINATION AIRPORT.Airport and/or runmay close due to obstruction,industrial action,staff shortage,political unrest,noise abatement,night curfew,special flights."|"AE"|234
+84|"AW"|"ATFM DUE TO WEATHER AT DESTINATION."|"ATFM DUE TO WEATHER AT DESTINATION."|"AW"|235
+85|"AS"|"MANDATORY SECURITY. Passengers, baggage,crew, etc."|"MANDATORY SECURITY. Passengers, baggage,crew, etc."|"AS"|236
+86|"AG"|"IMMIGRATION,CUSTOMS,HEALTH. Passengers,crew."|"IMMIGRATION,CUSTOMS,HEALTH. Passengers,crew."|"AG"|237
+87|"AF"|"AIRPORT FACILTIES. Parcing stands, ramp congrestion, lighting, building,gate limitations etc."|"AIRPORT FACILTIES. Parcing stands, ramp congrestion, lighting, building,gate limitations etc."|"AF"|238
+88|"AD"|"RESTRICTIONS AT AIRPORT OF DEPARTURE. Airport and/or runway closed due to obstruction industrial action,staff shortage, political unrest,noise abatement, night curfew,special flights."|"RESTRICTIONS AT AIRPORT OF DEPARTURE. Airport and/or runway closed due to obstruction industrial action,staff shortage, political unrest,noise abatement, night curfew,special flights."|"AD"|239
+89|"AM"|"RESTRICTIONS AT AIRPORT OF DEPARTURE. Including air traffic services,start-up and pushback,airport and/or runway closed due to obstrauction or weather (restriction due to weather in case of ATFM only) industrial action, etc."|"RESTRICTIONS AT AIRPORT OF DEPARTURE. Including air traffic services,start-up and pushback,airport and/or runway closed due to obstrauction or weather (restriction due to weather in case of ATFM only) industrial action, etc."|"AM"|240
+91|"RL"|"LOAD CONNECTION. Awaiting load from another flight."|"LOAD CONNECTION. Awaiting load from another flight."|"RL"|241
+92|"RT"|"THROUGH CHECK-IN ERROR. Passengers or baggage check-in error at originating station."|"THROUGH CHECK-IN ERROR. Passengers or baggage check-in error at originating station."|"RT"|242
+93|"RA"|"AIRCRAFT ROTATION. Late arrival of aircraft from another flight or previous sector."|"AIRCRAFT ROTATION. Late arrival of aircraft from another flight or previous sector."|"RA"|243
+94|"RS"|"CABIN CREW ROTATION. Awaiting cabin crew from another flight."|"CABIN CREW ROTATION. Awaiting cabin crew from another flight."|"RS"|244
+95|"RC"|"CREW ROTATION. Awaiting flight deck, or entire crew, from another flight."|"CREW ROTATION. Awaiting flight deck, or entire crew, from another flight."|"RC"|245
+96|"RO"|"OPERATION CONTROL. RE-routing, diversion, consolidation, aircraft change for reasons other than technical."|"OPERATION CONTROL. RE-routing, diversion, consolidation, aircraft change for reasons other than technical."|"RO"|246
+97|"MI"|"INDUSTRIAL ACTION WITHIN OWN AIRLINE."|"INDUSTRIAL ACTION WITHIN OWN AIRLINE."|"MI"|247
+98|"MO"|"INDUSTRIAL ACTION OUTSIDE OWN AIRLINE. Industrial action (expect Air Traffic Control Services)."|"INDUSTRIAL ACTION OUTSIDE OWN AIRLINE. Industrial action (expect Air Traffic Control Services)."|"MO"|248
+99|"MX"|"MISCELLANEOUS. No suitable code; explane reason(s) in plain text."|"MISCELLANEOUS. No suitable code; explane reason(s) in plain text."|"MX"|249
+64|"FS"|"FLIGHT DECK CREW SHORTAGE. Sickness, awaiting standby, flight time limitations, valid visa, health documents, etc."|"FLIGHT DECK CREW SHORTAGE. Sickness, awaiting standby, flight time limitations, valid visa, health documents, etc."|"FS"|250
+65|"FR"|"FLIGHT DECK CREW SPECIAL REQUEST. Requests not within operational requirements."|"FLIGHT DECK CREW SPECIAL REQUEST. Requests not within operational requirements."|"FR"|251
+66|"FL"|"LATE CABIN CREW BOARDING OR DEPATURE PROCEDURES. Late cabin crew other than standby; late completion of cabin crew check."|"LATE CABIN CREW BOARDING OR DEPATURE PROCEDURES. Late cabin crew other than standby; late completion of cabin crew check."|"FL"|252
+67|"FC"|"CABIN CREW SHORTAGE. Sickness,awaiting standby, flight time limitations, valid visa, health documents."|"CABIN CREW SHORTAGE. Sickness,awaiting standby, flight time limitations, valid visa, health documents."|"FC"|253
+68|"FA"|"CABIN CREW ERROR OR SPECIAL REQUEST. Requests not within operational requirements."|"CABIN CREW ERROR OR SPECIAL REQUEST. Requests not within operational requirements."|"FA"|254

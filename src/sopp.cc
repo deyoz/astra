@@ -868,8 +868,7 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
                        "SELECT :point_id, desk,:work_mode,:pr_main "
                          "FROM stations INNER JOIN points "
                            "ON stations.airp = points.airp "
-                        "WHERE points.point_id = :point_id AND "
-                          "AND name = :name";
+                        "WHERE points.point_id = :point_id AND name = :name";
   InsQry.CreateVariable( "point_id", otInteger, point_id );
   InsQry.DeclareVariable( "name", otString );
   InsQry.DeclareVariable( "work_mode", otString );
@@ -4101,7 +4100,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
   std::vector<LexemaData> warnings;
   bool ch_craft = false;
-  DB::TQuery DelQry(PgOra::getROSession("POINTS"), STDLOG);
+  DB::TQuery DelQry(PgOra::getRWSession("POINTS"), STDLOG);
   DelQry.SQLText =
       "UPDATE points SET "
       "point_num = point_num - 1 "

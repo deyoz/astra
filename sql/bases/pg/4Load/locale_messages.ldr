@@ -477,6 +477,7 @@ BEGINDATA
 "Cборы за ценность багажа для авиакомпаний"|"EN"|"Baggage value fees for air companies"|0|0|0
 "Cборы за ценность багажа для пассажиров"|"EN"|"Baggage value fees for passengers"|0|0|1
 "Cборы за ценность багажа на рейс"|"EN"|"Baggage value fees for a flight"|0|0|0
+"DCS Астра"|"RU"|"DCS Astra-2"|0|0|1
 "DCS Астра"|"EN"|"DCS Astra-2"|0|0|1
 "E-Mail"|"EN"|"E-Mail"|0|0|0
 "INVALID_PARAM_IN_SESSION"|"RU"|"Неверно задан параметр '[param%s]' в параметрах сессии"|0|4411201|1

@@ -1543,7 +1543,7 @@ void get_flight_stat(int point_id, bool final_collection)
      QryParams << QParam("point_id", otInteger, point_id);
      QryParams << QParam("final_collection", otInteger, (int)final_collection);
 
-     DB::TCachedQuery Qry(PgOra::getROSession("TRIP_SETS"),
+     DB::TCachedQuery Qry(PgOra::getRWSession("TRIP_SETS"),
         "UPDATE trip_sets SET pr_stat = :final_collection "
          "WHERE point_id = :point_id AND pr_stat = 0", QryParams, STDLOG);
      Qry.get().Execute();
