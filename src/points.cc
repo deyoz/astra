@@ -2678,7 +2678,7 @@ void TFlightDelays::Save( int point_id )
 {
   auto& sess = PgOra::getRWSession("TRIP_DELAYS");
   DB::TQuery DelQry(sess, STDLOG);
-  DelQry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
+  DelQry.SQLText = "DELETE FROM trip_delays WHERE point_id=:point_id";
   DelQry.CreateVariable( "point_id", otInteger, point_id );
   DelQry.Execute();
   if ( !delays.empty() ) {
