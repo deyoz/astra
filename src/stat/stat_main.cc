@@ -959,6 +959,13 @@ bool existsConfirmPrint(TDevOper::Enum op_type, int pax_id);
 
 void get_stat(const PointId_t& point_id)
 {
+  if(DEMO_MODE())
+  {
+      // ‚ „…Œ •„ˆŒ ‘ ‘’€’ˆ‘’ˆŠˆ ‘’‰
+      TST();
+      return;
+  }
+
   DB::TQuery QryDel(PgOra::getRWSession("STAT"), STDLOG);
   QryDel.SQLText = "DELETE FROM stat WHERE point_id=:point_id";
   QryDel.CreateVariable("point_id", otInteger, point_id.get());

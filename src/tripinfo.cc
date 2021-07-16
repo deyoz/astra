@@ -1553,6 +1553,12 @@ std::string createCrewFilter()
 
 void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem> &paxLoad, std::map<std::string,int> &paxRemCounters ) //pr_section=true
 {
+  if(DEMO_MODE()) {
+      // ‚ „…Œ … ‚›‹Ÿ…Œ
+      TST();
+      return;
+  }
+
   multiset<CheckIn::TPaxRemItem> rems;
   for ( auto& ic : paxRemCounters ) {
     ic.second = 0;
