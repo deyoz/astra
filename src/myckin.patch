@@ -1,0 +1,3046 @@
+diff --git a/src/annul_bt.cc b/src/annul_bt.cc
+index 970bac644..ba757babb 100644
+--- a/src/annul_bt.cc
++++ b/src/annul_bt.cc
+@@ -1,5 +1,6 @@
+ #include "annul_bt.h"
+ #include "qrys.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "DENIS"
+ #include "serverlib/slogger.h"
+@@ -8,22 +9,6 @@ using namespace std;
+ using namespace BASIC::date_time;
+ using namespace EXCEPTIONS;
+ 
+-int get_pax_id(int grp_id, int bag_pool_num)
+-{
+-    int result = ASTRA::NoExists;
+-    TCachedQuery Qry(
+-            "select "
+-            "   ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) "
+-            "from "
+-            "   dual",
+-            QParams()
+-            << QParam("grp_id", otInteger, grp_id)
+-            << QParam("bag_pool_num", otInteger, bag_pool_num));
+-    Qry.get().Execute();
+-    if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
+-        result = Qry.get().FieldAsInteger(0);
+-    return result;
+-}
+ 
+ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
+ {
+@@ -391,7 +376,8 @@ void TAnnulBT::get(int grp_id)
+             bag_item.user_id = TReqInfo::Instance()->user.user_id;
+             if(bag_item.pr_cabin) continue;
+             TBagTags &bag_tags = items[bag_item.id];
+-            bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
++            std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(GrpId_t(grp_id), bag_item.bag_pool_num,std::nullopt);
++            bag_tags.pax_id = opt_pax_id ? opt_pax_id->get() : NoExists;
+             bag_tags.bag_item = bag_item;
+ 
+             DB::TCachedQuery tagQry(
+diff --git a/src/aodb.cc b/src/aodb.cc
+index afbbcc261..fda01804c 100644
+--- a/src/aodb.cc
++++ b/src/aodb.cc
+@@ -42,6 +42,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
+ #include "trip_tasks.h"
+ #include "code_convert.h"
+ #include "franchise.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "DJEK"
+ #define NICKTRACE DJEK_TRACE
+@@ -577,13 +578,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
+         "       pax.pers_type, NVL(pax.is_female, 1) AS is_female, "
+         "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+         "       pax.seats seats, "
+-        "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-        "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+-        "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+-        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+-        "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
+-        "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+         "       pax.bag_pool_num, "
++        "       pax_grp.bag_refuse, "
+         "       pax.pr_brd, "
+         "       pax_grp.status, "
+         "       pax_grp.client_type, "
+@@ -617,6 +613,9 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
+   vector<string> baby_names;
+   int length_time_value;
+ 
++  using namespace CKIN;
++  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
++  MainPax viewEx;
+   while ( !Qry.Eof ) {
+     if ( !pr_unaccomp && Qry.FieldAsInteger( "seats" ) == 0 ) {
+       if ( Qry.FieldIsNULL( "refuse" ) )
+@@ -710,14 +709,22 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
+         default:
+           record<<1;
+       }
++      GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
++      PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
++      int bag_refuse =  Qry.FieldAsInteger("bag_refuse");
++      std::optional<int> bag_pool_num = std::nullopt;
++      if(!Qry.FieldIsNULL("bag_pool_num")) {
++        viewEx.saveMainPax(grp_id, pax_id, bag_refuse==0);
++        bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++      }
+       record<<setw(5)<<Qry.FieldAsString( "seat_no" );
+       record<<setw(2)<<Qry.FieldAsInteger( "seats" )-1;
+-      record<<setw(4)<<TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" )))),
+-                                         TBagKilos(Qry.FieldAsInteger( "excess_wt" ))).getDeprecatedInt();
+-      record<<setw(3)<<Qry.FieldAsInteger( "rkamount" );
+-      record<<setw(4)<<Qry.FieldAsInteger( "rkweight" );
+-      record<<setw(3)<<Qry.FieldAsInteger( "bagamount" );
+-      record<<setw(4)<<Qry.FieldAsInteger( "bagweight" );
++      record<<setw(4)<<TComplexBagExcess(TBagPieces(countPaidExcessPC(pax_id)),
++        TBagKilos(viewEx.excessWt(grp_id, pax_id, Qry.FieldAsInteger("excess_wt")))).getDeprecatedInt();
++      record<<setw(3)<<bag_reader.rkAmount(grp_id, bag_pool_num);
++      record<<setw(4)<<bag_reader.rkWeight(grp_id, bag_pool_num);
++      record<<setw(3)<<bag_reader.bagAmount(grp_id, bag_pool_num);
++      record<<setw(4)<<bag_reader.bagWeight(grp_id, bag_pool_num);
+       record<<setw(10)<<""; // номер объединенного рейса
+       record<<setw(16)<<""; // дата объединенного рейса
+       record<<setw(3)<<""; // старый рег. номер пассажира
+@@ -770,9 +777,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
+     STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
+     STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
+     aodb_pax.push_back( STRAO );
+-    if ( pr_unaccomp ||
+-         ( !Qry.FieldIsNULL( "bag_pool_pax_id" ) && !Qry.FieldIsNULL( "bag_pool_num" ) &&
+-           Qry.FieldAsInteger( "bag_pool_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) ) {
++    if ( pr_unaccomp || !Qry.FieldIsNULL( "bag_pool_num" )) {
+       BagQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
+       if (pr_unaccomp)
+         BagQry.SetVariable( "bag_pool_num", 1 );
+diff --git a/src/apis_creator.cc b/src/apis_creator.cc
+index 8101bedcb..aff02db4c 100644
+--- a/src/apis_creator.cc
++++ b/src/apis_creator.cc
+@@ -7,6 +7,7 @@
+ #include "jms/jms.hpp"
+ #include "apis_settings.h"
+ #include "flt_settings.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "GRISHA"
+ #include "serverlib/test.h"
+@@ -59,9 +60,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
+     TQuery PaxQry(&OraSession);
+     PaxQry.SQLText=
+     "SELECT pax.*, "
+-    "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no, "
+-    "       ckin.get_bagAmount2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_amount, "
+-    "       ckin.get_bagWeight2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_weight "
++    "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
+     "FROM pax_grp,pax,tckin_segments "
+     "WHERE pax_grp.grp_id=pax.grp_id AND "
+     "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
+@@ -143,6 +142,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
+       PaxQry.SetVariable("point_arv",rd.arvInfo().point_id);
+       PaxQry.Execute();
+ 
++      using namespace CKIN;
++      BagReader bag_reader{PointId_t(point_id), std::nullopt, READ::BAGS};
+       for (;!PaxQry.Eof;PaxQry.Next())
+       {
+         TApisPaxData pax;
+@@ -167,12 +168,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
+         for(;!SeatsQry.Eof;SeatsQry.Next())
+           pax.seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
+ 
+-        pax.amount = 0;
+-        if (!PaxQry.FieldIsNULL("bag_amount"))
+-          pax.amount = PaxQry.FieldAsInteger("bag_amount");
+-        pax.weight = 0;
+-        if (!PaxQry.FieldIsNULL("bag_weight"))
+-          pax.weight = PaxQry.FieldAsInteger("bag_weight");
++        pax.amount = bag_reader.bagAmount(GrpId_t{pax.grp_id}, pax.bag_pool_num);
++        pax.weight = bag_reader.bagWeight(GrpId_t{pax.grp_id}, pax.bag_pool_num);
+ 
+         multiset<TBagTagNumber> tags;
+         GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, false);
+diff --git a/src/astra_calls.cc b/src/astra_calls.cc
+index f4df5dacb..8d16574a2 100644
+--- a/src/astra_calls.cc
++++ b/src/astra_calls.cc
+@@ -21,6 +21,8 @@
+ #include "date_time.h"
+ #include "astra_date_time.h"
+ #include "typeb_utils.h"
++#include "baggage_ckin.h"
++
+ #include <serverlib/xml_tools.h>
+ #include <serverlib/exception.h>
+ #include <serverlib/rip.h>
+@@ -365,6 +367,11 @@ static bool set_payload_limit(xmlNodePtr reqNode, xmlNodePtr resNode)
+   return true;
+ }
+ 
++struct t_bag_weights {
++    int bag_weight;
++    int rk_weight;
++};
++
+ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+ {
+   int point_id = NodeAsInteger( "args/point_id", reqNode );
+@@ -407,13 +414,8 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+   TQuery Qry( &OraSession );
+   Qry.SQLText =
+     "SELECT "
+-    "       pax.pax_id,pax_grp.airp_arv,pax_grp.airp_dep, "
+-    "       pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+-    "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-    "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+-    "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+-    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+-    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight"
++    "       pax.pax_id,pax_grp.airp_arv,pax_grp.airp_dep, pax_grp.grp_id, bag_refuse, bag_pool_num, "
++    "       excess_wt, pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class "
+     " FROM pax_grp, pax"
+     " WHERE pax_grp.grp_id=pax.grp_id AND "
+     "       pax.pax_id=:pax_id AND "
+@@ -436,9 +438,13 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+     }
+   };
+   std::set<std::string> signalRems = {"EXST","AVIH","WEAP","STCR","JMP"};
++
++  using namespace CKIN;
++  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
++  MainPax viewEx;
+   std::map<std::string,std::map<std::string,Counters>> weights; //направление, класс
+-  for ( SALONS2::TLayersSeats::iterator ilayer=layerSeats.begin();
+-        ilayer!=layerSeats.end(); ilayer++ ) {
++
++  for ( SALONS2::TLayersSeats::iterator ilayer=layerSeats.begin(); ilayer!=layerSeats.end(); ilayer++ ) {
+     if ( search_layers.find( ilayer->first.layerType() ) == search_layers.end() ) {
+       continue;
+     }
+@@ -487,17 +493,15 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+     }
+     NewTextChild( n, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
+     NewTextChild( n, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
+-    if ( Qry.FieldAsInteger( "rkamount" ) ) {
+-      NewTextChild( n, "rkamount", Qry.FieldAsInteger( "rkamount" ) );
+-    }
+-    if ( Qry.FieldAsInteger( "rkweight" ) ) {
+-      NewTextChild( n, "rkweight", Qry.FieldAsInteger( "rkweight" ) );
++
++    PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
++    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
++    int bag_refuse = Qry.FieldAsInteger("bag_refuse");
++    std::optional<int> bag_pool_num = std::nullopt;
++    if(!Qry.FieldIsNULL("bag_pool_num")) {
++        bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++        viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
+     }
+-    NewTextChild( n, "class", Qry.FieldAsString( "class" ) );
+-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].amount += Qry.FieldAsInteger( "bagamount" );
+-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].weight += Qry.FieldAsInteger( "bagweight" );
+-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_wt += TBagKilos( Qry.FieldAsInteger( "excess_wt" ) );
+-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" ))) );
+ 
+     xmlNodePtr rnode = nullptr;
+     std::multiset<CheckIn::TPaxRemItem> rems;
+@@ -506,6 +510,19 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+       if ( signalRems.find( r.code ) != signalRems.end() )
+         r.toXML( rnode?rnode:(rnode=NewTextChild( n, "remarks" )) );
+     }
++
++    int rk_amount = bag_reader.rkAmount(grp_id, bag_pool_num);
++    int rk_weight = bag_reader.rkWeight(grp_id, bag_pool_num);
++    if (rk_amount) { NewTextChild( n, "rkamount", rk_amount); }
++    if (rk_weight) { NewTextChild( n, "rkweight", rk_weight); }
++    NewTextChild( n, "class", Qry.FieldAsString( "class" ) );
++    int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
++    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].amount += bag_reader.bagAmount(grp_id, bag_pool_num);
++    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].weight += bag_reader.bagWeight(grp_id, bag_pool_num);
++    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_wt += TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt_raw));
++    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(pax_id));
++
++
+     n = NewTextChild( n, "pax_seats" );
+     for ( TPassSeats::const_iterator iseat=ilayer->second.begin();
+           iseat!=ilayer->second.end(); iseat++ ) {
+@@ -523,7 +540,6 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+     BASIC_SALONS::TCompLayerTypes::Instance()->getElem( p, layer_elem );
+     SetProp( NewTextChild( layersNode, "code", EncodeCompLayerType( p ) ), "name", layer_elem.getName().c_str() );
+   }
+-
+   xmlNodePtr wNode = NewTextChild( resNode, "baggage" );
+   for ( const auto& destW : weights ) {
+     xmlNodePtr n1 = NewTextChild( wNode, "dest" );
+@@ -538,27 +554,29 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
+       }
+     }
+   }
+-  tst();
+   Qry.Clear();
+   Qry.SQLText =
+-    "  SELECT airp_arv, "
+-    "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight, "
+-    "         NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight "
++    "  SELECT airp_arv, grp_id "
+     "  FROM pax_grp "
+     "  WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
+-    "  GROUP BY airp_arv "
+-    " ORDER BY airp_arv";
++    "  ORDER BY airp_arv";
+   Qry.CreateVariable( "point_id", otInteger, point_id );
+   Qry.Execute();
+-  tst();
+   xmlNodePtr unaccompNode = nullptr;
++
++  std::map<std::string, t_bag_weights> airp_weights;
+   for( ;!Qry.Eof; Qry.Next() ) {
+-    if ( !unaccompNode ) {
+-      unaccompNode = NewTextChild( resNode, "unaccompanied" );
+-    }
+-    xmlNodePtr narv = NewTextChild( unaccompNode, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
+-    SetProp( narv, "baggage",  Qry.FieldAsInteger( "bag_weight" ) );
+-    SetProp( narv, "rk",  Qry.FieldAsInteger( "rk_weight" ) );
++      GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
++      airp_weights[Qry.FieldAsString("airp_arv")].bag_weight += bag_reader.bagWeightUnaccomp(grp_id);
++      airp_weights[Qry.FieldAsString("airp_arv")].rk_weight += bag_reader.rkWeightUnaccomp(grp_id);
++  }
++  for(const auto &[airp_arv, weight] : airp_weights) {
++      if ( !unaccompNode ) {
++        unaccompNode = NewTextChild( resNode, "unaccompanied" );
++      }
++      xmlNodePtr narv = NewTextChild( unaccompNode, "airp_arv", airp_arv);
++      SetProp( narv, "baggage",  weight.bag_weight );
++      SetProp( narv, "rk",  weight.rk_weight );
+   }
+   return true;
+ }
+diff --git a/src/astra_misc.cc b/src/astra_misc.cc
+index 726e788aa..4ac95453c 100644
+--- a/src/astra_misc.cc
++++ b/src/astra_misc.cc
+@@ -129,20 +129,20 @@ void TTripInfo::fromArxPoint(const dbo::Arx_Points & arx_point)
+     point_id = arx_point.point_id;
+ };
+ 
+-bool TTripInfo::getByPointId ( const TDateTime part_key,
++bool TTripInfo::getByPointId ( std::optional<Dates::DateTime_t> part_key,
+                                const int point_id,
+                                const FlightProps &props )
+ {
+-    if (part_key==NoExists)
++    if (!part_key)
+     {
+         return getByPointId(point_id, props);
+     }
+     dbo::Session session;
+     std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
+             .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+-            .setBind({{":point_id",point_id}, {":part_key", DateTimeToBoost(part_key)}});
++            .setBind({{":point_id",point_id}, {":part_key", *part_key}});
+     if(!arx_point) {
+-        LogTrace5 << " not found arx_point by point_id: " << point_id << " part_key: " << DateTimeToBoost(part_key);
++        LogTrace5 << " not found arx_point by point_id: " << point_id << " part_key: " << *part_key;
+         return false;
+     }
+     if (!::match(arx_point->pr_del, arx_point->pr_reg, props)) return false;
+diff --git a/src/astra_misc.h b/src/astra_misc.h
+index a3a410ba0..b1c03908f 100644
+--- a/src/astra_misc.h
++++ b/src/astra_misc.h
+@@ -347,7 +347,7 @@ class TTripInfo
+       init(Qry);
+     }
+   public:
+-    virtual bool getByPointId (const TDateTime part_key, const int point_id,
++    virtual bool getByPointId (std::optional<Dates::DateTime_t> part_key, const int point_id,
+                                const FlightProps& props = FlightProps() );
+     virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
+     virtual bool getByPointIdTlg ( const int point_id_tlg );
+diff --git a/src/baggage.cc b/src/baggage.cc
+index a16eb23ee..f5c179c4f 100644
+--- a/src/baggage.cc
++++ b/src/baggage.cc
+@@ -5,6 +5,7 @@
+ #include "term_version.h"
+ #include "qrys.h"
+ #include "baggage_tags.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "VLAD"
+ #define NICKTRACE SYSTEM_TRACE
+@@ -701,29 +702,41 @@ bool TGroupBagItem::completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNo
+ 
+ bool TGroupBagItem::tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, int& tagOwner/*pax_id*/)
+ {
+-  tagOwner=ASTRA::NoExists;
+-  if (pax_id==ASTRA::NoExists) return false;
+-
+-  TQuery Qry(&OraSession);
+-  Qry.Clear();
+-  Qry.SQLText =
+-      "SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) AS pax_id "
+-      "FROM pax, bag_tags, bag2 "
+-      "WHERE pax.grp_id=bag_tags.grp_id AND "
+-      "      bag_tags.grp_id=bag2.grp_id(+) AND "
+-      "      bag_tags.bag_num=bag2.num(+) AND "
+-      "      pax.pax_id=:pax_id AND bag_tags.no=:no";
+-  Qry.CreateVariable("pax_id", otInteger, pax_id);
+-  Qry.CreateVariable("no", otFloat, tag.numeric_part);
+-  Qry.Execute();
+-  if (!Qry.Eof)
+-  {
+-    if (!Qry.FieldIsNULL("pax_id"))
+-      tagOwner=Qry.FieldAsInteger("pax_id");
+-    return true;
+-  }
++    tagOwner=ASTRA::NoExists;
++    if (pax_id==ASTRA::NoExists) return false;
++
++    TQuery Qry(&OraSession);
++    Qry.Clear();
++    int grp_id = NoExists;
++    Qry.SQLText =
++      "select grp_id "
++      "from PAX "
++      "where pax_id = :pax_id ";
++    Qry.CreateVariable("pax_id", otInteger, pax_id);
++    Qry.Execute();
++    if(!Qry.Eof) {
++        if (!Qry.FieldIsNULL("grp_id"))
++          grp_id=Qry.FieldAsInteger("grp_id");
++    }
+ 
+-  return false;
++    TQuery QryBag(&OraSession);
++    QryBag.SQLText =
++        "select bag_tags.grp_id "
++        "from BAG_TAGS, BAG2 "
++        "where bag_tags.grp_id=bag2.grp_id AND bag_tags.bag_num=bag2.num AND bag_tags.no=:no";
++    QryBag.CreateVariable("no", otFloat, tag.numeric_part);
++    QryBag.Execute();
++    int bag_grp_id = NoExists;
++    if (!QryBag.Eof)
++    {
++        if (!QryBag.FieldIsNULL("grp_id"))
++          bag_grp_id=QryBag.FieldAsInteger("grp_id");
++    }
++    if(bag_grp_id!=NoExists && grp_id!=NoExists && bag_grp_id == grp_id) {
++      tagOwner = pax_id;
++      return true;
++    }
++    return false;
+ }
+ 
+ void TBagMap::add(const TUnaccompInfoItem& unaccomp, bool throwIfProblem)
+@@ -1635,22 +1648,14 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
+     if (!bag_refuse)
+     {
+       //точно не весь багаж разрегистрирован
+-      BagQry.Clear();
+-      BagQry.SQLText=
+-        "SELECT ckin.bag_pool_refused(:grp_id, :bag_pool_num, :class, :bag_refuse) AS refused FROM dual";
+-      BagQry.CreateVariable("grp_id",otInteger,grp_id);
+-      BagQry.DeclareVariable("bag_pool_num",otInteger);
+-      BagQry.CreateVariable("class",otString,cl);
+-      BagQry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
+       set<int/*bag_pool_num*/> del_pools;
+       for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
+       {
+         if (del_pools.find(i->second.bag_pool_num)==del_pools.end())
+         {
+-          BagQry.SetVariable("bag_pool_num",i->second.bag_pool_num);
+-          BagQry.Execute();
+-          if (BagQry.Eof || BagQry.FieldAsInteger("refused")!=0)
+-            del_pools.insert(i->second.bag_pool_num);
++            if(CKIN::get_bag_pool_refused(GrpId_t(grp_id), i->second.bag_pool_num, cl, (int)bag_refuse, std::nullopt)) {
++                del_pools.insert(i->second.bag_pool_num);
++            }
+         };
+       };
+       filterPools(del_pools, false);
+diff --git a/src/baggage_base.cc b/src/baggage_base.cc
+index 2fc3a1542..1f4fb19c1 100644
+--- a/src/baggage_base.cc
++++ b/src/baggage_base.cc
+@@ -1,6 +1,7 @@
+ #include "baggage_base.h"
+ #include "astra_locale.h"
+ #include "qrys.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "VLAD"
+ #define NICKTRACE SYSTEM_TRACE
+@@ -98,20 +99,6 @@ TBagQuantity& TBagQuantity::operator += (const TBagQuantity &item)
+   return *this;
+ }
+ 
+-std::optional<PaxId_t> getPaxIdByBagPool(const GrpId_t& grp_id, int bag_pool_num)
+-{
+-  TQuery Qry(&OraSession, STDLOG);
+-  Qry.SQLText =
+-      "SELECT ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) AS pax_id FROM DUAL";
+-  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+-  Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+-  Qry.Execute();
+-  if (Qry.Eof) {
+-    return {};
+-  }
+-  return PaxId_t(Qry.FieldAsInteger("pax_id"));
+-}
+-
+ std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
+                                   boost::optional<TServiceCategory::Enum> category)
+ {
+@@ -150,7 +137,7 @@ std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_nu
+ 
+   if (way==ServiceGetItemWay::ByBagPool)
+   {
+-    const std::optional<PaxId_t> pax_id = getPaxIdByBagPool(GrpId_t(id), bag_pool_num);
++    const std::optional<PaxId_t> pax_id = CKIN::get_bag_pool_pax_id(GrpId_t(id), bag_pool_num, std::nullopt);
+     QryParams << QParam("id", otInteger, pax_id ? pax_id->get() : ASTRA::NoExists);
+   } else {
+     QryParams << QParam("id", otInteger, id);
+diff --git a/src/baggage_calc.cc b/src/baggage_calc.cc
+index e4d4e35ed..1a4ec10bc 100644
+--- a/src/baggage_calc.cc
++++ b/src/baggage_calc.cc
+@@ -2097,21 +2097,9 @@ void PaidBagViewToXML(const TPaidBagViewMap &paid_view,
+   };
+ };
+ 
+-string GetBagRcptStr(int grp_id, int pax_id)
++string GetBagRcptStr(int grp_id, int pax_id, const CKIN::MainPax & viewPax)
+ {
+-  int main_pax_id=NoExists;
+-  if (pax_id!=NoExists)
+-  {
+-    TQuery Qry(&OraSession);
+-    Qry.CreateVariable("grp_id", otInteger, grp_id);
+-    Qry.SQLText=
+-      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_p1ax_id FROM dual";
+-    Qry.Execute();
+-    if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
+-  };
+-  if (pax_id==NoExists ||
+-      (main_pax_id!=NoExists && main_pax_id==pax_id))
+-  {
++  if(viewPax.isUnnacomp() || viewPax.isMainPax(GrpId_t(grp_id), PaxId_t(pax_id))) {
+     vector<string> rcpts;
+     CheckIn::TServicePaymentListWithAuto payment;
+     payment.fromDB(grp_id);
+@@ -2172,18 +2160,20 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
+   TQuery Qry(&OraSession);
+   Qry.CreateVariable("grp_id", otInteger, grp_id);
+   Qry.SQLText=
+-    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
++    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur, "
++    " bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse, bag2.grp_id as bag_grp_id "
+     "FROM pax_grp, value_bag, bag2 "
+     "WHERE pax_grp.grp_id=value_bag.grp_id AND "
+     "      value_bag.grp_id=bag2.grp_id(+) AND "
+     "      value_bag.num=bag2.value_bag_num(+) AND "
+-    "      (bag2.grp_id IS NULL OR "
+-    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) AND "
+     "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
+   Qry.Execute();
+   for(;!Qry.Eof;Qry.Next())
+   {
++    if(Qry.FieldIsNULL("bag_grp_id") || CKIN::get_bag_pool_refused(GrpId_t(grp_id), Qry.FieldAsInteger("bag_pool_num"),
++        Qry.FieldAsString("class"), Qry.FieldAsInteger("bag_refuse"), std::nullopt) == 0) {
+     value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
++    }
+   };
+   if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
+ 
+diff --git a/src/baggage_calc.h b/src/baggage_calc.h
+index 837e459b5..7f71b04e0 100644
+--- a/src/baggage_calc.h
++++ b/src/baggage_calc.h
+@@ -12,6 +12,7 @@
+ #include "astra_misc.h"
+ #include "flt_settings.h"
+ #include "etick.h"
++#include "baggage_ckin.h"
+ 
+ class BagAllowance
+ {
+@@ -244,7 +245,7 @@ void RecalcPaidBag(const TTripInfo& flt,
+                    TPaidBagList& prior_paid,
+                    TPaidBagList& result_paid);
+ 
+-std::string GetBagRcptStr(int grp_id, int pax_id);
++std::string GetBagRcptStr(int grp_id, int pax_id, const CKIN::MainPax &viewPax);
+ bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
+ 
+ std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);
+diff --git a/src/baggage_ckin.cpp b/src/baggage_ckin.cpp
+index 5ebf1c9bc..38b0f8a58 100644
+--- a/src/baggage_ckin.cpp
++++ b/src/baggage_ckin.cpp
+@@ -94,7 +94,7 @@ std::string build_birks_str(const Container & tags, const std::string& lang)
+     return res;
+ }
+ 
+-std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
++std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
+                                     std::optional<DateTime_t> part_key, int include_refused)
+ {
+     LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+@@ -103,7 +103,7 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
+     if(!bag_pool_num) {
+         return std::nullopt;
+     }
+-    std::optional<int> res;
++    std::optional<PaxId_t> res;
+     int pax_id;
+     std::string refuse;
+     std::string table = part_key? "ARX_PAX" :"PAX" ;
+@@ -126,7 +126,7 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
+        if(part_key) { cur.bind(":part_key", *part_key);};
+        cur.exec();
+     if(!cur.fen()) {
+-        res = pax_id;
++        res = PaxId_t(pax_id);
+         if(include_refused == 0 && !refuse.empty()) {
+             res = std::nullopt;
+         }
+@@ -134,83 +134,115 @@ std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_po
+     return res;
+ }
+ 
+-std::optional<BagInfo> get_bagInfo2( GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> bag_pool_num,
+-                       std::optional<DateTime_t> part_key)
+-{
+-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time) << " grp_id: " << grp_id
+-              << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
+-    BagInfo bagInfo{};
+-
+-    std::optional<int> pool_pax_id = pax_id;
+-    if(pax_id) {
+-        if(!bag_pool_num) {
+-            return bagInfo;
+-        }
+-        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
+-    }
++//std::optional<BagInfo> get_bagInfo2( GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> bag_pool_num,
++//                       std::optional<DateTime_t> part_key)
++//{
++//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time) << " grp_id: " << grp_id
++//              << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
++//    BagInfo bagInfo{};
+ 
+-    std::string table = part_key? "ARX_BAG2" : "BAG2";
+-
+-    if(!pax_id || (pool_pax_id && pool_pax_id == pax_id)) {
+-        std::string query = "SELECT "
+-                            "SUM(CASE WHEN pr_cabin=0 THEN amount ELSE NULL END) AS bagAmount, "
+-                            "SUM(CASE WHEN pr_cabin=0 THEN weight ELSE NULL END) AS bagWeight, "
+-                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE amount END) AS rkAmount, "
+-                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE weight END) AS rkWeight "
+-                            "FROM " + table +
+-                            " WHERE GRP_ID=:grp_id " + (part_key ? "and PART_KEY=:part_key " : "") +
+-                            (pax_id ? " and BAG_POOL_NUM=:bag_pool_num " : "");
+-        auto cur = make_db_curs(query, PgOra::getROSession(table));
+-        cur.stb()
+-           .defNull(bagInfo.bagAmount,0)
+-           .defNull(bagInfo.bagWeight,0)
+-           .defNull(bagInfo.rkAmount,0)
+-           .defNull(bagInfo.rkWeight,0)
+-           .bind(":grp_id", grp_id.get());
+-        if(part_key) { cur.bind(":part_key", *part_key);};
+-        if(pax_id) {
+-            cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
+-        }
+-        cur.EXfet();
+-        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+-            LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
+-                             << " part_key: " << part_key.value_or(not_a_date_time) ;
+-            return bagInfo;
+-        }
+-    }
+-    return bagInfo;
+-}
+-
+-std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+-{
+-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+-    if(!bagInfo) return std::nullopt;
+-    return bagInfo->bagAmount;
+-}
+-
+-std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+-{
+-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+-    if(!bagInfo) return std::nullopt;
+-    return bagInfo->bagWeight;
+-}
++//    std::optional<PaxId_t> pool_pax_id = pax_id;
++//    if(pax_id) {
++//        if(!bag_pool_num) {
++//            return bagInfo;
++//        }
++//        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
++//    }
+ 
+-std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
+-{
+-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+-    if(!bagInfo) return std::nullopt;
+-    return bagInfo->rkAmount;
+-}
++//    std::string table = part_key? "ARX_BAG2" : "BAG2";
++
++//    if(!pax_id || (pool_pax_id && pool_pax_id == pax_id)) {
++//        std::string query = "SELECT "
++//                            "SUM(CASE WHEN pr_cabin=0 THEN amount ELSE NULL END) AS bagAmount, "
++//                            "SUM(CASE WHEN pr_cabin=0 THEN weight ELSE NULL END) AS bagWeight, "
++//                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE amount END) AS rkAmount, "
++//                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE weight END) AS rkWeight "
++//                            "FROM " + table +
++//                            " WHERE GRP_ID=:grp_id " + (part_key ? "and PART_KEY=:part_key " : "") +
++//                            (pax_id ? " and BAG_POOL_NUM=:bag_pool_num " : "");
++//        auto cur = make_db_curs(query, PgOra::getROSession(table));
++//        cur.stb()
++//           .defNull(bagInfo.bagAmount,0)
++//           .defNull(bagInfo.bagWeight,0)
++//           .defNull(bagInfo.rkAmount,0)
++//           .defNull(bagInfo.rkWeight,0)
++//           .bind(":grp_id", grp_id.get());
++//        if(part_key) { cur.bind(":part_key", *part_key);};
++//        if(pax_id) {
++//            cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
++//        }
++//        cur.EXfet();
++//        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
++//            LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
++//                             << " part_key: " << part_key.value_or(not_a_date_time) ;
++//            return bagInfo;
++//        }
++//    }
++//    return bagInfo;
++//}
++
++//std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
++//{
++//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
++//    if(!bagInfo) return std::nullopt;
++//    return bagInfo->bagAmount;
++//}
++
++//std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
++//{
++//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
++//    if(!bagInfo) return std::nullopt;
++//    return bagInfo->bagWeight;
++//}
++
++//std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
++//{
++//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
++//    if(!bagInfo) return std::nullopt;
++//    return bagInfo->rkAmount;
++//}
++
++//std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
++//{
++//    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
++//    if(!bagInfo) return std::nullopt;
++//    return bagInfo->rkWeight;
++//}
+ 
+-std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key)
++std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
+ {
+-    std::optional<BagInfo> bagInfo = get_bagInfo2(grp_id, pax_id, bag_pool_num, part_key);
+-    if(!bagInfo) return std::nullopt;
+-    return bagInfo->rkWeight;
++    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
++                     << " grp_id: " << grp_id << " include_refused: " << include_refused;
++    std::optional<int> res;
++    int pax_id;
++    std::string refuse;
++    std::string table = part_key? "ARX_PAX" : "PAX";
++    auto cur = make_db_curs("select PAX_ID, REFUSE "
++                            "from " + table +
++                            " where GRP_ID=:grp_id " + (part_key ? " and PART_KEY=:part_key " : "") +
++                            " order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
++                            "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
++                            "         case when SEATS=0 THEN 1 else 0 end, "
++                            "         case when REFUSE is null then 0 else 1 end, "
++                            "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
++                            "         reg_no",
++                            PgOra::getROSession(table));
++    cur.def(pax_id)
++       .defNull(refuse, "")
++       .bind(":grp_id", grp_id.get());
++    if(part_key) {cur.bind(":part_key", *part_key);}
++    cur.exec();
++    if(!cur.fen()) {
++        res = pax_id;
++        if(include_refused == 0 && !refuse.empty()) {
++            res = std::nullopt;
++        }
++    }
++    return res;
+ }
+ 
+ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id,
+@@ -257,39 +289,6 @@ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id,
+     return excess;
+ }
+ 
+-
+-std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
+-{
+-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+-                     << " grp_id: " << grp_id << " include_refused: " << include_refused;
+-    std::optional<int> res;
+-    int pax_id;
+-    std::string refuse;
+-    std::string table = part_key? "ARX_PAX" : "PAX";
+-    auto cur = make_db_curs("select PAX_ID, REFUSE "
+-                            "from " + table +
+-                            " where GRP_ID=:grp_id " + (part_key ? " and PART_KEY=:part_key " : "") +
+-                            " order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
+-                            "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
+-                            "         case when SEATS=0 THEN 1 else 0 end, "
+-                            "         case when REFUSE is null then 0 else 1 end, "
+-                            "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
+-                            "         reg_no",
+-                            PgOra::getROSession(table));
+-    cur.def(pax_id)
+-       .defNull(refuse, "")
+-       .bind(":grp_id", grp_id.get());
+-    if(part_key) {cur.bind(":part_key", *part_key);}
+-    cur.exec();
+-    if(!cur.fen()) {
+-        res = pax_id;
+-        if(include_refused == 0 && !refuse.empty()) {
+-            res = std::nullopt;
+-        }
+-    }
+-    return res;
+-}
+-
+ int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::string> vclass, int bag_refuse,
+                      std::optional<DateTime_t> part_key)
+ {
+@@ -299,12 +298,12 @@ int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::st
+     if(!vclass) return 0;
+     int n = 0;
+     std::string table = part_key? "ARX_PAX" : "PAX";
+-    auto cur = make_db_curs("select sum(case when REFUSE is null then 1 else 0 end) "
++    auto cur = make_db_curs("select refuse "
+                             " from " + table +
+                             " where GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num " +
+                               (part_key ? " and PART_KEY=:part_key" : ""),
+                             PgOra::getROSession(table));
+-    cur.def(n)
++    cur.defNull(n, 1)
+        .bind(":grp_id", grp_id.get())
+        .bind(":bag_pool_num", bag_pool_num);
+     if(part_key) {cur.bind(":part_key", *part_key);}
+@@ -404,40 +403,40 @@ std::set<TagInfo> read_birks(GrpId_t grp_id, int bag_pool_num, std::optional<Dat
+     return birks;
+ }
+ 
+-std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
+-                                      std::optional<DateTime_t> part_key, const std::string& lang)
+-{
+-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+-                     << " grp_id: "<<grp_id << " bag_pool_num: " << bag_pool_num;
+-    std::optional<int> pool_pax_id;
+-    if(pax_id) {
+-        if(!bag_pool_num) return std::nullopt;
+-        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
+-    }
++//std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
++//                                      std::optional<DateTime_t> part_key, const std::string& lang)
++//{
++//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
++//                     << " grp_id: "<<grp_id << " bag_pool_num: " << bag_pool_num;
++//    std::optional<int> pool_pax_id;
++//    if(pax_id) {
++//        if(!bag_pool_num) return std::nullopt;
++//        pool_pax_id = get_bag_pool_pax_id(grp_id, bag_pool_num, part_key, 1);
++//    }
+ 
+-    std::set<TagInfo> birks;
+-    if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
+-        if(!pax_id) {
+-            birks = read_birks(grp_id, part_key);
+-        }else {
+-            if(bag_pool_num==1) {
+-                /*для тех групп которые регистрировались с терминала без обязательной привязки */
+-                std::set<TagInfo> birks1 = read_birks(grp_id, bag_pool_num, part_key);
+-                std::set<TagInfo> birks2 = read_birks(grp_id, part_key);
+-                //вместо SQL UNION
+-                std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
+-                           std::inserter(birks, birks.begin()));
+-            } else {
+-                birks = read_birks(grp_id, bag_pool_num, part_key);
+-            }
+-        }
+-    }
+-    LogTrace5 << " tags_range size: " << birks.size();
+-    for(const TagInfo& tag : birks) {
+-        LogTrace5 << " tag_no: " << tag.no << " tag_type: " <<tag.tag_type << "tag_no_len: " << tag.no_len;
+-    }
+-    return build_birks_str(birks,lang);
+-}
++//    std::set<TagInfo> birks;
++//    if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
++//        if(!pax_id) {
++//            birks = read_birks(grp_id, part_key);
++//        }else {
++//            if(bag_pool_num==1) {
++//                /*для тех групп которые регистрировались с терминала без обязательной привязки */
++//                std::set<TagInfo> birks1 = read_birks(grp_id, bag_pool_num, part_key);
++//                std::set<TagInfo> birks2 = read_birks(grp_id, part_key);
++//                //вместо SQL UNION
++//                std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
++//                           std::inserter(birks, birks.begin()));
++//            } else {
++//                birks = read_birks(grp_id, bag_pool_num, part_key);
++//            }
++//        }
++//    }
++//    LogTrace5 << " tags_range size: " << birks.size();
++//    for(const TagInfo& tag : birks) {
++//        LogTrace5 << " tag_no: " << tag.no << " tag_type: " <<tag.tag_type << "tag_no_len: " << tag.no_len;
++//    }
++//    return build_birks_str(birks,lang);
++//}
+ 
+ std::optional<std::string> next_airp(int first_point, int point_num, std::optional<Dates::DateTime_t> part_key)
+ {
+@@ -627,7 +626,9 @@ std::string BagReader::tags(GrpId_t grp_id, std::optional<int> bag_pool_num, con
+ 
+ BagReader::BagReader(PointId_t point_dep, std::optional<Dates::DateTime_t> part_key, READ var)
+ {
+-//    ASTRA::dumpTable("BAG2", TRACE5);
++    ASTRA::dumpTable("BAG2", TRACE5);
++    ASTRA::dumpTable("PAX", TRACE5);
++    ASTRA::dumpTable("PAX_GRP", TRACE5);
+ //    ASTRA::dumpTable("BAG_TAGS", TRACE5);
+     switch (var) {
+     case READ::BAGS_AND_TAGS:
+@@ -672,19 +673,25 @@ int BagReader::bagAmount(GrpId_t grp_id, std::optional<int> bag_pool_num) const
+     auto opt_bags = bagInfo(grp_id, bag_pool_num);
+     int total_amount = 0;
+     if(opt_bags) {
+-        for(const auto & bag: opt_bags->get()) {total_amount += bag.bagAmount;}
++        for(const auto & bag: opt_bags->get()) {
++            LogTrace5 << "-----bag.bagAm: " << bag.bagAmount;
++            total_amount += bag.bagAmount;
++        }
+     }
+     return total_amount;
+ }
+ 
+ int BagReader::bagWeight(GrpId_t grp_id, std::optional<int> bag_pool_num) const
+ {
+-    LogTrace5 << __func__ << " grp_id: " << grp_id << " bag_pool_num: " << bag_pool_num.value_or(-1);
++    LogTrace5 << __func__ << " grp_id: " << grp_id << " bag_pool_num: " ; bag_pool_num.value_or(-1);
+     if(!bag_pool_num) return 0;
+     auto opt_bags = bagInfo(grp_id, bag_pool_num);
+     int total_weight = 0;
+     if(opt_bags) {
+-        for(const auto & bag: opt_bags->get()) {total_weight += bag.bagWeight;}
++        for(const auto & bag: opt_bags->get()) {
++            LogTrace5 << "-----bag.bagWg: " << bag.bagWeight;
++            total_weight += bag.bagWeight;
++        }
+     }
+     return total_weight;
+ }
+@@ -696,7 +703,10 @@ int BagReader::rkAmount(GrpId_t grp_id, std::optional<int> bag_pool_num) const
+     auto opt_bags = bagInfo(grp_id, bag_pool_num);
+     int total_rkAmount = 0;
+     if(opt_bags) {
+-        for(const auto & bag: opt_bags->get()) {total_rkAmount += bag.rkAmount;}
++        for(const auto & bag: opt_bags->get()) {
++            LogTrace5 << "-----bag.rkAm: " << bag.rkAmount;
++            total_rkAmount += bag.rkAmount;
++        }
+     }
+     return total_rkAmount;
+ }
+@@ -708,17 +718,21 @@ int BagReader::rkWeight(GrpId_t grp_id, std::optional<int> bag_pool_num) const
+     auto opt_bags = bagInfo(grp_id, bag_pool_num);
+     int total_rkWeight = 0;
+     if(opt_bags) {
+-        for(const auto & bag: opt_bags->get()) {total_rkWeight += bag.rkWeight;}
++        for(const auto & bag: opt_bags->get()) {
++            LogTrace5 << "-----bag.rkWg: " << bag.rkWeight ;
++            total_rkWeight += bag.rkWeight;
++        }
+     }
+     return total_rkWeight;
+ }
+ 
+-int ExcessWt::excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse)
++int MainPax::excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw) const
+ {
+-    return isMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse) ? excess_wt_raw : 0;
++    return isMainPax(GrpId_t(grp_id), PaxId_t(pax_id)) ? excess_wt_raw : 0;
+ }
+ 
+-int ExcessWt::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse)
++
++int MainPax::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse)
+ {
+     LogTrace5 << __func__ << " grp_id: " << grp_id << " excess_wt_raw: " << excess_wt_raw
+               << " bag_refuse: " << bag_refuse;
+@@ -732,22 +746,21 @@ int ExcessWt::excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refus
+     return 0;
+ }
+ 
+-bool ExcessWt::isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
++bool MainPax::isMainPax(GrpId_t grp_id, PaxId_t pax_id) const
+ {
+-    if(!bag_refuse) {
+-        if(algo::contains(first_paxes, grp_id)) {
+-            if(first_paxes.at(grp_id) == pax_id) {
+-                return true;
+-            }
++    if(algo::contains(first_paxes, grp_id)) {
++        const PaxInfo &pax = first_paxes.at(grp_id);
++        if(!pax.bag_refuse && pax.pax_id == pax_id) {
++            return true;
+         }
+     }
+     return false;
+ }
+ 
+-void ExcessWt::saveMainPax(GrpId_t grp_id, PaxId_t pax_id)
++void MainPax::saveMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
+ {
+     if(!algo::contains(first_paxes, GrpId_t(grp_id))) {
+-        first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxId_t{pax_id}));
++        first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxInfo{pax_id, bag_refuse}));
+     }
+ }
+ 
+diff --git a/src/baggage_ckin.h b/src/baggage_ckin.h
+index bc9438822..7cda7eeec 100644
+--- a/src/baggage_ckin.h
++++ b/src/baggage_ckin.h
+@@ -47,15 +47,24 @@ enum class READ : uint32_t
+     BAGS_AND_TAGS
+ };
+ 
+-class ExcessWt
++class MainPax
+ {
+ public:
+-    int excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw, bool bag_refuse);
++    MainPax() : is_unnacomp(false) {}
++    MainPax(bool unnacomp) : is_unnacomp(unnacomp) {}
++    int excessWt(GrpId_t grp_id, PaxId_t pax_id, int excess_wt_raw) const;
+     int excessWtUnnacomp(GrpId_t grp_id, int excess_wt_raw, bool bag_refuse);
+-    bool isMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse);
+-    void saveMainPax(GrpId_t grp_id, PaxId_t pax_id);
++    bool isMainPax(GrpId_t grp_id, PaxId_t pax_id) const;
++    bool isUnnacomp() const {return is_unnacomp;}
++    void saveMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse);
+ private:
+-    std::map<GrpId_t, PaxId_t> first_paxes;
++    struct PaxInfo
++    {
++        PaxId_t pax_id;
++        bool bag_refuse;
++    };
++    std::map<GrpId_t, PaxInfo> first_paxes;
++    bool is_unnacomp = false;
+     std::set<GrpId_t> groups;
+ };
+ 
+@@ -115,22 +124,22 @@ private:
+     std::unordered_map<GrpId_t, std::map<BagNum_t, std::vector<TagInfo>>> grp_tags;
+ };
+ 
+-std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+-std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+-std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+-std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
+-                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
++//std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
++//std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
++//std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
++//std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
++//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
+ 
+-std::optional<BagInfo> get_bagInfo2(GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> bag_pool_num,
+-                      std::optional<DateTime_t> part_key);
++//std::optional<BagInfo> get_bagInfo2(GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> bag_pool_num,
++//                      std::optional<DateTime_t> part_key);
+ 
+-std::optional<int> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
++std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
+                                        std::optional<DateTime_t> part_key, int include_refused = 1);
+ 
+-std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key);
++//std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key);
+ 
+ int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::string> vclass, int bag_refuse,
+                          std::optional<DateTime_t> part_key);
+@@ -141,10 +150,6 @@ std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id,
+ //std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
+ //                                     int pr_lat, std::optional<DateTime_t> part_key );
+ 
+-std::optional<int> get_main_pax_id(GrpId_t grp_id, int include_refused,  std::optional<DateTime_t> part_key);
+-
+-std::optional<std::string> get_next_airp(int first_point, int point_num, std::optional<DateTime_t> part_key);
+-
+ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> excess_wt,
+                                  std::optional<int> excess_nvl, int bag_refuse,
+                                  std::optional<DateTime_t> part_key);
+diff --git a/src/basel_aero.cc b/src/basel_aero.cc
+index 2e79686ff..56eae7db4 100644
+--- a/src/basel_aero.cc
++++ b/src/basel_aero.cc
+@@ -527,15 +527,15 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
+     LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
+     stats.clear();
+     TTripInfo operFlt;
+-    if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
++    if (!operFlt.getByPointId(DateTimeToBoost(part_key), point_id, FlightProps(FlightProps::NotCancelled,
+                                                   FlightProps::WithCheckIn))) return;
+     TRegEvents events;
+     events.fromDB(part_key, point_id);
+ 
+-    int grp_id = 0;
++    int grp_id_raw = 0;
+     std::string grp_class;
+     int piece_concept = 0;
+-    int pax_id = NoExists;
++    int pax_id_raw = NoExists;
+     std::string surname;
+     std::string name;
+     std::string refuse;
+@@ -543,7 +543,7 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
+     int reg_no;
+     int excess_pc;
+     int bag_pool_num;
+-    int excess_wt;
++    int excess_wt_raw;
+     int excess;
+     int bag_refuse;
+ 
+@@ -562,10 +562,10 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
+ "ORDER BY arx_pax.reg_no NULLS LAST, arx_pax.seats DESC NULLS LAST",
+                 PgOra::getROSession("ARX_PAX_GRP"));
+     cur.stb()
+-       .def(grp_id)
++       .def(grp_id_raw)
+        .defNull(grp_class, "")
+        .defNull(piece_concept, ASTRA::NoExists)
+-       .defNull(pax_id, ASTRA::NoExists)
++       .defNull(pax_id_raw, ASTRA::NoExists)
+        .def(surname)
+        .defNull(name, "")
+        .defNull(refuse,"")
+@@ -573,35 +573,59 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
+        .def(reg_no)
+        .defNull(excess_pc, 0)
+        .defNull(bag_pool_num, ASTRA::NoExists)
+-       .defNull(excess_wt, ASTRA::NoExists)
++       .defNull(excess_wt_raw, ASTRA::NoExists)
+        .defNull(excess, ASTRA::NoExists)
+        .def(bag_refuse)
+        .bind(":part_key", DateTimeToBoost(part_key))
+        .bind(":point_id", point_id)
+        .exec();
++    using namespace CKIN;
++    BagReader bag_reader(PointId_t(point_id), DateTimeToBoost(part_key), READ::BAGS_AND_TAGS);
++    MainPax viewEx;
+     while(!cur.fen()) {
+-        int arch_excess_wt = CKIN::get_excess_wt(GrpId_t(grp_id), pax_id, excess_wt, excess, bag_refuse, DateTimeToBoost(part_key)).value_or(0);
+-        std::string tags  = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key), "RU").value_or("");
++        GrpId_t grp_id(grp_id_raw);
++        PaxId_t pax_id(pax_id_raw);
++        int excess_nvl = dbo::coalesce(excess_wt_raw, excess);
++        std::optional<int> opt_bag_pool_num = std::nullopt;
++        if(bag_pool_num != NoExists) {
++            opt_bag_pool_num = bag_pool_num;
++            viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
++        }
+         TBaselStat stat;
+         stat.point_id = point_id;
+         stat.airp = operFlt.airp;
+-        stat.viewGroup = grp_id;
+-        stat.pax_id = pax_id;
++        stat.viewGroup = grp_id.get();
++        stat.pax_id = pax_id.get();
+         stat.viewDate = operFlt.scd_out;
+         stat.viewFlight = operFlt.airline;
+         string tmp = std::to_string(operFlt.flt_no);
+         while ( tmp.size() < 3 ) tmp = "0" + tmp;
+         stat.viewFlight += tmp + operFlt.suffix;
+-        if (stat.pax_id!=NoExists)
++        if (stat.pax_id!=NoExists) {
+           stat.viewName = surname + '/' + name;
+-        else
++
++          stat.viewPCT = bag_reader.bagAmount(grp_id, bag_pool_num);
++          stat.viewWeight =bag_reader.bagWeight(grp_id, bag_pool_num);
++          stat.viewCarryon =bag_reader.rkWeight(grp_id, bag_pool_num);
++
++          int arch_excess_wt = viewEx.excessWt(grp_id, pax_id, excess_nvl);
++          stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
++          stat.viewTag = bag_reader.tags(grp_id, bag_pool_num, "RU").substr(0,100);
++        }
++        else {
+           stat.viewName = "БАГАЖ БЕЗ СОПРОВОЖДЕНИЯ";
++
++          stat.viewPCT = bag_reader.bagAmountUnaccomp(grp_id);
++          stat.viewWeight =bag_reader.bagWeightUnaccomp(grp_id);
++          stat.viewCarryon =bag_reader.rkWeightUnaccomp(grp_id);
++
++          int arch_excess_wt = viewEx.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse!=0);
++          stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
++          stat.viewTag = bag_reader.tagsUnaccomp(grp_id, "RU").substr(0,100);
++        }
+         stat.viewName = stat.viewName.substr(0,130);
+-        stat.viewPCT = CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
+-        stat.viewWeight = CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
+-        stat.viewCarryon = CKIN::get_rkWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0);
+-        stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
+-        stat.viewTag = tags.substr(0,100);
++
++
+         pair<TDateTime, TDateTime> times(NoExists, NoExists);
+         WeightConcept::TPaxNormComplexContainer norms;
+         if (stat.pax_id != NoExists)
+@@ -644,7 +668,7 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
+             stat.viewBagNorms += n.normStr(AstraLocale::LANG_RU);
+           }
+         }
+-        stat.viewPCTWeightPaidByType = baselStatPaidInfo(stat, part_key, point_id, grp_id, piece_concept);
++        stat.viewPCTWeightPaidByType = baselStatPaidInfo(stat, part_key, point_id, grp_id.get(), piece_concept);
+         stat.viewClass = ElemIdToNameLong(etClass, grp_class);
+         stats.push_back(stat);
+     }
+@@ -659,8 +683,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+   stats.clear();
+ 
+   TTripInfo operFlt;
+-  if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
+-                                                            FlightProps::WithCheckIn))) return;
++  if (!operFlt.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
++                                                  FlightProps::WithCheckIn))) return;
+ 
+   TRegEvents events;
+   events.fromDB(part_key, point_id);
+@@ -670,16 +694,14 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+   TQuery TimeQry(&OraSession);
+ 
+     bag_sql=
+-      "SELECT bag2.* "
++      "SELECT bag2.*, pax_grp.class "
+       "FROM pax_grp,bag2 "
+       "WHERE pax_grp.grp_id=bag2.grp_id AND "
+-      "      pax_grp.grp_id=:grp_id AND "
+-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
++      "      pax_grp.grp_id=:grp_id ";
+     bag_pc_sql=
+       "SELECT bag2.* "
+       "FROM bag2 "
+-      "WHERE bag2.grp_id=:grp_id AND "
+-      "      ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num,0)=:pax_id";
++      "WHERE bag2.grp_id=:grp_id ";
+ 
+     TimeQry.SQLText =
+       "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
+@@ -696,15 +718,9 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+   ostringstream sql;
+   sql <<
+     "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
++    "       pax_grp.bag_refuse, pax_grp.excess_wt, "
+     "       pax.pax_id, pax.surname, pax.name, "
+-    "       pax.refuse, pax.pr_brd, pax.reg_no, "
+-    "         "
+-    "ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+-    "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+-    "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
+-    "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-    "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
+-    "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
++    "       pax.refuse, pax.pr_brd, pax.reg_no, pax.bag_pool_num "
+     "FROM pax_grp, pax "
+     "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
+     "      pax_grp.point_dep=:point_id AND "
+@@ -714,10 +730,14 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+   Qry.SQLText=sql.str().c_str();
+   Qry.CreateVariable("point_id", otInteger, point_id);
+   Qry.Execute();
++  using namespace CKIN;
++  BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
++  MainPax viewEx;
+   for(;!Qry.Eof;Qry.Next())
+   {
+     bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+-    int main_pax_id=Qry.FieldIsNULL("main_pax_id")?NoExists:Qry.FieldAsInteger("main_pax_id");
++
++    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+ 
+     TBaselStat stat;
+     stat.point_id = point_id;
+@@ -729,17 +749,38 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+     string tmp = IntToString( operFlt.flt_no );
+     while ( tmp.size() < 3 ) tmp = "0" + tmp;
+     stat.viewFlight += tmp + operFlt.suffix;
+-    if (stat.pax_id!=NoExists)
++    int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
++    int bag_refuse = Qry.FieldAsInteger("bag_refuse");
++    std::optional<int> opt_bag_pool_num = std::nullopt;
++
++    if (stat.pax_id!=NoExists) {
++        PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
++        if(!Qry.FieldIsNULL("bag_pool_num")) {
++            opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++            viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
++        }
++
+       stat.viewName = string(Qry.FieldAsString("surname")) + "/" + Qry.FieldAsString("name");
+-    else
++
++      stat.viewPCT = bag_reader.bagAmount(grp_id, opt_bag_pool_num);
++      stat.viewWeight = bag_reader.bagWeight(grp_id, opt_bag_pool_num);
++      stat.viewCarryon = bag_reader.rkWeight(grp_id, opt_bag_pool_num);
++      stat.viewPayWeight = TComplexBagExcess(TBagPieces(countPaidExcessPC(pax_id)),
++        TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt_raw))).getDeprecatedInt();
++      stat.viewTag = bag_reader.tags(grp_id, opt_bag_pool_num, "RU").substr(0,100);
++    }
++    else {
+       stat.viewName = "БАГАЖ БЕЗ СОПРОВОЖДЕНИЯ";
++
++      stat.viewPCT = bag_reader.bagAmountUnaccomp(grp_id);
++      stat.viewWeight = bag_reader.bagWeightUnaccomp(grp_id);
++      stat.viewCarryon = bag_reader.rkWeightUnaccomp(grp_id);
++      stat.viewPayWeight = TComplexBagExcess(TBagPieces(0),
++        TBagKilos(viewEx.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse!=0))).getDeprecatedInt();
++      stat.viewTag = bag_reader.tagsUnaccomp(grp_id, "RU").substr(0,100);
++    }
+     stat.viewName = stat.viewName.substr(0,130);
+-    stat.viewPCT = Qry.FieldAsInteger("bag_amount");
+-    stat.viewWeight = Qry.FieldAsInteger("bag_weight");
+-    stat.viewCarryon = Qry.FieldAsInteger("rk_weight");
+-    stat.viewPayWeight = TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" )))),
+-                                           TBagKilos(Qry.FieldAsInteger("excess_wt"))).getDeprecatedInt();
+-    stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
++
+     pair<TDateTime, TDateTime> times(NoExists, NoExists);
+     WeightConcept::TPaxNormComplexContainer norms;
+     if (stat.pax_id!=NoExists)
+@@ -784,58 +825,65 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
+     TPaidToLogInfo paidInfo;
+     BagQry.Clear();
+     BagQry.CreateVariable("grp_id", otInteger, stat.viewGroup);
++    bool is_bag_pc = false;
+     if (piece_concept && stat.pax_id!=NoExists)
+     {
+       BagQry.SQLText=bag_pc_sql;
+       BagQry.CreateVariable("pax_id", otInteger, stat.pax_id);
++      is_bag_pc = true;
+     }
+-    else if (stat.pax_id==NoExists || stat.pax_id==main_pax_id)
++    else if (stat.pax_id==NoExists || viewEx.isMainPax(grp_id, PaxId_t(stat.pax_id)))
+     {
+       BagQry.SQLText = bag_sql;
++      is_bag_pc = false;
+     };
+     if (!BagQry.SQLText.IsEmpty())
+     {
+-      BagQry.Execute();
+-      if (!BagQry.Eof)
+-      {
+-        for(;!BagQry.Eof;BagQry.Next())
+-        {
+-          CheckIn::TBagItem bagItem;
+-          bagItem.fromDB(BagQry);
+-          paidInfo.add(bagItem);
+-        };
+-        if (!piece_concept)
+-        {
+-          WeightConcept::TPaidBagList paid;
+-          WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
+-          for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+-            paidInfo.add(*p);
+-        }
+-        else
+-        {
+-            TPaidRFISCListWithAuto paid;
+-            paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
+-            for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
++      if (is_bag_pc ||  (!is_bag_pc && !CKIN::get_bag_pool_refused(grp_id, opt_bag_pool_num.value_or(0),
++                                        Qry.FieldAsString("class"), bag_refuse, std::nullopt))) {
++
++          BagQry.Execute();
++          if (!BagQry.Eof)
++          {
++            for(;!BagQry.Eof;BagQry.Next())
+             {
+-              if (p->second.trfer_num!=0) continue;
+-              paidInfo.add(p->second);
++              CheckIn::TBagItem bagItem;
++              bagItem.fromDB(BagQry);
++              paidInfo.add(bagItem);
+             };
+-        };
+-        ostringstream str;
+-        for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
+-        {
+-          if (b->second.empty()) continue;
+-
+-          if (!str.str().empty()) str << ", ";
+-          if (!b->first.bag_type_view.empty())
+-            str << b->first.bag_type_view << ":";
+-          if (b->first.is_trfer)
+-            str << "T:";
+-          str << b->second.amount << "/" << b->second.weight << "/" << b->second.paid;
+-        };
+-        stat.viewPCTWeightPaidByType=str.str();
+-      };
+-    };
++            if (!piece_concept)
++            {
++              WeightConcept::TPaidBagList paid;
++              WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
++              for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
++                paidInfo.add(*p);
++            }
++            else
++            {
++                TPaidRFISCListWithAuto paid;
++                paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
++                for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
++                {
++                  if (p->second.trfer_num!=0) continue;
++                  paidInfo.add(p->second);
++                };
++            };
++            ostringstream str;
++            for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
++            {
++              if (b->second.empty()) continue;
++
++              if (!str.str().empty()) str << ", ";
++              if (!b->first.bag_type_view.empty())
++                str << b->first.bag_type_view << ":";
++              if (b->first.is_trfer)
++                str << "T:";
++              str << b->second.amount << "/" << b->second.weight << "/" << b->second.paid;
++            };
++            stat.viewPCTWeightPaidByType=str.str();
++          };
++      }
++    }
+ 
+     stat.viewClass = ElemIdToNameLong(etClass, Qry.FieldAsString("class"));
+     if ( stat.pax_id!=NoExists ) {
+diff --git a/src/brd.cc b/src/brd.cc
+index c6c664cce..0b51792ae 100644
+--- a/src/brd.cc
++++ b/src/brd.cc
+@@ -32,6 +32,8 @@
+ #include "pax_calc_data.h"
+ #include "pax_confirmations.h"
+ #include "checkin.h"
++#include "baggage_ckin.h"
++
+ #include <serverlib/algo.h>
+ 
+ #define NICKNAME "VLAD"
+@@ -586,15 +588,10 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
+         "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+         "    pax_grp.status, "
+         "    pax_grp.client_type, "
++        "    pax_grp.excess_wt, pax_grp.bag_refuse, "
+         "    pax.*, "
+         "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+-        "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+-        "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+-        "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
+-        "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+-        "    ckin.get_excess_wt(pax.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-        "    NULL AS excess_pc, "
+-        "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
++        "    NULL AS excess_pc ";
+     if (used_for_brd_and_exam)
+         sql << ", tckin_pax_grp.tckin_id "
+                ", tckin_pax_grp.grp_num "
+@@ -683,16 +680,15 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
+     }
+ 
+     Qry.CreateVariable("point_id",otInteger,point_id);
+-    Qry.CreateVariable("lang",otString,lang);
+     Qry.SQLText = sql.str().c_str();
+ }
+ 
+ void BrdInterface::GetPaxQuery(DB::TQuery &Qry, const int point_id,
+                                                 const int reg_no,
+                                                 const int pax_id,
+-                                                const string &lang,
+-                                                const TRptType rpt_type,
+-                                                const string &client_type,
++                                                const std::string &lang,
++                                                const ASTRA::TRptType rpt_type,
++                                                const std::string &client_type,
+                                                 const TSortType sort,
+                                                 const bool usePaxCalcData)
+ {
+@@ -717,15 +713,10 @@ void BrdInterface::GetPaxQuery(DB::TQuery &Qry, const int point_id,
+         "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+         "    pax_grp.status, "
+         "    pax_grp.client_type, "
++        "    pax_grp.excess_wt, pax_grp.bag_refuse, "
+         "    pax.*, "
+         "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+-        "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+-        "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+-        "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
+-        "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+-        "    ckin.get_excess_wt(pax.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-        "    NULL AS excess_pc, "
+-        "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
++        "    NULL AS excess_pc ";
+     if (used_for_brd_and_exam)
+         sql << ", tckin_pax_grp.tckin_id "
+                ", tckin_pax_grp.grp_num "
+@@ -814,7 +805,6 @@ void BrdInterface::GetPaxQuery(DB::TQuery &Qry, const int point_id,
+     }
+ 
+     Qry.CreateVariable("point_id",otInteger,point_id);
+-    Qry.CreateVariable("lang",otString,lang);
+     Qry.SQLText = sql.str().c_str();
+ };
+ 
+@@ -1809,10 +1799,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
+ 
+     DB::TQuery Qry5(PgOra::getROSession("TODO"), STDLOG);
++    tst();
+     GetPaxQuery(Qry5, point_id, showWholeFlight?NoExists:reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "", stRegNo, apis_generation);
++    tst();
+     Qry5.Execute();
++    tst();
+     if (!Qry5.Eof)
+     {
++        tst();
+       TQuery TCkinQry(&OraSession);
+ 
+       bool free_seating=SALONS2::isFreeSeating(point_id);
+@@ -1866,12 +1860,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+       int col_ticket_no=Qry5.FieldIndex("ticket_no");
+       int col_coupon_no=Qry5.FieldIndex("coupon_no");
+       int col_tid=Qry5.FieldIndex("tid");
+-      int col_bag_amount=Qry5.FieldIndex("bag_amount");
+-      int col_bag_weight=Qry5.FieldIndex("bag_weight");
+-      int col_rk_amount=Qry5.FieldIndex("rk_amount");
+-      int col_rk_weight=Qry5.FieldIndex("rk_weight");
+-      int col_excess_wt=Qry5.FieldIndex("excess_wt");
+-      int col_tags=Qry5.FieldIndex("tags");
+       int col_client_type=Qry5.FieldIndex("client_type");
+       int col_tckin_id=Qry5.FieldIndex("tckin_id");
+       int col_grp_num=Qry5.FieldIndex("grp_num");
+@@ -1880,6 +1868,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+       int col_crs_bag_norm_unit=Qry5.FieldIndex("crs_bag_norm_unit");
+       int col_refuse=Qry5.FieldIndex("refuse");
+       int col_doco_confirm=Qry5.FieldIndex("doco_confirm");
++      int col_bag_refuse=Qry5.FieldIndex("bag_refuse");
++      int col_excess_wt_raw=Qry5.FieldIndex("excess_wt");
+ 
+       TCkinRoute tckin_route;
+       TPaxSeats priorSeats(point_id);
+@@ -1894,6 +1884,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+ 
+       boost::optional<TCustomAlarms> custom_alarms;
+       AllAPIAttrs allAPIAttrs(fltInfo.scd_out);
++
++      using namespace CKIN;
++      BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
++      MainPax viewPax;
+       for(;!Qry5.Eof;Qry5.Next())
+       {
+           const int grp_id=Qry5.FieldAsInteger(col_grp_id);
+@@ -1906,6 +1900,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+           const TCrewType::Enum crew_type = CrewTypes().decode(Qry5.FieldAsString("crew_type").c_str());
+           const ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
+           const bool docoConfirmed=Qry5.FieldAsInteger(col_doco_confirm)!=0;
++
++          const int bag_refuse = Qry5.FieldAsInteger(col_bag_refuse);
++          std::optional<int> opt_bag_pool_num;
++          if(!Qry5.FieldIsNULL("bag_pool_num")) {
++              opt_bag_pool_num = Qry5.FieldAsInteger("bag_pool_num");
++              viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse!=0);
++          }
++
++          const int excess_wt_raw = Qry5.FieldAsInteger(col_excess_wt_raw);
+           std::string last_airp_arv = get_last_trfer_airp(GrpId_t(grp_id));
+           if (last_airp_arv.empty()) {
+               last_airp_arv = airp_arv;
+@@ -1958,11 +1961,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+             NewTextChild( paxNode, "apisFlags", allAPIAttrs.view(Qry5, paxNotRefused), "" );
+           }
+ 
+-          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
++          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, false), "");
+           NewTextChild(paxNode, "tid", Qry5.FieldAsInteger(col_tid));
+ 
+-          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry5.FieldAsInteger( col_pax_id )), true /*include_all_svc*/)),
+-                                                TBagKilos(Qry5.FieldAsInteger(col_excess_wt)));
++          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(pax_id), true /*include_all_svc*/)),
++          TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw)));
+ 
+           int value_bag_count=0;
+           bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
+@@ -1987,11 +1990,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+           NewTextChild(paxNode, "bag_norm", trueBagNormView(crsBagNorm, etick, OutputLang()), "");
+ 
+           NewTextChild(paxNode, "pr_payment", (int)pr_payment, (int)false);
+-          NewTextChild(paxNode, "bag_amount", Qry5.FieldAsInteger(col_bag_amount), 0);
+-          NewTextChild(paxNode, "bag_weight", Qry5.FieldAsInteger(col_bag_weight), 0);
+-          NewTextChild(paxNode, "rk_amount", Qry5.FieldAsInteger(col_rk_amount), 0);
+-          NewTextChild(paxNode, "rk_weight", Qry5.FieldAsInteger(col_rk_weight), 0);
+-          NewTextChild(paxNode, "tags", Qry5.FieldAsString(col_tags), "");
++          NewTextChild(paxNode, "bag_amount", bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num));
++          NewTextChild(paxNode, "bag_weight", bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num));
++          NewTextChild(paxNode, "rk_amount", bag_reader.rkAmount(GrpId_t(grp_id), opt_bag_pool_num));
++          NewTextChild(paxNode, "rk_weight", bag_reader.rkWeight(GrpId_t(grp_id), opt_bag_pool_num));
++          NewTextChild(paxNode, "tags", bag_reader.tags(GrpId_t(grp_id), opt_bag_pool_num, reqInfo->desk.lang));
++
+           NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
+ 
+           if (DecodeClientType(Qry5.FieldAsString(col_client_type).c_str())!=ctTerm)
+diff --git a/src/checkin.cc b/src/checkin.cc
+index 84585b710..77b98b04d 100644
+--- a/src/checkin.cc
++++ b/src/checkin.cc
+@@ -2523,7 +2523,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+ 
+   using namespace CKIN;
+   BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
+-  ExcessWt viewEx;
++  MainPax viewEx;
+   if (!Qry.Eof)
+   {
+     createDefaults=true;
+@@ -2576,7 +2576,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       std::optional<int> bag_pool_num = std::nullopt;
+       if(!Qry.FieldIsNULL(col_bag_pool_num)) {
+           bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+-          viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id));
++          viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse!=0);
+       }
+       int reg_no = Qry.FieldAsInteger(col_reg_no);
+       string cl = Qry.FieldAsString(col_class);
+@@ -2658,7 +2658,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       NewTextChild(paxNode,"seat_no",seat_no.str());
+       NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
+       NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
+-      NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true), "");
++      NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, true), "");
+ 
+       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
+       NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
+@@ -2668,7 +2668,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num),0);
+ 
+       excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
+-        TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw, bag_refuse!=0)));
++        TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw)));
+       NewTextChild(paxNode,"tags",bag_reader.tags(GrpId_t(grp_id), bag_pool_num, reqInfo->desk.lang),"");
+       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
+ 
+@@ -2689,7 +2689,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       if (with_rcpt_info)
+       {
+         string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, pax_id):
+-                                      WeightConcept::GetBagRcptStr(grp_id, pax_id);
++                                      WeightConcept::GetBagRcptStr(grp_id, pax_id, viewEx);
+         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
+ 
+         pair<int, int> rcpt_complete_key=piece_concept?make_pair(grp_id, pax_id):make_pair(grp_id, NoExists);
+@@ -2798,7 +2798,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+   Qry.CreateVariable("point_id",otInteger,point_id);
+   Qry.Execute();
+   node=NewTextChild(resNode,"unaccomp_bag");
+-  ExcessWt viewExUnac;
++  MainPax viewExUnac(true);
+   if (!Qry.Eof)
+   {
+     createDefaults=true;
+@@ -2808,8 +2808,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       const std::string cl = Qry.FieldAsString("class");
+       int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+-      int excess_wt_raw = Qry.FieldAsInteger("excess_wt_raw");
+-
++      const int excess_wt_raw = Qry.FieldAsInteger("excess_wt_raw");
++      LogTrace(TRACE5) << " MYTRACE: excess_wt_raw : " << excess_wt_raw;
+       if (with_rcpt_info) {
+         if (!need_for_payment(GrpId_t(grp_id), cl, bag_refuse,
+                               piece_concept, excess_wt_raw, {}))
+@@ -2831,13 +2831,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeightUnaccomp(grp_id),0);
+ 
+       excessNodeList.add(paxNode, "excess", TBagPieces(0),
+-        TBagKilos(viewExUnac.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse)));
++        TBagKilos(viewExUnac.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse!=0)));
+ 
+       NewTextChild(paxNode,"tags", bag_reader.tagsUnaccomp(grp_id, reqInfo->desk.lang),"");
+       if (with_rcpt_info)
+       {
+         string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id.get(), NoExists):
+-                                      WeightConcept::GetBagRcptStr(grp_id.get(), NoExists);
++                                      WeightConcept::GetBagRcptStr(grp_id.get(), NoExists, viewExUnac);
+         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
+         // все ли квитанции распечатаны
+         //0 - частично напечатаны
+diff --git a/src/docs/docs_exam.cc b/src/docs/docs_exam.cc
+index e3d8fddc1..328721ca7 100644
+--- a/src/docs/docs_exam.cc
++++ b/src/docs/docs_exam.cc
+@@ -4,6 +4,8 @@
+ #include "stat/stat_utils.h"
+ #include "docs_utils.h"
+ #include "xml_unit.h"
++#include "baggage_ckin.h"
++
+ #include "serverlib/xmllibcpp.h"
+ 
+ #define NICKNAME "DENIS"
+@@ -47,6 +49,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+                 check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
+ 
+             TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
++            using namespace CKIN;
++            BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
++            MainPax viewPax;
+             for( ; !Qry.Eof; Qry.Next()) {
+                 CheckIn::TSimplePaxItem pax;
+                 pax.fromDB(Qry);
+@@ -62,19 +67,29 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+                 NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
+                 NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
+                 NewTextChild(paxNode, "seat_no", pax.seat_no);
+-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax.id, false, rpt_params.GetLang()));
++                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax.id, false, rpt_params.GetLang()));
+                 NewTextChild(paxNode, "ticket_no", pax.tkn.no);
+                 NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
+-                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+-                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+-                NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
+-                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
++
++                const int bag_refuse = Qry.FieldAsInteger("bag_refuse");
++                std::optional<int> opt_bag_pool_num;
++                if(!Qry.FieldIsNULL("bag_pool_num")) {
++                    opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++                    viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax.paxId()), bag_refuse!=0);
++                }
++
++                const int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
++
++                NewTextChild(paxNode, "bag_amount", bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num));
++                NewTextChild(paxNode, "bag_weight", bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num));
++                NewTextChild(paxNode, "rk_amount", bag_reader.rkAmount(GrpId_t(grp_id), opt_bag_pool_num));
++                NewTextChild(paxNode, "rk_weight", bag_reader.rkWeight(GrpId_t(grp_id), opt_bag_pool_num));
+                 excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+-                        TBagKilos(Qry.FieldAsInteger("excess_wt")));
++                        TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax.paxId()), excess_wt_raw)));
+                 bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
+                     WeightConcept::BagPaymentCompleted(grp_id);
+                 NewTextChild(paxNode, "pr_payment", (int)pr_payment);
+-                NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
++                NewTextChild(paxNode, "tags", bag_reader.tags(GrpId_t(grp_id), opt_bag_pool_num, rpt_params.GetLang()));
+                 NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
+             }
+         }
+@@ -106,7 +121,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+                 NewTextChild(paxNode, "pr_exam", (int)pax->simple.pr_exam, (int)false);
+                 NewTextChild(paxNode, "pr_brd", (int)pax->simple.pr_brd, (int)false);
+                 NewTextChild(paxNode, "seat_no", pax->seat_no());
+-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax->simple.id, false, rpt_params.GetLang()));
++                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax->simple.id, false, rpt_params.GetLang()));
+                 NewTextChild(paxNode, "ticket_no", pax->tkn_str());
+                 NewTextChild(paxNode, "bag_amount", pax->bag_amount());
+                 NewTextChild(paxNode, "bag_weight", pax->bag_weight());
+diff --git a/src/docs/docs_pax_list.cc b/src/docs/docs_pax_list.cc
+index 1c86e61fc..71b509f22 100644
+--- a/src/docs/docs_pax_list.cc
++++ b/src/docs/docs_pax_list.cc
+@@ -11,6 +11,29 @@ using namespace REPORTS;
+ using namespace std;
+ using namespace ASTRA;
+ 
++
++// Может, вынести в утилиты?
++template<class TQueryT>
++string FieldAsString(TQueryT &Qry, const string &name)
++{
++    string result;
++    int col_idx = Qry.GetFieldIndex(name);
++    if(col_idx >= 0)
++        result = Qry.FieldAsString(col_idx);
++    return result;
++}
++
++template<class TQueryT>
++int FieldAsInteger(TQueryT &Qry, const string &name)
++{
++    int result = NoExists;
++    int col_idx = Qry.GetFieldIndex(name);
++    if(col_idx >= 0)
++        result = Qry.FieldAsInteger(col_idx);
++    return result;
++}
++
++
+ TPaxPtr TPaxList::getPaxPtr()
+ {
+     return TPaxPtr(new TPax(*this));
+@@ -59,21 +82,9 @@ void TPaxList::fromDB()
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     string SQLText =
+-        "select "
++        "select  pax_grp.excess_wt, pax_grp.bag_refuse, "
+         "   nvl2(pax.grp_id, NULL, pax_grp.grp_id) empty_pax_grp_id, "
+         "   pax.* ";
+-    if(options.flags.isFlag(oeBagAmount))
+-        SQLText += "   ,ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+-    if(options.flags.isFlag(oeBagWeight))
+-        SQLText += "   ,ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight ";
+-    if(options.flags.isFlag(oeRkAmount))
+-        SQLText += "   ,ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount ";
+-    if(options.flags.isFlag(oeRkWeight))
+-        SQLText += "   ,ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight ";
+-    if(options.flags.isFlag(oeExcess))
+-        SQLText +=
+-            "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
+-            "   ,0 AS excess_pc ";
+     SQLText +=
+         "from pax_grp, pax where "
+         "   pax_grp.point_dep = :point_id and "
+@@ -106,9 +117,19 @@ void TPaxList::fromDB()
+ 
+ void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
+ {
++    CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
++    CKIN::MainPax view_pax;
+     for(; !Qry.Eof; Qry.Next()) {
+         TPaxPtr pax = getPaxPtr();
+         pax->fromDB(Qry);
++
++        int bag_refuse = Qry.FieldAsInteger("bag_refuse");
++        if(pax->simple.bag_pool_num != NoExists) {
++            view_pax.saveMainPax(GrpId_t(pax->simple.grp_id), PaxId_t(pax->simple.paxId()), bag_refuse !=0);  // Установка главного пакса в группе
++        }
++        pax->baggage.fromBagReader(pax->simple, bag_reader, view_pax, options,
++                                   Qry.FieldAsInteger("excess_pc"), Qry.FieldAsInteger("excess_wt"));
++
+         if (countExcessPC) {
+           pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
+         }
+@@ -131,9 +152,19 @@ void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
+ 
+ void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
+ {
++    CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
++    CKIN::MainPax view_pax;
+     for(; !Qry.Eof; Qry.Next()) {
+         TPaxPtr pax = getPaxPtr();
+         pax->fromDB(Qry);
++
++        int bag_refuse = Qry.FieldAsInteger("bag_refuse");
++        if(pax->simple.bag_pool_num != NoExists) {
++            view_pax.saveMainPax(GrpId_t(pax->simple.grp_id), PaxId_t(pax->simple.paxId()), bag_refuse !=0);  // Установка главного пакса в группе
++        }
++        pax->baggage.fromBagReader(pax->simple, bag_reader, view_pax, options,
++                                   Qry.FieldAsInteger("excess_pc"), Qry.FieldAsInteger("excess_wt"));
++
+         if (countExcessPC) {
+           pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
+         }
+@@ -154,6 +185,26 @@ void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
+     }
+ }
+ 
++void TBaggage::fromBagReader(const CheckIn::TSimplePaxItem & pax,
++                             const CKIN::BagReader & bag_reader, const CKIN::MainPax & view_pax,
++                             const TOptions& options, int excess_pc, int excess_wt)
++{
++    std::optional<int> opt_bag_pool_num;
++    if(pax.bag_pool_num != NoExists) {
++        opt_bag_pool_num = pax.bag_pool_num;
++    }
++    amount = bag_reader.bagAmount(GrpId_t(pax.grp_id), opt_bag_pool_num);
++    weight = bag_reader.bagWeight(GrpId_t(pax.grp_id), opt_bag_pool_num);
++    rk_amount = bag_reader.rkAmount(GrpId_t(pax.grp_id), opt_bag_pool_num);
++    rk_weight = bag_reader.rkWeight(GrpId_t(pax.grp_id), opt_bag_pool_num);
++    excess_pc = excess_pc;
++    excess_wt = view_pax.excessWt(GrpId_t(pax.grp_id), PaxId_t(pax.paxId()), excess_wt);
++    if(options.flags.isFlag(oeTags) && opt_bag_pool_num) {
++        tags = bag_reader.tags(GrpId_t(pax.grp_id), opt_bag_pool_num, options.lang);
++    }
++    trace(TRACE5);
++}
++
+ void TBaggage::trace(TRACE_SIGNATURE)
+ {
+     LogTrace(TRACE_PARAMS) << "---TBaggage::trace---";
+@@ -180,27 +231,6 @@ void TPax::trace(TRACE_SIGNATURE)
+     }
+ }
+ 
+-// Может, вынести в утилиты?
+-template<class TQueryT>
+-string FieldAsString(TQueryT &Qry, const string &name)
+-{
+-    string result;
+-    int col_idx = Qry.GetFieldIndex(name);
+-    if(col_idx >= 0)
+-        result = Qry.FieldAsString(col_idx);
+-    return result;
+-}
+-
+-template<class TQueryT>
+-int FieldAsInteger(TQueryT &Qry, const string &name)
+-{
+-    int result = NoExists;
+-    int col_idx = Qry.GetFieldIndex(name);
+-    if(col_idx >= 0)
+-        result = Qry.FieldAsInteger(col_idx);
+-    return result;
+-}
+-
+ void TPax::fromDB(TQuery &Qry)
+ {
+     int empty_pax_grp_id = FieldAsInteger(Qry, "empty_pax_grp_id");
+@@ -235,10 +265,7 @@ void TPax::fromDB(TQuery &Qry)
+     }
+ 
+     user_descr = FieldAsString(Qry, "user_descr");
+-    baggage.fromDB(Qry);
+-    baggage.trace(TRACE5);
+-    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
+-        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
++
+     if(pax_list.rem_grp)
+         GetRemarks(simple.id, pax_list.options.lang, _rems);
+ }
+@@ -277,10 +304,7 @@ void TPax::fromDB(DB::TQuery &Qry)
+     }
+ 
+     user_descr = FieldAsString(Qry, "user_descr");
+-    baggage.fromDB(Qry);
+-    baggage.trace(TRACE5);
+-    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
+-        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
++
+     if(pax_list.rem_grp)
+         GetRemarks(simple.id, pax_list.options.lang, _rems);
+ }
+@@ -375,26 +399,6 @@ string TPax::tkn_str() const
+     return result;
+ }
+ 
+-void TBaggage::fromDB(TQuery &Qry)
+-{
+-    rk_amount = FieldAsInteger(Qry, "rk_amount");
+-    rk_weight = FieldAsInteger(Qry, "rk_weight");
+-    amount = FieldAsInteger(Qry, "bag_amount");
+-    weight = FieldAsInteger(Qry, "bag_weight");
+-    excess_wt = FieldAsInteger(Qry, "excess_wt");
+-    excess_pc = FieldAsInteger(Qry, "excess_pc");
+-}
+-
+-void TBaggage::fromDB(DB::TQuery &Qry)
+-{
+-    rk_amount = FieldAsInteger(Qry, "rk_amount");
+-    rk_weight = FieldAsInteger(Qry, "rk_weight");
+-    amount = FieldAsInteger(Qry, "bag_amount");
+-    weight = FieldAsInteger(Qry, "bag_weight");
+-    excess_wt = FieldAsInteger(Qry, "excess_wt");
+-    excess_pc = FieldAsInteger(Qry, "excess_pc");
+-}
+-
+ int TPax::bag_amount() const
+ {
+     int result = baggage.amount;
+@@ -470,17 +474,17 @@ TBagPieces TPax::excess_pc() const
+     return result;
+ }
+ 
+-string TPax::get_tags() const
+-{
+-    multiset<TBagTagNumber> result = _tags;
+-    for(const auto &cbbg: cbbg_list) {
+-        if(cbbg.pax_info)
+-            result.insert(
+-                    cbbg.pax_info->_tags.begin(),
+-                    cbbg.pax_info->_tags.end());
+-    }
+-    return GetTagRangesStrShort(result);
+-}
++//string TPax::get_tags() const
++//{
++//    multiset<TBagTagNumber> result = _tags;
++//    for(const auto &cbbg: cbbg_list) {
++//        if(cbbg.pax_info)
++//            result.insert(
++//                    cbbg.pax_info->_tags.begin(),
++//                    cbbg.pax_info->_tags.end());
++//    }
++//    return GetTagRangesStrShort(result);
++//}
+ 
+ string TPax::rems() const
+ {
+diff --git a/src/docs/docs_pax_list.h b/src/docs/docs_pax_list.h
+index 505ae3fe7..98ed6a658 100644
+--- a/src/docs/docs_pax_list.h
++++ b/src/docs/docs_pax_list.h
+@@ -6,6 +6,7 @@
+ #include "db_tquery.h"
+ #include "docs_consts.h"
+ #include "pers_weights.h"
++#include "baggage_ckin.h"
+ 
+ namespace REPORTS {
+ 
+@@ -102,6 +103,7 @@ namespace REPORTS {
+         int weight;
+         TBagKilos excess_wt;
+         TBagPieces excess_pc;
++        std::string tags;
+         void clear()
+         {
+             rk_amount = 0;
+@@ -127,8 +129,10 @@ namespace REPORTS {
+                 excess_wt.empty() or
+                 excess_pc.empty();
+         }
+-        void fromDB(TQuery &Qry);
+-        void fromDB(DB::TQuery &Qry);
++
++        void fromBagReader(const CheckIn::TSimplePaxItem & pax, const CKIN::BagReader & bag_reader,
++                           const CKIN::MainPax & view_pax, const TOptions &options,
++                           int excess_pc, int excess_wt);
+         void trace(TRACE_SIGNATURE);
+     };
+ 
+@@ -156,9 +160,7 @@ namespace REPORTS {
+         std::string seat_no() const;
+         std::string tkn_str() const;
+         std::string _seat_no; // # места с пробелами в начале, для сортировки
+-
+-        std::multiset<TBagTagNumber> _tags;
+-        std::string get_tags() const;
++        std::string get_tags() {return baggage.tags;}
+ 
+         std::multiset<CheckIn::TPaxRemItem> _rems;
+         virtual std::string rems() const;
+@@ -171,7 +173,6 @@ namespace REPORTS {
+             _seat_no.clear();
+             user_descr.clear();
+             baggage.clear();
+-            _tags.clear();
+             _rems.clear();
+         }
+ 
+diff --git a/src/docs/docs_ptm.cc b/src/docs/docs_ptm.cc
+index ed18dfd83..08ddf2e3c 100644
+--- a/src/docs/docs_ptm.cc
++++ b/src/docs/docs_ptm.cc
+@@ -367,7 +367,7 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode,
+           };
+           NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.simple.getTrickyGender()));
+           NewTextChild(rowNode, "gender", gender);
+-          NewTextChild(rowNode, "tags", pax.get_tags());
++          NewTextChild(rowNode, "tags", pax.baggage.tags);
+           NewTextChild(rowNode, "seat_no", pax_item->seat_no());
+           NewTextChild(rowNode, "remarks", pax.rems());
+         }
+diff --git a/src/docs/docs_reseat.cc b/src/docs/docs_reseat.cc
+index 1e20ff896..213bddc02 100644
+--- a/src/docs/docs_reseat.cc
++++ b/src/docs/docs_reseat.cc
+@@ -106,7 +106,7 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+                                                   i_cls->second,
+                                                   i->second.pax.cabin.cl.empty()?i_cls->second:i->second.pax.cabin.cl));
+ 
+-        NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(NoExists, i->second.pax.id, false, rpt_params.GetLang()));
++        NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(std::nullopt, i->second.pax.id, false, rpt_params.GetLang()));
+ 
+         ostringstream ticket_no;
+         ticket_no << i->second.pax.tkn.no;
+diff --git a/src/events.cc b/src/events.cc
+index 184b87ce4..2802f416a 100644
+--- a/src/events.cc
++++ b/src/events.cc
+@@ -14,6 +14,7 @@
+ #include "qrys.h"
+ #include "arx_daily_pg.h"
+ #include "dbo.h"
++#include "baggage_ckin.h"
+ 
+ #include <serverlib/algo.h>
+ #include <serverlib/testmode.h>
+@@ -382,8 +383,16 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
+ TEventsBagItem& TEventsBagItem::fromDB(TQuery &Qry)
+ {
+     CheckIn::TBagItem::fromDB(Qry);
+-    refused=Qry.FieldAsInteger("refused")!=0;
+-    pax_id=Qry.FieldIsNULL("pax_id")?ASTRA::NoExists:Qry.FieldAsInteger("pax_id");
++    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
++    std::optional<int> opt_bag_pool_num;
++    if(!Qry.FieldIsNULL("bag_pool_num")) {
++        opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++    }
++    refused = CKIN::get_bag_pool_refused(grp_id, opt_bag_pool_num.value_or(0),
++        Qry.FieldAsString("class"), Qry.FieldAsInteger("bag_refuse"), std::nullopt) != 0;
++    std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(grp_id, opt_bag_pool_num, std::nullopt);
++    pax_id = opt_pax_id ? opt_pax_id->get() : NoExists;
++
+     return *this;
+ };
+ 
+@@ -464,9 +473,7 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
+     TQuery Qry(&OraSession);
+     Qry.Clear();
+     Qry.SQLText=
+-            "SELECT bag2.*, "
+-            "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused, "
+-            "       ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num) AS pax_id "
++            "SELECT bag2.*, pax_grp.class, pax_grp.bag_refuse "
+             "FROM pax_grp,bag2 "
+             "WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.grp_id=:grp_id";
+     Qry.CreateVariable("grp_id",otInteger,grp_id);
+@@ -597,17 +604,12 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
+             "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
+             "       salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
+             "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
+-            "       pax.pr_brd, pax.pr_exam, "
+-            "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+-            "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+-            "       NVL(ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
+-            "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+-            "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
++            "       pax.pr_brd, pax.pr_exam, pax.bag_pool_num, "
+             "       pax_grp.trfer_confirm, NVL(pax_grp.piece_concept, 0) AS piece_concept "
+             "FROM pax_grp, pax "
+             "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
+     Qry.CreateVariable("grp_id",otInteger,grp_id);
+-    Qry.CreateVariable("lang",otString,AstraLocale::LANG_RU); //пока в лог пишем всегда на русском
++   // Qry.CreateVariable("lang",otString,AstraLocale::LANG_RU); //пока в лог пишем всегда на русском
+     Qry.Execute();
+     if (!Qry.Eof)
+     {
+@@ -615,6 +617,9 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
+         grpInfo.point_dep=Qry.FieldAsInteger("point_dep");
+         grpInfo.trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+         grpInfo.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
++
++        using namespace CKIN;
++        BagReader bag_reader(PointId_t(grpInfo.point_dep), std::nullopt, READ::BAGS_AND_TAGS);
+         for(;!Qry.Eof;Qry.Next())
+         {
+             TPaxToLogInfoKey paxInfoKey;
+@@ -653,11 +658,15 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
+                 paxInfo.refuse=Qry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
+             };
+ 
+-            paxInfo.bag_amount=Qry.FieldAsInteger("bag_amount");
+-            paxInfo.bag_weight=Qry.FieldAsInteger("bag_weight");
+-            paxInfo.rk_amount=Qry.FieldAsInteger("rk_amount");
+-            paxInfo.rk_weight=Qry.FieldAsInteger("rk_weight");
+-            paxInfo.tags=Qry.FieldAsString("tags");
++            std::optional<int> bag_pool_num;
++            if(!Qry.FieldIsNULL("bag_pool_num")) {
++                bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
++            }
++            paxInfo.bag_amount= bag_reader.bagAmount(GrpId_t(grp_id), bag_pool_num);
++            paxInfo.bag_weight= bag_reader.bagWeight(GrpId_t(grp_id), bag_pool_num);
++            paxInfo.rk_amount=  bag_reader.rkAmount(GrpId_t(grp_id), bag_pool_num);
++            paxInfo.rk_weight=  bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num);
++            paxInfo.tags= bag_reader.tags(GrpId_t(grp_id), bag_pool_num, AstraLocale::LANG_RU);
+ 
+             if (!grpInfo.piece_concept)
+             {
+diff --git a/src/exch_checkin_result.cpp b/src/exch_checkin_result.cpp
+index 0e48408ad..f56ed7f4e 100644
+--- a/src/exch_checkin_result.cpp
++++ b/src/exch_checkin_result.cpp
+@@ -23,6 +23,8 @@
+ #include "payment_base.h"
+ #include "rfisc.h"
+ #include "baggage_tags.h"
++#include "baggage_ckin.h"
++
+ #include <serverlib/xml_stuff.h>
+ 
+ #define NICKNAME "DJEK"
+@@ -254,12 +256,8 @@ namespace EXCH_CHECKIN_RESULT
+     int col_airp_arv;
+     int col_seat_no;
+     int col_seats;
+-    int col_excess_wt;
++    int col_excess_wt_raw;
+     int col_bag_pool_num;
+-    int col_rkamount;
+-    int col_rkweight;
+-    int col_bagamount;
+-    int col_bagweight;
+     int col_pr_brd;
+     int col_client_type;
+     int col_time;
+@@ -288,12 +286,8 @@ namespace EXCH_CHECKIN_RESULT
+       col_airp_arv = ASTRA::NoExists;
+       col_seat_no = ASTRA::NoExists;
+       col_seats = ASTRA::NoExists;
+-      col_excess_wt = ASTRA::NoExists;
++      col_excess_wt_raw = ASTRA::NoExists;
+       col_bag_pool_num = ASTRA::NoExists;
+-      col_rkamount = ASTRA::NoExists;
+-      col_rkweight = ASTRA::NoExists;
+-      col_bagamount = ASTRA::NoExists;
+-      col_bagweight = ASTRA::NoExists;
+       col_pr_brd = ASTRA::NoExists;
+       col_client_type = ASTRA::NoExists;
+       col_time = ASTRA::NoExists;
+@@ -311,17 +305,12 @@ namespace EXCH_CHECKIN_RESULT
+           "       pax.subclass, "
+           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
+           "       pax.seats seats, "
+-          "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-          "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+-          "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+-          "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+-          "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
+-          "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+           "       pax.bag_pool_num, "
+           "       pax.pr_brd, "
+           "       pax_grp.status, "
+           "       pax_grp.client_type, "
+-          "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
++          "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid, "
++          "       pax_grp.excess_wt, pax_grp.bag_refuse "
+           " FROM pax_grp, pax"
+           " WHERE pax_grp.grp_id=pax.grp_id AND "
+           "       pax.pax_id=:pax_id AND "
+@@ -331,7 +320,7 @@ namespace EXCH_CHECKIN_RESULT
+     int getFltNo( int point_id );
+     bool getFlightInfo( int point_id, TQuery &FltQry );
+     void getPaxTids( TQuery &PaxQry, PaxData &paxData );
+-    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData );
++    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData, const CKIN::BagReader& bag_reader );
+     bool virtual is_sync( const TTripInfo &flight ) {
+       return true;
+     }
+@@ -374,12 +363,9 @@ namespace EXCH_CHECKIN_RESULT
+     col_airp_arv = (col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" )) >= 0 ?col_airp_arv:ASTRA::NoExists;
+     col_seat_no = (col_seat_no = PaxQry.GetFieldIndex( "seat_no" )) >= 0 ?col_seat_no:ASTRA::NoExists;
+     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
+-    col_excess_wt = (col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt:ASTRA::NoExists;
++    col_excess_wt_raw = (col_excess_wt_raw = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt_raw:ASTRA::NoExists;
+     col_bag_pool_num = ( col_bag_pool_num = PaxQry.GetFieldIndex( "bag_pool_num" )) >= 0 ?col_bag_pool_num:ASTRA::NoExists;
+-    col_rkamount = (col_rkamount = PaxQry.GetFieldIndex( "rkamount" )) >= 0 ?col_rkamount:ASTRA::NoExists;
+-    col_rkweight = (col_rkweight = PaxQry.GetFieldIndex( "rkweight" )) >= 0 ?col_rkweight:ASTRA::NoExists;
+-    col_bagamount = (col_bagamount = PaxQry.GetFieldIndex( "bagamount" )) >= 0 ?col_bagamount:ASTRA::NoExists;
+-    col_bagweight = (col_bagweight = PaxQry.GetFieldIndex( "bagweight" )) >= 0 ?col_bagweight:ASTRA::NoExists;
++
+     col_pr_brd = (col_pr_brd = PaxQry.GetFieldIndex( "pr_brd" )) >= 0 ?col_pr_brd:ASTRA::NoExists;
+     col_client_type = (col_client_type = PaxQry.GetFieldIndex( "client_type" )) >= 0 ?col_client_type:ASTRA::NoExists;
+     col_point_id = (col_point_id = PaxQry.GetFieldIndex( "point_id" )) >= 0 ?col_point_id:ASTRA::NoExists;
+@@ -508,7 +494,7 @@ namespace EXCH_CHECKIN_RESULT
+     ProgTrace( TRACE5, "pax_tid=%d, grp_tid=%d", paxData.tids.pax_tid, paxData.tids.grp_tid );
+   }
+ 
+-  void PaxDBData::getPaxData( const Request &request, TQuery &PaxQry, PaxData &paxData )
++  void PaxDBData::getPaxData(const Request &request, TQuery &PaxQry, PaxData &paxData , const CKIN::BagReader &bag_reader)
+   {
+     paxData.pr_del = PaxQry.Eof;
+     if ( paxData.pr_del ) {
+@@ -529,14 +515,21 @@ namespace EXCH_CHECKIN_RESULT
+     paxData.airp_arv = PaxQry.FieldAsString( col_airp_arv );
+     paxData.seat_no = PaxQry.FieldAsString( col_seat_no );
+     paxData.seats = PaxQry.FieldAsInteger( col_seats );
+-    paxData.excess_wt = PaxQry.FieldAsInteger( col_excess_wt );
++
++    int excess_wt_raw = PaxQry.FieldAsInteger(col_excess_wt_raw);
++    int bag_refuse = PaxQry.FieldAsInteger("bag_refuse");
++    paxData.excess_wt = TBagKilos(CKIN::get_excess_wt(GrpId_t(paxData.grp_id), paxData.pax_id,
++                            excess_wt_raw, std::nullopt, bag_refuse, std::nullopt).value_or(NoExists));
+     paxData.excess_pc = countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger(col_pax_id)));
+     paxData.bag_pool_num = PaxQry.FieldAsInteger( col_bag_pool_num );
+-    paxData.rkamount = PaxQry.FieldAsInteger( col_rkamount );
+-    paxData.rkweight = PaxQry.FieldAsInteger( col_rkweight );
+-    paxData.bagamount = PaxQry.FieldAsInteger( col_bagamount );
+-    paxData.bagweight = PaxQry.FieldAsInteger( col_bagweight );
+ 
++    std::optional<int> opt_bag_pool_num;
++    if(!PaxQry.FieldIsNULL(col_bag_pool_num)) { opt_bag_pool_num = paxData.bag_pool_num;}
++
++    paxData.rkamount = bag_reader.rkAmount(GrpId_t(paxData.grp_id), opt_bag_pool_num);
++    paxData.rkweight =  bag_reader.rkWeight(GrpId_t(paxData.grp_id), opt_bag_pool_num);
++    paxData.bagamount = bag_reader.bagAmount(GrpId_t(paxData.grp_id), opt_bag_pool_num);
++    paxData.bagweight = bag_reader.bagWeight(GrpId_t(paxData.grp_id), opt_bag_pool_num);
+     if ( PaxQry.FieldIsNULL( col_pr_brd ) )
+       paxData.status = "uncheckin";
+     else
+@@ -686,6 +679,7 @@ namespace EXCH_CHECKIN_RESULT
+     NewTextChild( paxNode, "rkweight", rkweight );
+     NewTextChild( paxNode, "bagamount", bagamount );
+     NewTextChild( paxNode, "bagweight", bagweight );
++
+     NewTextChild( paxNode, "status", status );
+     NewTextChild( paxNode, "client_type", client_type);
+     if ( !this->ckinRoute.empty() ) {
+@@ -838,6 +832,8 @@ namespace EXCH_CHECKIN_RESULT
+     FltQry.SQLText =
+       "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+     FltQry.DeclareVariable( "point_id", otInteger );
++    using namespace CKIN;
++    std::map<PointId_t, BagReader> bag_readers;
+     for ( ;!changePaxIdsQry.Eof && pax_count<=MQRABBIT_TRANSPORT::MAX_SEND_PAXS; changePaxIdsQry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
+       count_row++;
+       int pax_id = changePaxIdsQry.FieldAsInteger( changePaxIdsDBData.col_pax_id );
+@@ -845,6 +841,9 @@ namespace EXCH_CHECKIN_RESULT
+         continue; // предыдущий пассажир он же и текущий
+       prior_pax_id = pax_id;
+       int point_id = changePaxIdsQry.FieldAsInteger( changePaxIdsDBData.col_point_id );
++      if(!algo::contains(bag_readers, PointId_t(point_id))) {
++        bag_readers[PointId_t(point_id)] = BagReader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
++      }
+       if ( !paxDBData.getFlightInfo( point_id, FltQry ) ) {
+         continue;
+       }
+@@ -883,7 +882,7 @@ namespace EXCH_CHECKIN_RESULT
+       if ( !ret.second ) {
+         ret.first->second = paxData.tids;
+       }
+-      paxDBData.getPaxData( request, PaxQry, paxData );
++      paxDBData.getPaxData( request, PaxQry, paxData, bag_readers[PointId_t(point_id)]);
+       pax_count++;
+       paxData.toXML( NewTextChild( node, "pax" ) );
+     } //end for
+diff --git a/src/meridian.cc b/src/meridian.cc
+index 6abc5d5bf..7941ada92 100644
+--- a/src/meridian.cc
++++ b/src/meridian.cc
+@@ -16,6 +16,7 @@
+ #include "exch_checkin_result.h"
+ #include "payment_base.h"
+ #include "flt_settings.h"
++#include "baggage_ckin.h"
+ 
+ #define NICKNAME "DJEK"
+ #include "serverlib/test.h"
+@@ -235,18 +236,13 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+        "       pax.subclass, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
+        "       pax.seats seats, "
+-       "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+-       "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+-       "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+-       "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+-       "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
+-       "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+        "       pax.bag_pool_num, "
+        "       pax.pr_brd, "
+        "       pax_grp.status, "
+        "       pax_grp.client_type, "
+        "       pax_doc.no document, "
+-       "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
++       "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid,"
++       "       pax_grp.excess_wt, pax_grp.bag_refuse "
+        " FROM pax_grp, pax, pax_doc "
+        " WHERE pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pax_id=:pax_id AND "
+@@ -278,11 +274,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+   int col_airp_arv = -1;
+   int col_seat_no = -1;
+   int col_seats = -1;
+-  int col_excess_wt = -1;
+-  int col_rkamount = -1;
+-  int col_rkweight = -1;
+-  int col_bagamount = -1;
+-  int col_bagweight = -1;
++  int col_excess_wt_raw = -1;
+   int col_pr_brd = -1;
+   int col_client_type = -1;
+ 
+@@ -293,6 +285,11 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+   FltQry.SQLText =
+     "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+   FltQry.DeclareVariable( "point_id", otInteger );
++
++  using namespace CKIN;
++  std::map<PointId_t, BagReader> bag_readers;
++  MainPax view_pax;
++
+   for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
+     count_row++;
+     int pax_id = Qry.FieldAsInteger( "pax_id" );
+@@ -300,6 +297,8 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+       continue; // предыдущий пассажир он же и текущий
+     prior_pax_id = pax_id;
+     int p_id = Qry.FieldAsInteger( "point_id" );
++
++    bag_readers[PointId_t(p_id)] = BagReader(PointId_t(p_id), std::nullopt, READ::BAGS);
+     if ( trips.find( p_id ) == trips.end() ) {
+       FltQry.SetVariable( "point_id", p_id );
+       FltQry.Execute();
+@@ -340,11 +339,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+       col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" );
+       col_seat_no = PaxQry.GetFieldIndex( "seat_no" );
+       col_seats = PaxQry.GetFieldIndex( "seats" );
+-      col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" );
+-      col_rkamount = PaxQry.GetFieldIndex( "rkamount" );
+-      col_rkweight = PaxQry.GetFieldIndex( "rkweight" );
+-      col_bagamount = PaxQry.GetFieldIndex( "bagamount" );
+-      col_bagweight = PaxQry.GetFieldIndex( "bagweight" );
++      col_excess_wt_raw = PaxQry.GetFieldIndex( "excess_wt" );
+       col_pr_brd = PaxQry.GetFieldIndex( "pr_brd" );
+       col_client_type = PaxQry.GetFieldIndex( "client_type" );
+     }
+@@ -373,6 +368,13 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+       NewTextChild( paxNode, "status", "delete" );
+       continue;
+     }
++    GrpId_t grp_id(PaxQry.FieldAsInteger(col_grp_id));
++    std::optional<int> opt_bag_pool_num;
++    if(!PaxQry.FieldIsNULL("bag_pool_num")) {
++        opt_bag_pool_num = PaxQry.FieldAsInteger("bag_pool_num");
++        view_pax.saveMainPax(grp_id, PaxId_t(pax_id), PaxQry.FieldAsInteger("bag_refuse") != 0);
++    }
++
+     NewTextChild( paxNode, "flight", trips[ p_id ].airline + IntToString( trips[ p_id ].flt_no ) + trips[ p_id ].suffix );
+     NewTextChild( paxNode, "scd_out", DateTimeToStr(trips[ p_id ].scd_out, ServerFormatDateTimeAsString ) );
+     NewTextChild( paxNode, "grp_id", PaxQry.FieldAsString( col_grp_id ) );
+@@ -387,12 +389,14 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+     NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString( col_airp_arv ) );
+     NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString( col_seat_no ) );
+     NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger( col_seats ) );
++    int excess_wt_raw = PaxQry.FieldAsInteger( col_excess_wt_raw );
++
+     NewTextChild( paxNode, "excess", TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger("pax_id")))),
+-                                                       TBagKilos(PaxQry.FieldAsInteger( col_excess_wt ))).deprecatedView(outputLang) );
+-    NewTextChild( paxNode, "rkamount", PaxQry.FieldAsInteger( col_rkamount ) );
+-    NewTextChild( paxNode, "rkweight", PaxQry.FieldAsInteger( col_rkweight ) );
+-    NewTextChild( paxNode, "bagamount", PaxQry.FieldAsInteger( col_bagamount ) );
+-    NewTextChild( paxNode, "bagweight", PaxQry.FieldAsInteger( col_bagweight ) );
++    TBagKilos(view_pax.excessWt(grp_id, PaxId_t(pax_id), excess_wt_raw))).deprecatedView(outputLang) );
++    NewTextChild( paxNode, "rkamount", bag_readers[PointId_t(p_id)].rkAmount(grp_id,opt_bag_pool_num));
++    NewTextChild( paxNode, "rkweight", bag_readers[PointId_t(p_id)].rkAmount(grp_id,opt_bag_pool_num));
++    NewTextChild( paxNode, "bagamount", bag_readers[PointId_t(p_id)].rkAmount(grp_id,opt_bag_pool_num));
++    NewTextChild( paxNode, "bagweight", bag_readers[PointId_t(p_id)].rkAmount(grp_id, opt_bag_pool_num));
+     if ( PaxQry.FieldIsNULL( col_pr_brd ) )
+       NewTextChild( paxNode, "status", "uncheckin" );
+     else
+diff --git a/src/passenger.cc b/src/passenger.cc
+index 99a319c1a..61cc0f66d 100644
+--- a/src/passenger.cc
++++ b/src/passenger.cc
+@@ -1235,7 +1235,7 @@ boost::optional<TPaxDocItem> TPaxDocItem::get(const PaxOrigin& origin, const Pax
+   switch(origin)
+   {
+     case paxCheckIn:
+-      if (LoadPaxDoc(ASTRA::NoExists, paxId.get(), result.get())) return result;
++      if (LoadPaxDoc(paxId.get(), result.get())) return result;
+       break;
+     case paxPnl:
+       if (LoadCrsPaxDoc(paxId.get(), result.get())) return result;
+@@ -1275,17 +1275,17 @@ TPaxDocItem fromPaxDoc(dbo::PAX_DOC & pax_doc)
+   return doc;
+ }
+ 
+-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
++bool LoadPaxDoc(std::optional<Dates::DateTime_t> part_key, PaxId_t pax_id, TPaxDocItem &doc)
+ {
+-  if(part_key == ASTRA::NoExists)
++  if(!part_key)
+   {
+-      return LoadPaxDoc(pax_id, doc);
++      return LoadPaxDoc(pax_id.get(), doc);
+   }
+   doc.clear();
+   dbo::Session session;
+   std::optional<dbo::ARX_PAX_DOC> pax_doc = session.query<dbo::ARX_PAX_DOC>()
+           .where("part_key=:part_key AND pax_id=:pax_id")
+-          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
++          .setBind({{"pax_id", pax_id.get()}, {":part_key", *part_key}});
+   if(pax_doc) {
+       doc = fromPaxDoc(*pax_doc);
+   }
+@@ -1305,7 +1305,7 @@ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
+ };
+ 
+ 
+-std::string GetPaxDocStr(TDateTime part_key,
++std::string GetPaxDocStr(std::optional<Dates::DateTime_t> part_key,
+                          int pax_id,
+                          bool with_issue_country,
+                          const string &lang)
+@@ -1313,7 +1313,7 @@ std::string GetPaxDocStr(TDateTime part_key,
+   ostringstream result;
+ 
+   TPaxDocItem doc;
+-  if (LoadPaxDoc(part_key, pax_id, doc) && !doc.no.empty())
++  if (LoadPaxDoc(part_key, PaxId_t(pax_id), doc) && !doc.no.empty())
+   {
+     result << doc.no;
+     if (with_issue_country && !doc.issue_country.empty())
+@@ -2679,27 +2679,6 @@ bool TSimplePaxItem::cabinClassToDB() const
+   return Qry.get().RowsProcessed()>0;
+ }
+ 
+-bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
+-{
+-  totals.clear();
+-  if (id==ASTRA::NoExists) return false;
+-
+-  TCachedQuery Qry(
+-    "SELECT NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS amount, "
+-    "       NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS weight "
+-    "FROM pax "
+-    "WHERE pax_id=:pax_id",
+-    QParams() << QParam("pax_id", otInteger, id));
+-  Qry.get().Execute();
+-  if (!Qry.get().Eof)
+-  {
+-    totals.amount=Qry.get().FieldAsInteger("amount");
+-    totals.weight=Qry.get().FieldAsInteger("weight");
+-  }
+-
+-  return !Qry.get().Eof;
+-}
+-
+ boost::optional<WeightConcept::TPaxNormComplex> TSimplePaxItem::getRegularNorm() const
+ {
+   using namespace WeightConcept;
+diff --git a/src/passenger.h b/src/passenger.h
+index 8ebd9a28c..acd84120d 100644
+--- a/src/passenger.h
++++ b/src/passenger.h
+@@ -839,7 +839,6 @@ class TSimplePaxItem
+     }
+     std::string getSeatNo(const std::string& fmt) const;
+ 
+-    bool getBaggageInHoldTotals(TBagTotals& totals) const;
+     boost::optional<WeightConcept::TPaxNormComplex> getRegularNorm() const;
+     void getBaggageListForSBDO(TRFISCListWithProps &list) const;
+     void getBaggageListForSBDO(TBagTypeList& list) const;
+@@ -1162,8 +1161,8 @@ class TPaxGrpItem : public TSimplePaxGrpItem
+ };
+ 
+ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
+-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc);
+-std::string GetPaxDocStr(TDateTime part_key,
++bool LoadPaxDoc(std::optional<Dates::DateTime_t> part_key, PaxId_t pax_id, TPaxDocItem &doc);
++std::string GetPaxDocStr(std::optional<Dates::DateTime_t> part_key,
+                          int pax_id,
+                          bool with_issue_country=false,
+                          const std::string &lang="");
+diff --git a/src/payment.cc b/src/payment.cc
+index 7c00586a7..4bc1e9076 100644
+--- a/src/payment.cc
++++ b/src/payment.cc
+@@ -108,7 +108,7 @@ namespace RCPT_PAX_DOC {
+         ostringstream result;
+ 
+         CheckIn::TPaxDocItem doc;
+-        if (LoadPaxDoc(NoExists, pax_id, doc) && !doc.no.empty())
++        if (LoadPaxDoc(pax_id, doc) && !doc.no.empty())
+         {
+             if (!doc.type_rcpt.empty())
+               result << doc.type_rcpt;
+@@ -582,8 +582,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
+     Qry.SQLText=
+       "SELECT pax_id, bag_pool_num, surname, name, pers_type, seats, refuse "
+       "FROM pax "
+-      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
+-      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num)";
++      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL ";
+     Qry.CreateVariable("grp_id",otInteger,grp_id);
+     Qry.Execute();
+     xmlNodePtr paxsNode=NewTextChild(dataNode,"passengers");
+diff --git a/src/prn_tag_store.cc b/src/prn_tag_store.cc
+index 1d95053cb..0fb61d829 100644
+--- a/src/prn_tag_store.cc
++++ b/src/prn_tag_store.cc
+@@ -1134,7 +1134,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
+             surname = doc.surname;
+             name = doc.first_name;
+         }
+-        document = CheckIn::GetPaxDocStr(NoExists, pax_id, false, tag_lang.GetLang());
++        document = CheckIn::GetPaxDocStr(std::nullopt, pax_id, false, tag_lang.GetLang());
+         ticket_rem = Qry.FieldAsString("ticket_rem");
+         ticket_no = Qry.FieldAsString("ticket_no");
+         coupon_no = Qry.FieldAsInteger("coupon_no");
+diff --git a/src/salons.cc b/src/salons.cc
+index 2eedb549e..a33e6526a 100644
+--- a/src/salons.cc
++++ b/src/salons.cc
+@@ -8438,7 +8438,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
+       NewTextChild( passNode, "isseat", (int)waitListReason.status == layerValid || ipass->is_jmp, (int)def.isSeat );
+       NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
+       NewTextChild( passNode, "document",
+-                    CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, true),
++                    CheckIn::GetPaxDocStr(std::nullopt, ipass->pax_id, true),
+                     def.document );
+       NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
+       NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
+diff --git a/src/sopp.cc b/src/sopp.cc
+index 47cd68218..d416e2cf3 100644
+--- a/src/sopp.cc
++++ b/src/sopp.cc
+@@ -3564,16 +3564,7 @@ std::string GetTagsOfNotBoardedPax(int point_id)
+     "      bag_tags.tag_type=tag_types.code AND "
+     "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+     "      ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 AND "
+-    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 "
+-    "UNION "
+-    "SELECT bag_tags.color, bag_tags.no, tag_types.no_len "
+-    "FROM pax_grp, bag_tags, tag_types "
+-    "WHERE pax_grp.grp_id=bag_tags.grp_id AND "
+-    "      bag_tags.bag_num IS NULL AND "
+-    "      bag_tags.tag_type=tag_types.code AND "
+-    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+-    "      ckin.bag_pool_refused(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 AND "
+-    "      ckin.bag_pool_boarded(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 ";
++    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 ";
+   Qry.CreateVariable( "point_id", otInteger, point_id );
+   Qry.Execute();
+   multiset<TBagTagNumber> tags;
+diff --git a/src/stat/stat_arx.cc b/src/stat/stat_arx.cc
+index ddb55a431..3455c0a2a 100644
+--- a/src/stat/stat_arx.cc
++++ b/src/stat/stat_arx.cc
+@@ -85,19 +85,18 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
+ 
+   using namespace CKIN;
+   std::map<PointId_t, BagReader> bag_readers;
+-  ExcessWt viewEx;
++  MainPax viewEx;
+   for( ; !Qry.Eof; Qry.Next()) {
+       xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
+-      TDateTime part_key=NoExists;
++      std::optional<Dates::DateTime_t> part_key;
+       if(!Qry.FieldIsNULL(col_part_key)) {
+-          part_key=Qry.FieldAsDateTime(col_part_key);
+-          NewTextChild(paxNode, "part_key",  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
++          part_key = DateTimeToBoost(Qry.FieldAsDateTime(col_part_key));
++          NewTextChild(paxNode, "part_key", DateTimeToStr(BoostToDateTime(*part_key), ServerFormatDateTimeAsString));
+       }
+       PointId_t point_id{Qry.FieldAsInteger(col_point_id)};
+-      std::optional<Dates::DateTime_t> opt_part_key = std::nullopt;
+-      if(part_key != NoExists) opt_part_key = DateTimeToBoost(part_key);
++
+       if(!algo::contains(bag_readers, point_id)) {
+-          bag_readers[point_id] = BagReader(point_id, opt_part_key, READ::BAGS_AND_TAGS);
++          bag_readers[point_id] = BagReader(point_id, part_key, READ::BAGS_AND_TAGS);
+       }
+       GrpId_t grp_id(Qry.FieldAsInteger(col_grp_id));
+       PaxId_t pax_id(Qry.FieldAsInteger(col_pax_id));
+@@ -106,7 +105,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
+       std::optional<int> opt_bag_pool_num = std::nullopt;
+       if(!Qry.FieldIsNULL(col_bag_pool_num)) {
+           opt_bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+-          viewEx.saveMainPax(grp_id, pax_id);
++          viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
+       }
+       NewTextChild(paxNode, "point_id", point_id.get());
+       NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
+@@ -141,11 +140,11 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
+           int excess = Qry.FieldAsInteger("excess");
+           int excess_nvl = excess==0 ? excess_wt : excess;
+           excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+-            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_nvl, bag_refuse!=0)));
++            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_nvl)));
+ 
+       } else {
+           excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(pax_id)),
+-            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt, bag_refuse!=0)));
++            TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt)));
+       }
+       NewTextChild(paxNode, "tags", bag_readers[point_id].tags(grp_id, opt_bag_pool_num, TReqInfo::Instance()->desk.lang));
+       if(isArch) {
+@@ -1597,7 +1596,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
+ 
+   using namespace CKIN;
+   BagReader bag_reader(point_dep, part_key, READ::BAGS_AND_TAGS);
+-  ExcessWt viewGrp;
++  MainPax viewGrp;
+   for(;!Qry.Eof;Qry.Next())
+   {
+       xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
+@@ -1639,11 +1638,11 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
+           int excess = Qry.FieldAsInteger("excess");
+           int excess_nvl = excess==0 ? excess_wt : excess;
+           excessNodeList.add(paxNode, "excess", TBagPieces(0),
+-            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse)));
++            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_nvl, bag_refuse!=0)));
+ 
+       } else {
+           excessNodeList.add(paxNode, "excess", TBagPieces(0),
+-            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_wt, bag_refuse)));
++            TBagKilos(viewGrp.excessWtUnnacomp(grp_id, excess_wt, bag_refuse!=0)));
+       }
+ 
+       NewTextChild(paxNode, "tags", bag_reader.tagsUnaccomp(grp_id, TReqInfo::Instance()->desk.lang));
+@@ -1891,6 +1890,7 @@ public:
+     std::map<std::string,std::string>::const_iterator ip;
+     switch ( senderType ) {
+       case tsPaxListRun:
++      {
+         params.insert( make_pair( "request", "PaxListRun(Поиск списка пассажиров)" ) );
+         int point_id;
+         TDateTime part_key;
+@@ -1900,12 +1900,16 @@ public:
+         else
+           part_key = NoExists;
+         StrToInt( params.find( "point_id" )->second.c_str(), point_id );
+-        tripInfo.getByPointId(part_key,point_id);
++        std::optional<Dates::DateTime_t> opt_part_key;
++        if(part_key != NoExists) { opt_part_key = DateTimeToBoost(part_key);}
++        tripInfo.getByPointId(opt_part_key,point_id);
+         params.insert( make_pair("airline", tripInfo.airline) );
+         params.insert( make_pair("flt_no", IntToString(tripInfo.flt_no) + tripInfo.suffix) );
+         params.insert( make_pair("scd_out", DateTimeToStr( tripInfo.scd_out ) ) );
+         break;
++      }
+       case tsPaxSrcRun:
++      {
+         params.insert( make_pair( "request", "PaxSrcRun(Поиск одного пассажира)" ) );
+         if ( (ip = params.find( "airline" )) != params.end() ) {
+           tripInfo.airline = ip->second;
+@@ -1917,6 +1921,7 @@ public:
+           tripInfo.airp = ip->second; //здесь направление - аэропорт прилета, а не вылета (скорее всего не будет использовано никогда)
+         }
+         break;
++      }
+       default:
+         return;
+     }
+diff --git a/src/stat/stat_common.cc b/src/stat/stat_common.cc
+index 69b256765..be72fc4b5 100644
+--- a/src/stat/stat_common.cc
++++ b/src/stat/stat_common.cc
+@@ -551,7 +551,7 @@ const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
+     if(i == this->end()) {
+         TTripInfo info;
+         if(part_key != NoExists)
+-            info.getByPointId(part_key, point_id);
++            info.getByPointId(DateTimeToBoost(part_key), point_id);
+         else
+             info.getByPointId(point_id);
+         TFltInfoCacheItem item;
+diff --git a/src/stat/stat_departed.cc b/src/stat/stat_departed.cc
+index 3d8128a1a..9c7672cce 100644
+--- a/src/stat/stat_departed.cc
++++ b/src/stat/stat_departed.cc
+@@ -50,9 +50,14 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+     paxQry.SQLText = SQLText;
+     paxQry.Execute();
+     TAirpArvInfo airp_arv_info;
++    using namespace CKIN;
++    BagReader bag_reader(PointId_t(point_id), DateTimeToBoost(part_key), READ::BAGS);
+     for(; not paxQry.Eof; paxQry.Next()) {
+-        int pax_id = paxQry.FieldAsInteger("pax_id");
+-        int bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
++        PaxId_t pax_id(paxQry.FieldAsInteger("pax_id"));
++        std::optional<int> opt_bag_pool_num = std::nullopt;
++        if(!paxQry.FieldIsNULL("bag_pool_num")) {
++            opt_bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
++        }
+         int grp_id = paxQry.FieldAsInteger("grp_id");
+         int reg_no = paxQry.FieldAsInteger("reg_no");
+         string name = paxQry.FieldAsString("name");
+@@ -78,7 +83,7 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+         string pnr_addr;
+ 
+         CheckIn::TPaxDocItem doc;
+-        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
++        LoadPaxDoc(DateTimeToBoost(part_key), pax_id, doc);
+         string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+         string gender = doc.gender;
+ 
+@@ -106,9 +111,9 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+             // До
+             << airp_arv_info.get(paxQry) << delim
+             // Багаж мест
+-             <<  CKIN::get_bagAmount2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim
++            << bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num) << delim
+             // Багаж вес
+-            << CKIN::get_bagWeight2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key)).value_or(0) << delim;
++            << bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num) << delim;
+         // Время регистрации
+         TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
+         if(evt != events.end())
+@@ -154,6 +159,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+ 
+     string SQLText =
+         "select \n"
++        "   pax.bag_pool_num, \n"
+         "   pax.name, \n"
+         "   pax.surname, \n"
+         "   pax.ticket_no, \n"
+@@ -163,9 +169,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+         "   pax.reg_no, \n"
+         "   pax_grp.client_type, \n"
+         "   pax_grp.airp_arv, \n"
+-        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no, "
+-        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
++        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no ";
+     SQLText +=  "from pax, pax_grp \n"
+                 "where pax_grp.point_dep = :point_id and \n"
+                 "      pax_grp.grp_id = pax.grp_id \n";
+@@ -175,8 +179,17 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+     paxQry.SQLText = SQLText;
+     paxQry.Execute();
+     TAirpArvInfo airp_arv_info;
++
++    using namespace CKIN;
++    BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
++
+     for(; not paxQry.Eof; paxQry.Next()) {
+         int grp_id = paxQry.FieldAsInteger("grp_id");
++        std::optional<int> opt_bag_pool_num = std::nullopt;
++        if(!paxQry.FieldIsNULL("bag_pool_num")) {
++            opt_bag_pool_num = paxQry.FieldAsInteger("bag_pool_num");
++        }
++
+         int reg_no = paxQry.FieldAsInteger("reg_no");
+         string name = paxQry.FieldAsString("name");
+         string surname = paxQry.FieldAsString("surname");
+@@ -204,7 +217,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+         const bool term_bp = existsConfirmPrint(TDevOper::PrnBP, paxQry.FieldAsInteger("pax_id"));
+ 
+         CheckIn::TPaxDocItem doc;
+-        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
++        LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);
+         string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+         string gender = doc.gender;
+ 
+@@ -232,9 +245,9 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
+             // До
+             << airp_arv_info.get(paxQry) << delim
+             // Багаж мест
+-            << paxQry.FieldAsInteger("bag_amount") << delim
++            << bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num) << delim
+             // Багаж вес
+-            << paxQry.FieldAsInteger("bag_weight") << delim;
++            << bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num) << delim;
+         // Время регистрации
+         TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
+         if(evt != events.end())
+diff --git a/src/stat/stat_ovb.cc b/src/stat/stat_ovb.cc
+index 35d27734a..dd831f285 100644
+--- a/src/stat/stat_ovb.cc
++++ b/src/stat/stat_ovb.cc
+@@ -112,7 +112,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
+         grpParams << QParam("point_id", otInteger, point_id);
+         TDateTime part_key = Qry.get().FieldAsDateTime("part_key");
+         grpParams << QParam("part_key", otDate, part_key);
+-
++        std::optional<Dates::DateTime_t> opt_part_key = DateTimeToBoost(part_key);
+         DB::TCachedQuery grpQry(PgOra::getROSession("ARX_PAX_GRP"), grpSQL, grpParams, STDLOG);
+         grpQry.get().Execute();
+         for(; not grpQry.get().Eof; grpQry.get().Next()) {
+@@ -131,9 +131,9 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
+             DB::TCachedQuery paxQry(PgOra::getROSession("ARX_PAX"), paxSQL, paxParams, STDLOG);
+             paxQry.get().Execute();
+             for(; not paxQry.get().Eof; paxQry.get().Next()) {
+-                int pax_id = paxQry.get().FieldAsInteger("pax_id");
++                PaxId_t pax_id(paxQry.get().FieldAsInteger("pax_id"));
+                 CheckIn::TPaxDocItem doc;
+-                LoadPaxDoc(part_key, pax_id, doc);
++                LoadPaxDoc(opt_part_key, pax_id, doc);
+                 if(doc.type != "P") continue;
+                 string no_begin = doc.no.substr(0, 2);
+                 if(
+@@ -144,7 +144,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
+                         no_begin == "01"
+                   ) {
+                     cout
+-                        << setw(10) << pax_id
++                        << setw(10) << pax_id.get()
+                         << setw(20) << doc.no
+                         << setw(4) << dep_airp
+                         << "(" << DateTimeToStr(dep_scd_out, ServerFormatDateTimeAsString) << ")"
+@@ -228,7 +228,7 @@ void collect(map<string, int> &result, TDateTime from, TDateTime to)
+             for(; not paxQry.get().Eof; paxQry.get().Next()) {
+                 int pax_id = paxQry.get().FieldAsInteger("pax_id");
+                 CheckIn::TPaxDocItem doc;
+-                LoadPaxDoc(part_key, pax_id, doc);
++                LoadPaxDoc(pax_id, doc);
+                 if(doc.type != "P") continue;
+                 string no_begin = doc.no.substr(0, 2);
+                 if(
+diff --git a/src/stat/stat_trfer_pax.cc b/src/stat/stat_trfer_pax.cc
+index 017767403..a122f2727 100644
+--- a/src/stat/stat_trfer_pax.cc
++++ b/src/stat/stat_trfer_pax.cc
+@@ -203,7 +203,8 @@ void ArxRunTrferPaxStat(
+         DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams, STDLOG);
+         Qry.get().Execute();
+         LogTrace(TRACE5) << __func__ << "    " << SQLText;
+-        int pr_lat = static_cast<int>(TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
++        using namespace CKIN;
++        std::map<PointId_t, BagReader> bag_readers;
+         if(not Qry.get().Eof) {
+             int col_part_key = Qry.get().FieldIndex("part_key");
+             int col_pax_id = Qry.get().FieldIndex("pax_id");
+@@ -216,9 +217,14 @@ void ArxRunTrferPaxStat(
+             int col_full_name = Qry.get().FieldIndex("full_name");
+             int col_pers_type = Qry.get().FieldIndex("pers_type");
+             for(; not Qry.get().Eof; Qry.get().Next()) {
+-                TDateTime part_key = NoExists;
++                PointId_t point_id{Qry.get().FieldAsInteger("point_id")};
++                std::optional<Dates::DateTime_t> part_key = std::nullopt;
+                 if(not Qry.get().FieldIsNULL(col_part_key))
+-                    part_key = Qry.get().FieldAsDateTime(col_part_key);
++                    part_key = DateTimeToBoost(Qry.get().FieldAsDateTime(col_part_key));
++                if(!algo::contains(bag_readers, point_id)) {
++                    bag_readers[point_id] = BagReader(point_id, part_key, READ::BAGS_AND_TAGS);
++                }
++
+                 int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+                 int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
+                 int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
+@@ -226,10 +232,13 @@ void ArxRunTrferPaxStat(
+                 string segments = Qry.get().FieldAsString(col_segments);
+                 string full_name = Qry.get().FieldAsString(col_full_name);
+                 string pers_type = Qry.get().FieldAsString(col_pers_type);
+-                int grp_id = Qry.get().FieldAsInteger(col_grp_id);
+-                int bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
+-                string tags = CKIN::get_birks2(GrpId_t(grp_id), pax_id, bag_pool_num, DateTimeToBoost(part_key),
+-                                               TReqInfo::Instance()->desk.lang).value_or("");
++                GrpId_t grp_id(Qry.get().FieldAsInteger(col_grp_id));
++                std::optional<int> opt_bag_pool_num = std::nullopt;
++                if(!Qry.get().FieldIsNULL(col_bag_pool_num)) {
++                    opt_bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
++                }
++                string tags = bag_readers[point_id].tags(grp_id, opt_bag_pool_num,
++                     TReqInfo::Instance()->desk.lang);
+ 
+                 list<pair<TTripInfo, string> > seg_list;
+                 getSegList(segments, seg_list);
+@@ -384,7 +393,7 @@ void RunTrferPaxStat(
+             if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
+                 continue;
+             }
+-            TDateTime part_key = NoExists;
++
+             int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+             int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
+             int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
+@@ -435,7 +444,7 @@ void RunTrferPaxStat(
+                     item.airp_arv = flt->second;
+                     item.pax_name = transliter(pax.full_name(), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+ 
+-                    item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
++                    item.pax_doc = CheckIn::GetPaxDocStr(std::nullopt, pax_id, false);
+                     typedef map<bool, TSegCategories::Enum> TSeg2Map;
+                     typedef map<bool, TSeg2Map> TCategoryMap;
+ 
+diff --git a/src/stat_doc_country.cc b/src/stat_doc_country.cc
+index 04f500f1b..ce7955e3c 100644
+--- a/src/stat_doc_country.cc
++++ b/src/stat_doc_country.cc
+@@ -32,7 +32,7 @@ void TMoveIds::get_for_airp(TDateTime first_date, TDateTime last_date, const std
+         insert(make_pair(i->part_key, i->move_id));
+ }
+ 
+-int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
++int arx_stat_belgorod(Dates::DateTime_t part_key, int move_id, int& processed,
+                       std::ofstream& farv, std::ofstream& fdep)
+ {
+     LogTrace5 << " part_key : " << part_key << " move_id: " << move_id;
+@@ -63,7 +63,7 @@ int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
+        .bind(":move_id", move_id)
+        .exec();
+ 
+-    map< pair<TDateTime, int>, TTripInfo > flights;
++    map< pair<Dates::DateTime_t, int>, TTripInfo > flights;
+     const string delim="\t";
+     const string endl="\r\n";
+ 
+@@ -85,9 +85,9 @@ int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
+         }
+         pax.fromPax(*arx_pax);
+         CheckIn::TPaxDocItem doc;
+-        if (!CheckIn::LoadPaxDoc(part_key, pax.id, doc)) continue;
++        if (!CheckIn::LoadPaxDoc(part_key, PaxId_t(pax.id), doc)) continue;
+ 
+-        map< pair<TDateTime, int>, TTripInfo >::iterator flt =
++        map< pair<Dates::DateTime_t, int>, TTripInfo >::iterator flt =
+                 flights.insert(make_pair(make_pair(part_key, arx_points_point_id), TTripInfo())).first;
+         if (flt==flights.end())
+             throw EXCEPTIONS::Exception("%s: strange situation flt==flights.end()!", __FUNCTION__);
+@@ -218,7 +218,7 @@ int stat_belgorod(int argc, char **argv)
+                 int move_id=i->second;
+ 
+                 if(part_key != ASTRA::NoExists) {
+-                    arx_stat_belgorod(part_key, move_id, processed, farv, fdep);
++                    arx_stat_belgorod(DateTimeToBoost(part_key), move_id, processed, farv, fdep);
+                 }
+                 else {
+ 
+@@ -230,7 +230,7 @@ int stat_belgorod(int argc, char **argv)
+                         CheckIn::TSimplePaxItem pax;
+                         pax.fromDB(PQry);
+                         CheckIn::TPaxDocItem doc;
+-                        if (!CheckIn::LoadPaxDoc(part_key, pax.id, doc)) continue;
++                        if (!CheckIn::LoadPaxDoc(pax.id, doc)) continue;
+ 
+                         string airp_dep=PQry.FieldAsString("airp_dep");
+                         string airp_arv=PQry.FieldAsString("airp_arv");
+@@ -241,7 +241,7 @@ int stat_belgorod(int argc, char **argv)
+                             throw EXCEPTIONS::Exception("%s: strange situation flt==flights.end()!", __FUNCTION__);
+ 
+                         if (flt->second.airline.empty())
+-                            flt->second.getByPointId(part_key, point_id);
++                            flt->second.getByPointId(point_id);
+ 
+                         for(int pass=0; pass<2; pass++)
+                         {
+diff --git a/src/ts/astra_iatci_srv.ts b/src/ts/astra_iatci_srv.ts
+index 04a15d2aa..53a38f49f 100644
+--- a/src/ts/astra_iatci_srv.ts
++++ b/src/ts/astra_iatci_srv.ts
+@@ -1624,6 +1624,8 @@ PBD+0"
+ UNT+12+1"
+ UNZ+1+ASTRA000660001"
+ 
++$(db_dump_table PAX)
++
+ >>
+ UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+ UNH+1+DCRCKA:03:1:IA+ASTRA00066"

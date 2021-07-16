@@ -15,6 +15,8 @@
 #include "flt_settings.h"
 #include "db_tquery.h"
 #include "PgOraConfig.h"
+#include "baggage_ckin.h"
+
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>
@@ -1035,6 +1037,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         LogTrace(TRACE3) << "Fake pax_id detected!";
         return;
     }
+    using namespace CKIN;
+    BagReader bag_reader(GrpId_t(grp_info.grp_id), std::nullopt, READ::BAGS_AND_TAGS);
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
@@ -1058,12 +1062,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   pax.reg_no, "
                 "   pax.seats, "
                 "   pax.pers_type, "
-                "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
-                "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
-                "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
-                "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
-                "   ckin.get_excess_wt(pax.grp_id, NULL) AS excess_wt, "
-                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
+                "   pax.bag_pool_num, "
+                "   pax_grp.excess_wt, pax_grp.bag_refuse, "
                 "   pax.subclass, "
                 "   nvl(pax.cabin_class, pax_grp.class) cabin_class, "
                 "   nvl(pax.cabin_class_grp, pax_grp.class_grp) cabin_class_grp, "
@@ -1080,7 +1080,6 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   crs_pax.pr_del(+) = 0 and "
                 "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
                 "   crs_pnr.system(+) = 'CRS' ";
-            Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
             brands.get(pax_id);
@@ -1099,12 +1098,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   reg_no, "
                 "   1 AS seats, "
                 "   :adult AS pers_type, "
-                "   0 AS bag_amount, "
-                "   0 AS bag_weight, "
-                "   0 AS rk_amount, "
-                "   0 AS rk_weight, "
                 "   0 AS excess_wt, "
-                "   NULL AS tags, "
                 "   test_pax.subclass, "
                 "   subcls.class cabin_class, "
                 "   cls_grp.id cabin_class_grp, "
@@ -1143,13 +1137,32 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         reg_no = Qry.FieldAsInteger("reg_no");
         seats = Qry.FieldAsInteger("seats");
         pers_type = Qry.FieldAsString("pers_type");
-        bag_amount = Qry.FieldAsInteger("bag_amount");
-        bag_weight = Qry.FieldAsInteger("bag_weight");
-        rk_amount = Qry.FieldAsInteger("rk_amount");
-        rk_weight = Qry.FieldAsInteger("rk_weight");
-        excess_wt = Qry.FieldAsInteger("excess_wt");
+
+        if (!isTestPaxId(pax_id)) {
+            GrpId_t grp_id(grp_info.grp_id);
+            std::optional<int> opt_bag_pool_num;
+            if(!Qry.FieldIsNULL("bag_pool_num"))
+                opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+
+            int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
+
+            bag_amount = bag_reader.bagAmount(grp_id,opt_bag_pool_num);
+            bag_weight = bag_reader.bagWeight(grp_id,opt_bag_pool_num);
+            rk_amount =  bag_reader.rkAmount(grp_id,opt_bag_pool_num);
+            rk_weight =  bag_reader.rkWeight(grp_id,opt_bag_pool_num);
+            excess_wt = CKIN::get_excess_wt(grp_id, PaxId_t(pax_id), excess_wt_raw,
+                                            Qry.FieldAsInteger("bag_refuse")).value_or(0);
+            tags = bag_reader.tags(grp_id,opt_bag_pool_num,tag_lang.GetLang());
+        } else {
+            bag_amount = 0;
+            bag_weight = 0;
+            rk_amount = 0;
+            rk_weight = 0;
+            excess_wt = 0;
+            tags = "";
+        }
         excess_pc = !isTestPaxId(pax_id) ? countPaidExcessPC(PaxId_t(pax_id)) : 0;
-        tags = Qry.FieldAsString("tags");
+
         subcls = Qry.FieldAsString("subclass");
         crs_cls = Qry.FieldAsString("crs_cls");
         cls = Qry.FieldAsString("cabin_class");

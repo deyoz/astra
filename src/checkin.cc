@@ -2792,7 +2792,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "ORDER BY pax_grp.grp_id";
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
-
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -2831,7 +2830,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeightUnaccomp(grp_id),0);
 
       excessNodeList.add(paxNode, "excess", TBagPieces(0),
-        TBagKilos(viewExUnac.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse)));
+        TBagKilos(viewExUnac.excessWtUnnacomp(grp_id, excess_wt_raw, bag_refuse!=0)));
 
       NewTextChild(paxNode,"tags", bag_reader.tagsUnaccomp(grp_id, reqInfo->desk.lang),"");
       if (with_rcpt_info)

@@ -150,9 +150,7 @@ std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id,
 //std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
 //                                     int pr_lat, std::optional<DateTime_t> part_key );
 
-std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id, std::optional<int> excess_wt,
-                                 std::optional<int> excess_nvl, int bag_refuse,
-                                 std::optional<DateTime_t> part_key);
+std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> excess_wt, int bag_refuse);
 
 std::optional<std::string> next_airp(int first_point, int point_num, std::optional<DateTime_t> part_key);
 

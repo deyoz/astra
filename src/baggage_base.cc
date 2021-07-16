@@ -304,7 +304,10 @@ const TPaxSegKey& TPaxSegKey::toDB(DB::TQuery &Qry) const
 TPaxSegKey& TPaxSegKey::fromDB(TQuery &Qry)
 {
   clear();
-  pax_id=Qry.FieldAsInteger("pax_id");
+  int col_pax_id = Qry.GetFieldIndex("pax_id");
+  if(col_pax_id >= 0) {
+    pax_id=Qry.FieldAsInteger(col_pax_id);
+  }
   trfer_num=Qry.FieldAsInteger("transfer_num");
   return *this;
 }
@@ -312,7 +315,10 @@ TPaxSegKey& TPaxSegKey::fromDB(TQuery &Qry)
 TPaxSegKey& TPaxSegKey::fromDB(DB::TQuery &Qry)
 {
   clear();
-  pax_id=Qry.FieldAsInteger("pax_id");
+  int col_pax_id = Qry.GetFieldIndex("pax_id");
+  if(col_pax_id >= 0) {
+    pax_id=Qry.FieldAsInteger(col_pax_id);
+  }
   trfer_num=Qry.FieldAsInteger("transfer_num");
   return *this;
 }

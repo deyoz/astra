@@ -14,6 +14,7 @@
 #include "qrys.h"
 #include "arx_daily_pg.h"
 #include "dbo.h"
+#include "baggage_ckin.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/testmode.h>
@@ -382,8 +383,24 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
 TEventsBagItem& TEventsBagItem::fromDB(TQuery &Qry)
 {
     CheckIn::TBagItem::fromDB(Qry);
-    refused=Qry.FieldAsInteger("refused")!=0;
-    pax_id=Qry.FieldIsNULL("pax_id")?ASTRA::NoExists:Qry.FieldAsInteger("pax_id");
+
+    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+    std::optional<int> opt_bag_pool_num;
+    if(!Qry.FieldIsNULL("bag_pool_num")) {
+        opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+    }
+
+    std::optional<std::string> opt_class;
+    if(!Qry.FieldIsNULL("class")) {
+        opt_class = Qry.FieldAsString("class");
+    }
+
+    refused = CKIN::get_bag_pool_refused(grp_id, opt_bag_pool_num.value_or(0),
+        opt_class, Qry.FieldAsInteger("bag_refuse"), std::nullopt) != 0;
+    std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(grp_id, opt_bag_pool_num, std::nullopt);
+    pax_id = opt_pax_id ? opt_pax_id->get() : NoExists;
+
+    LogTrace(TRACE6) << __func__ <<  " refused: " << refused << " pax_id: " << pax_id;
     return *this;
 };
 
@@ -464,10 +481,8 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-            "SELECT bag2.*, "
-            "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused, "
-            "       ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num) AS pax_id "
-            "FROM pax_grp,bag2 "
+            "SELECT bag2.*, pax_grp.class, pax_grp.bag_refuse "
+            "FROM pax_grp,bag2  "
             "WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
@@ -597,17 +612,11 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
             "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
             "       salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
             "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
-            "       pax.pr_brd, pax.pr_exam, "
-            "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
-            "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
-            "       NVL(ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
-            "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
-            "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
+            "       pax.pr_brd, pax.pr_exam, pax.bag_pool_num, "
             "       pax_grp.trfer_confirm, NVL(pax_grp.piece_concept, 0) AS piece_concept "
             "FROM pax_grp, pax "
             "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("lang",otString,AstraLocale::LANG_RU); //пока в лог пишем всегда на русском
     Qry.Execute();
     if (!Qry.Eof)
     {
@@ -615,6 +624,9 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         grpInfo.point_dep=Qry.FieldAsInteger("point_dep");
         grpInfo.trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
         grpInfo.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+
+        using namespace CKIN;
+        BagReader bag_reader(PointId_t(grpInfo.point_dep), std::nullopt, READ::BAGS_AND_TAGS);
         for(;!Qry.Eof;Qry.Next())
         {
             TPaxToLogInfoKey paxInfoKey;
@@ -653,11 +665,15 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
                 paxInfo.refuse=Qry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
             };
 
-            paxInfo.bag_amount=Qry.FieldAsInteger("bag_amount");
-            paxInfo.bag_weight=Qry.FieldAsInteger("bag_weight");
-            paxInfo.rk_amount=Qry.FieldAsInteger("rk_amount");
-            paxInfo.rk_weight=Qry.FieldAsInteger("rk_weight");
-            paxInfo.tags=Qry.FieldAsString("tags");
+            std::optional<int> bag_pool_num;
+            if(!Qry.FieldIsNULL("bag_pool_num")) {
+                bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+            }
+            paxInfo.bag_amount= bag_reader.bagAmount(GrpId_t(grp_id), bag_pool_num);
+            paxInfo.bag_weight= bag_reader.bagWeight(GrpId_t(grp_id), bag_pool_num);
+            paxInfo.rk_amount=  bag_reader.rkAmount(GrpId_t(grp_id), bag_pool_num);
+            paxInfo.rk_weight=  bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num);
+            paxInfo.tags= bag_reader.tags(GrpId_t(grp_id), bag_pool_num, AstraLocale::LANG_RU);
 
             if (!grpInfo.piece_concept)
             {

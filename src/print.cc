@@ -33,6 +33,7 @@
 #include "MPSExchangeIface.h"
 #include "service_eval.h"
 #include "flt_settings.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1206,15 +1207,17 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     string SQLText =
         "SELECT "
         "  pax_grp.class, "
+        "  pax_grp.bag_refuse, "
         "  pax_grp.status, "
+        "  bag2.grp_id, "
         "  bag_tags.tag_type, "
         "  bag_tags.no, "
         "  bag_tags.color, "
+        "  bag2.bag_pool_num, "
         "  bag2.bag_type, "
         "  bag2.amount AS bag_amount, "
         "  bag2.weight AS bag_weight, "
         "  bag2.pr_liab_limit, "
-        "  ckin.get_bag_pool_pax_id(bag_tags.grp_id,NVL(bag2.bag_pool_num,1)) AS pax_id, "
         "  tag_types.printable "
         "FROM "
         "  pax_grp, "
@@ -1224,13 +1227,9 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         "WHERE "
         "  bag_tags.grp_id=pax_grp.grp_id AND "
         "  tag_types.code=bag_tags.tag_type AND "
-        "  bag_tags.grp_id = bag2.grp_id(+) AND "
-        "  bag_tags.bag_num = bag2.num(+) AND "
-        "  pax_grp.grp_id = :grp_id AND "
-        "  ckin.bag_pool_refused(bag_tags.grp_id, "
-        "                        NVL(bag2.bag_pool_num,1), "
-        "                        pax_grp.class, "
-        "                        pax_grp.bag_refuse)=0 AND ";
+        "  bag_tags.grp_id = bag2.grp_id AND "
+        "  bag_tags.bag_num = bag2.num AND "
+        "  pax_grp.grp_id = :grp_id AND ";
     if(tag_key.no >= 0.0) {
         SQLText +=
         "  bag_tags.no = :no AND "
@@ -1267,6 +1266,14 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
     string prior_tag_type;
     while(!Qry.Eof) {
+        GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+        std::optional<std::string> opt_vclass;
+        if(!Qry.FieldIsNULL("class")) { opt_vclass = Qry.FieldAsString("class"); }
+
+        if(CKIN::get_bag_pool_refused(grp_id, Qry.FieldAsInteger("bag_pool_num"), opt_vclass,
+                                      Qry.FieldAsInteger("bag_refuse"), std::nullopt)) {
+            continue;
+        }
         string tag_type = Qry.FieldAsString("tag_type");
         if(prior_tag_type != tag_type) {
             prior_tag_type = tag_type;
@@ -1287,7 +1294,9 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         {
           if (Qry.FieldIsNULL("pax_id"))
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-          pax_id = Qry.FieldAsInteger("pax_id");
+          std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(grp_id,
+                                               Qry.FieldAsInteger("bag_pool_num"), std::nullopt);
+          if(opt_pax_id) pax_id = opt_pax_id->get();
         };
 
         PrintDataParser parser(TDevOper::PrnBT, tag_key.grp_id, pax_id, false, tag_key.pr_lat, NULL, route);

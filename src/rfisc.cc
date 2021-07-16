@@ -4,6 +4,7 @@
 #include "term_version.h"
 #include "base_callbacks.h"
 #include "passenger.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2177,7 +2178,7 @@ void TGrpServiceList::addBagInfo(int grp_id,
 {
   TGrpServiceList bagList;
 
-  TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, :include_refused) AS pax_id, "
+  TCachedQuery Qry("SELECT  bag2.grp_id, bag2.bag_pool_num, "
                    "       0 AS transfer_num, "
                    "       bag2.list_id, "
                    "       bag2.rfisc, "
@@ -2186,13 +2187,20 @@ void TGrpServiceList::addBagInfo(int grp_id,
                    "       bag2.amount AS service_quantity "
                    "FROM bag2 "
                    "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
-                   QParams() << QParam("grp_id", otInteger, grp_id)
-                             << QParam("include_refused", otInteger, (int)include_refused));
+                   QParams() << QParam("grp_id", otInteger, grp_id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
-    if (Qry.get().FieldIsNULL("pax_id")) continue;
-    bagList.push_back(TGrpServiceItem().fromDB(Qry.get()));
+      GrpId_t grp_id(Qry.get().FieldAsInteger("grp_id"));
+      std::optional<int> opt_bag_pool_num;
+      if(!Qry.get().FieldIsNULL("bag_pool_num")) {
+          opt_bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+      }
+      std::optional<PaxId_t> opt_pax_id = CKIN::get_bag_pool_pax_id(grp_id, opt_bag_pool_num, std::nullopt, (int)include_refused);
+      if(!opt_pax_id) continue;
+      auto serv_item = TGrpServiceItem().fromDB(Qry.get());
+      serv_item.pax_id = opt_pax_id->get();
+      bagList.push_back(std::move(serv_item));
   }
 
   addBagList(bagList, tckin_seg_count, trfer_seg_count);
@@ -2665,23 +2673,26 @@ bool need_for_payment(const GrpId_t& grp_id,
   }
 
   DB::TQuery Qry(PgOra::getROSession("VALUE_BAG-BAG2"), STDLOG);
-  Qry.SQLText = "SELECT 1 "
+  Qry.SQLText = "SELECT 1, bag2.grp_id, bag2.bag_pool_num "
                 "FROM value_bag "
                 "LEFT OUTER JOIN bag2 ON ( "
                 "     value_bag.grp_id = bag2.grp_id "
                 "     AND value_bag.num = bag2.value_bag_num "
                 ") "
                 "WHERE "
-                "(bag2.grp_id IS NULL "
-                " OR ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, :class, :bag_refuse) = 0) "
-                "AND value_bag.grp_id = :grp_id "
-                "AND value_bag.value > 0 "
-                "FETCH FIRST 1 ROWS ONLY ";
+                " value_bag.grp_id = :grp_id "
+                " AND value_bag.value > 0 "
+                " FETCH FIRST 1 ROWS ONLY ";
   Qry.CreateVariable("grp_id", otInteger, grp_id.get());
   Qry.CreateVariable("class", otString, cls);
   Qry.CreateVariable("bag_refuse", otInteger, bag_refuse);
   Qry.Execute();
-  if (!Qry.Eof) return true;
+  if (!Qry.Eof) {
+      if(Qry.FieldIsNULL("grp_id") ||  CKIN::get_bag_pool_refused(GrpId_t(Qry.FieldAsInteger("grp_id")),
+                         Qry.FieldAsInteger("bag_pool_num"), cls, bag_refuse, std::nullopt) == 0) {
+        return true;
+      }
+  }
 
   return false;
 }

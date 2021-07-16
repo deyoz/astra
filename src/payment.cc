@@ -582,8 +582,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.SQLText=
       "SELECT pax_id, bag_pool_num, surname, name, pers_type, seats, refuse "
       "FROM pax "
-      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
-      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num)";
+      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL ";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     xmlNodePtr paxsNode=NewTextChild(dataNode,"passengers");

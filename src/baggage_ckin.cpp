@@ -213,11 +213,11 @@ std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> ba
 //    return bagInfo->rkWeight;
 //}
 
-std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
+std::optional<PaxId_t> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key)
 {
     LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
                      << " grp_id: " << grp_id << " include_refused: " << include_refused;
-    std::optional<int> res;
+    std::optional<PaxId_t> res;
     int pax_id;
     std::string refuse;
     std::string table = part_key? "ARX_PAX" : "PAX";
@@ -237,7 +237,7 @@ std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::op
     if(part_key) {cur.bind(":part_key", *part_key);}
     cur.exec();
     if(!cur.fen()) {
-        res = pax_id;
+        res = PaxId_t(pax_id);
         if(include_refused == 0 && !refuse.empty()) {
             res = std::nullopt;
         }
@@ -245,17 +245,57 @@ std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::op
     return res;
 }
 
-std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<int> pax_id,
+std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id,
+                                 std::optional<int> excess_wt, int bag_refuse)
+{
+//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+//              << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
+//              << " pax_id: " << (pax_id ? pax_id->get() : " NotExist") << " excess_wt: " << excess_wt.value_or(0)
+//              << " excess_nvl: " << excess_nvl.value_or(0);
+
+    int excess = 0 ;
+    std::optional<PaxId_t> main_pax_id;
+
+    if(!excess_wt || !bag_refuse) {
+        auto cur = make_db_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN EXCESS_WT ELSE 0 END) "
+                                "FROM PAX_GRP"
+                                " WHERE GRP_ID=:grp_id ",
+                                PgOra::getROSession("PAX_GRP"));
+        cur.def(excess)
+           .bind(":grp_id", grp_id.get());
+        cur.EXfet();
+        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+            LogTrace(TRACE6) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id;
+            return std::nullopt;
+        }
+    } else {
+        if(bag_refuse == 0) {
+            if(excess_wt) return excess_wt;
+            return std::nullopt;
+        } else excess=0;
+    }
+
+    if(pax_id) {
+        main_pax_id = get_main_pax_id2(grp_id, 1, std::nullopt);
+    }
+    if(!(!pax_id || (main_pax_id && main_pax_id==pax_id))) {
+        return std::nullopt;
+    }
+    if(excess == 0) return std::nullopt;
+    return excess;
+}
+
+std::optional<int> arx_get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id,
                                  std::optional<int> excess_wt, std::optional<int> excess_nvl,
                                  int bag_refuse, std::optional<DateTime_t> part_key)
 {
-    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
-              << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
-              << " pax_id: " << (pax_id.value_or(0)) << " excess_wt: " << excess_wt.value_or(0)
-              << " excess_nvl: " << excess_nvl.value_or(0);
+//    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
+//              << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
+//              << " pax_id: " << (pax_id ? pax_id->get() : " NotExist") << " excess_wt: " << excess_wt.value_or(0)
+//              << " excess_nvl: " << excess_nvl.value_or(0);
 
     int excess = 0 ;
-    std::optional<int> main_pax_id;
+    std::optional<PaxId_t> main_pax_id;
     std::string table = part_key? "ARX_PAX_GRP" : "PAX_GRP";
     if((!excess_wt && !excess_nvl) || !bag_refuse) {
         auto cur = make_db_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN COALESCE(EXCESS_WT, EXCESS) ELSE 0 END) "
@@ -294,21 +334,23 @@ int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::st
 {
     LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time) << " grp_id: " << grp_id
               << " bag_pool_num: " << bag_pool_num << " bag_refuse: " << bag_refuse;
-    if(bag_refuse != 0) return 1;
-    if(!vclass) return 0;
-    int n = 0;
+
+    if(bag_refuse != 0) { return 1; }
+    if(!vclass) {return 0;}
+    int refuse = 0;
     std::string table = part_key? "ARX_PAX" : "PAX";
-    auto cur = make_db_curs("select refuse "
+    auto cur = make_db_curs("select CASE WHEN refuse IS NULL THEN 1 ELSE 0 END "
                             " from " + table +
                             " where GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num " +
                               (part_key ? " and PART_KEY=:part_key" : ""),
                             PgOra::getROSession(table));
-    cur.defNull(n, 1)
+    cur.def(refuse)
        .bind(":grp_id", grp_id.get())
        .bind(":bag_pool_num", bag_pool_num);
     if(part_key) {cur.bind(":part_key", *part_key);}
     cur.EXfet();
-    if(cur.err() == DbCpp::ResultCode::NoDataFound || n==0) {
+
+    if((cur.err() == DbCpp::ResultCode::NoDataFound) || (refuse==0)) {
         return 1;
     } else
         return 0;
