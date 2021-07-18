@@ -30,7 +30,7 @@ using namespace ASTRA;
 void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "PrepRegInterface::readTripCounters" );
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"COUNTERS2", "CLASSES", "TRIP_CLASSES", "POINTS", "TRIP_SETS"}), STDLOG);
 
   bool cfg_exists=!TCFG(point_id).empty();
   bool free_seating=false;
