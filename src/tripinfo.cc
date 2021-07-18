@@ -113,121 +113,129 @@ void TTripListView::FromXML(xmlNodePtr node)
     codes_fmt=(TUserSettingType)NodeAsIntegerFast("codes_fmt",node2,(int)ustCodeNative);
 };
 
-void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
+void setSQLTripList( DB::TQuery &Qry, const TTripListSQLFilter &filter )
 {
-  Qry.Clear();
-  ostringstream sql;
+  std::string sql;
 
-  try
-  {
-    const TTripListSQLParams &params=dynamic_cast<const TTripListSQLParams&>(filter);
+  if (dynamic_cast<const TTripListSQLParams*>(&filter)) {
+    const TTripListSQLParams& params = dynamic_cast<const TTripListSQLParams&>(filter);
 
-    sql <<
-      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
-      "       points.move_id \n"
-      "FROM points ";
-    if (!params.station.first.empty() && !params.station.second.empty())
-      sql << ",trip_stations ";
-    if (params.check_point_id!=NoExists)
-    {
-      sql << "WHERE points.point_id=:point_id ";
+    sql =       "SELECT" + TAdvTripInfo::selectedFields("points") + ", "
+                       "points.move_id \n"
+                  "FROM points ";
+
+    if (params.check_point_id != NoExists) {
+      sql +=     "WHERE points.point_id = :point_id ";
       Qry.CreateVariable( "point_id", otInteger, params.check_point_id);
-    }
-    else
-    {
-      if (params.first_date!=params.last_date)
-      {
-        if (params.includeScdIntoDateRange)
-          sql << "WHERE (points.time_out BETWEEN :first_date AND :last_date OR "
-                 "       points.scd_out BETWEEN :first_date AND :last_date) ";
-        else
-          sql << "WHERE points.time_out BETWEEN :first_date AND :last_date ";
-
+    } else {
+      if (params.first_date != params.last_date) {
+        if (params.includeScdIntoDateRange) {
+          sql += "WHERE (points.time_out BETWEEN :first_date AND :last_date "
+                     "OR points.scd_out BETWEEN :first_date AND :last_date) ";
+        } else {
+          sql += "WHERE points.time_out BETWEEN :first_date AND :last_date ";
+        }
         Qry.CreateVariable("last_date", otDate, params.last_date);
+      } else {
+        sql +=   "WHERE points.time_out = :first_date ";
       }
-      else
-        sql << "WHERE points.time_out=:first_date ";
       Qry.CreateVariable("first_date", otDate, params.first_date);
-    };
+    }
 
-    if (params.flt_no!=NoExists)
-    {
-      sql << "AND points.flt_no=:flt_no ";
+    if (params.flt_no != NoExists) {
+      sql +=       "AND points.flt_no = :flt_no ";
       Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-    };
-    if (!params.suffix.empty())
-    {
-      sql << "AND points.suffix=:suffix ";
-      Qry.CreateVariable("suffix", otString, params.suffix);
-    };
-  }
-  catch(bad_cast&)
-  {
-    const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
+    }
 
-    // см. C++ ф-ю get_pr_tranzit
-    sql <<
-      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
-      "       points.park_out, "
-      "       points.litera, "
-      "       points.remark, "
-      "       ckin.get_pr_tranzit(points.point_id) AS is_true_tranzit \n"
-      "FROM points ";
-    if (!params.station.first.empty() && !params.station.second.empty())
-      sql << ",trip_stations ";
-    sql << "WHERE points.point_id=:point_id ";
+    if (!params.suffix.empty()) {
+      sql +=       "AND points.suffix = :suffix ";
+      Qry.CreateVariable("suffix", otString, params.suffix);
+    }
+
+  } else {
+    const TTripInfoSQLParams &params = dynamic_cast<const TTripInfoSQLParams&>(filter);
+
+    sql +=      "SELECT" + TAdvTripInfo::selectedFields("points") + ", "
+                       "points.park_out, "
+                       "points.litera, "
+                       "points.remark, "
+                       "CASE "
+                         "WHEN points.pr_tranzit <> 0 "
+                          "AND points.pr_del = 0 "
+                          "AND EXISTS (SELECT 1 FROM points a "
+                                       "WHERE a.first_point = points.first_point "
+                                         "AND a.point_num > points.point_num "
+                                         "AND a.pr_del = 0) "
+                          "AND EXISTS (SELECT 1 FROM points a "
+                                       "WHERE points.first_point IN (a.point_id, a.first_point) "
+                                         "AND a.point_num < points.point_num "
+                                         "AND a.pr_del = 0) "
+                         "THEN 1 ELSE 0 "
+                       "END AS is_true_tranzit "
+                  "FROM points ";
+    if (!params.station.first.empty() && !params.station.second.empty()) {
+      sql +=      "JOIN trip_stations "
+                    "ON points.point_id = trip_stations.point_id "
+                   "AND trip_stations.desk = :desk "
+                   "AND trip_stations.work_mode = :work_mode ";
+      Qry.CreateVariable( "desk", otString, filter.station.first );
+      Qry.CreateVariable( "work_mode", otString, filter.station.second);
+    }
+    sql +=       "WHERE points.point_id = :point_id ";
     Qry.CreateVariable( "point_id", otInteger, params.point_id);
   };
 
-  sql << "AND points.pr_reg<>0 ";
+  sql +=           "AND points.pr_reg <> 0 ";
 
-  if (!filter.pr_cancel)
-    sql << "AND points.pr_del=0 ";
-  else
-    sql << "AND points.pr_del>=0 ";
-  if (!filter.pr_takeoff)
-    sql << "AND points.act_out IS NULL ";
+  if (!filter.pr_cancel) {
+    sql +=         "AND points.pr_del = 0 ";
+  } else {
+    sql +=         "AND points.pr_del >= 0 ";
+  }
 
-  if (!filter.station.first.empty() && !filter.station.second.empty())
-  {
-    sql << "AND points.point_id=trip_stations.point_id "
-           "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
-    Qry.CreateVariable( "desk", otString, filter.station.first );
-    Qry.CreateVariable( "work_mode", otString, filter.station.second);
-  };
+  if (!filter.pr_takeoff) {
+    sql +=         "AND points.act_out IS NULL ";
+  }
 
-  if (!filter.access.airlines().elems().empty())
-  {
-    if (filter.access.airlines().elems_permit())
-      sql << "AND points.airline IN " << GetSQLEnum(filter.access.airlines().elems()) << " ";
-    else
-      sql << "AND points.airline NOT IN " << GetSQLEnum(filter.access.airlines().elems()) << " ";
-  };
-
-  if (!filter.access.airps().elems().empty())
-  {
-    if ( !filter.use_arrival_permit )
-    {
-      if (filter.access.airps().elems_permit())
-        sql << "AND points.airp IN " << GetSQLEnum(filter.access.airps().elems()) << " ";
-      else
-        sql << "AND points.airp NOT IN " << GetSQLEnum(filter.access.airps().elems()) << " ";
+  if (!filter.access.airlines().elems().empty()) {
+    if (filter.access.airlines().elems_permit()) {
+      sql +=       "AND points.airline IN " + GetSQLEnum(filter.access.airlines().elems()) + " ";
+    } else {
+      sql +=       "AND points.airline NOT IN " + GetSQLEnum(filter.access.airlines().elems()) + " ";
     }
-    else
-    {
-      if (filter.access.airps().elems_permit())
-        sql << "AND (points.airp IN " << GetSQLEnum(filter.access.airps().elems()) << " OR "
-            << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "
-            << GetSQLEnum(filter.access.airps().elems()) << ") ";
-      else
-        sql << "AND (points.airp NOT IN " << GetSQLEnum(filter.access.airps().elems()) << " OR "
-            << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "
-            << GetSQLEnum(filter.access.airps().elems()) << ") ";
-    };
-  };
+  }
 
-  Qry.SQLText=sql.str().c_str();
-};
+  if (!filter.access.airps().elems().empty()) {
+    if ( !filter.use_arrival_permit ) {
+      if (filter.access.airps().elems_permit()) {
+        sql +=     "AND points.airp IN " + GetSQLEnum(filter.access.airps().elems()) + " ";
+      } else {
+        sql +=     "AND points.airp NOT IN " + GetSQLEnum(filter.access.airps().elems()) + " ";
+      }
+    } else {
+      if (filter.access.airps().elems_permit()) {
+        sql +=     "AND (points.airp IN ";
+      } else {
+        sql +=     "AND (points.airp NOT IN ";
+      }
+      sql +=             GetSQLEnum(filter.access.airps().elems()) + " "
+                     "OR (SELECT airp "
+                           "FROM points pts "
+                          "WHERE pts.first_point = CASE points.pr_tranzit WHEN 0 THEN points.point_id ELSE points.first_point END "
+                            "AND pts.point_num > points.point_num "
+                            "AND pts.pr_del = 0 "
+                          "ORDER BY pts.point_num "
+                          "FETCH FIRST 1 ROWS ONLY) ";
+      if (filter.access.airps().elems_permit()) {
+        sql +=                  "IN " + GetSQLEnum(filter.access.airps().elems()) + ") ";
+      } else {
+        sql +=                  "NOT IN " + GetSQLEnum(filter.access.airps().elems()) + ") ";
+      }
+    }
+  }
+
+  Qry.SQLText = sql;
+}
 
 std::optional<TStage> findFinalStage(const int point_id, const TStage_Type stage_type)
 {
@@ -490,8 +498,6 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     vector< pair<int,int> > shifts;
     vector< pair<TDateTime, TDateTime> > ranges;
 
-    TQuery Qry( &OraSession );
-
     if (advanced_trip_list)
     {
       if (listInfo.date==NoExists)
@@ -500,6 +506,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       //проверим что рейс попадает в выбранные сутки
       if (listInfo.point_id!=NoExists && listInfo.point_id!=-1)
       {
+        DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_STATIONS"}), STDLOG);
         SQLfilter.check_point_id=listInfo.point_id;
         setSQLTripList( Qry, SQLfilter );
         Qry.Execute();
@@ -557,6 +564,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         //                  DateTimeToStr(SQLfilter.last_date,"dd.mm.yy hh:nn:ss").c_str() );
 
         SQLfilter.check_point_id=NoExists;
+        DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_STATIONS"}), STDLOG);
         setSQLTripList( Qry, SQLfilter );
 
         //ProgTrace(TRACE5, "TripList SQL=%s", Qry.SQLText.SQLText());
@@ -934,7 +942,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   filter.set();
   filter.point_id=point_id;
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_STATIONS"}), STDLOG);
 
   setSQLTripList( Qry, filter );
   //ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
@@ -1060,8 +1068,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (reqInfo->desk.airp == "ВНК" &&
        (reqInfo->screen.name == "AIR.EXE"||reqInfo->screen.name == "BRDBUS.EXE"))
   {
-    TQuery Qryh( &OraSession );
-    Qryh.Clear();
+    DB::TQuery Qryh(PgOra::getROSession("TRIP_STATIONS"), STDLOG);
     Qryh.SQLText=
       "SELECT start_time FROM trip_stations "
       "WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";

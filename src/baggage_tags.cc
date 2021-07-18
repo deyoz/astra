@@ -291,14 +291,14 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
     if (!use_new_range)
     {
       int k;
+      std::string sql;
+
       for(k=1;k<=5;k++)
       {
         DB::TQuery Qry(PgOra::getROSession({"TAG_RANGES2", "POINTS"}), STDLOG);
         Qry.CreateVariable("aircode",otInteger,aircode);
-        std::string sql;
-        sql.reserve(600);
 
-        sql +=   "SELECT range, no FROM tag_ranges2 ";
+        sql  =   "SELECT range, no FROM tag_ranges2 ";
         if (k >= 2) {
           sql += "LEFT OUTER JOIN points "
                  "ON tag_ranges2.point_id = points.point_id ";
@@ -343,7 +343,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
         }
         sql +=   "ORDER BY last_access FOR UPDATE";
 
-        Qry.SQLText = sql.c_str();
+        Qry.SQLText = sql;
         Qry.Execute();
         if (!Qry.Eof)
         {
@@ -410,7 +410,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
     double last_no=aircode*1000000+range*100+no; //последняя использовання бирка нового диапазона
     add(TBagTagRange("", first_no, last_no, 10));
 
-    DB::TQuery Qry(PgOra::getROSession("TAG_RANGES2"), STDLOG);
+    DB::TQuery Qry(PgOra::getRWSession("TAG_RANGES2"), STDLOG);
     Qry.CreateVariable("aircode", otInteger, aircode);
     Qry.CreateVariable("range", otInteger, range);
     if (no >= 99) {
@@ -423,7 +423,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
          ? "INSERT INTO tag_ranges2( aircode, range, no, airp_dep, airp_arv, class, point_id, last_access) "
                             "VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,:last_access) "
            "ON CONFLICT(aircode, range) "
-           "DO UPDATE SET no = :no, airp_dep = :airp_dep, airp_arv = :airp_arv,  "
+           "DO UPDATE SET no = :no, airp_dep = :airp_dep, airp_arv = :airp_arv, "
                          "class = :class, point_id = :point_id, last_access = :last_access"
          : "BEGIN "
              "UPDATE tag_ranges2 "
@@ -446,7 +446,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
   };
   if (use_new_range)
   {
-    DB::TQuery Qry(PgOra::getROSession("LAST_TAG_RANGES2"), STDLOG);
+    DB::TQuery Qry(PgOra::getRWSession("LAST_TAG_RANGES2"), STDLOG);
     Qry.SQLText = PgOra::supportsPg("LAST_TAG_RANGES2")
          ? "INSERT INTO last_tag_ranges2( aircode, range) "
                                  "VALUES(:aircode,:range) "

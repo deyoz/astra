@@ -568,7 +568,7 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
   LogTrace(TRACE5) << " first_date=" << DateTimeToStr(params.first_date, "dd.mm.yyyy hh:nn:ss")
                    << " last_date=" << DateTimeToStr(params.last_date, "dd.mm.yyyy hh:nn:ss");
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_STATIONS"}), STDLOG);
   setSQLTripList(Qry, params);
   //LogTrace(TRACE5) << Qry.SQLText.SQLText();
   Qry.Execute();
