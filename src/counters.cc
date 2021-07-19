@@ -564,7 +564,11 @@ bool get_pr_tranzit(const PointId_t& point_id)
   Qry.CreateVariable("point_id", otInteger, point_id.get());
   Qry.Execute();
 
-  return Qry.Eof ? 0 : Qry.FieldAsInteger("is_true_tranzit");
+  if (!Qry.Eof) {
+    return Qry.FieldAsInteger("is_true_tranzit");
+  }
+
+  return false;
 }
 
 bool get_pr_tranz_reg(const PointId_t& point_id)
