@@ -547,46 +547,24 @@ bool get_pr_tranzit(const PointId_t& point_id)
 {
   DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
-      "SELECT (CASE WHEN pr_tranzit = 0 THEN points.point_id ELSE first_point END) AS first_point, point_num "
-      "FROM points "
-      "WHERE point_id = :point_id "
-      "AND pr_del = 0 "
-      "AND pr_tranzit <> 0";
+     "SELECT CASE "
+              "WHEN points.pr_tranzit <> 0 "
+               "AND points.pr_del = 0 "
+               "AND EXISTS (SELECT 1 FROM points a "
+                            "WHERE a.first_point = points.first_point "
+                              "AND a.point_num > points.point_num "
+                              "AND a.pr_del = 0) "
+               "AND EXISTS (SELECT 1 FROM points a "
+                            "WHERE points.first_point IN (a.point_id, a.first_point) "
+                              "AND a.point_num < points.point_num "
+                              "AND a.pr_del = 0) "
+              "THEN 1 ELSE 0 "
+            "END AS is_true_tranzit "
+     "FROM points WHERE points.point_id = :point_id";
   Qry.CreateVariable("point_id", otInteger, point_id.get());
   Qry.Execute();
-  if (Qry.Eof) {
-    return false;
-  }
-  const int first_point = Qry.FieldAsInteger("first_point");
-  const int point_num = Qry.FieldAsInteger("point_num");
 
-  DB::TQuery QryCnt1(PgOra::getROSession("POINTS"), STDLOG);
-  QryCnt1.SQLText =
-      "SELECT COUNT(*) AS n FROM points "
-      "WHERE first_point = :first_point "
-      "AND point_num > :point_num "
-      "AND pr_del = 0 ";
-  QryCnt1.CreateVariable("first_point", otInteger, first_point);
-  QryCnt1.CreateVariable("point_num", otInteger, point_num);
-  QryCnt1.Execute();
-  int n = QryCnt1.Eof ? 0 : QryCnt1.FieldAsInteger("n");
-  if (n == 0) {
-    return false;
-  }
-  DB::TQuery QryCnt2(PgOra::getROSession("POINTS"), STDLOG);
-  QryCnt2.SQLText =
-      "SELECT COUNT(*) AS n FROM points "
-      "WHERE :first_point IN (point_id, first_point) "
-      "AND point_num < :point_num "
-      "AND pr_del = 0 ";
-  QryCnt2.CreateVariable("first_point", otInteger, first_point);
-  QryCnt2.CreateVariable("point_num", otInteger, point_num);
-  QryCnt2.Execute();
-  n = QryCnt2.Eof ? 0 : QryCnt2.FieldAsInteger("n");
-  if (n == 0) {
-    return false;
-  }
-  return true;
+  return Qry.Eof ? 0 : Qry.FieldAsInteger("is_true_tranzit");
 }
 
 bool get_pr_tranz_reg(const PointId_t& point_id)
