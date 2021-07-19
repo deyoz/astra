@@ -279,10 +279,10 @@ void getFlightBaseCompRef( int point_id,
               "comps.airp "
          "FROM points "
         "INNER JOIN comps "
-           "ON points.craft = comps.craft "
-          "AND points.bort = comps.bort ";
+           "ON points.craft = comps.craft ";
     if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
       sql +=
+          "AND points.bort = comps.bort "
         "INNER JOIN libra_comps "
            "ON comps.comp_id = libra_comps.comp_id ";
     }
