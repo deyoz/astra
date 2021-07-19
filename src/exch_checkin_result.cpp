@@ -515,7 +515,8 @@ namespace EXCH_CHECKIN_RESULT
       return;
     }
     paxData.flight = trips[ paxData.point_id ].airline + IntToString( trips[ paxData.point_id ].flt_no ) + trips[ paxData.point_id ].suffix;
-    paxData.scd_out = DateTimeToStr( trips[ paxData.point_id ].scd_out, ServerFormatDateTimeAsString );
+    paxData.scd_out = DateTimeToStr( ASTRA::date_time::UTCToClient(trips[ paxData.point_id ].scd_out,
+                                                                   AirpTZRegion( trips[ paxData.point_id ].airp )), ServerFormatDateTimeAsString );
     paxData.grp_id = PaxQry.FieldAsInteger( col_grp_id );
     paxData.name = PaxQry.FieldAsString( col_name );
     paxData.cl = PaxQry.FieldAsString( col_class );
@@ -697,7 +698,8 @@ namespace EXCH_CHECKIN_RESULT
          NewTextChild( inode, "flight", i->operFlt.airline + IntToString(i->operFlt.flt_no) + i->operFlt.suffix );
          NewTextChild( inode, "airp_dep", i->airp_dep );
          NewTextChild( inode, "airp_arv", i->airp_arv );
-         NewTextChild( inode, "scd_out", DateTimeToStr( i->operFlt.scd_out, ServerFormatDateTimeAsString ) );
+         NewTextChild( inode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient(i->operFlt.scd_out,AirpTZRegion( i->airp_dep )),
+                                                                                      ServerFormatDateTimeAsString ) );
          seg_no++;
       }
     }
