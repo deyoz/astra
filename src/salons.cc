@@ -4962,7 +4962,6 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   TFlights flights;
   flights.Get( vpoint_id, ftTranzit );
   flights.Lock(__FUNCTION__);
-  int range_id = PgOra::getSeqNextVal_int("COMP_LAYERS__SEQ");
   DB::TQuery QryLayers(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
   QryLayers.SQLText =
     "  INSERT INTO trip_comp_layers "
@@ -4972,7 +4971,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
     "    (:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
     "     :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,:pax_id,:time_create) ";
 
-  QryLayers.CreateVariable( "range_id", otInteger, range_id );
+  QryLayers.DeclareVariable( "range_id", otInteger );
   QryLayers.CreateVariable( "point_id", otInteger, vpoint_id );
   QryLayers.DeclareVariable( "point_dep", otInteger );
   QryLayers.DeclareVariable( "point_arv", otInteger );
@@ -5029,7 +5028,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
                    "AND elem_type NOT IN " + GetSQLEnum(elem_types),
                    PgOra::getRWSession("TRIP_COMP_ELEMS")).bind(":point_id", vpoint_id).exec();
   }
-  else { 
+  else {
       make_db_curs("DELETE trip_comp_elems WHERE point_id=:point_id",
                    PgOra::getRWSession("TRIP_COMP_ELEMS")).bind(":point_id", vpoint_id).exec();
   }
@@ -5254,6 +5253,8 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
            else {
              QryLayers.SetVariable( "time_create", layer_time_create );
            }
+           int range_id = PgOra::getSeqNextVal_int("COMP_LAYERS__SEQ");
+           QryLayers.SetVariable( "range_id", range_id );
            QryLayers.Execute();
                //!logProgTrace( TRACE5, "otherlayers: x=%d,y=%d,layer_type=%s,point_id=%d, point_dep=%d,point_arv=%d",
            //!log           iseat->x, iseat->y, EncodeCompLayerType( ilayer->layer_type ),
