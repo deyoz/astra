@@ -7,6 +7,7 @@
 #include "term_version.h"
 #include "baggage_wt.h"
 #include "obrnosir.h"
+#include "cache_impl.h"
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -264,7 +265,7 @@ class BagNormInfo : public TNormWithPriorityInfo
       flt_no=ASTRA::NoExists;
     }
 
-    BagNormInfo& fromDB(TQuery &Qry);
+    BagNormInfo& fromDB(DB::TQuery &Qry);
     boost::optional<SuitableBagNormInfo> getSuitableBagNorm(const TPaxInfo &pax,
                                                             const TBagNormFilterSets &filter,
                                                             const TBagNormFieldAmounts &field_amounts) const;
@@ -280,7 +281,7 @@ class BagNormInfo : public TNormWithPriorityInfo
     bool isRegularBagType() const { return bag_type222==REGULAR_BAG_TYPE; }
 };
 
-BagNormInfo& BagNormInfo::fromDB(TQuery &Qry)
+BagNormInfo& BagNormInfo::fromDB(DB::TQuery &Qry)
 {
   clear();
   TNormWithPriorityInfo::fromDB(Qry);
@@ -321,18 +322,20 @@ boost::optional<BagNormInfo> BagNormInfo::getDirectActionNorm(const TNormItem& n
   if (norm.weight==NoExists)
     throw Exception("%s: norm.weight==NoExists", __func__);
 
-  TCachedQuery Qry("SELECT * FROM bag_norms "
-                   "WHERE direct_action=:direct_action AND "
-                   "      norm_type=:norm_type AND "
-                   "      weight=:weight AND "
-                   "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
-                   "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
-                   "ORDER BY id",
-                   QParams() << QParam("direct_action", otInteger, (int)true)
-                             << QParam("norm_type", otString)
-                             << QParam("amount", otInteger)
-                             << QParam("weight", otInteger)
-                             << QParam("per_unit", otInteger));
+  DB::TCachedQuery Qry(PgOra::getROSession("BAG_NORMS"),
+                       "SELECT * FROM bag_norms "
+                       "WHERE direct_action=:direct_action AND "
+                       "      norm_type=:norm_type AND "
+                       "      weight=:weight AND "
+                       "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
+                       "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
+                       "ORDER BY id",
+                       QParams() << QParam("direct_action", otInteger, (int)true)
+                                 << QParam("norm_type", otString)
+                                 << QParam("amount", otInteger)
+                                 << QParam("weight", otInteger)
+                                 << QParam("per_unit", otInteger),
+                       STDLOG);
   norm.toDB(Qry.get());
   Qry.get().Execute();
   if (Qry.get().Eof) return boost::none;
@@ -409,30 +412,21 @@ boost::optional<SuitableBagNormInfo> BagNormInfo::getSuitableBagNorm(const TPaxI
 void loadBagNorms(const TFltInfo &flt,
                   BagNormList &bagNorms)
 {
-  static string trip_bag_norms_sql;
-  if (trip_bag_norms_sql.empty())
-  {
-    DB::TCachedQuery CacheTablesQry(
-          PgOra::getROSession("CACHE_TABLES"),
-          "SELECT select_sql FROM cache_tables WHERE code=:code",
-          QParams() << QParam("code", otString, "TRIP_BAG_NORMS2"),
-          STDLOG);
-    CacheTablesQry.get().Execute();
-    if (CacheTablesQry.get().Eof) throw Exception("%s: trip_bag_norms_sql not defined!", __FUNCTION__);
-    trip_bag_norms_sql=CacheTablesQry.get().FieldAsString("select_sql");
-  };
-
-  TCachedQuery Qry(trip_bag_norms_sql,
-                   QParams() << (flt.point_id!=NoExists?QParam("point_id", otInteger, flt.point_id):
-                                                        QParam("point_id", otInteger, FNull))
-                             << QParam("use_mark_flt", otInteger, (int)flt.use_mark_flt)
-                             << QParam("airline_mark", otString, flt.airline_mark)
-                             << (flt.flt_no_mark!=NoExists?QParam("flt_no_mark", otInteger, flt.flt_no_mark):
-                                                           QParam("flt_no_mark", otInteger, FNull)));
-  Qry.get().Execute();
   bagNorms.clear();
-  for(;!Qry.get().Eof;Qry.get().Next())
-    bagNorms.push_back(BagNormInfo().fromDB(Qry.get()));
+
+  CacheTable::TripBagNorms tripBagNorms(false);
+
+  DB::TQuery Qry(PgOra::getROSession("BAG_NORMS"), STDLOG);
+
+  if (!tripBagNorms.prepareSelectQuery(PointId_t(flt.point_id),
+                                       flt.use_mark_flt,
+                                       AirlineCode_t(flt.airline_mark),
+                                       FlightNumber_t(flt.flt_no_mark),
+                                       Qry)) return;
+
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    bagNorms.push_back(BagNormInfo().fromDB(Qry));
 }
 
 //результат функции означает надо ли далее получать result стандартным механизмом среди flightBagNorms

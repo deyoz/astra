@@ -10,6 +10,7 @@
 
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
+enum TCacheQueryType {cqtSelect, cqtRefresh, cqtInsert, cqtUpdate, cqtDelete};
 
 struct TParam {
     std::string Value;
@@ -30,8 +31,8 @@ class FieldsForLogging
 };
 
 void DeclareVariable(const std::string& name, const TCacheConvertType type, DB::TQuery &Qry);
-
 void SetVariable(const std::string& name, const TCacheConvertType type, const std::string& value, DB::TQuery &Qry);
+void CreateVariable(const std::string& name, const TCacheConvertType type, const std::string& value, DB::TQuery &Qry);
 
 void DeclareVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                 const bool onlyIfParamExists=true);
@@ -42,7 +43,10 @@ void SetVariablesFromParams(const std::set<std::string> &vars, const TParams &SQ
 void CreateVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                const bool onlyIfParamExists=true);
 
-std::string getParamValue(const std::string& var, const TParams &SQLParams);
+std::string getParamValue(const std::string& name, const TParams &SQLParams);
+std::string notEmptyParamAsString(const std::string& name, const TParams &SQLParams);
+int notEmptyParamAsInteger(const std::string& name, const TParams &SQLParams);
+bool notEmptyParamAsBoolean(const std::string& name, const TParams &SQLParams);
 
 
 namespace CacheTable
@@ -77,13 +81,17 @@ class SelectedRows
 
     SelectedRows& setField(const std::string& name, const std::string& value);
 
-    SelectedRows& setFromString (const size_t idx, DB::TQuery &Qry, const int qryIdx);
-    SelectedRows& setFromInteger(const size_t idx, DB::TQuery &Qry, const int qryIdx);
-    SelectedRows& setFromBoolean(const size_t idx, DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromString  (const size_t idx, DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromInteger (const size_t idx, DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromBoolean (const size_t idx, DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromDateTime(const size_t idx, DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromDouble  (const size_t idx, DB::TQuery &Qry, const int qryIdx);
 
-    SelectedRows& setFromString (DB::TQuery &Qry, const int qryIdx);
-    SelectedRows& setFromInteger(DB::TQuery &Qry, const int qryIdx);
-    SelectedRows& setFromBoolean(DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromString  (DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromInteger (DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromBoolean (DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromDateTime(DB::TQuery &Qry, const int qryIdx);
+    SelectedRows& setFromDouble  (DB::TQuery &Qry, const int qryIdx);
 
     SelectedRows& setFromString (const std::string& value);
     SelectedRows& setFromInteger(const std::optional<int>& value);
@@ -135,6 +143,9 @@ class CacheTableCallbacks
     virtual std::string updateSql() const =0;
     virtual std::string deleteSql() const =0;
     virtual std::list<std::string> dbSessionObjectNames() const =0;
+    virtual void beforeSelectOrRefresh(const TCacheQueryType queryType,
+                                       const TParams& sqlParams,
+                                       DB::TQuery& Qry) const {}
     virtual void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const =0;
     virtual bool userDependence() const =0;
 

@@ -216,8 +216,35 @@ class TNormItem
     return norm_type==ASTRA::bntUnknown;
   }
   const TNormItem& toXML(xmlNodePtr node) const;
-  TNormItem& fromDB(TQuery &Qry);
-  const TNormItem& toDB(TQuery &Qry) const;
+
+  template<class T>
+  TNormItem& fromDB(T &Qry)
+  {
+    clear();
+    std::string normType(Qry.FieldAsString("norm_type"));
+    norm_type=DecodeBagNormType(normType.c_str());
+    if (!Qry.FieldIsNULL("amount"))
+      amount=Qry.FieldAsInteger("amount");
+    if (!Qry.FieldIsNULL("weight"))
+      weight=Qry.FieldAsInteger("weight");
+    if (!Qry.FieldIsNULL("per_unit"))
+      per_unit=(int)(Qry.FieldAsInteger("per_unit")!=0);
+    return *this;
+  }
+
+  template<class T>
+  const TNormItem& toDB(T &Qry) const
+  {
+    Qry.SetVariable("norm_type", EncodeBagNormType(norm_type));
+    amount!=ASTRA::NoExists?Qry.SetVariable("amount", amount):
+                            Qry.SetVariable("amount", FNull);
+    weight!=ASTRA::NoExists?Qry.SetVariable("weight", weight):
+                            Qry.SetVariable("weight", FNull);
+    per_unit!=ASTRA::NoExists?Qry.SetVariable("per_unit", per_unit):
+                              Qry.SetVariable("per_unit", FNull);
+    return *this;
+  }
+
   std::string str(const std::string& lang) const;
   void GetNorms(PrmEnum& prmenum) const;
   bool getByNormId(int normId, bool& isDirectActionNorm);

@@ -36,6 +36,24 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
   if (cacheCode=="SOPP_STATIONS")       return new CacheTable::SoppStations;
   if (cacheCode=="HOTEL_ACMD")          return new CacheTable::HotelAcmd;
+  if (cacheCode=="BAG_NORMS")           return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::AllAirlines);
+  if (cacheCode=="AIRLINE_BAG_NORMS")   return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::SingleAirline);
+  if (cacheCode=="BASIC_BAG_NORMS")     return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::Basic);
+  if (cacheCode=="BAG_RATES")           return new CacheTable::BagRates(CacheTable::BaggageWt::Type::AllAirlines);
+  if (cacheCode=="AIRLINE_BAG_RATES")   return new CacheTable::BagRates(CacheTable::BaggageWt::Type::SingleAirline);
+  if (cacheCode=="BASIC_BAG_RATES")     return new CacheTable::BagRates(CacheTable::BaggageWt::Type::Basic);
+  if (cacheCode=="VALUE_BAG_TAXES")          return new CacheTable::ValueBagTaxes(CacheTable::BaggageWt::Type::AllAirlines);
+  if (cacheCode=="AIRLINE_VALUE_BAG_TAXES")  return new CacheTable::ValueBagTaxes(CacheTable::BaggageWt::Type::SingleAirline);
+  if (cacheCode=="BASIC_VALUE_BAG_TAXES")    return new CacheTable::ValueBagTaxes(CacheTable::BaggageWt::Type::Basic);
+  if (cacheCode=="EXCHANGE_RATES")           return new CacheTable::ExchangeRates(CacheTable::BaggageWt::Type::AllAirlines);
+  if (cacheCode=="AIRLINE_EXCHANGE_RATES")   return new CacheTable::ExchangeRates(CacheTable::BaggageWt::Type::SingleAirline);
+  if (cacheCode=="BASIC_EXCHANGE_RATES")     return new CacheTable::ExchangeRates(CacheTable::BaggageWt::Type::Basic);
+  if (cacheCode=="TRIP_BAG_NORMS")      return new CacheTable::TripBagNorms(true);
+  if (cacheCode=="TRIP_BAG_NORMS2")     return new CacheTable::TripBagNorms(false);
+  if (cacheCode=="TRIP_BAG_RATES")      return new CacheTable::TripBagRates(true);
+  if (cacheCode=="TRIP_BAG_RATES2")     return new CacheTable::TripBagRates(false);
+  if (cacheCode=="TRIP_VALUE_BAG_TAXES")     return new CacheTable::TripValueBagTaxes;
+  if (cacheCode=="TRIP_EXCHANGE_RATES")      return new CacheTable::TripExchangeRates;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -1121,5 +1139,883 @@ void HotelAcmd::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("hotel_acmd").synchronize(getRowId("id", oldRow, newRow));
 }
 
-} //namespace CacheTable
+std::string lastDateSelectSQL(const std::string& objectName)
+{
+  return PgOra::supportsPg(objectName)?"last_date - interval '1 second' AS last_date":
+                                       "last_date-1/86400 AS last_date";
+}
 
+//BaggageWt
+
+std::string BaggageWt::airlineSqlFilter() const
+{
+  switch(type_)
+  {
+    case Type::AllAirlines:   return "airline IS NOT NULL";
+    case Type::SingleAirline: return "airline=:airline";
+    case Type::Basic:         return "airline IS NULL";
+  }
+
+  return "";
+}
+
+int BaggageWt::getCurrentTid() const
+{
+  if (!currentTid) currentTid=PgOra::getSeqNextVal("tid__seq");
+
+  return currentTid.value();
+}
+
+bool BaggageWt::userDependence() const {
+  return true;
+}
+bool BaggageWt::insertImplemented() const {
+  return true;
+}
+bool BaggageWt::updateImplemented() const {
+  return true;
+}
+bool BaggageWt::deleteImplemented() const {
+  return true;
+}
+std::string BaggageWt::selectSql() const {
+  return getSelectOrRefreshSql(false);
+}
+std::string BaggageWt::refreshSql() const {
+  return getSelectOrRefreshSql(true);
+}
+
+void BaggageWt::beforeSelectOrRefresh(const TCacheQueryType queryType,
+                                      const TParams& sqlParams,
+                                      DB::TQuery& Qry) const
+{
+  Qry.CreateVariable("now_local", otDate, BASIC::date_time::Now());
+  if (type_==Type::SingleAirline)
+    CreateVariablesFromParams({"airline"}, sqlParams, Qry);
+}
+
+void BaggageWt::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess(type_==Type::Basic?"":"airline", oldRow, newRow);
+  checkCityAccess("city_dep", oldRow, newRow);
+}
+
+//BagNorms
+
+std::string BagNorms::getSelectOrRefreshSql(const bool isRefreshSql) const
+{
+  ostringstream sql;
+  sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
+         "       first_date, " << lastDateSelectSQL("BAG_NORMS") << ", "
+         "bag_type, amount, weight, per_unit, norm_type, extra, pr_del, tid "
+         "FROM bag_norms "
+         "WHERE direct_action=0"
+      << " AND " << airlineSqlFilter()
+      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
+      << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
+
+  if (type_!=Type::Basic)
+    sql << " AND " << getSQLFilter("airline", AccessControl::PermittedAirlines);
+
+  return sql.str();
+}
+
+std::list<std::string> BagNorms::dbSessionObjectNames() const {
+  return {"BAG_NORMS"};
+}
+
+void BagNorms::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                    const std::optional<CacheTable::Row>& oldRow,
+                                    const std::optional<CacheTable::Row>& newRow) const
+{
+
+//здесь в зависимости от type_ и status надо вызывать переписанные в с++ функции из kassa
+//:SYS_user_descr,:SYS_desk_code уберутся, потому что они нужны только для вызова hist.synchronize_history('bag_norms',vid,vsetting_user,vstation);
+//вместо этого на каждое изменение строки (может быть закрыто несколько периодов одновременно) писать историю по каждому измененному id
+// например: HistoryTable("bag_norms").synchronize(RowId_t(id))
+
+  if (status==usInserted)
+  {
+    const CacheTable::Row& row=newRow.value();
+
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.add_bag_norm(:id,:airline,:pr_trfer,:city_dep,:city_arv,:pax_cat,:subclass,:class,:flt_no,:craft,:trip_type, "
+      "                     :first_date,:last_date,:bag_type,:amount,:weight,:per_unit,:norm_type,:extra,:tid, "
+      "                     :SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
+    if (type_!=Type::Basic)
+    {
+      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
+      CreateVariable("subclass", ctString, row.getAsString("subclass"), Qry);
+      CreateVariable("flt_no", ctInteger, row.getAsString("flt_no"), Qry);
+    }
+    else
+    {
+      CreateVariable("airline", ctString, "", Qry);
+      CreateVariable("subclass", ctString, "", Qry);
+      CreateVariable("flt_no", ctInteger, "", Qry);
+    }
+    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
+    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
+    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
+    CreateVariable("pax_cat", ctString, row.getAsString("pax_cat"), Qry);
+    CreateVariable("class", ctString, row.getAsString("class"), Qry);
+    CreateVariable("craft", ctString, row.getAsString("craft"), Qry);
+    CreateVariable("trip_type", ctString, row.getAsString("trip_type"), Qry);
+    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
+    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
+    CreateVariable("bag_type", ctInteger, row.getAsString("bag_type"), Qry);
+    CreateVariable("amount", ctInteger, row.getAsString("amount"), Qry);
+    CreateVariable("weight", ctInteger, row.getAsString("weight"), Qry);
+    CreateVariable("per_unit", ctInteger, row.getAsString("per_unit"), Qry);
+    CreateVariable("norm_type", ctString, row.getAsString("norm_type"), Qry);
+    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
+    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usModified)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.modify_bag_norm(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usDeleted)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.delete_bag_norm(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+}
+
+//BagRates
+
+std::string BagRates::getSelectOrRefreshSql(const bool isRefreshSql) const
+{
+  ostringstream sql;
+  sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
+         "       bag_type, first_date, " << lastDateSelectSQL("BAG_RATES") << ", rate, rate_cur, min_weight, extra, pr_del, tid "
+         "FROM bag_rates "
+         "WHERE " << airlineSqlFilter()
+      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
+      << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
+
+  if (type_!=Type::Basic)
+    sql << " AND " << getSQLFilter("airline", AccessControl::PermittedAirlines);
+
+  return sql.str();
+}
+
+std::list<std::string> BagRates::dbSessionObjectNames() const {
+  return {"BAG_RATES"};
+}
+
+void BagRates::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                    const std::optional<CacheTable::Row>& oldRow,
+                                    const std::optional<CacheTable::Row>& newRow) const
+{
+  if (status==usInserted)
+  {
+    const CacheTable::Row& row=newRow.value();
+
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.add_bag_rate(:id,:airline,:pr_trfer,:city_dep,:city_arv,:pax_cat,:subclass,:class,:flt_no,:craft,:trip_type, "
+      "                     :first_date,:last_date,:bag_type,:rate,:rate_cur,:min_weight,:extra,:tid, "
+      "                     :SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
+    if (type_!=Type::Basic)
+    {
+      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
+      CreateVariable("subclass", ctString, row.getAsString("subclass"), Qry);
+      CreateVariable("flt_no", ctInteger, row.getAsString("flt_no"), Qry);
+    }
+    else
+    {
+      CreateVariable("airline", ctString, "", Qry);
+      CreateVariable("subclass", ctString, "", Qry);
+      CreateVariable("flt_no", ctInteger, "", Qry);
+    }
+    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
+    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
+    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
+    CreateVariable("pax_cat", ctString, row.getAsString("pax_cat"), Qry);
+    CreateVariable("class", ctString, row.getAsString("class"), Qry);
+    CreateVariable("craft", ctString, row.getAsString("craft"), Qry);
+    CreateVariable("trip_type", ctString, row.getAsString("trip_type"), Qry);
+    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
+    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
+    CreateVariable("bag_type", ctInteger, row.getAsString("bag_type"), Qry);
+    CreateVariable("rate", ctDouble, row.getAsString("rate"), Qry);
+    CreateVariable("rate_cur", ctString, row.getAsString("rate_cur"), Qry);
+    CreateVariable("min_weight", ctInteger, row.getAsString("min_weight"), Qry);
+    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
+    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usModified)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.modify_bag_rate(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usDeleted)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.delete_bag_rate(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+}
+
+//ValueBagTaxes
+
+std::string ValueBagTaxes::getSelectOrRefreshSql(const bool isRefreshSql) const
+{
+  ostringstream sql;
+  sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, "
+         "       first_date, " << lastDateSelectSQL("VALUE_BAG_TAXES") << ", tax, min_value, min_value_cur, extra, pr_del, tid "
+         "FROM value_bag_taxes "
+         "WHERE " << airlineSqlFilter()
+      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
+      << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
+
+  if (type_!=Type::Basic)
+    sql << " AND " << getSQLFilter("airline", AccessControl::PermittedAirlines);
+
+  return sql.str();
+}
+
+std::list<std::string> ValueBagTaxes::dbSessionObjectNames() const {
+  return {"VALUE_BAG_TAXES"};
+}
+
+void ValueBagTaxes::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  if (status==usInserted)
+  {
+    const CacheTable::Row& row=newRow.value();
+
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.add_value_bag_tax(:id,:airline,:pr_trfer,:city_dep,:city_arv, "
+      "                          :first_date,:last_date,:tax,:min_value,:min_value_cur,:extra,:tid, "
+      "                          :SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
+    if (type_!=Type::Basic)
+    {
+      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
+    }
+    else
+    {
+      CreateVariable("airline", ctString, "", Qry);
+    }
+    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
+    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
+    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
+    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
+    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
+    CreateVariable("tax", ctDouble, row.getAsString("tax"), Qry);
+    CreateVariable("min_value", ctDouble, row.getAsString("min_value"), Qry);
+    CreateVariable("min_value_cur", ctString, row.getAsString("min_value_cur"), Qry);
+    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
+    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usModified)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.modify_value_bag_tax(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usDeleted)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.delete_value_bag_tax(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+}
+
+//ExchangeRates
+
+std::string ExchangeRates::getSelectOrRefreshSql(const bool isRefreshSql) const
+{
+  ostringstream sql;
+  sql << "SELECT id, airline, rate1, cur1, rate2, cur2, "
+         "       first_date, " << lastDateSelectSQL("EXCHANGE_RATES") << ", extra, pr_del, tid "
+         "FROM exchange_rates "
+         "WHERE " << airlineSqlFilter()
+      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << (isRefreshSql?" AND tid>:tid":" AND pr_del=0");
+
+  if (type_!=Type::Basic)
+    sql << " AND " << getSQLFilter("airline", AccessControl::PermittedAirlines);
+
+  return sql.str();
+}
+
+std::list<std::string> ExchangeRates::dbSessionObjectNames() const {
+  return {"EXCHANGE_RATES"};
+}
+
+void ExchangeRates::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess(type_==Type::Basic?"":"airline", oldRow, newRow);
+}
+
+void ExchangeRates::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  if (status==usInserted)
+  {
+    const CacheTable::Row& row=newRow.value();
+
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.add_exchange_rate(:id,:airline,:rate1,:cur1,:rate2,:cur2, "
+      "                          :first_date,:last_date,:extra,:tid,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
+    if (type_!=Type::Basic)
+    {
+      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
+    }
+    else
+    {
+      CreateVariable("airline", ctString, "", Qry);
+    }
+    CreateVariable("rate1", ctInteger, row.getAsString("rate1"), Qry);
+    CreateVariable("cur1", ctString, row.getAsString("cur1"), Qry);
+    CreateVariable("rate2", ctDouble, row.getAsString("rate2"), Qry);
+    CreateVariable("cur2", ctString, row.getAsString("cur2"), Qry);
+    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
+    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
+    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
+    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usModified)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.modify_exchange_rate(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+
+  if (status==usDeleted)
+  {
+    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+
+    Qry.SQLText=
+      "BEGIN "
+      "  kassa.delete_exchange_rate(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
+      "END;";
+    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+
+    Qry.Execute();
+  }
+}
+
+//TripBaggageWt
+
+bool TripBaggageWt::userDependence() const {
+  return false;
+}
+
+std::set<CityCode_t> TripBaggageWt::getArrivalCities(const TAdvTripInfo& fltInfo)
+{
+  std::set<CityCode_t> result;
+
+  TTripRoute route;
+  route.GetRouteAfter(fltInfo, trtNotCurrent, trtNotCancelled);
+  for(const TTripRouteItem& item : route)
+    result.insert(getCityByAirp(AirportCode_t(item.airp)));
+
+  return result;
+}
+
+//TripBagNorms
+
+bool TripBagNorms::prepareSelectQuery(const PointId_t& pointId,
+                                      const bool useMarkFlt,
+                                      const AirlineCode_t& airlineMark,
+                                      const FlightNumber_t& fltNumberMark,
+                                      DB::TQuery &Qry) const
+{
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(pointId.get())) return false;
+
+  AirlineCode_t airline( useMarkFlt ? airlineMark.get() : fltInfo.airline );
+  FlightNumber_t fltNumber( useMarkFlt ? fltNumberMark.get() : fltInfo.flt_no );
+  CityCode_t cityDep(getCityByAirp(AirportCode_t(fltInfo.airp)));
+
+  Qry.SQLText=
+    "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
+    "       first_date, " + lastDateSelectSQL("BAG_NORMS") + ", "
+    "       bag_type, amount, weight, per_unit, norm_type, extra, "
+    "       CASE WHEN pr_trfer=0 OR pr_trfer IS NULL THEN 0 ELSE 1 END AS pr_trfer_order "
+    "FROM bag_norms "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (city_dep IS NULL OR city_dep=:city_dep) AND "
+    "      (city_arv IS NULL OR "
+    "       pr_trfer IS NULL OR pr_trfer<>0 OR "
+    "       city_arv IN " + getSQLEnum(getArrivalCities(fltInfo)) + ") AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (craft IS NULL OR craft=:craft) AND "
+    "      (trip_type IS NULL OR trip_type=:trip_type) AND "
+    "      first_date<=:est_scd_out AND (last_date IS NULL OR last_date>:est_scd_out) AND "
+    "      pr_del=0 AND direct_action=0 AND "
+    "      (bag_type IS NULL OR bag_type<>99) "
+    "ORDER BY airline, pr_trfer_order, id";
+
+  Qry.CreateVariable("airline", otString, airline.get());
+  Qry.CreateVariable("city_dep", otString, cityDep.get());
+  Qry.CreateVariable("flt_no", otInteger, fltNumber.get());
+  Qry.CreateVariable("craft", otString, fltInfo.craft);
+  Qry.CreateVariable("trip_type", otString, fltInfo.trip_type);
+  Qry.CreateVariable("est_scd_out", otDate, fltInfo.est_scd_out());
+
+  return true;
+}
+
+void TripBagNorms::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  PointId_t pointId(notEmptyParamAsInteger("point_id", sqlParams));
+  bool useMarkFlt=notEmptyParamAsBoolean("use_mark_flt", sqlParams);
+  AirlineCode_t airlineMark(notEmptyParamAsString("airline_mark", sqlParams));
+  FlightNumber_t fltNumberMark(notEmptyParamAsInteger("flt_no_mark", sqlParams));
+
+  DB::TQuery Qry(PgOra::getROSession("BAG_NORMS"), STDLOG);
+
+  if (!prepareSelectQuery(pointId, useMarkFlt, airlineMark, fltNumberMark, Qry)) return;
+
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxAirline=Qry.FieldIndex("airline");
+  int idxPrTrfer=Qry.FieldIndex("pr_trfer");
+  int idxCityDep=Qry.FieldIndex("city_dep");
+  int idxCityArv=Qry.FieldIndex("city_arv");
+  int idxPaxCat=Qry.FieldIndex("pax_cat");
+  int idxSubclass=Qry.FieldIndex("subclass");
+  int idxClass=Qry.FieldIndex("class");
+  int idxFltNo=Qry.FieldIndex("flt_no");
+  int idxCraft=Qry.FieldIndex("craft");
+  int idxTripType=Qry.FieldIndex("trip_type");
+  int idxFirstDate=Qry.FieldIndex("first_date");
+  int idxLastDate=Qry.FieldIndex("last_date");
+  int idxBagType=Qry.FieldIndex("bag_type");
+  int idxAmount=Qry.FieldIndex("amount");
+  int idxWeight=Qry.FieldIndex("weight");
+  int idxPerUnit=Qry.FieldIndex("per_unit");
+  int idxNormType=Qry.FieldIndex("norm_type");
+  int idxExtra=Qry.FieldIndex("extra");
+
+  std::string trferBagAirline=Qry.FieldAsString(idxAirline);
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    ostringstream bagType;
+    if (!Qry.FieldIsNULL(idxBagType))
+      bagType << setw(outdated_?0:2) << setfill('0') << Qry.FieldAsInteger(idxBagType);
+
+    rows.setFromInteger (Qry, idxId)
+        .setFromString  (Qry, idxAirline)
+        .setFromString  (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
+        .setFromBoolean (Qry, idxPrTrfer)
+        .setFromString  (Qry, idxCityDep)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityDep)))
+        .setFromString  (Qry, idxCityArv)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityArv)))
+        .setFromString  (Qry, idxPaxCat)
+        .setFromString  (Qry, idxSubclass)
+        .setFromString  (ElemIdToCodeNative(etSubcls, Qry.FieldAsString(idxSubclass)))
+        .setFromString  (Qry, idxClass)
+        .setFromString  (ElemIdToCodeNative(etClass, Qry.FieldAsString(idxClass)))
+        .setFromInteger (Qry, idxFltNo)
+        .setFromString  (Qry, idxCraft)
+        .setFromString  (ElemIdToCodeNative(etCraft, Qry.FieldAsString(idxCraft)))
+        .setFromString  (Qry, idxTripType)
+        .setFromString  (ElemIdToCodeNative(etTripType, Qry.FieldAsString(idxTripType)))
+        .setFromString  (bagType.str())
+        .setFromString  (Qry, idxNormType)
+        .setFromString  (ElemIdToCodeNative(etBagNormType, Qry.FieldAsString(idxNormType)))
+        .setFromInteger (Qry, idxAmount)
+        .setFromInteger (Qry, idxWeight)
+        .setFromBoolean (Qry, idxPerUnit)
+        .setFromDateTime(Qry, idxFirstDate)
+        .setFromDateTime(Qry, idxLastDate)
+        .setFromString  (Qry, idxExtra)
+        .setFromInteger (pointId.get())
+        .setFromBoolean (useMarkFlt)
+        .setFromString  (airlineMark.get())
+        .setFromInteger (fltNumberMark.get())
+        .addRow();
+  }
+
+  if (outdated_)
+  {
+    rows.setField("id", IntToString(1000000000))
+        .setField("airline", trferBagAirline)
+        .setField("airline_view", ElemIdToCodeNative(etAirline, trferBagAirline))
+        .setField("first_date", "01.01.2000 00:00:00")
+        .setField("bag_type", "99")
+        .setField("norm_type", "БП")
+        .setField("norm_type_view", ElemIdToCodeNative(etBagNormType, "БП"))
+        .setField("point_id", IntToString(pointId.get()))
+        .setField("use_mark_flt", IntToString((int)useMarkFlt))
+        .setField("airline_mark", airlineMark.get())
+        .setField("flt_no_mark", IntToString(fltNumberMark.get()))
+        .addRow();
+  }
+}
+
+//TripBagRates
+
+void TripBagRates::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  PointId_t pointId(notEmptyParamAsInteger("point_id", sqlParams));
+
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(pointId.get())) return;
+
+  bool useMarkFlt=notEmptyParamAsBoolean("use_mark_flt", sqlParams);
+  AirlineCode_t airline( useMarkFlt ? notEmptyParamAsString("airline_mark", sqlParams) : fltInfo.airline );
+  FlightNumber_t fltNumber( useMarkFlt ? notEmptyParamAsInteger("flt_no_mark", sqlParams) : fltInfo.flt_no );
+  CityCode_t cityDep(getCityByAirp(AirportCode_t(fltInfo.airp)));
+
+  DB::TQuery Qry(PgOra::getROSession("BAG_RATES"), STDLOG);
+
+  Qry.SQLText=
+    "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
+    "       bag_type, first_date, " + lastDateSelectSQL("BAG_RATES") + ", "
+    "       rate, rate_cur, min_weight, extra, "
+    "       CASE WHEN pr_trfer=0 OR pr_trfer IS NULL THEN 0 ELSE 1 END AS pr_trfer_order "
+    "FROM bag_rates "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (city_dep IS NULL OR city_dep=:city_dep) AND "
+    "      (city_arv IS NULL OR "
+    "       pr_trfer IS NULL OR pr_trfer<>0 OR "
+    "       city_arv IN " + getSQLEnum(getArrivalCities(fltInfo)) + ") AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (craft IS NULL OR craft=:craft) AND "
+    "      (trip_type IS NULL OR trip_type=:trip_type) AND "
+    "      first_date<=:est_scd_out AND (last_date IS NULL OR last_date>:est_scd_out) AND "
+    "      pr_del=0 "
+    "ORDER BY airline, pr_trfer_order, id";
+
+  Qry.CreateVariable("airline", otString, airline.get());
+  Qry.CreateVariable("city_dep", otString, cityDep.get());
+  Qry.CreateVariable("flt_no", otInteger, fltNumber.get());
+  Qry.CreateVariable("craft", otString, fltInfo.craft);
+  Qry.CreateVariable("trip_type", otString, fltInfo.trip_type);
+  Qry.CreateVariable("est_scd_out", otDate, fltInfo.est_scd_out());
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxAirline=Qry.FieldIndex("airline");
+  int idxPrTrfer=Qry.FieldIndex("pr_trfer");
+  int idxCityDep=Qry.FieldIndex("city_dep");
+  int idxCityArv=Qry.FieldIndex("city_arv");
+  int idxPaxCat=Qry.FieldIndex("pax_cat");
+  int idxSubclass=Qry.FieldIndex("subclass");
+  int idxClass=Qry.FieldIndex("class");
+  int idxFltNo=Qry.FieldIndex("flt_no");
+  int idxCraft=Qry.FieldIndex("craft");
+  int idxTripType=Qry.FieldIndex("trip_type");
+  int idxBagType=Qry.FieldIndex("bag_type");
+  int idxFirstDate=Qry.FieldIndex("first_date");
+  int idxLastDate=Qry.FieldIndex("last_date");
+  int idxRate=Qry.FieldIndex("rate");
+  int idxRateCur=Qry.FieldIndex("rate_cur");
+  int idxMinWeight=Qry.FieldIndex("min_weight");
+  int idxExtra=Qry.FieldIndex("extra");
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    ostringstream bagType;
+    if (!Qry.FieldIsNULL(idxBagType))
+      bagType << setw(outdated_?0:2) << setfill('0') << Qry.FieldAsInteger(idxBagType);
+
+    rows.setFromInteger (Qry, idxId)
+        .setFromString  (Qry, idxAirline)
+        .setFromString  (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
+        .setFromBoolean (Qry, idxPrTrfer)
+        .setFromString  (Qry, idxCityDep)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityDep)))
+        .setFromString  (Qry, idxCityArv)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityArv)))
+        .setFromString  (Qry, idxPaxCat)
+        .setFromString  (Qry, idxSubclass)
+        .setFromString  (ElemIdToCodeNative(etSubcls, Qry.FieldAsString(idxSubclass)))
+        .setFromString  (Qry, idxClass)
+        .setFromString  (ElemIdToCodeNative(etClass, Qry.FieldAsString(idxClass)))
+        .setFromInteger (Qry, idxFltNo)
+        .setFromString  (Qry, idxCraft)
+        .setFromString  (ElemIdToCodeNative(etCraft, Qry.FieldAsString(idxCraft)))
+        .setFromString  (Qry, idxTripType)
+        .setFromString  (ElemIdToCodeNative(etTripType, Qry.FieldAsString(idxTripType)))
+        .setFromString  (bagType.str())
+        .setFromDateTime(Qry, idxFirstDate)
+        .setFromDateTime(Qry, idxLastDate)
+        .setFromDouble  (Qry, idxRate)
+        .setFromString  (Qry, idxRateCur)
+        .setFromString  (ElemIdToCodeNative(etCurrency, Qry.FieldAsString(idxRateCur)))
+        .setFromInteger (Qry, idxMinWeight)
+        .setFromString  (Qry, idxExtra)
+        .setFromInteger (pointId.get())
+        .setFromBoolean (useMarkFlt)
+        .setFromString  (airline.get())
+        .setFromInteger (fltNumber.get())
+        .addRow();
+  }
+}
+
+//TripValueBagTaxes
+
+void TripValueBagTaxes::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  PointId_t pointId(notEmptyParamAsInteger("point_id", sqlParams));
+
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(pointId.get())) return;
+
+  bool useMarkFlt=notEmptyParamAsBoolean("use_mark_flt", sqlParams);
+  AirlineCode_t airline( useMarkFlt ? notEmptyParamAsString("airline_mark", sqlParams) : fltInfo.airline );
+  CityCode_t cityDep(getCityByAirp(AirportCode_t(fltInfo.airp)));
+
+  DB::TQuery Qry(PgOra::getROSession("VALUE_BAG_TAXES"), STDLOG);
+
+  Qry.SQLText=
+    "SELECT id, airline, pr_trfer, city_dep, city_arv, "
+    "       first_date, " + lastDateSelectSQL("VALUE_BAG_TAXES") + ", "
+    "       tax, min_value, min_value_cur, extra, "
+    "       CASE WHEN pr_trfer=0 OR pr_trfer IS NULL THEN 0 ELSE 1 END AS pr_trfer_order "
+    "FROM value_bag_taxes "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (city_dep IS NULL OR city_dep=:city_dep) AND "
+    "      (city_arv IS NULL OR "
+    "       pr_trfer IS NULL OR pr_trfer<>0 OR "
+    "       city_arv IN " + getSQLEnum(getArrivalCities(fltInfo)) + ") AND "
+    "      first_date<=:est_scd_out AND (last_date IS NULL OR last_date>:est_scd_out) AND "
+    "      pr_del=0 "
+    "ORDER BY airline, pr_trfer_order, id";
+
+  Qry.CreateVariable("airline", otString, airline.get());
+  Qry.CreateVariable("city_dep", otString, cityDep.get());
+  Qry.CreateVariable("est_scd_out", otDate, fltInfo.est_scd_out());
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxAirline=Qry.FieldIndex("airline");
+  int idxPrTrfer=Qry.FieldIndex("pr_trfer");
+  int idxCityDep=Qry.FieldIndex("city_dep");
+  int idxCityArv=Qry.FieldIndex("city_arv");
+  int idxFirstDate=Qry.FieldIndex("first_date");
+  int idxLastDate=Qry.FieldIndex("last_date");
+  int idxTax=Qry.FieldIndex("tax");
+  int idxMinValue=Qry.FieldIndex("min_value");
+  int idxMinValueCur=Qry.FieldIndex("min_value_cur");
+  int idxExtra=Qry.FieldIndex("extra");
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    rows.setFromInteger (Qry, idxId)
+        .setFromString  (Qry, idxAirline)
+        .setFromString  (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
+        .setFromBoolean (Qry, idxPrTrfer)
+        .setFromString  (Qry, idxCityDep)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityDep)))
+        .setFromString  (Qry, idxCityArv)
+        .setFromString  (ElemIdToCodeNative(etCity, Qry.FieldAsString(idxCityArv)))
+        .setFromDateTime(Qry, idxFirstDate)
+        .setFromDateTime(Qry, idxLastDate)
+        .setFromDouble  (Qry, idxTax)
+        .setFromDouble  (Qry, idxMinValue)
+        .setFromString  (Qry, idxMinValueCur)
+        .setFromString  (ElemIdToCodeNative(etCurrency, Qry.FieldAsString(idxMinValueCur)))
+        .setFromString  (Qry, idxExtra)
+        .setFromInteger (pointId.get())
+        .setFromBoolean (useMarkFlt)
+        .setFromString  (airline.get())
+        .addRow();
+  }
+}
+
+//TripExchangeRates
+
+void TripExchangeRates::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  PointId_t pointId(notEmptyParamAsInteger("point_id", sqlParams));
+
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(pointId.get())) return;
+
+  bool useMarkFlt=notEmptyParamAsBoolean("use_mark_flt", sqlParams);
+  AirlineCode_t airline( useMarkFlt ? notEmptyParamAsString("airline_mark", sqlParams) : fltInfo.airline );
+
+  DB::TQuery Qry(PgOra::getROSession("EXCHANGE_RATES"), STDLOG);
+
+  Qry.SQLText=
+    "SELECT id, airline, rate1, cur1, rate2, cur2, "
+    "       first_date, " + lastDateSelectSQL("EXCHANGE_RATES") + ", extra "
+    "FROM exchange_rates "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      first_date<=:est_scd_out AND (last_date IS NULL OR last_date>:est_scd_out) AND "
+    "      pr_del=0 "
+    "ORDER BY airline, id";
+
+  Qry.CreateVariable("airline", otString, airline.get());
+  Qry.CreateVariable("est_scd_out", otDate, fltInfo.est_scd_out());
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxId=Qry.FieldIndex("id");
+  int idxAirline=Qry.FieldIndex("airline");
+  int idxRate1=Qry.FieldIndex("rate1");
+  int idxCur1=Qry.FieldIndex("cur1");
+  int idxRate2=Qry.FieldIndex("rate2");
+  int idxCur2=Qry.FieldIndex("cur2");
+  int idxFirstDate=Qry.FieldIndex("first_date");
+  int idxLastDate=Qry.FieldIndex("last_date");
+  int idxExtra=Qry.FieldIndex("extra");
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    rows.setFromInteger (Qry, idxId)
+        .setFromString  (Qry, idxAirline)
+        .setFromString  (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
+        .setFromInteger (Qry, idxRate1)
+        .setFromString  (Qry, idxCur1)
+        .setFromString  (ElemIdToCodeNative(etCurrency, Qry.FieldAsString(idxCur1)))
+        .setFromDouble  (Qry, idxRate2)
+        .setFromString  (Qry, idxCur2)
+        .setFromString  (ElemIdToCodeNative(etCurrency, Qry.FieldAsString(idxCur2)))
+        .setFromDateTime(Qry, idxFirstDate)
+        .setFromDateTime(Qry, idxLastDate)
+        .setFromString  (Qry, idxExtra)
+        .setFromInteger (pointId.get())
+        .setFromBoolean (useMarkFlt)
+        .setFromString  (airline.get())
+        .addRow();
+  }
+}
+
+
+} //namespace CacheTables

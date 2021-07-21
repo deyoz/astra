@@ -13,7 +13,9 @@ namespace CacheTable
 enum class AccessControl { PermittedAirports,
                            PermittedAirportsOrNull,
                            PermittedAirlines,
-                           PermittedAirlinesOrNull };
+                           PermittedAirlinesOrNull,
+                           PermittedCities,
+                           PermittedCitiesOrNull };
 
 std::string getSQLFilter(const std::string& sqlFieldName, const AccessControl accessControl);
 
@@ -27,6 +29,10 @@ void checkAirportAccess(const std::string& fieldName,
 void checkAirlineAccess(const std::string& fieldName,
                         const std::optional<CacheTable::Row>& oldRow,
                         const std::optional<CacheTable::Row>& newRow);
+
+void checkCityAccess(const std::string& fieldName,
+                     const std::optional<CacheTable::Row>& oldRow,
+                     const std::optional<CacheTable::Row>& newRow);
 
 void checkNotNullStageAccess(const std::string& stageIdFieldName,
                              const std::string& airlineFieldName,

@@ -577,7 +577,9 @@ const std::string& AirpTZRegion(std::string airp, bool with_exception=true);
 const std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
-TCountriesRow getCountryByAirp( const std::string& airp);
+CityCode_t getCityByAirp(const AirportCode_t& airp);
+
+TCountriesRow getCountryByAirp(const std::string& airp);
 CountryCode_t getCountryByAirp(const AirportCode_t& airp);
 
 class SysReqInterface : public JxtInterface

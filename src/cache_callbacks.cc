@@ -97,6 +97,12 @@ void SetVariable(const string& name, const TCacheConvertType type, const string&
   }
 }
 
+void CreateVariable(const string& name, const TCacheConvertType type, const string& value, DB::TQuery &Qry)
+{
+  DeclareVariable(name, type, Qry);
+  SetVariable(name, type, value, Qry);
+}
+
 void DeclareVariablesFromParams(const std::set<string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                 const bool onlyIfParamExists)
 {
@@ -145,12 +151,44 @@ void CreateVariablesFromParams(const std::set<string> &vars, const TParams &SQLP
   SetVariablesFromParams(vars, SQLParams, Qry, fieldsForLogging, onlyIfParamExists);
 }
 
-std::string getParamValue(const std::string& var, const TParams &SQLParams)
+std::string getParamValue(const std::string& name, const TParams &SQLParams)
 {
-  map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
+  map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(name) );
   if ( ip == SQLParams.end() )
-    throw Exception("%s: parameter %s not found", __func__, var.c_str());
+    throw Exception("%s: parameter %s not found", __func__, name.c_str());
   return ip->second.Value;
+}
+
+std::string notEmptyParamAsString(const std::string& name, const TParams &SQLParams)
+{
+  string value=getParamValue(name, SQLParams);
+
+  if (value.empty())
+    throw EConvertError("%s: empty parameter '%s'", __func__, name.c_str());
+
+  return value;
+}
+
+int notEmptyParamAsInteger(const std::string& name, const TParams &SQLParams)
+{
+  string value=getParamValue(name, SQLParams);
+
+  int result;
+  if (StrToInt( value.c_str(), result ) == EOF) //на пустые параметры тоже ругаемся
+    throw EConvertError("%s: cannot convert parameter '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return result;
+}
+
+bool notEmptyParamAsBoolean(const std::string& name, const TParams &SQLParams)
+{
+  string value=getParamValue(name, SQLParams);
+
+  int result;
+  if (StrToInt( value.c_str(), result ) == EOF) //на пустые параметры тоже ругаемся
+    throw EConvertError("%s: cannot convert parameter '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return result!=0;
 }
 
 
@@ -225,6 +263,26 @@ SelectedRows& SelectedRows::setFromBoolean(const size_t idx, DB::TQuery &Qry, co
   return *this;
 }
 
+SelectedRows& SelectedRows::setFromDateTime(const size_t idx, DB::TQuery &Qry, const int qryIdx)
+{
+  if (idx>=fieldIndexes_.size())
+    throw Exception("%s: wrong index %zu", __func__, idx);
+
+  currentRow().fields[idx]=Qry.FieldIsNULL(qryIdx)?"":DateTimeToStr(Qry.FieldAsDateTime(qryIdx), ServerFormatDateTimeAsString);
+
+  return *this;
+}
+
+SelectedRows& SelectedRows::setFromDouble(const size_t idx, DB::TQuery &Qry, const int qryIdx)
+{
+  if (idx>=fieldIndexes_.size())
+    throw Exception("%s: wrong index %zu", __func__, idx);
+
+  currentRow().fields[idx]=Qry.FieldIsNULL(qryIdx)?"":FloatToString( Qry.FieldAsFloat(qryIdx) );
+
+  return *this;
+}
+
 SelectedRows& SelectedRows::setFromString(DB::TQuery &Qry, const int qryIdx)
 {
   return setFromString(currentFieldIdx()++, Qry, qryIdx);
@@ -238,6 +296,16 @@ SelectedRows& SelectedRows::setFromInteger(DB::TQuery &Qry, const int qryIdx)
 SelectedRows& SelectedRows::setFromBoolean(DB::TQuery &Qry, const int qryIdx)
 {
   return setFromBoolean(currentFieldIdx()++, Qry, qryIdx);
+}
+
+SelectedRows& SelectedRows::setFromDateTime(DB::TQuery &Qry, const int qryIdx)
+{
+  return setFromDateTime(currentFieldIdx()++, Qry, qryIdx);
+}
+
+SelectedRows& SelectedRows::setFromDouble(DB::TQuery &Qry, const int qryIdx)
+{
+  return setFromDouble(currentFieldIdx()++, Qry, qryIdx);
 }
 
 SelectedRows& SelectedRows::setCurrentField(const std::string& value, const std::string& whence)

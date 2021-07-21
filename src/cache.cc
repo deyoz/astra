@@ -699,6 +699,9 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     CreateSysVariables(vars, Qry, fieldsForLogging);
     CreateVariablesFromParams(vars, SQLParams, Qry, false);
 
+    if (callbacks)
+      callbacks->beforeSelectOrRefresh(query_type, SQLParams, Qry);
+
     if(OnBeforeRefresh)
       try {
           (*OnBeforeRefresh)(*this, Qry, query_type);
@@ -714,9 +717,6 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
 
     ProgTrace(TRACE5, "SQLText=%s", Qry.SQLText.c_str());
     Qry.Execute();
-
-    bool trip_bag_norms=(TCacheTable::code()=="TRIP_BAG_NORMS");
-    TRow tmp_row;
 
     // ищем, чтобы все поля, которые описаны в кэше были в запросе
     // если запрос не возвращает строк, то в PG не сможем проверить поля
@@ -754,8 +754,7 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
       {
         if( tidIdx >= 0 && Qry.FieldAsInteger( tidIdx ) > clientVerData )
           clientVerData = Qry.FieldAsInteger( tidIdx );
-        TRow local_row;
-        TRow &row=(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000)?tmp_row:local_row;
+        TRow row;
         int j=0;
         for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++)
         {
@@ -812,21 +811,8 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
           row.status = usDeleted;
         else
           row.status = usUnmodified;
-        if (!(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000))
-          table.push_back(row);
+        table.push_back(row);
       }
-    }
-
-    if (trip_bag_norms && !table.empty() && !tmp_row.cols.empty())
-    {
-      vector<TCacheField2>::const_iterator i = FFields.begin();
-      std::vector<std::string>::iterator j = tmp_row.cols.begin();
-      std::vector<std::string>::const_iterator k = table.begin()->cols.begin();
-
-      for(; i != FFields.end() && j != tmp_row.cols.end() && k != table.begin()->cols.end(); ++i, ++j, ++k)
-        if (i->Name=="AIRLINE" || i->Name=="AIRLINE_VIEW")
-          *j=*k;
-      table.push_back(tmp_row);
     }
 
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );

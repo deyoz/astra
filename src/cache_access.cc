@@ -14,23 +14,36 @@ using namespace EXCEPTIONS;
 namespace CacheTable
 {
 
-std::string getSQLFilter(const std::string& sqlFieldName, const AccessControl accessControl)
+TAccessElems<CityCode_t> getCitiesAccess(const TAccessElems<std::string>& airpsAccess)
 {
-  const auto& access=accessControl==AccessControl::PermittedAirlines ||
-                     accessControl==AccessControl::PermittedAirlinesOrNull ?
-                     TReqInfo::Instance()->user.access.airlines():
-                     TReqInfo::Instance()->user.access.airps();
+  TAccessElems<CityCode_t> citiesAccess;
 
+  if (!airpsAccess.elems_permit())
+    citiesAccess.set_total_permit();
+  else
+  {
+    const auto& airpsAccessElems=airpsAccess.elems();
+    for(const auto& airp : airpsAccessElems)
+      citiesAccess.add_elem(getCityByAirp(AirportCode_t(airp)));
+  }
+
+  return citiesAccess;
+}
+
+
+
+template<class T>
+std::string getSQLFilter(const std::string& sqlFieldName, const TAccessElems<T>& access, const bool addNulls)
+{
   if (access.totally_permitted()) return " (1=1) ";
   if (access.totally_not_permitted()) return " (1<>1) ";
 
   string where1, where2;
 
   if (!access.elems().empty())
-    where1 = sqlFieldName + (access.elems_permit()?" IN ":" NOT IN ") + GetSQLEnum(access.elems());
+    where1 = sqlFieldName + (access.elems_permit()?" IN ":" NOT IN ") + getSQLEnum(access.elems());
 
-  if (accessControl==AccessControl::PermittedAirlinesOrNull ||
-      accessControl==AccessControl::PermittedAirportsOrNull)
+  if (addNulls)
     where2 = sqlFieldName + " IS NULL";
 
   if (where1.empty())
@@ -49,6 +62,28 @@ std::string getSQLFilter(const std::string& sqlFieldName, const AccessControl ac
   }
 }
 
+std::string getSQLFilter(const std::string& sqlFieldName, const AccessControl accessControl)
+{
+  bool addNulls=accessControl==AccessControl::PermittedAirlinesOrNull ||
+                accessControl==AccessControl::PermittedAirportsOrNull ||
+                accessControl==AccessControl::PermittedCitiesOrNull;
+
+  switch(accessControl)
+  {
+    case AccessControl::PermittedAirlines:
+    case AccessControl::PermittedAirlinesOrNull:
+      return getSQLFilter(sqlFieldName, TReqInfo::Instance()->user.access.airlines(), addNulls);
+    case AccessControl::PermittedAirports:
+    case AccessControl::PermittedAirportsOrNull:
+      return getSQLFilter(sqlFieldName, TReqInfo::Instance()->user.access.airps(), addNulls);
+    case AccessControl::PermittedCities:
+    case AccessControl::PermittedCitiesOrNull:
+      return getSQLFilter(sqlFieldName, getCitiesAccess(TReqInfo::Instance()->user.access.airps()), addNulls);
+  }
+
+  throw Exception("%s: unknown accessControl", __func__);
+}
+
 bool isPermitted(const std::optional<AirportCode_t>& airportOpt)
 {
   if (airportOpt)
@@ -65,6 +100,16 @@ bool isPermitted(const std::optional<AirlineCode_t>& airlineOpt)
     return TReqInfo::Instance()->user.access.airlines().totally_permitted();
 }
 
+bool isPermitted(const std::optional<CityCode_t>& cityOpt)
+{
+  const auto cityAccess=getCitiesAccess(TReqInfo::Instance()->user.access.airps());
+
+  if (cityOpt)
+    return cityAccess.permitted(cityOpt.value());
+  else
+    return cityAccess.totally_permitted();
+}
+
 void checkAirportAccess(const std::string& fieldName,
                         const std::optional<CacheTable::Row>& oldRow,
                         const std::optional<CacheTable::Row>& newRow)
@@ -74,9 +119,12 @@ void checkAirportAccess(const std::string& fieldName,
     const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
     if (!row) continue;
 
-    string value=row.value().getAsString(fieldName);
     std::optional<AirportCode_t> airportOpt;
-    if (!value.empty()) airportOpt.emplace(value);
+    if (!fieldName.empty())
+    {
+      string value=row.value().getAsString(fieldName);
+      if (!value.empty()) airportOpt.emplace(value);
+    }
 
     if (isPermitted(airportOpt)) continue;
 
@@ -99,9 +147,12 @@ void checkAirlineAccess(const std::string& fieldName,
     const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
     if (!row) continue;
 
-    string value=row.value().getAsString(fieldName);
     std::optional<AirlineCode_t> airlineOpt;
-    if (!value.empty()) airlineOpt.emplace(value);
+    if (!fieldName.empty())
+    {
+      string value=row.value().getAsString(fieldName);
+      if (!value.empty()) airlineOpt.emplace(value);
+    }
 
     if (isPermitted(airlineOpt)) continue;
 
@@ -111,6 +162,34 @@ void checkAirlineAccess(const std::string& fieldName,
     }
     else {
       throw UserException(isNewRow?"MSG.NEED_SET_CODE_AIRLINE":"MSG.NO_PERM_MODIFY_INDEFINITE_AIRLINE");
+    }
+  }
+}
+
+void checkCityAccess(const std::string& fieldName,
+                     const std::optional<CacheTable::Row>& oldRow,
+                     const std::optional<CacheTable::Row>& newRow)
+{
+  for(bool isNewRow : {false, true})
+  {
+    const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
+    if (!row) continue;
+
+    std::optional<CityCode_t> cityOpt;
+    if (!fieldName.empty())
+    {
+      string value=row.value().getAsString(fieldName);
+      if (!value.empty()) cityOpt.emplace(value);
+    }
+
+    if (isPermitted(cityOpt)) continue;
+
+    if (cityOpt) {
+      throw UserException(isNewRow?"MSG.NO_PERM_ENTER_CITY":"MSG.NO_PERM_MODIFY_CITY",
+                          LParams() << LParam("city", ElemIdToCodeNative(etCity, cityOpt.value().get())));
+    }
+    else {
+      throw UserException(isNewRow?"MSG.NEED_SET_CODE_CITY":"MSG.NO_PERM_MODIFY_INDEFINITE_CITY");
     }
   }
 }

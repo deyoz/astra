@@ -35,7 +35,6 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList, ftUTF,
                       ftUnknown, NumFieldType};
-enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
     cecNone,
     cecCode,

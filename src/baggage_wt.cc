@@ -680,31 +680,6 @@ const TNormItem& TNormItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-TNormItem& TNormItem::fromDB(TQuery &Qry)
-{
-  clear();
-  norm_type=DecodeBagNormType(Qry.FieldAsString("norm_type"));
-  if (!Qry.FieldIsNULL("amount"))
-    amount=Qry.FieldAsInteger("amount");
-  if (!Qry.FieldIsNULL("weight"))
-    weight=Qry.FieldAsInteger("weight");
-  if (!Qry.FieldIsNULL("per_unit"))
-    per_unit=(int)(Qry.FieldAsInteger("per_unit")!=0);
-  return *this;
-};
-
-const TNormItem& TNormItem::toDB(TQuery &Qry) const
-{
-  Qry.SetVariable("norm_type", EncodeBagNormType(norm_type));
-  amount!=ASTRA::NoExists?Qry.SetVariable("amount", amount):
-                          Qry.SetVariable("amount", FNull);
-  weight!=ASTRA::NoExists?Qry.SetVariable("weight", weight):
-                          Qry.SetVariable("weight", FNull);
-  per_unit!=ASTRA::NoExists?Qry.SetVariable("per_unit", per_unit):
-                            Qry.SetVariable("per_unit", FNull);
-  return *this;
-}
-
 bool TNormItem::getByNormId(int normId, bool& isDirectActionNorm)
 {
   isDirectActionNorm=false;

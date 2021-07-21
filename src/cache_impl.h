@@ -2,6 +2,7 @@
 
 #include "cache_callbacks.h"
 #include "cache_access.h"
+#include "astra_misc.h"
 
 CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode);
 
@@ -295,6 +296,122 @@ class HotelAcmd : public CacheTableWritable
     void afterApplyingRowChanges(const TCacheUpdateStatus status,
                                  const std::optional<CacheTable::Row>& oldRow,
                                  const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BaggageWt : public CacheTableWritableHandmade
+{
+  public:
+    enum class Type { AllAirlines, SingleAirline, Basic };
+    mutable std::optional<int> currentTid;
+  protected:
+    Type type_;
+    std::string airlineSqlFilter() const;
+    int getCurrentTid() const;
+  public:
+    BaggageWt(const Type type) : type_(type) {}
+    virtual std::string getSelectOrRefreshSql(const bool isRefreshSql) const =0;
+    bool userDependence() const;
+    bool insertImplemented() const;
+    bool updateImplemented() const;
+    bool deleteImplemented() const;
+    std::string selectSql() const;
+    std::string refreshSql() const;
+    void beforeSelectOrRefresh(const TCacheQueryType queryType,
+                               const TParams& sqlParams,
+                               DB::TQuery& Qry) const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BagNorms : public BaggageWt
+{
+  public:
+    BagNorms(const Type type) : BaggageWt(type) {}
+    std::string getSelectOrRefreshSql(const bool isRefreshSql) const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BagRates : public BaggageWt
+{
+  public:
+    BagRates(const Type type) : BaggageWt(type) {}
+    std::string getSelectOrRefreshSql(const bool isRefreshSql) const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class ValueBagTaxes : public BaggageWt
+{
+  public:
+    ValueBagTaxes(const Type type) : BaggageWt(type) {}
+    std::string getSelectOrRefreshSql(const bool isRefreshSql) const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class ExchangeRates : public BaggageWt
+{
+  public:
+    ExchangeRates(const Type type) : BaggageWt(type) {}
+    std::string getSelectOrRefreshSql(const bool isRefreshSql) const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class TripBaggageWt : public CacheTableReadonlyHandmade
+{
+  public:
+    bool userDependence() const;
+    static std::set<CityCode_t> getArrivalCities(const TAdvTripInfo& fltInfo);
+};
+
+class TripBagNorms : public TripBaggageWt
+{
+  private:
+    bool outdated_;
+  public:
+    TripBagNorms(const bool outdated) : outdated_(outdated) {}
+    bool prepareSelectQuery(const PointId_t& pointId,
+                            const bool useMarkFlt,
+                            const AirlineCode_t& airlineMark,
+                            const FlightNumber_t& fltNumberMark,
+                            DB::TQuery &Qry) const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+};
+
+class TripBagRates : public TripBaggageWt
+{
+  private:
+    bool outdated_;
+  public:
+    TripBagRates(const bool outdated) : outdated_(outdated) {}
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+};
+
+class TripValueBagTaxes : public TripBaggageWt
+{
+  public:
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+};
+
+class TripExchangeRates : public TripBaggageWt
+{
+  public:
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
 };
 
 }
