@@ -1014,6 +1014,21 @@ std::vector<TGrpItem> TlgTransferGrpFromDB(TTrferType type,
   return result;
 }
 
+DbCpp::Session& getSessionForTrferQry(TTrferType type)
+{
+  if (type == trferIn || type == trferCkin) {
+    return PgOra::getROSession({"PAX","PAX_GRP","BAG2","TRANSFER"});
+  }
+  if (type == trferOut || type == trferOutForCkin) {
+    return PgOra::getROSession({"PAX","PAX_GRP","BAG2","TRANSFER","TRFER_TRIPS"});
+  }
+  if (type == tckinInbound)
+  {
+    return PgOra::getROSession({"PAX","PAX_GRP","BAG2","TCKIN_PAX_GRP"});
+  }
+  return PgOra::getROSession("ORACLE");
+}
+
 void TrferFromDB(TTrferType type,
                  int point_id,   //point_id содержит пункт прилета для trferIn
                  bool pr_bag,
@@ -1028,7 +1043,7 @@ void TrferFromDB(TTrferType type,
   set<TFltInfo> flts_from_ckin;
   map<int, TFltInfo> spp_point_ids_from_ckin;
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(getSessionForTrferQry(type), STDLOG);
 
   TTripRouteItem priorAirp;
   if (type==trferIn)
@@ -1045,126 +1060,146 @@ void TrferFromDB(TTrferType type,
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
   };
 
-  if(DEMO_MODE()) {
-      // TODO
-      TST();
-      return;
-  }
-
   ostringstream sql;
-  sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num) AS bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
-//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n" //могло бы быть проще, но все из-за 11-го оракла
-//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0)) AS bag_weight, \n"
-//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight)) AS rk_weight, \n"
-         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0) END) AS bag_amount, \n"
-         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0) END) AS bag_weight, \n"
-         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight) END) AS rk_weight, \n";
+  sql << "SELECT "
+         "pax_grp.point_dep, "
+         "pax_grp.grp_id, "
+         "CASE WHEN pax.grp_id IS NULL THEN bag2.bag_pool_num ELSE pax.bag_pool_num END AS bag_pool_num, "
+         "COALESCE(pax.cabin_class, pax_grp.class) AS class, "
+         "SUM(CASE WHEN (pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL) THEN 0 "
+         "  ELSE CASE "
+         "    WHEN bag2.pr_cabin IS NULL THEN 0 "
+         "    WHEN bag2.pr_cabin = 0 THEN bag2.amount "
+         "    ELSE 0 "
+         "  END "
+         "END) AS bag_amount, "
+         "SUM(CASE WHEN (pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL) THEN 0 "
+         "  ELSE CASE "
+         "    WHEN bag2.pr_cabin IS NULL THEN 0 "
+         "    WHEN bag2.pr_cabin = 0 THEN bag2.weight "
+         "    ELSE 0 "
+         "  END "
+         "END) AS bag_weight, "
+         "SUM(CASE WHEN (pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL) THEN 0 "
+         "  ELSE CASE "
+         "    WHEN bag2.pr_cabin IS NULL THEN 0 "
+         "    WHEN bag2.pr_cabin = 0 THEN 0 "
+         "    ELSE bag2.weight "
+         "  END "
+         "END) AS rk_weight, ";
 
   if (type==trferOut || type==trferOutForCkin)
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
-    sql << "     pax_grp.point_dep AS point_id, pax_grp.airp_arv, \n"
-           "     transfer.airp_arv AS last_airp_arv \n"
-           "FROM trfer_trips, transfer, pax_grp, bag2, pax \n"
-           "WHERE trfer_trips.point_id=transfer.point_id_trfer AND \n"
-           "      transfer.grp_id=pax_grp.grp_id AND \n"
-           "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
-           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
-           "      trfer_trips.point_id_spp=:point_id AND \n"
-           "      transfer.transfer_num=1 AND \n";
+    sql << "pax_grp.point_dep AS point_id, pax_grp.airp_arv, "
+           "transfer.airp_arv AS last_airp_arv "
+           "FROM trfer_trips "
+           "  JOIN transfer ON trfer_trips.point_id = transfer.point_id_trfer "
+           "  JOIN (pax_grp "
+           "      LEFT OUTER JOIN bag2 ON pax_grp.grp_id = bag2.grp_id "
+           "      LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "  ) ON transfer.grp_id = pax_grp.grp_id "
+           "WHERE "
+           "  (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL) "
+           "  AND trfer_trips.point_id_spp = :point_id "
+           "  AND transfer.transfer_num = 1 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   if (type==trferIn)
   {
     //Информация о трансферном багаже/пассажирах, прибывающем рейсом
-    sql << "      transfer.point_id_trfer AS point_id, transfer.airp_arv \n"
-           "FROM pax_grp, transfer, bag2, pax \n"
-           "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
-           "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
-           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
-           "      pax_grp.point_arv=:point_id AND \n"
-           "      transfer.transfer_num=1 AND \n";
+    sql << "transfer.point_id_trfer AS point_id, transfer.airp_arv "
+           "FROM pax_grp "
+           "  LEFT OUTER JOIN bag2 ON pax_grp.grp_id = bag2.grp_id "
+           "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "  JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+           "WHERE "
+           "  (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL) "
+           "  AND pax_grp.point_arv = :point_id "
+           "  AND transfer.transfer_num = 1 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   if (type==trferCkin)
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом (данные на основе результатов регистрации)
-    sql << "      transfer.point_id_trfer AS point_id, transfer.airp_arv \n"
-           "FROM pax_grp, transfer, bag2, pax \n"
-           "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
-           "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
-           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
-           "      pax_grp.point_dep=:point_id AND \n"
-           "      transfer.transfer_num=1 AND \n";
+    sql << "transfer.point_id_trfer AS point_id, transfer.airp_arv "
+           "FROM pax_grp "
+           "  LEFT OUTER JOIN bag2 ON pax_grp.grp_id = bag2.grp_id "
+           "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "  JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+           "WHERE "
+           "  (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL) "
+           "  AND pax_grp.point_dep = :point_id "
+           "  AND transfer.transfer_num = 1 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
   if (type==tckinInbound)
   {
     //Стыковочные рейсы, которыми прибывают пассажиры рейса (данные на основе сквозной регистрации)
-    sql << "      tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, \n"
-           "      pax_grp.point_dep AS point_id, pax_grp.airp_arv \n"
-           "FROM pax_grp, tckin_pax_grp, bag2, pax \n"
-           "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num=0 AND \n"
-           "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
-           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
-           "      pax_grp.point_dep=:point_id AND \n";
+    sql << "tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, "
+           "pax_grp.point_dep AS point_id, pax_grp.airp_arv "
+           "FROM pax_grp "
+           "  LEFT OUTER JOIN bag2 ON pax_grp.grp_id = bag2.grp_id "
+           "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+           "  JOIN tckin_pax_grp ON pax_grp.grp_id = tckin_pax_grp.grp_id "
+           "WHERE "
+           "  tckin_pax_grp.transit_num = 0 "
+           "  AND (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL) "
+           "  AND pax_grp.point_dep = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
-  sql << "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') \n"
-         "GROUP BY pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num), NVL(pax.cabin_class, pax_grp.class), \n";
+  sql << "AND pax_grp.bag_refuse=0 "
+         "AND pax_grp.status NOT IN ('T', 'E') "
+         "GROUP BY pax_grp.point_dep, "
+         "         pax_grp.grp_id, "
+         "         CASE WHEN pax.grp_id IS NULL THEN bag2.bag_pool_num ELSE pax.bag_pool_num END, "
+         "         COALESCE(pax.cabin_class, pax_grp.class), ";
   if (type==trferOut || type==trferOutForCkin)
   {
-    sql << "         pax_grp.airp_arv, transfer.airp_arv \n";
+    sql << "         pax_grp.airp_arv, transfer.airp_arv ";
   };
   if (type==trferIn || type==trferCkin)
   {
-    sql << "         transfer.point_id_trfer, transfer.airp_arv \n";
+    sql << "         transfer.point_id_trfer, transfer.airp_arv ";
   };
   if (type==tckinInbound)
   {
-    sql << "         tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, \n"
-        << "         pax_grp.airp_arv \n";
+    sql << "         tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, "
+        << "         pax_grp.airp_arv ";
   };
   Qry.SQLText=sql.str().c_str();
-  //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, sql.str().c_str());
+  LogTrace(TRACE3) << "type=" << type;
+  ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, sql.str().c_str());
 
-  DB::TQuery PaxQry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","TRANSFER_SUBCLS"}), STDLOG);
   sql.str("");
-  sql << "SELECT pax.pax_id, pax.surname, pax.name, pax.seats, \n";
+  sql << "SELECT pax.pax_id, pax.surname, pax.name, pax.seats, ";
   if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
   {
-    sql << "       pax.subclass \n"
-           "FROM pax_grp, pax \n"
-           "WHERE \n";
+    sql << "pax.subclass "
+           "FROM pax_grp "
+           "JOIN pax ON pax.grp_id = pax_grp.grp_id ";
   };
   if (type==trferIn || type==trferCkin)
   {
-    sql << "       transfer_subcls.subclass \n"
-           "FROM pax_grp, pax, transfer_subcls \n"
-           "WHERE pax.pax_id=transfer_subcls.pax_id(+) AND transfer_subcls.transfer_num(+)=1 AND \n";
+    sql << "transfer_subcls.subclass "
+           "FROM pax_grp "
+           "JOIN pax ON pax.grp_id = pax_grp.grp_id "
+           "JOIN transfer_subcls ON transfer_subcls.transfer_num = 1 ";
   };
 
-  sql << "      pax.grp_id=pax_grp.grp_id AND \n"
-         "      pax.grp_id=:grp_id AND \n"
-         "      COALESCE(pax.cabin_class, pax_grp.class)=:cabin_class AND \n"
-         "      (pax.bag_pool_num=:bag_pool_num OR pax.bag_pool_num IS NULL AND :bag_pool_num IS NULL) AND \n";
+  sql << "WHERE "
+         "  pax.grp_id = :grp_id "
+         "  AND COALESCE(pax.cabin_class, pax_grp.class) = :cabin_class "
+         "  AND (pax.bag_pool_num = :bag_pool_num OR pax.bag_pool_num IS NULL AND :bag_pool_num IS NULL) ";
   if (type==trferIn || type==trferOut || type==trferOutForCkin)
-    sql << "      pax.pr_brd=1 \n";
+    sql << "  AND pax.pr_brd = 1 ";
   if (type==trferCkin || type==tckinInbound)
-    sql << "      pax.pr_brd IS NOT NULL \n";
+    sql << "  AND pax.pr_brd IS NOT NULL ";
   PaxQry.SQLText=sql.str().c_str();
-  //ProgTrace(TRACE5, "PaxQry.SQLText=\n%s", sql.str().c_str());
   PaxQry.DeclareVariable("grp_id", otInteger);
   PaxQry.DeclareVariable("cabin_class", otString);
   PaxQry.DeclareVariable("bag_pool_num", otInteger);

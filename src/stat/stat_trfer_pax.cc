@@ -764,23 +764,26 @@ void get_trfer_pax_stat(int point_id)
           STDLOG
           );
 
-    TCachedQuery selQry(
-            "select "
-            "    pax.pax_id, "
-            "    tckin_pax_grp.tckin_id, "
-            "    pax.grp_id, "
-            "    pax.bag_pool_num "
-            "from "
-            "    pax_grp, "
-            "    tckin_pax_grp, "
-            "    pax "
-            "where "
-            "    pax_grp.point_dep = :point_id and "
-            "    pax.refuse is null and "
-            "    pax_grp.grp_id = tckin_pax_grp.grp_id and  "
-            "    tckin_pax_grp.seg_no = 1 and tckin_pax_grp.transit_num=0 AND "
-            "    pax_grp.grp_id = pax.grp_id ",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery selQry(
+          PgOra::getROSession({"PAX","PAX_GRP","TCKIN_PAX_GRP"}),
+          "SELECT "
+          "    pax.pax_id, "
+          "    tckin_pax_grp.tckin_id, "
+          "    pax.grp_id, "
+          "    pax.bag_pool_num "
+          "FROM "
+          "    pax_grp, "
+          "    tckin_pax_grp, "
+          "    pax "
+          "WHERE "
+          "    pax_grp.point_dep = :point_id AND "
+          "    pax.refuse IS NULL AND "
+          "    pax_grp.grp_id = tckin_pax_grp.grp_id AND "
+          "    tckin_pax_grp.seg_no = 1 AND "
+          "    tckin_pax_grp.transit_num = 0 AND "
+          "    pax_grp.grp_id = pax.grp_id ",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     selQry.get().Execute();
     using namespace CKIN;
     BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);

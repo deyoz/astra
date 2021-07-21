@@ -31,8 +31,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
-    DB::TQuery Qry(PgOra::getROSession("TODO"), STDLOG);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PAX","TCKIN_PAX_GRP","PAX_CALC_DATA","USERS2"}), STDLOG);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, NoExists, rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
@@ -41,6 +41,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         TRemGrp rem_grp;
         if(!Qry.Eof)
         {
+            int rownum = 0;
             rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
 
             bool check_pay_on_tckin_segs=false;
@@ -53,8 +54,16 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
             MainPax viewPax;
             for( ; !Qry.Eof; Qry.Next()) {
+                rownum++;
                 CheckIn::TSimplePaxItem pax;
                 pax.fromDB(Qry);
+                pax.seat_no = BrdInterface::get_seat_no(
+                      PaxId_t(Qry.FieldAsInteger("pax_id")),
+                      Qry.FieldAsInteger("seats"),
+                      Qry.FieldAsInteger("is_jmp"),
+                      Qry.FieldAsString("status"),
+                      PointId_t(Qry.FieldAsInteger("point_dep")),
+                      rownum);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 int grp_id = Qry.FieldAsInteger("grp_id");
@@ -96,6 +105,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     } else {
         if(!Qry.Eof)
         {
+            int rownum = 0;
             bool check_pay_on_tckin_segs=false;
             TTripInfo fltInfo;
             if (fltInfo.getByPointId(rpt_params.point_id))
@@ -111,6 +121,17 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             pax_list.fromDB(Qry, true /*calcExcessPC*/);
 
             for(const auto &pax: pax_list) {
+                rownum++;
+                std::string seat_no = BrdInterface::get_seat_no(
+                    PaxId_t(Qry.FieldAsInteger("pax_id")),
+                    Qry.FieldAsInteger("seats"),
+                    Qry.FieldAsInteger("is_jmp"),
+                    Qry.FieldAsString("status"),
+                    PointId_t(Qry.FieldAsInteger("point_dep")),
+                    rownum);
+                if(pax_list.options.flags.isFlag(REPORTS::oeSeatNo) && Qry.FieldAsInteger("seats") > 1) {
+                  seat_no += "+" + std::to_string(Qry.FieldAsInteger("seats") - 1);
+                }
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 NewTextChild(paxNode, "reg_no", pax->simple.reg_no);
                 NewTextChild(paxNode, "surname", transliter(pax->simple.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
@@ -120,7 +141,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax->simple.pers_type), efmtCodeNative));
                 NewTextChild(paxNode, "pr_exam", (int)pax->simple.pr_exam, (int)false);
                 NewTextChild(paxNode, "pr_brd", (int)pax->simple.pr_brd, (int)false);
-                NewTextChild(paxNode, "seat_no", pax->seat_no());
+                NewTextChild(paxNode, "seat_no", seat_no);
                 NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax->simple.id, false, rpt_params.GetLang()));
                 NewTextChild(paxNode, "ticket_no", pax->tkn_str());
                 NewTextChild(paxNode, "bag_amount", pax->bag_amount());

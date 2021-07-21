@@ -47,8 +47,8 @@ void TPaxList::fromDB(int point_id)
     }
 
     // норики
-    TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, point_id, NoExists, NoExists, TReqInfo::Instance()->desk.lang, rtNOREC, "", stRegNo);
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PAX","TCKIN_PAX_GRP","PAX_CALC_DATA","USERS2"}), STDLOG);
+    BrdInterface::GetPaxQuery(Qry, point_id, NoExists, NoExists, rtNOREC, "", stRegNo);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
         CheckIn::TSimplePaxItem pax;

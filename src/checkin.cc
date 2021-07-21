@@ -58,6 +58,7 @@
 #include "AirportControl.h"
 #include "pax_events.h"
 #include "rbd.h"
+#include "brd.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 #include "ckin_search.h"
@@ -2433,16 +2434,15 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int point_id=NodeAsInteger("point_id",reqNode);
   readPaxLoad( point_id, reqNode, resNode );
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryPoints(PgOra::getROSession("POINTS"), STDLOG);
+  QryPoints.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt "
     "FROM points "
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  TTripInfo operFlt(Qry);
+  QryPoints.CreateVariable("point_id",otInteger,point_id);
+  QryPoints.Execute();
+  if (QryPoints.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TTripInfo operFlt(QryPoints);
   bool free_seating=SALONS2::isFreeSeating(point_id);
 
   NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false));
@@ -2459,131 +2459,151 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info) check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, operFlt);
 
   ostringstream sql;
-  sql <<
-    "SELECT "
-    "  bag_pool_num,reg_no,surname,name,pax_grp.airp_arv, "
-    "  last_trfer.airline AS trfer_airline, "
-    "  last_trfer.flt_no AS trfer_flt_no, "
-    "  last_trfer.suffix AS trfer_suffix, "
-    "  last_trfer.airp_arv AS trfer_airp_arv, "
-    "  last_tckin_seg.airline AS tckin_seg_airline, "
-    "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
-    "  last_tckin_seg.suffix AS tckin_seg_suffix, "
-    "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  pax_grp.class, "
-    "  NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
-    "  pax.subclass,pax_grp.status, "
-    "  salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
-    "  seats,wl_type,pers_type,ticket_rem, "
-    "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
-    "  pax_grp.excess_wt AS excess_wt_raw, "
-    "  pax_grp.piece_concept, "
-    "  mark_trips.airline AS airline_mark, "
-    "  mark_trips.flt_no AS flt_no_mark, "
-    "  mark_trips.suffix AS suffix_mark, "
-    "  mark_trips.scd AS scd_local_mark, "
-    "  mark_trips.airp_dep AS airp_dep_mark, "
-    "  pax.grp_id, "
-    "  pax.pax_id, "
-    "  NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cl_grp_id, "
-    "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
-    "  pax_grp.bag_refuse "
-    "FROM pax_grp,pax,mark_trips, "
-    "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
-    "             transfer.grp_id "
-    "      FROM pax_grp,transfer,trfer_trips "
-    "      WHERE pax_grp.grp_id=transfer.grp_id AND "
-    "            transfer.point_id_trfer=trfer_trips.point_id AND "
-    "            transfer.pr_final<>0 AND "
-    "            pax_grp.point_dep=:point_id) last_trfer, "
-    "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,tckin_segments.airp_arv, "
-    "             tckin_segments.grp_id"
-    "      FROM pax_grp,tckin_segments,trfer_trips "
-    "      WHERE pax_grp.grp_id=tckin_segments.grp_id AND "
-    "            tckin_segments.point_id_trfer=trfer_trips.point_id AND "
-    "            tckin_segments.pr_final<>0 AND "
-    "            pax_grp.point_dep=:point_id) last_tckin_seg "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.point_id_mark=mark_trips.point_id AND "
-    "      pax_grp.grp_id=last_trfer.grp_id(+) AND "
-    "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
-    "      point_dep=:point_id AND "
-    "      pr_brd IS NOT NULL "
-    "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
+  sql << "SELECT "
+         "  bag_pool_num, "
+         "  reg_no, "
+         "  surname, "
+         "  name, "
+         "  pax_grp.airp_arv, "
+         "  last_trfer.airline AS trfer_airline, "
+         "  last_trfer.flt_no AS trfer_flt_no, "
+         "  last_trfer.suffix AS trfer_suffix, "
+         "  last_trfer.airp_arv AS trfer_airp_arv, "
+         "  last_tckin_seg.airline AS tckin_seg_airline, "
+         "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
+         "  last_tckin_seg.suffix AS tckin_seg_suffix, "
+         "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
+         "  pax_grp.class, "
+         "  COALESCE(pax.cabin_class, pax_grp.class) AS cabin_class, "
+         "  pax.subclass, "
+         "  pax_grp.status, "
+         "  pax_grp.point_dep, "
+         "  pax.is_jmp, "
+         "  seats, "
+         "  wl_type, "
+         "  pers_type, "
+         "  ticket_rem, "
+         "  ticket_no, "
+         "  coupon_no, "
+         "  pax_grp.excess_wt AS excess_wt_raw, "
+         "  pax_grp.piece_concept, "
+         "  mark_trips.airline AS airline_mark, "
+         "  mark_trips.flt_no AS flt_no_mark, "
+         "  mark_trips.suffix AS suffix_mark, "
+         "  mark_trips.scd AS scd_local_mark, "
+         "  mark_trips.airp_dep AS airp_dep_mark, "
+         "  pax.grp_id, "
+         "  pax.pax_id, "
+         "  COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cl_grp_id, "
+         "  pax_grp.hall AS hall_id, "
+         "  pax_grp.point_arv, "
+         "  pax_grp.user_id, "
+         "  pax_grp.client_type, "
+         "  pax_grp.bag_refuse "
+         "FROM pax_grp "
+         "  JOIN pax ON pax_grp.grp_id = pax.grp_id "
+         "  JOIN mark_trips ON pax_grp.point_id_mark = mark_trips.point_id "
+         "  LEFT OUTER JOIN ( "
+         "    SELECT trfer_trips.airline, trfer_trips.flt_no, trfer_trips.suffix, transfer.airp_arv, transfer.grp_id "
+         "    FROM pax_grp "
+         "      JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+         "      JOIN trfer_trips ON transfer.point_id_trfer = trfer_trips.point_id "
+         "    WHERE "
+         "      transfer.pr_final <> 0 "
+         "      AND pax_grp.point_dep = :point_id "
+         "  ) last_trfer "
+         "    ON pax_grp.grp_id=last_trfer.grp_id "
+         "  LEFT OUTER JOIN ( "
+         "    SELECT trfer_trips.airline, trfer_trips.flt_no, trfer_trips.suffix, tckin_segments.airp_arv, tckin_segments.grp_id "
+         "    FROM pax_grp "
+         "      JOIN tckin_segments ON pax_grp.grp_id = tckin_segments.grp_id "
+         "      JOIN trfer_trips ON tckin_segments.point_id_trfer = trfer_trips.point_id "
+         "    WHERE "
+         "      tckin_segments.pr_final <> 0 "
+         "      AND pax_grp.point_dep = :point_id "
+         "  ) last_tckin_seg "
+         "    ON pax_grp.grp_id=last_tckin_seg.grp_id "
+         "WHERE "
+         "  point_dep = :point_id "
+         "  AND pr_brd IS NOT NULL "
+         "ORDER BY pax.reg_no, pax.seats DESC "; // в будущем убрать ORDER BY
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
-  Qry.Clear();
-  Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable("point_id",otInteger,point_id);
+  DB::TQuery QryPaxes(PgOra::getROSession({"PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TRFER_TRIPS","TCKIN_SEGMENTS"}), STDLOG);
+  QryPaxes.SQLText=sql.str().c_str();
+  QryPaxes.CreateVariable("point_id",otInteger,point_id);
 
-  Qry.Execute();
+  QryPaxes.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
   TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
 
   using namespace CKIN;
   BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
   MainPax viewEx;
-  if (!Qry.Eof)
+  if (!QryPaxes.Eof)
   {
     createDefaults=true;
 
-    int col_pax_id=Qry.FieldIndex("pax_id");
-    int col_bag_pool_num= Qry.FieldIndex("bag_pool_num");
-    int col_reg_no=Qry.FieldIndex("reg_no");
-    int col_surname=Qry.FieldIndex("surname");
-    int col_name=Qry.FieldIndex("name");
-    int col_airp_arv=Qry.FieldIndex("airp_arv");
-    int col_class=Qry.FieldIndex("class");
-    int col_cabin_class=Qry.FieldIndex("cabin_class");
-    int col_subclass=Qry.FieldIndex("subclass");
-    int col_status=Qry.FieldIndex("status");
-    int col_seat_no=Qry.FieldIndex("seat_no");
-    int col_seats=Qry.FieldIndex("seats");
-    int col_wl_type=Qry.FieldIndex("wl_type");
-    int col_pers_type=Qry.FieldIndex("pers_type");
-    int col_ticket_rem=Qry.FieldIndex("ticket_rem");
-    int col_ticket_no=Qry.FieldIndex("ticket_no");
-    int col_bag_refuse=Qry.FieldIndex("bag_refuse");
-    int col_piece_concept=Qry.FieldIndex("piece_concept");
+    int col_pax_id=QryPaxes.FieldIndex("pax_id");
+    int col_bag_pool_num= QryPaxes.FieldIndex("bag_pool_num");
+    int col_reg_no=QryPaxes.FieldIndex("reg_no");
+    int col_surname=QryPaxes.FieldIndex("surname");
+    int col_name=QryPaxes.FieldIndex("name");
+    int col_airp_arv=QryPaxes.FieldIndex("airp_arv");
+    int col_class=QryPaxes.FieldIndex("class");
+    int col_cabin_class=QryPaxes.FieldIndex("cabin_class");
+    int col_subclass=QryPaxes.FieldIndex("subclass");
+    int col_status=QryPaxes.FieldIndex("status");
 
-    int col_airline_mark=Qry.FieldIndex("airline_mark");
-    int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
-    int col_suffix_mark=Qry.FieldIndex("suffix_mark");
-    int col_scd_local_mark=Qry.FieldIndex("scd_local_mark");
-    int col_airp_dep_mark=Qry.FieldIndex("airp_dep_mark");
+    int col_point_dep=QryPaxes.FieldIndex("point_dep");
+    int col_seats=QryPaxes.FieldIndex("seats");
+    int col_is_jmp=QryPaxes.FieldIndex("is_jmp");
+    int col_wl_type=QryPaxes.FieldIndex("wl_type");
+    int col_pers_type=QryPaxes.FieldIndex("pers_type");
+    int col_ticket_rem=QryPaxes.FieldIndex("ticket_rem");
+    int col_ticket_no=QryPaxes.FieldIndex("ticket_no");
+    int col_coupon_no=QryPaxes.FieldIndex("coupon_no");
+    int col_bag_refuse=QryPaxes.FieldIndex("bag_refuse");
+    int col_piece_concept=QryPaxes.FieldIndex("piece_concept");
 
-    int col_grp_id=Qry.FieldIndex("grp_id");
-    int col_cl_grp_id=Qry.FieldIndex("cl_grp_id");
-    int col_hall_id=Qry.FieldIndex("hall_id");
-    int col_point_arv=Qry.FieldIndex("point_arv");
-    int col_user_id=Qry.FieldIndex("user_id");
-    int col_client_type=Qry.FieldIndex("client_type");
-    int col_excess_wt_raw=Qry.FieldIndex("excess_wt_raw");
+    int col_airline_mark=QryPaxes.FieldIndex("airline_mark");
+    int col_flt_no_mark=QryPaxes.FieldIndex("flt_no_mark");
+    int col_suffix_mark=QryPaxes.FieldIndex("suffix_mark");
+    int col_scd_local_mark=QryPaxes.FieldIndex("scd_local_mark");
+    int col_airp_dep_mark=QryPaxes.FieldIndex("airp_dep_mark");
+
+    int col_grp_id=QryPaxes.FieldIndex("grp_id");
+    int col_cl_grp_id=QryPaxes.FieldIndex("cl_grp_id");
+    int col_hall_id=QryPaxes.FieldIndex("hall_id");
+    int col_point_arv=QryPaxes.FieldIndex("point_arv");
+    int col_user_id=QryPaxes.FieldIndex("user_id");
+    int col_client_type=QryPaxes.FieldIndex("client_type");
+    int col_excess_wt_raw=QryPaxes.FieldIndex("excess_wt_raw");
 
     map< pair<int/*grp_id*/, int/*pax_id*/>, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete_map;
     TPaxSeats priorSeats(point_id);
-    TQuery PaxDocQry(&OraSession);
     TRemGrp rem_grp;
     rem_grp.Load(retCKIN_VIEW, operFlt.airline);
 
-    for(;!Qry.Eof;Qry.Next())
+    int rownum = 0;
+    for(;!QryPaxes.Eof;QryPaxes.Next())
     {
-      int grp_id = Qry.FieldAsInteger(col_grp_id);
-      int pax_id = Qry.FieldAsInteger(col_pax_id);
-      int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
+      rownum++;
+      int grp_id = QryPaxes.FieldAsInteger(col_grp_id);
+      int pax_id = QryPaxes.FieldAsInteger(col_pax_id);
+      int bag_refuse = QryPaxes.FieldAsInteger(col_bag_refuse);
 
       std::optional<int> bag_pool_num = std::nullopt;
-      if(!Qry.FieldIsNULL(col_bag_pool_num)) {
-          bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+      if(!QryPaxes.FieldIsNULL(col_bag_pool_num)) {
+          bag_pool_num = QryPaxes.FieldAsInteger(col_bag_pool_num);
           viewEx.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse!=0);
       }
-      int reg_no = Qry.FieldAsInteger(col_reg_no);
-      string cl = Qry.FieldAsString(col_class);
-      string cabin_cl = Qry.FieldAsString(col_cabin_class);
-      TPaxStatus status_id=DecodePaxStatus(Qry.FieldAsString(col_status));
-      bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
-      int excess_wt_raw = Qry.FieldAsInteger(col_excess_wt_raw);
+      int reg_no = QryPaxes.FieldAsInteger(col_reg_no);
+      string cl = QryPaxes.FieldAsString(col_class);
+      string cabin_cl = QryPaxes.FieldAsString(col_cabin_class);
+      TPaxStatus status_id=DecodePaxStatus(QryPaxes.FieldAsString(col_status).c_str());
+      bool piece_concept=QryPaxes.FieldAsInteger(col_piece_concept)!=0;
+      int excess_wt_raw = QryPaxes.FieldAsInteger(col_excess_wt_raw);
 
       if (with_rcpt_info) {
         if (status_id == psCrew) {
@@ -2601,14 +2621,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       xmlNodePtr paxNode=NewTextChild(node,"pax");
       NewTextChild(paxNode,"pax_id",pax_id);
       NewTextChild(paxNode,"reg_no",reg_no);
-      NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
-      NewTextChild(paxNode,"name",Qry.FieldAsString(col_name));
+      NewTextChild(paxNode,"surname",QryPaxes.FieldAsString(col_surname));
+      NewTextChild(paxNode,"name",QryPaxes.FieldAsString(col_name));
 
-      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
+      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, QryPaxes.FieldAsString(col_airp_arv)));
 
-      TLastTrferInfo trferInfo(Qry);
+      TLastTrferInfo trferInfo(QryPaxes);
       NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
-      TLastTCkinSegInfo tckinSegInfo(Qry);
+      TLastTCkinSegInfo tckinSegInfo(QryPaxes);
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
       std::string class_change_str;
@@ -2623,7 +2643,15 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       else NewTextChild(paxNode,"class",CREW_CLASS_VIEW); //crew compatible
 
-      NewTextChild(paxNode,"subclass",ElemIdToCodeNative(etSubcls, Qry.FieldAsString(col_subclass)));
+      NewTextChild(paxNode,"subclass",ElemIdToCodeNative(etSubcls, QryPaxes.FieldAsString(col_subclass)));
+
+       const std::string seat_no_ = BrdInterface::get_seat_no(
+             PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
+             QryPaxes.FieldAsInteger(col_seats),
+             QryPaxes.FieldAsInteger(col_is_jmp),
+             QryPaxes.FieldAsString(col_status),
+             PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
+             rownum);
 
       ostringstream seat_no_str;
       ostringstream seat_no;
@@ -2631,10 +2659,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       if (!free_seating)
       {
-        if (Qry.FieldIsNULL(col_wl_type))
+        if (QryPaxes.FieldIsNULL(col_wl_type))
         {
           //не на листе ожидания, но возможно потерял место при смене компоновки
-          if (!cabin_cl.empty() && Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+           if (!cabin_cl.empty() && seat_no_.empty() && QryPaxes.FieldAsInteger(col_seats)>0)
           {
 
             seat_no_str << "("
@@ -2651,34 +2679,38 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
       }
 
-      seat_no << Qry.FieldAsString(col_seat_no) << class_change_str;
+      seat_no << seat_no_ << class_change_str;
 
       NewTextChild(paxNode,"seat_no_str",seat_no_str.str(),"");
       NewTextChild(paxNode,"seat_no_alarm",(int)seat_no_alarm, (int)false);
       NewTextChild(paxNode,"seat_no",seat_no.str());
-      NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
-      NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
+      NewTextChild(paxNode,"seats",QryPaxes.FieldAsInteger(col_seats),1);
+      NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, QryPaxes.FieldAsString(col_pers_type)), def_pers_type);
       NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, true), "");
 
-      NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
-      NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
+      NewTextChild(paxNode,"ticket_rem",QryPaxes.FieldAsString(col_ticket_rem),"");
+      std::string ticket_no = QryPaxes.FieldAsString(col_ticket_no);
+      if (!QryPaxes.FieldIsNULL(col_coupon_no)) {
+        ticket_no += "/" + QryPaxes.FieldAsString(col_coupon_no);
+      }
+      NewTextChild(paxNode,"ticket_no",ticket_no,"");
 
       NewTextChild(paxNode,"bag_amount",bag_reader.bagAmount(GrpId_t(grp_id), bag_pool_num ),0);
       NewTextChild(paxNode,"bag_weight",bag_reader.bagWeight(GrpId_t(grp_id), bag_pool_num),0);
       NewTextChild(paxNode,"rk_weight",bag_reader.rkWeight(GrpId_t(grp_id), bag_pool_num),0);
 
-      excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
+      excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(QryPaxes.FieldAsInteger( col_pax_id )))),
         TBagKilos(viewEx.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw)));
       NewTextChild(paxNode,"tags",bag_reader.tags(GrpId_t(grp_id), bag_pool_num, reqInfo->desk.lang),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
 
       //коммерческий рейс
       TTripInfo markFlt;
-      markFlt.airline=Qry.FieldAsString(col_airline_mark);
-      markFlt.flt_no=Qry.FieldAsInteger(col_flt_no_mark);
-      markFlt.suffix=Qry.FieldAsString(col_suffix_mark);
-      markFlt.scd_out=Qry.FieldAsDateTime(col_scd_local_mark);
-      markFlt.airp=Qry.FieldAsString(col_airp_dep_mark);
+      markFlt.airline=QryPaxes.FieldAsString(col_airline_mark);
+      markFlt.flt_no=QryPaxes.FieldAsInteger(col_flt_no_mark);
+      markFlt.suffix=QryPaxes.FieldAsString(col_suffix_mark);
+      markFlt.scd_out=QryPaxes.FieldAsDateTime(col_scd_local_mark);
+      markFlt.airp=QryPaxes.FieldAsString(col_airp_dep_mark);
 
       bool mark_equal_oper=false;
       string mark_flt_str=GetMktFlightStr(operFlt,markFlt,mark_equal_oper);
@@ -2708,21 +2740,21 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       //идентификаторы
       NewTextChild(paxNode,"grp_id",grp_id);
       if (status_id!=psCrew)
-        NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger(col_cl_grp_id));
+        NewTextChild(paxNode,"cl_grp_id",QryPaxes.FieldAsInteger(col_cl_grp_id));
       else
         NewTextChild(paxNode,"cl_grp_id",CREW_CLS_GRP_ID); //crew compatible
-      if (!Qry.FieldIsNULL(col_hall_id))
-        NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
+      if (!QryPaxes.FieldIsNULL(col_hall_id))
+        NewTextChild(paxNode,"hall_id",QryPaxes.FieldAsInteger(col_hall_id));
       else
         NewTextChild(paxNode,"hall_id",-1);
-      NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
-      if (!Qry.FieldIsNULL(col_user_id))
-        NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+      NewTextChild(paxNode,"point_arv",QryPaxes.FieldAsInteger(col_point_arv));
+      if (!QryPaxes.FieldIsNULL(col_user_id))
+        NewTextChild(paxNode,"user_id",QryPaxes.FieldAsInteger(col_user_id));
       else
         NewTextChild(paxNode,"user_id",-1);
 
       NewTextChild(paxNode,"client_type_id",
-                           (int)DecodeClientType(Qry.FieldAsString(col_client_type)),
+                           (int)DecodeClientType(QryPaxes.FieldAsString(col_client_type).c_str()),
                            def_client_type_id);
       NewTextChild(paxNode,"status_id",(int)status_id,def_status_id);
     }
@@ -2753,61 +2785,72 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //несопровождаемый багаж
   sql.str("");
 
-  sql <<
-    "SELECT "
-    "  pax_grp.airp_arv,pax_grp.status, "
-    "  pax_grp.piece_concept, "
-    "  last_trfer.airline AS trfer_airline, "
-    "  last_trfer.flt_no AS trfer_flt_no, "
-    "  last_trfer.suffix AS trfer_suffix, "
-    "  last_trfer.airp_arv AS trfer_airp_arv, "
-    "  last_tckin_seg.airline AS tckin_seg_airline, "
-    "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
-    "  last_tckin_seg.suffix AS tckin_seg_suffix, "
-    "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  pax_grp.grp_id, "
-    "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
-    "  pax_grp.class, "
-    "  pax_grp.bag_refuse, "
-    "  pax_grp.excess_wt AS excess_wt_raw "
-    "FROM pax_grp, "
-    "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
-    "             transfer.grp_id "
-    "      FROM pax_grp,transfer,trfer_trips "
-    "      WHERE pax_grp.grp_id=transfer.grp_id AND "
-    "            transfer.point_id_trfer=trfer_trips.point_id AND "
-    "            transfer.pr_final<>0 AND "
-    "            pax_grp.point_dep=:point_id AND pax_grp.class IS NULL) last_trfer, "
-    "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,tckin_segments.airp_arv, "
-    "             tckin_segments.grp_id"
-    "      FROM pax_grp,tckin_segments,trfer_trips "
-    "      WHERE pax_grp.grp_id=tckin_segments.grp_id AND "
-    "            tckin_segments.point_id_trfer=trfer_trips.point_id AND "
-    "            tckin_segments.pr_final<>0 AND "
-    "            pax_grp.point_dep=:point_id AND pax_grp.class IS NULL) last_tckin_seg "
-    "WHERE pax_grp.grp_id=last_trfer.grp_id(+) AND "
-    "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
-    "      point_dep=:point_id AND class IS NULL AND status NOT IN ('E') "
-    "ORDER BY pax_grp.grp_id";
+  sql << "SELECT "
+         "  pax_grp.airp_arv, "
+         "  pax_grp.status, "
+         "  pax_grp.piece_concept, "
+         "  last_trfer.airline AS trfer_airline, "
+         "  last_trfer.flt_no AS trfer_flt_no, "
+         "  last_trfer.suffix AS trfer_suffix, "
+         "  last_trfer.airp_arv AS trfer_airp_arv, "
+         "  last_tckin_seg.airline AS tckin_seg_airline, "
+         "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
+         "  last_tckin_seg.suffix AS tckin_seg_suffix, "
+         "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
+         "  pax_grp.grp_id, "
+         "  pax_grp.hall AS hall_id, "
+         "  pax_grp.point_arv, "
+         "  pax_grp.user_id, "
+         "  pax_grp.client_type, "
+         "  pax_grp.class, "
+         "  pax_grp.bag_refuse, "
+         "  pax_grp.excess_wt AS excess_wt_raw "
+         "FROM pax_grp "
+         "  LEFT OUTER JOIN ( "
+         "    SELECT trfer_trips.airline, trfer_trips.flt_no, trfer_trips.suffix, transfer.airp_arv, transfer.grp_id "
+         "    FROM pax_grp "
+         "      JOIN transfer ON pax_grp.grp_id = transfer.grp_id "
+         "      JOIN trfer_trips ON transfer.point_id_trfer = trfer_trips.point_id "
+         "    WHERE "
+         "      transfer.pr_final <> 0 "
+         "      AND pax_grp.point_dep = :point_id "
+         "      AND pax_grp.class IS NULL "
+         "  ) last_trfer "
+         "    ON pax_grp.grp_id = last_trfer.grp_id "
+         "  LEFT OUTER JOIN ( "
+         "    SELECT trfer_trips.airline, trfer_trips.flt_no, trfer_trips.suffix, tckin_segments.airp_arv, tckin_segments.grp_id "
+         "    FROM pax_grp "
+         "      JOIN tckin_segments ON pax_grp.grp_id = tckin_segments.grp_id "
+         "      JOIN trfer_trips ON tckin_segments.point_id_trfer = trfer_trips.point_id "
+         "    WHERE "
+         "      tckin_segments.pr_final <> 0 "
+         "      AND pax_grp.point_dep = :point_id "
+         "      AND pax_grp.class IS NULL "
+         "  ) last_tckin_seg "
+         "    ON pax_grp.grp_id = last_tckin_seg.grp_id "
+         "WHERE "
+         "  point_dep = :point_id "
+         "  AND class IS NULL "
+         "  AND status NOT IN ('E') "
+         "ORDER BY pax_grp.grp_id";
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
-  Qry.Clear();
-  Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
+  DB::TQuery QryBag(PgOra::getROSession({"PAX_GRP","TRANSFER","TRFER_TRIPS","TCKIN_SEGMENTS"}), STDLOG);
+  QryBag.SQLText=sql.str().c_str();
+  QryBag.CreateVariable("point_id",otInteger,point_id);
+  QryBag.Execute();
   node=NewTextChild(resNode,"unaccomp_bag");
   MainPax viewExUnac(true);
-  if (!Qry.Eof)
+  if (!QryBag.Eof)
   {
     createDefaults=true;
-    for(;!Qry.Eof;Qry.Next())
+    for(;!QryBag.Eof;QryBag.Next())
     {
-      GrpId_t grp_id{Qry.FieldAsInteger("grp_id")};
-      const std::string cl = Qry.FieldAsString("class");
-      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-      int excess_wt_raw = Qry.FieldAsInteger("excess_wt_raw");
+      GrpId_t grp_id{QryBag.FieldAsInteger("grp_id")};
+      const std::string cl = QryBag.FieldAsString("class");
+      int bag_refuse = QryBag.FieldAsInteger("bag_refuse");
+      bool piece_concept=QryBag.FieldAsInteger("piece_concept")!=0;
+      int excess_wt_raw = QryBag.FieldAsInteger("excess_wt_raw");
 
       if (with_rcpt_info) {
         if (!need_for_payment(GrpId_t(grp_id), cl, bag_refuse,
@@ -2818,11 +2861,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
 
       xmlNodePtr paxNode=NewTextChild(node,"bag");
-      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
+      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, QryBag.FieldAsString("airp_arv")));
 
-      TLastTrferInfo trferInfo(Qry);
+      TLastTrferInfo trferInfo(QryBag);
       NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
-      TLastTCkinSegInfo tckinSegInfo(Qry);
+      TLastTCkinSegInfo tckinSegInfo(QryBag);
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
       NewTextChild(paxNode,"bag_amount",bag_reader.bagAmountUnaccomp(grp_id),0);
@@ -2849,28 +2892,26 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       //идентификаторы
       NewTextChild(paxNode,"grp_id",grp_id.get());
-      if (!Qry.FieldIsNULL("hall_id"))
-        NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
+      if (!QryBag.FieldIsNULL("hall_id"))
+        NewTextChild(paxNode,"hall_id",QryBag.FieldAsInteger("hall_id"));
       else
         NewTextChild(paxNode,"hall_id",-1);
-      NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
-      if (!Qry.FieldIsNULL("user_id"))
-        NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+      NewTextChild(paxNode,"point_arv",QryBag.FieldAsInteger("point_arv"));
+      if (!QryBag.FieldIsNULL("user_id"))
+        NewTextChild(paxNode,"user_id",QryBag.FieldAsInteger("user_id"));
       else
         NewTextChild(paxNode,"user_id",-1);
 
       NewTextChild(paxNode,"client_type_id",
-                           (int)DecodeClientType(Qry.FieldAsString("client_type")),
+                           (int)DecodeClientType(QryBag.FieldAsString("client_type").c_str()),
                            def_client_type_id);
       NewTextChild(paxNode,"status_id",
-                           (int)DecodePaxStatus(Qry.FieldAsString("status")),
+                           (int)DecodePaxStatus(QryBag.FieldAsString("status").c_str()),
                            def_status_id);
     }
   }
 
-
-
-  Qry.Close();
+  QryBag.Close();
 
   if (createDefaults)
   {

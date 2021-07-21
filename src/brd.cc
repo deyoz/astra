@@ -558,14 +558,29 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   GetPax(reqNode,resNode);
 };
 
-void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
-                                            const int reg_no,
-                                            const int pax_id,
-                                            const std::string &lang,
-                                            const ASTRA::TRptType rpt_type,
-                                            const std::string &client_type,
-                                            const TSortType sort,
-                                            const bool usePaxCalcData)
+std::string BrdInterface::get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, const std::string& status,
+                                      const PointId_t& point_dep, int rownum)
+{
+  TQuery Qry(&OraSession, STDLOG);
+  Qry.SQLText = "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'_seats',:num) AS seat_no FROM DUAL ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id.get());
+  Qry.CreateVariable("seats",otInteger,seats);
+  Qry.CreateVariable("is_jmp",otInteger,is_jmp);
+  Qry.CreateVariable("status",otString,status);
+  Qry.CreateVariable("point_dep",otInteger,point_dep.get());
+  Qry.CreateVariable("num",otInteger,rownum);
+  Qry.Execute();
+  return Qry.FieldAsString("seat_no");
+}
+
+void BrdInterface::GetPaxQuery(DB::TQuery &Qry,
+                               const int point_id,
+                               const int reg_no,
+                               const int pax_id,
+                               const ASTRA::TRptType rpt_type,
+                               const std::string &client_type,
+                               const TSortType sort,
+                               const bool usePaxCalcData)
 {
     if( not (
             rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
@@ -576,21 +591,22 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
             )
       )
         throw Exception("BrdInterface::GetPaxQuery: unexpected rpt_type %d", rpt_type);
-    bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
-    bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
-    bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
-    bool used_for_brd_and_exam = (rpt_type == rtUnknown);
+    const bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
+    const bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
+    const bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
+    const bool used_for_brd_and_exam = (rpt_type == rtUnknown);
     ostringstream sql;
     sql <<
         "SELECT "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+        "    pax_grp.class, "
+        "    COALESCE(pax.cabin_class, pax_grp.class) AS cabin_class, "
         "    pax_grp.status, "
         "    pax_grp.client_type, "
         "    pax_grp.excess_wt, pax_grp.bag_refuse, "
         "    pax.*, "
-        "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+        "    pax_grp.point_dep, "
         "    NULL AS excess_pc ";
     if (used_for_brd_and_exam)
         sql << ", tckin_pax_grp.tckin_id "
@@ -605,45 +621,54 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     if (usePaxCalcData)
         sql << ", pax_calc_data.* ";
 
-    sql << "FROM "
-        "    pax_grp, "
-        "    pax ";
-    if (used_for_norec_rpt or used_for_gosho_rpt or used_for_brd_and_exam)
-        sql << ", crs_pax ";
-
-    if (used_for_brd_and_exam)
-        sql << ", tckin_pax_grp ";
-
-    if (used_for_web_rpt)
-        sql << ", users2 ";
-
-    if (usePaxCalcData)
-        sql << ", pax_calc_data ";
-
-    sql << "WHERE "
-           "    pax_grp.grp_id=pax.grp_id AND ";
-    if(used_for_norec_rpt or used_for_gosho_rpt) {
-        sql
-            << " pax.pax_id = crs_pax.pax_id(+) and "
-            << " (crs_pax.pax_id is null or "
-            << " crs_pax.pr_del <> 0) and ";
-        if(used_for_gosho_rpt) {
-            sql << " pax_grp.status not in(:psCheckin, :psTCheckin) and ";
-            Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
-            Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
-        }
+    sql << "FROM pax_grp ";
+    if (used_for_brd_and_exam) {
+      sql << "LEFT OUTER JOIN tckin_pax_grp ON pax_grp.grp_id = tckin_pax_grp.grp_id ";
     }
-    if (used_for_brd_and_exam)
-        sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
-               "    pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND ";
+    if (used_for_web_rpt) {
+      sql << "LEFT OUTER JOIN users2 ON pax_grp.user_id = users2.user_id ";
+    }
 
-    if (used_for_web_rpt)
-        sql << "  pax_grp.user_id=users2.user_id(+) AND "; //pax_grp.user_id=NULL для client_type=ctPNL
+    sql << "JOIN ";
 
-    if (usePaxCalcData)
-        sql << "    pax.pax_id=pax_calc_data.pax_calc_data_id(+) AND ";
+    if (used_for_norec_rpt
+        or used_for_gosho_rpt
+        or used_for_brd_and_exam
+        or usePaxCalcData)
+    {
+      sql << "(";
+    }
+    sql << "pax ";
 
-    sql << "    point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
+    if (used_for_norec_rpt or used_for_gosho_rpt) {
+      sql << "LEFT OUTER JOIN crs_pax ON pax.pax_id = crs_pax.pax_id "
+          << "                        AND (crs_pax.pax_id IS NULL OR crs_pax.pr_del <> 0) ";
+    }
+    if (used_for_brd_and_exam) {
+      sql << "LEFT OUTER JOIN crs_pax ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 ";
+    }
+    if (usePaxCalcData) {
+      sql << "LEFT OUTER JOIN pax_calc_data ON pax.pax_id = pax_calc_data.pax_calc_data_id ";
+    }
+
+    if (used_for_norec_rpt
+        or used_for_gosho_rpt
+        or used_for_brd_and_exam
+        or usePaxCalcData)
+    {
+      sql << ") ";
+    }
+
+    sql << "ON pax_grp.grp_id = pax.grp_id "
+        << "WHERE ";
+
+    if(used_for_gosho_rpt) {
+      sql << "pax_grp.status NOT IN(:psCheckin, :psTCheckin) AND ";
+      Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
+      Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
+    }
+
+    sql << "point_dep = :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
 
     if (used_for_web_rpt) {
         if(!client_type.empty()) {
@@ -682,131 +707,6 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.SQLText = sql.str().c_str();
 }
-
-void BrdInterface::GetPaxQuery(DB::TQuery &Qry, const int point_id,
-                                                const int reg_no,
-                                                const int pax_id,
-                                                const std::string &lang,
-                                                const ASTRA::TRptType rpt_type,
-                                                const std::string &client_type,
-                                                const TSortType sort,
-                                                const bool usePaxCalcData)
-{
-    if( not (
-            rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
-            rpt_type == rtWEB or rpt_type == rtWEBTXT or
-            rpt_type == rtNOREC or rpt_type == rtNORECTXT or
-            rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT or
-            rpt_type == rtUnknown
-            )
-      )
-        throw Exception("BrdInterface::GetPaxQuery: unexpected rpt_type %d", rpt_type);
-    bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
-    bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
-    bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
-    bool used_for_brd_and_exam = (rpt_type == rtUnknown);
-    ostringstream sql;
-    sql <<
-        "SELECT "
-        "    pax_grp.grp_id, "
-        "    pax_grp.airp_arv, "
-        "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
-        "    pax_grp.status, "
-        "    pax_grp.client_type, "
-        "    pax_grp.excess_wt, pax_grp.bag_refuse, "
-        "    pax.*, "
-        "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
-        "    NULL AS excess_pc ";
-    if (used_for_brd_and_exam)
-        sql << ", tckin_pax_grp.tckin_id "
-               ", tckin_pax_grp.grp_num "
-               ", crs_pax.pax_id AS crs_pax_id "
-               ", crs_pax.bag_norm AS crs_bag_norm "
-               ", crs_pax.bag_norm_unit AS crs_bag_norm_unit ";
-
-    if (used_for_web_rpt)
-        sql << ", users2.descr AS user_descr ";
-
-    if (usePaxCalcData)
-        sql << ", pax_calc_data.* ";
-
-    sql << "FROM "
-        "    pax_grp, "
-        "    pax ";
-    if (used_for_norec_rpt or used_for_gosho_rpt or used_for_brd_and_exam)
-        sql << ", crs_pax ";
-
-    if (used_for_brd_and_exam)
-        sql << ", tckin_pax_grp ";
-
-    if (used_for_web_rpt)
-        sql << ", users2 ";
-
-    if (usePaxCalcData)
-        sql << ", pax_calc_data ";
-
-    sql << "WHERE "
-           "    pax_grp.grp_id=pax.grp_id AND ";
-    if(used_for_norec_rpt or used_for_gosho_rpt) {
-        sql
-            << " pax.pax_id = crs_pax.pax_id(+) and "
-            << " (crs_pax.pax_id is null or "
-            << " crs_pax.pr_del <> 0) and ";
-        if(used_for_gosho_rpt) {
-            sql << " pax_grp.status not in(:psCheckin, :psTCheckin) and ";
-            Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
-            Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
-        }
-    }
-    if (used_for_brd_and_exam)
-        sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
-               "    pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND ";
-
-    if (used_for_web_rpt)
-        sql << "  pax_grp.user_id=users2.user_id(+) AND "; //pax_grp.user_id=NULL для client_type=ctPNL
-
-    if (usePaxCalcData)
-        sql << "    pax.pax_id=pax_calc_data.pax_calc_data_id(+) AND ";
-
-    sql << "    point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
-
-    if (used_for_web_rpt) {
-        if(!client_type.empty()) {
-            sql << " AND pax_grp.client_type = :client_type ";
-            Qry.CreateVariable("client_type",otString,client_type);
-        } else {
-            sql << " AND pax_grp.client_type IN (:ctWeb, :ctMobile, :ctKiosk) ";
-            Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-            Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
-            Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
-        }
-    };
-    if (reg_no!=NoExists)
-    {
-        sql << " AND reg_no=:reg_no ";
-        Qry.CreateVariable("reg_no",otInteger,reg_no);
-    };
-    if (pax_id!=NoExists)
-    {
-        sql << " AND pax.pax_id=:pax_id ";
-        Qry.CreateVariable("pax_id",otInteger,pax_id);
-    };
-    switch(sort) {
-        case stServiceCode:
-        case stRegNo:
-            sql << " ORDER BY pax.reg_no, pax.seats DESC ";
-            break;
-        case stSurname:
-            sql << " ORDER BY pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
-            break;
-        case stSeatNo:
-            sql << " ORDER BY seat_no, pax.reg_no, pax.seats DESC ";
-            break;
-    }
-
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.SQLText = sql.str().c_str();
-};
 
 void put_exambrd_vars(xmlNodePtr variablesNode)
 {
@@ -1798,10 +1698,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     //выводим список или измененных пассажиров в терминал
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
 
-    DB::TQuery Qry5(PgOra::getROSession("TODO"), STDLOG);
-    GetPaxQuery(Qry5, point_id, showWholeFlight?NoExists:reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "", stRegNo, apis_generation);
-    Qry5.Execute();
-    if (!Qry5.Eof)
+    DB::TQuery QryPaxes(PgOra::getROSession({"PAX","PAX_GRP","CRS_PAX","TCKIN_PAX_GRP","PAX_CALC_DATA"}), STDLOG);
+    GetPaxQuery(QryPaxes, point_id, showWholeFlight ? NoExists : reg_no, NoExists,
+                rtUnknown, "", stRegNo, apis_generation);
+    LogTrace(TRACE3) << __func__ << ": SQL=" << QryPaxes.SQLText;
+    QryPaxes.Execute();
+    LogTrace(TRACE3) << __func__ << ": Eof=" << QryPaxes.Eof;
+    if (!QryPaxes.Eof)
     {
       TQuery TCkinQry(&OraSession);
 
@@ -1838,39 +1741,40 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(defNode, "inbound_delay_alarm", (int)false);
       NewTextChild(defNode, "document_alarm", (int)false);
 
-      int col_pax_id=Qry5.FieldIndex("pax_id");
-      int col_grp_id=Qry5.FieldIndex("grp_id");
-      int col_pr_brd=Qry5.FieldIndex("pr_brd");
-      int col_pr_exam=Qry5.FieldIndex("pr_exam");
-      int col_reg_no=Qry5.FieldIndex("reg_no");
-      int col_surname=Qry5.FieldIndex("surname");
-      int col_name=Qry5.FieldIndex("name");
-      int col_pers_type=Qry5.FieldIndex("pers_type");
-      int col_class=Qry5.FieldIndex("class");
-      int col_cabin_class=Qry5.FieldIndex("cabin_class");
-      int col_airp_arv=Qry5.FieldIndex("airp_arv");
-      int col_status=Qry5.FieldIndex("status");
-      int col_seat_no=Qry5.FieldIndex("seat_no");
-      int col_seats=Qry5.FieldIndex("seats");
-      int col_wl_type=Qry5.FieldIndex("wl_type");
-      int col_ticket_no=Qry5.FieldIndex("ticket_no");
-      int col_coupon_no=Qry5.FieldIndex("coupon_no");
-      int col_tid=Qry5.FieldIndex("tid");
-      int col_client_type=Qry5.FieldIndex("client_type");
-      int col_tckin_id=Qry5.FieldIndex("tckin_id");
-      int col_grp_num=Qry5.FieldIndex("grp_num");
-      int col_crs_pax_id=Qry5.FieldIndex("crs_pax_id");
-      int col_crs_bag_norm=Qry5.FieldIndex("crs_bag_norm");
-      int col_crs_bag_norm_unit=Qry5.FieldIndex("crs_bag_norm_unit");
-      int col_refuse=Qry5.FieldIndex("refuse");
-      int col_doco_confirm=Qry5.FieldIndex("doco_confirm");
-      int col_bag_refuse=Qry5.FieldIndex("bag_refuse");
-      int col_excess_wt_raw=Qry5.FieldIndex("excess_wt");
+      int col_pax_id=QryPaxes.FieldIndex("pax_id");
+      int col_grp_id=QryPaxes.FieldIndex("grp_id");
+      int col_pr_brd=QryPaxes.FieldIndex("pr_brd");
+      int col_pr_exam=QryPaxes.FieldIndex("pr_exam");
+      int col_reg_no=QryPaxes.FieldIndex("reg_no");
+      int col_surname=QryPaxes.FieldIndex("surname");
+      int col_name=QryPaxes.FieldIndex("name");
+      int col_pers_type=QryPaxes.FieldIndex("pers_type");
+      int col_class=QryPaxes.FieldIndex("class");
+      int col_cabin_class=QryPaxes.FieldIndex("cabin_class");
+      int col_airp_arv=QryPaxes.FieldIndex("airp_arv");
+      int col_status=QryPaxes.FieldIndex("status");
+      int col_point_dep=QryPaxes.FieldIndex("point_dep");
+      int col_seats=QryPaxes.FieldIndex("seats");
+      int col_is_jmp=QryPaxes.FieldIndex("is_jmp");
+      int col_wl_type=QryPaxes.FieldIndex("wl_type");
+      int col_ticket_no=QryPaxes.FieldIndex("ticket_no");
+      int col_coupon_no=QryPaxes.FieldIndex("coupon_no");
+      int col_tid=QryPaxes.FieldIndex("tid");
+      int col_client_type=QryPaxes.FieldIndex("client_type");
+      int col_tckin_id=QryPaxes.FieldIndex("tckin_id");
+      int col_grp_num=QryPaxes.FieldIndex("grp_num");
+      int col_crs_pax_id=QryPaxes.FieldIndex("crs_pax_id");
+      int col_crs_bag_norm=QryPaxes.FieldIndex("crs_bag_norm");
+      int col_crs_bag_norm_unit=QryPaxes.FieldIndex("crs_bag_norm_unit");
+      int col_refuse=QryPaxes.FieldIndex("refuse");
+      int col_doco_confirm=QryPaxes.FieldIndex("doco_confirm");
+      int col_bag_refuse=QryPaxes.FieldIndex("bag_refuse");
+      int col_excess_wt_raw=QryPaxes.FieldIndex("excess_wt");
 
       TCkinRoute tckin_route;
       TPaxSeats priorSeats(point_id);
       TRemGrp rem_grp;
-      if(not Qry5.Eof) rem_grp.Load(retBRD_VIEW, point_id);
+      if(not QryPaxes.Eof) rem_grp.Load(retBRD_VIEW, point_id);
 
       set<TComplexBagExcessNodeList::Props> props={TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess};
       if (NodeAsInteger("col_excess_type", reqNode, (int)false)!=0)
@@ -1884,27 +1788,29 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       using namespace CKIN;
       BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
       MainPax viewPax;
-      for(;!Qry5.Eof;Qry5.Next())
+      int rownum = 0;
+      for(;!QryPaxes.Eof;QryPaxes.Next())
       {
-          const int grp_id=Qry5.FieldAsInteger(col_grp_id);
-          const int pax_id=Qry5.FieldAsInteger(col_pax_id);
-          const int crs_pax_id=Qry5.FieldIsNULL(col_crs_pax_id)?NoExists:Qry5.FieldAsInteger(col_crs_pax_id);
-          const std::string surname=Qry5.FieldAsString(col_surname);
-          const std::string name=Qry5.FieldAsString(col_name);
-          const std::string airp_arv=Qry5.FieldAsString(col_airp_arv);
-          const TPaxStatus grp_status=DecodePaxStatus(Qry5.FieldAsString(col_status).c_str());
-          const TCrewType::Enum crew_type = CrewTypes().decode(Qry5.FieldAsString("crew_type").c_str());
+          rownum++;
+          const int grp_id=QryPaxes.FieldAsInteger(col_grp_id);
+          const int pax_id=QryPaxes.FieldAsInteger(col_pax_id);
+          const int crs_pax_id=QryPaxes.FieldIsNULL(col_crs_pax_id)?NoExists:QryPaxes.FieldAsInteger(col_crs_pax_id);
+          const std::string surname=QryPaxes.FieldAsString(col_surname);
+          const std::string name=QryPaxes.FieldAsString(col_name);
+          const std::string airp_arv=QryPaxes.FieldAsString(col_airp_arv);
+          const TPaxStatus grp_status=DecodePaxStatus(QryPaxes.FieldAsString(col_status).c_str());
+          const TCrewType::Enum crew_type = CrewTypes().decode(QryPaxes.FieldAsString("crew_type").c_str());
           const ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
-          const bool docoConfirmed=Qry5.FieldAsInteger(col_doco_confirm)!=0;
+          const bool docoConfirmed=QryPaxes.FieldAsInteger(col_doco_confirm)!=0;
 
-          const int bag_refuse = Qry5.FieldAsInteger(col_bag_refuse);
+          const int bag_refuse = QryPaxes.FieldAsInteger(col_bag_refuse);
           std::optional<int> opt_bag_pool_num;
-          if(!Qry5.FieldIsNULL("bag_pool_num")) {
-              opt_bag_pool_num = Qry5.FieldAsInteger("bag_pool_num");
+          if(!QryPaxes.FieldIsNULL("bag_pool_num")) {
+              opt_bag_pool_num = QryPaxes.FieldAsInteger("bag_pool_num");
               viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax_id), bag_refuse!=0);
           }
 
-          const int excess_wt_raw = Qry5.FieldAsInteger(col_excess_wt_raw);
+          const int excess_wt_raw = QryPaxes.FieldAsInteger(col_excess_wt_raw);
           std::string last_airp_arv = get_last_trfer_airp(GrpId_t(grp_id));
           if (last_airp_arv.empty()) {
               last_airp_arv = airp_arv;
@@ -1915,26 +1821,34 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               custom_alarms->fromDB(showWholeFlight, showWholeFlight ? point_id : pax_id);
           }
 
+          const std::string seat_no = BrdInterface::get_seat_no(
+                PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
+                QryPaxes.FieldAsInteger(col_seats),
+                QryPaxes.FieldAsInteger(col_is_jmp),
+                QryPaxes.FieldAsString(col_status),
+                PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
+                rownum);
+          LogTrace(TRACE3) << __func__ << ": seat_no=" << seat_no;
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
           NewTextChild(paxNode, "grp_id", grp_id);
-          NewTextChild(paxNode, "pr_brd",  Qry5.FieldAsInteger(col_pr_brd)!=0, false);
-          NewTextChild(paxNode, "pr_exam", Qry5.FieldAsInteger(col_pr_exam)!=0, false);
-          NewTextChild(paxNode, "reg_no", Qry5.FieldAsInteger(col_reg_no));
+          NewTextChild(paxNode, "pr_brd",  QryPaxes.FieldAsInteger(col_pr_brd)!=0, false);
+          NewTextChild(paxNode, "pr_exam", QryPaxes.FieldAsInteger(col_pr_exam)!=0, false);
+          NewTextChild(paxNode, "reg_no", QryPaxes.FieldAsInteger(col_reg_no));
           NewTextChild(paxNode, "surname", surname);
           NewTextChild(paxNode, "name", name, "");
-          NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, Qry5.FieldAsString(col_pers_type)), def_pers_type);
-          NewTextChild(paxNode, "class", classIdsToCodeNative(Qry5.FieldAsString(col_class),
-                                                              Qry5.FieldAsString(col_cabin_class)), def_class);
+          NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, QryPaxes.FieldAsString(col_pers_type)), def_pers_type);
+          NewTextChild(paxNode, "class", classIdsToCodeNative(QryPaxes.FieldAsString(col_class),
+                                                              QryPaxes.FieldAsString(col_cabin_class)), def_class);
           NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, last_airp_arv));
-          NewTextChild(paxNode, "seat_no", Qry5.FieldAsString(col_seat_no));
-          NewTextChild(paxNode, "seats", Qry5.FieldAsInteger(col_seats), 1);
+          NewTextChild(paxNode, "seat_no", seat_no);
+          NewTextChild(paxNode, "seats", QryPaxes.FieldAsInteger(col_seats), 1);
           if (!free_seating)
           {
-            if (Qry5.FieldIsNULL(col_wl_type))
+            if (QryPaxes.FieldIsNULL(col_wl_type))
             {
               //не на листе ожидания, но возможно потерял место при смене компоновки
-              if (Qry5.FieldIsNULL(col_seat_no) && Qry5.FieldAsInteger(col_seats)>0)
+              if (seat_no.empty() && QryPaxes.FieldAsInteger(col_seats)>0)
               {
                 ostringstream seat_no_str;
                 seat_no_str << "("
@@ -1950,15 +1864,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               NewTextChild(paxNode,"seat_no_alarm",(int)true);
             };
           };
-          NewTextChild(paxNode, "ticket_no", Qry5.FieldAsString(col_ticket_no), "");
-          NewTextChild(paxNode, "coupon_no", Qry5.FieldAsInteger(col_coupon_no), 0);
+          NewTextChild(paxNode, "ticket_no", QryPaxes.FieldAsString(col_ticket_no), "");
+          NewTextChild(paxNode, "coupon_no", QryPaxes.FieldAsInteger(col_coupon_no), 0);
           if ( apis_generation ) {
-            bool paxNotRefused=!Qry.FieldIsNULL(col_grp_id) && Qry5.FieldIsNULL(col_refuse);
-            NewTextChild( paxNode, "apisFlags", allAPIAttrs.view(Qry5, paxNotRefused), "" );
+            bool paxNotRefused=!Qry.FieldIsNULL(col_grp_id) && QryPaxes.FieldIsNULL(col_refuse);
+            NewTextChild( paxNode, "apisFlags", allAPIAttrs.view(QryPaxes, paxNotRefused), "" );
           }
 
           NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax_id, false), "");
-          NewTextChild(paxNode, "tid", Qry5.FieldAsInteger(col_tid));
+          NewTextChild(paxNode, "tid", QryPaxes.FieldAsInteger(col_tid));
 
           excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(pax_id), true /*include_all_svc*/)),
           TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax_id), excess_wt_raw)));
@@ -1975,9 +1889,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
           //ticket_bag_norm
           CheckIn::TPaxTknItem tkn;
-          tkn.fromDB( Qry5 );
+          tkn.fromDB( QryPaxes );
 
-          boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm(Qry5, col_crs_bag_norm, col_crs_bag_norm_unit);
+          boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm(QryPaxes, col_crs_bag_norm, col_crs_bag_norm_unit);
 
           TETickItem etick;
           if (tkn.validET())
@@ -1995,15 +1909,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           }
           NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
 
-          if (DecodeClientType(Qry5.FieldAsString(col_client_type).c_str())!=ctTerm)
-            NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry5.FieldAsString(col_client_type)));
+          if (DecodeClientType(QryPaxes.FieldAsString(col_client_type).c_str())!=ctTerm)
+            NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, QryPaxes.FieldAsString(col_client_type)));
 
         /*  ProgTrace(TRACE5, "pax_id=%d name=%s airp_arv=%s apis_control=%d apis_manual_input=%d apis_map.size()=%zu",
                     pax_id, name.c_str(), airp_arv.c_str(), (int)apis_control, (int)apis_manual_input, apis_map.size());
         */
 
           bool documentAlarm=false;
-          set<APIS::TAlarmType> alarms=getAPISAlarms(allAPIAttrs, Qry5, name!="CBBG", pax_ext, docoConfirmed, crs_pax_id!=NoExists,
+          set<APIS::TAlarmType> alarms=getAPISAlarms(allAPIAttrs, QryPaxes, name!="CBBG", pax_ext, docoConfirmed, crs_pax_id!=NoExists,
                                                      route_check_info, AirportCode_t(airp_arv), setList, documentAlarm);
           if (documentAlarm)
             NewTextChild(paxNode, "document_alarm", (int)true);
@@ -2030,10 +1944,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                      paxNode);
           }
 
-          if (!Qry5.FieldIsNULL(col_tckin_id))
+          if (!QryPaxes.FieldIsNULL(col_tckin_id))
           {
-            auto inboundGrp=tckin_route.getPriorGrp(Qry5.FieldAsInteger(col_tckin_id),
-                                                    Qry5.FieldAsInteger(col_grp_num),
+            auto inboundGrp=tckin_route.getPriorGrp(QryPaxes.FieldAsInteger(col_tckin_id),
+                                                    QryPaxes.FieldAsInteger(col_grp_num),
                                                     TCkinRoute::IgnoreDependence,
                                                     TCkinRoute::WithTransit);
 

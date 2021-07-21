@@ -37,7 +37,7 @@ public:
   void SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void OpenBrdInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void readTripCounters( const int point_id,
@@ -46,23 +46,15 @@ public:
                                 const ASTRA::TRptType rpt_type,
                                 const std::string &client_type );
 
-  static void GetPaxQuery(TQuery &Qry, const int point_id,
-                                       const int reg_no,
-                                       const int pax_id,
-                                       const std::string &lang,
-                                       const ASTRA::TRptType rpt_type,
-                                       const std::string &client_type,
-                                       const TSortType sort,
-                                       const bool usePaxCalcData=false);
-
   static void GetPaxQuery(DB::TQuery &Qry, const int point_id,
                                            const int reg_no,
                                            const int pax_id,
-                                           const std::string &lang,
                                            const ASTRA::TRptType rpt_type,
                                            const std::string &client_type,
                                            const TSortType sort,
                                            const bool usePaxCalcData=false);
+  static std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, const std::string& status,
+                                 const PointId_t& point_dep, int rownum);
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
