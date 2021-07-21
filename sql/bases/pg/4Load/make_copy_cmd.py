@@ -2,8 +2,15 @@ import sys
 import re
 
 
+def my_open(file_name):
+    try:
+        return open(file_name, encoding='cp866')
+    except TypeError:
+        return open(file_name)
+
+
 def main(file_name):
-    with open(file_name, encoding='cp866') as file:
+    with my_open(file_name) as file:
         header = ''
         line = file.readline()
         while line and line.upper() != 'BEGINDATA\n':

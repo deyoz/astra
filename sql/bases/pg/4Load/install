@@ -18,7 +18,7 @@ if [ "${1}" = "NO_POSTGRES_CONNECT" ]; then
 fi
 
 for f in *.ldr ; do
-    python3 make_copy_cmd.py $f | $CMD 2>&1 | tee -a log
+    python make_copy_cmd.py $f | $CMD 2>&1 | tee -a log
     if grep -Ec "ERROR:" log; then
         echo Errors in $PWD $PASS | tee -a log
         exit 1
