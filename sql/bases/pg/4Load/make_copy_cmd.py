@@ -1,6 +1,5 @@
 import sys
 import re
-from builtins import open
 
 
 def main(file_name):

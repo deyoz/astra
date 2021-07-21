@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -euo pipefail
 NUM_COPIES=$1
 
 echo createdb.sh:
@@ -18,31 +18,30 @@ checkresult()
 
 build_ora_database()
 {
+    set +e
     if [ "$ENABLE_ORACLE" = "0" ]; then
       echo "skip building ORA DB. ENABLE_ORACLE=$ENABLE_ORACLE"
     else
-      oradir=$1
-      ( ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
+        oradir=$1
+        ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
         checkresult create_ora_db $?
-      )
     fi
 }
 
 build_pg_database()
 {
-     pgdir=$1
-     ( ( cd ${pgdir} && ./create_database.sh ${PG_CONNECT_STRING} )
-       checkresult create_pg_db $?
-     )
+    set +e
+    pgdir=$1
+    ( cd ${pgdir} && ./create_database.sh ${PG_CONNECT_STRING} )
+    checkresult create_pg_db $?
 
-     other_pg_bases_dir=${pgdir}/bases_pg/
-     arx_base_dir=${other_pg_bases_dir}/arx
+    other_pg_bases_dir=${pgdir}/bases_pg/
+    arx_base_dir=${other_pg_bases_dir}/arx
 
      # arx
-     ( ( cd ${arx_base_dir} && ./../../create_database.sh ${PG_CONNECT_STRING_ARX} )
-        checkresult create_arx_pg_db $?
-     )
-}
+     ( cd ${arx_base_dir} && ./../../create_database.sh ${PG_CONNECT_STRING_ARX} )
+     checkresult create_arx_pg_db $?
+ }
 
 build_pg_database sql/bases/pg
 checkresult build_pg_database $?
