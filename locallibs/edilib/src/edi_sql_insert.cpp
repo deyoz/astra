@@ -1,6 +1,7 @@
 #ifdef HAVE_MPATROL
 #include <mpatrol.h>
 #endif
+#include <stdexcept>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>

@@ -35,10 +35,9 @@ AC_DEFUN([AX_CXX_FLAG_CHECK_ADD],
 
 MRJ_CHECK_ORACLE
 
-CHECK_SSL(yes)
-if ! test "$SSL_LIBS" = ""; then
-    AC_SUBST(WITH_CRYPT_CFLAGS, ["-DWITH_CRYPT"])
-fi
+PKG_CHECK_MODULES([SSL], [openssl = 1.0.2u],
+                  [AC_DEFINE([WITH_CRYPT], , [openssl = 1.0.2u found])],
+                  [AC_MSG_ERROR([OpenSSL-1.0.2u not found])])
 
 if ! test "$WITH_MESPRO" = ""; then
     AC_SUBST(MESPRO_CFLAGS, ["$MESPRO_CFLAGS"])

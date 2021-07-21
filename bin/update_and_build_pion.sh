@@ -15,11 +15,11 @@ function uab_config_and_build() {
         export CC="$LOCALCC"
     fi
 
-    cxxflags=""
-    [ -n "$CPP_STD_VERSION" ] && cxxflags="-std=$CPP_STD_VERSION"	
-
+    cxxflags="${CPP_STD_VERSION:+-std=$CPP_STD_VERSION}"
+    extroot="$PWD/../.."
     ./autogen.sh
-    ./configure --with-boost="$BOOST" --prefix="$prefix" CXXFLAGS="${cxxflags}" $@
+    ./configure --with-boost="$extroot/boost" --with-openssl="$extroot/openssl_1_0" --with-pic \
+                --prefix="$prefix" CXXFLAGS="${cxxflags}" $@
     make -j${MAKE_J:-3}
     make install
 }

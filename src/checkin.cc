@@ -5996,8 +5996,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (rbds.empty())
             throw UserException("MSG.CHECKIN.NOT_MADE_IN_ONE_CLASSES"); //WEB
 
-          boost::optional<TSubclassGroup> subclass_grp=TSubclassGroup(0);
-          subclass_grp=boost::none;
+          auto subclass_grp = boost::make_optional<TSubclassGroup>(false, 0); // subclass_grp=TSubclassGroup(0);
           for(;!PaxQry.Eof;PaxQry.Next())
           {
             boost::optional<TSubclassGroup> pax_subclass_grp=rbds.getSubclassGroup(PaxQry.FieldAsString("subclass"),

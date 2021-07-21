@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
 
 grep_version() {
     grep -w "BOOST_VERSION[ ]\+$2" $1/boost/version.hpp
@@ -12,11 +13,12 @@ toolset=''
 [[ $LOCALCC =~ clang ]] && toolset="clang"
 [[ $LOCALCC =~ gcc ]] && toolset="gcc"
 
-userconfigjam=~/user-config.jam
-[ -f $userconfigjam ] && die 1 "$userconfigjam is already here - another $0 is running? If not, remove the file and try again."
+export BOOST_BUILD_USER_CONFIG="$prefix/src/user-config.jam"
+[ -f "$BOOST_BUILD_USER_CONFIG" ] && die 1 "$BOOST_BUILD_USER_CONFIG is already here - another $0 is running? If not, remove the file and try again."
+touch "$BOOST_BUILD_USER_CONFIG"
 
-cxxflags=''
-b2_options='--disable-icu'
+cxxflags=
+b2_options=
 if [ -n "$toolset" ]; then
     for tok in $LOCALCXX; do
         if [[ $tok = -* ]] ; then
@@ -25,7 +27,7 @@ if [ -n "$toolset" ]; then
             cxx=`which $tok`
             cxx_version=`$cxx -dumpversion`
             if ! which $toolset &> /dev/null || [ "$cxx_version" != "`$toolset -dumpversion`" ]; then
-                cat <<EOF > $userconfigjam
+                cat <<EOF > "$BOOST_BUILD_USER_CONFIG"
 using $toolset : $cxx_version : $cxx ;
 EOF
                 if [ -n "$cxx_version" ]; then
@@ -38,6 +40,7 @@ EOF
         b2_options="toolset=$toolset"
     fi
 fi
+b2_options="$b2_options --disable-icu --ignore-site-config"
 
 # pyconfig.h compile error fix
 python_include_path=`(pkg-config python2 --cflags-only-I --silence-errors || true) | awk '{print $1}'`
@@ -69,6 +72,18 @@ for i in $exclude_libs ; do
 done
 cd $prefix/src
 
+patch -p0 << EOF
+--- boost/config/stdlib/libcpp.hpp	2016-12-22 15:33:14.000000000 +0300
++++ boost/config/stdlib/libcpp.hpp	2020-01-15 16:11:40.045855577 +0300
+@@ -110,4 +110,7 @@
+ #  define BOOST_NO_CXX14_HDR_SHARED_MUTEX
+ #endif
+
++#ifndef BOOST_NO_AUTO_PTR
++#define BOOST_NO_AUTO_PTR
++#endif
+ //  --- end ---
+EOF
 echo '--- boost/date_time/time_clock.hpp    2015-03-04 01:19:01.000000000 +0300
 +++ boost/date_time/time_clock.hpp    2016-02-16 15:16:08.380216972 +0300
 @@ -14,7 +14,6 @@
@@ -264,12 +279,13 @@ sed -i 's/print sys\.prefix/print(sys.prefix)/' ./bootstrap.sh
 CC="$LOCALCC" ./bootstrap.sh --prefix=$prefix --without-icu
 b2_build_flags="$cxxflags $glibcxxdebug $address_model $b2_options --build_dir=/tmp/boost_build/$prefix --prefix=$prefix -j${MAKE_J:-3}"
 echo "./b2 $b2_build_flags clean" > build.clean
-echo "./b2 $b2_build_flags stage" | tee build.stage
-./b2 $b2_build_flags stage > /dev/null #really annoying output
+echo "./b2 -q $b2_build_flags stage" | tee build.stage
+./b2 -q $b2_build_flags stage > /dev/null #really annoying output
 echo "./b2 install"
 ./b2 $b2_build_flags install > /dev/null # -- # --
 echo "./b2 $b2_build_flags install" > build.previous
-rm -f $userconfigjam
+cat "$BOOST_BUILD_USER_CONFIG" >> build.previous
+rm -f "$BOOST_BUILD_USER_CONFIG"
 
 }
 

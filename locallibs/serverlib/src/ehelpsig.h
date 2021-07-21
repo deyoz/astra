@@ -1,7 +1,7 @@
 #ifndef _EHELPSIG_H_
 #define _EHELPSIG_H_
 #include "posthooks.h"
-
+#include <string>
 /*this class is int its own file for xp_tests*/
 #include <netinet/in.h>
 

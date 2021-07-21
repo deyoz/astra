@@ -80,7 +80,7 @@ static void UpdatePg(
             code,
             name,
             name_lat,
-            pr_seat,
+            bool(pr_seat),
             is_default_element,
             time_create,
             image_,

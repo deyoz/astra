@@ -10,6 +10,23 @@ die() {
     exit $code;
 }
 
+export ENABLE_GLIBCXX_DEBUG=${ENABLE_GLIBCXX_DEBUG:-0}
+
+gen_uab_config() {
+    cat << EOF
+CxxVersion=$CPP_STD_VERSION
+GlibCxxDebug=$ENABLE_GLIBCXX_DEBUG
+EOF
+    ! declare -F uab_config_addon >/dev/null || uab_config_addon
+}
+check_uab_config() {
+    diff $1/lib/pkgconfig/uab_config <( gen_uab_config )
+}
+write_uab_config() {
+    [ -d $1/lib/pkgconfig ] || mkdir -p $1/lib/pkgconfig
+    gen_uab_config > $1/lib/pkgconfig/uab_config
+}
+
 pkg=${1:?need a package name as the first parameter}
 source `dirname $0`/update_and_build_$pkg.sh
 
@@ -17,7 +34,7 @@ p=${2:?need a path to reside as the 1st parameter}
 prefix=$( (stat $p > /dev/null || mkdir -p $p) && cd $p && pwd )
 pkg_src="$prefix/src"
 
-if [ -d $prefix/include ] && [ -d $prefix/lib ] && uab_check_version $prefix ; then
+if [ -d $prefix/include ] && [ -d $prefix/lib ] && uab_check_version $prefix && check_uab_config $prefix ; then
     die 0 "$0 $pkg : already built";
 fi
 rm -rf $prefix/include $prefix/lib $prefix/src
@@ -30,7 +47,8 @@ uab_checksum() {
     ! declare -F uab_sha1sum || ! which sha1sum &> /dev/null || echo "$(uab_sha1sum)  $prefix/$pkg_tgz" | sha1sum --check
 }
 
-[[ -z "${LOUD:-}" ]] && quiet='--no-verbose'
+[[ "${LOUD:-}" == "1" ]] && set -x
+[[ "${LOUD:-}" != "1" ]] && quiet='--no-verbose' || quiet=''
 if ! [ -f $prefix/$pkg_tgz ] || ! uab_checksum $prefix/$pkg_tgz ; then
     if ! wget --timestamping $quiet --directory-prefix=$prefix $pkg_uri ; then
         stat $prefix/$pkg_tgz > /dev/null
@@ -41,6 +59,8 @@ fi
 compression=`file --dereference $prefix/$pkg_tgz | cut -f2 -d\ `
 tar --$compression -xf $prefix/$pkg_tgz --strip-components=1 --directory $pkg_src
 
+LOCALCC=${LOCALCC/ccache /}
+LOCALCXX=${LOCALCXX/ccache /}
 if [ -n "${PLATFORM:-}" ] ; then
     export CXX="${LOCALCXX:?LOCALCXX is not set} -$PLATFORM"
     export CC="${LOCALCC?:LOCALCC is not set} -$PLATFORM"
@@ -62,6 +82,12 @@ fi
 export CXXFLAGS
 export LDFLAGS
 
+export CMAKE_CMD="cmake -DCMAKE_BUILD_TYPE=Release \
+                        -DCMAKE_POLICY_DEFAULT_CMP0074=NEW \
+                        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE \
+                        -DCMAKE_CXX_STANDARD=${CPP_STD_VERSION:3} -DCMAKE_CXX_EXTENSIONS=OFF \
+                        -DCMAKE_INSTALL_PREFIX:PATH=$prefix "
+
 configureac_opts=''
 [[ ${SIRENA_ENABLE_SHARED:-} == 1 ]] && configureac_opts='--enable-shared --disable-static'
 [[ ${SIRENA_ENABLE_SHARED:-} == 0 ]] && configureac_opts='--enable-static --disable-shared'
@@ -81,4 +107,6 @@ uab_chk_pc() {
 shift 2
 cd $pkg_src
 uab_config_and_build $prefix $configureac_opts "$@"
+write_uab_config $prefix
 uab_check_version $prefix
+check_uab_config $prefix

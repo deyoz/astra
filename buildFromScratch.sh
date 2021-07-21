@@ -250,8 +250,9 @@ EOF
     build_externallib icu
     build_externallib libxml2
     build_externallib libxslt
-    build_externallib boost
     build_externallib check
+    build_externallib openssl_1_0
+    build_externallib boost
     build_externallib pion
     build_externallib amqpcpp
 #create_pkgconfig_amqpcpp

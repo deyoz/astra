@@ -6667,6 +6667,7 @@ class SuitablePax
     TDateTime last_op;
     bool classChanged;
 
+    explicit SuitablePax(boost::none_t) : paxId(0), deleted(false), classChanged(false) {};
     SuitablePax(TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
     {
       if (!Qry.get().FieldIsNULL("parent_pax_id"))
@@ -7627,7 +7628,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                   const TPaxItem& paxItem=seatsBlockingPass?*iSeatsBlocking:*iPaxItem;
 
-                  boost::optional<PaxId_t> suitablePaxIdOrSeatId;
+                  auto suitablePaxIdOrSeatId = boost::make_optional<PaxId_t>(false, PaxId_t{0});
                   if (seatsBlockingPass)
                   {
                     if (!seatsBlockingPaxId)
@@ -7754,7 +7755,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     CrsInfInsQry.SetVariable("pax_id",paxId().get());
                     for(TInfList::const_iterator iInfItem=paxItem.inf.begin();iInfItem!=paxItem.inf.end();++iInfItem)
                     {
-                      boost::optional<SuitablePax> suitableInf;
+                      auto suitableInf = boost::make_optional<SuitablePax>(false, SuitablePax{boost::none});
 
                       if (ne.indicator==ADD||ne.indicator==CHG)
                       {

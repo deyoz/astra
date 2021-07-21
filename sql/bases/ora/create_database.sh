@@ -17,6 +17,7 @@ then
     exit 1
 fi
 
+export PATH=$PATH:$ORACLE_HOME/bin
 SYSPAROL=${SYSPAROL:-system/manager}
 if sqlplus /nolog </dev/null 2>&1 | grep     'Release 9' ; then
     SYSCMD="connect $SYSPAROL as sysdba"
