@@ -6667,7 +6667,7 @@ class SuitablePax
     TDateTime last_op;
     bool classChanged;
 
-    explicit SuitablePax(boost::none_t) : paxId(0), deleted(false), classChanged(false) {};
+    explicit SuitablePax(boost::none_t) : paxId(1), deleted(false), classChanged(false) {};
     SuitablePax(TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
     {
       if (!Qry.get().FieldIsNULL("parent_pax_id"))
@@ -7628,7 +7628,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                   const TPaxItem& paxItem=seatsBlockingPass?*iSeatsBlocking:*iPaxItem;
 
-                  auto suitablePaxIdOrSeatId = boost::make_optional<PaxId_t>(false, PaxId_t{0});
+                  auto suitablePaxIdOrSeatId = boost::make_optional<PaxId_t>(false, PaxId_t{1});
                   if (seatsBlockingPass)
                   {
                     if (!seatsBlockingPaxId)
