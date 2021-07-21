@@ -5053,21 +5053,21 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
     }
   }
 
-  DB::TQuery InsTripCompLyrsQry(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
-  InsTripCompLyrsQry.SQLText =
+  DB::TQuery InsTripCompElemsQry(PgOra::getRWSession("TRIP_COMP_ELEMS"), STDLOG);
+  InsTripCompElemsQry.SQLText =
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
     " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, :xname,:yname)";
-  InsTripCompLyrsQry.CreateVariable( "point_id", otInteger, vpoint_id );
-  InsTripCompLyrsQry.DeclareVariable( "num", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "x", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "y", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "elem_type", otString );
-  InsTripCompLyrsQry.DeclareVariable( "xprior", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "yprior", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "agle", otInteger );
-  InsTripCompLyrsQry.DeclareVariable( "class", otString );
-  InsTripCompLyrsQry.DeclareVariable( "xname", otString );
-  InsTripCompLyrsQry.DeclareVariable( "yname", otString );
+  InsTripCompElemsQry.CreateVariable( "point_id", otInteger, vpoint_id );
+  InsTripCompElemsQry.DeclareVariable( "num", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "x", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "y", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "elem_type", otString );
+  InsTripCompElemsQry.DeclareVariable( "xprior", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "yprior", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "agle", otInteger );
+  InsTripCompElemsQry.DeclareVariable( "class", otString );
+  InsTripCompElemsQry.DeclareVariable( "xname", otString );
+  InsTripCompElemsQry.DeclareVariable( "yname", otString );
 
   DB::TQuery QryRemarks(PgOra::getRWSession("TRIP_COMP_REM"), STDLOG);
   QryRemarks.SQLText =
@@ -5120,7 +5120,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
   std::map<int, TSetOfLayerPriority,classcomp > layers;
   TDateTime layer_time_create = NowUTC();
   for ( CraftSeats::iterator plist=_seats.begin(); plist!=_seats.end(); plist++ ) {
-    InsTripCompLyrsQry.SetVariable( "num", (*plist)->num );
+    InsTripCompElemsQry.SetVariable( "num", (*plist)->num );
     QryRFISC.SetVariable( "num", (*plist)->num );
     QryTariffs.SetVariable( "num", (*plist)->num );
     QryRemarks.SetVariable( "num", (*plist)->num );
@@ -5132,30 +5132,30 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces, bool is
            isConstructivePlace( iseat->elem_type, elem_types ) ) {
         continue;
       }
-      InsTripCompLyrsQry.SetVariable( "x", iseat->x );
-      InsTripCompLyrsQry.SetVariable( "y", iseat->y );
-      InsTripCompLyrsQry.SetVariable( "elem_type", iseat->elem_type );
+      InsTripCompElemsQry.SetVariable( "x", iseat->x );
+      InsTripCompElemsQry.SetVariable( "y", iseat->y );
+      InsTripCompElemsQry.SetVariable( "elem_type", iseat->elem_type );
       if ( iseat->xprior < 0 )
-        InsTripCompLyrsQry.SetVariable( "xprior", FNull );
+        InsTripCompElemsQry.SetVariable( "xprior", FNull );
       else
-        InsTripCompLyrsQry.SetVariable( "xprior", iseat->xprior );
+        InsTripCompElemsQry.SetVariable( "xprior", iseat->xprior );
       if ( iseat->yprior < 0 )
-        InsTripCompLyrsQry.SetVariable( "yprior", FNull );
+        InsTripCompElemsQry.SetVariable( "yprior", FNull );
       else
-        InsTripCompLyrsQry.SetVariable( "yprior", iseat->yprior );
-      InsTripCompLyrsQry.SetVariable( "agle", iseat->agle );
+        InsTripCompElemsQry.SetVariable( "yprior", iseat->yprior );
+      InsTripCompElemsQry.SetVariable( "agle", iseat->agle );
       if ( iseat->clname.empty() || !TCompElemTypes::Instance()->isSeat( iseat->elem_type ) )
-        InsTripCompLyrsQry.SetVariable( "class", FNull );
+        InsTripCompElemsQry.SetVariable( "class", FNull );
       else {
-        InsTripCompLyrsQry.SetVariable( "class", iseat->clname );
+        InsTripCompElemsQry.SetVariable( "class", iseat->clname );
         cl = DecodeClass( iseat->clname.c_str() );
         if ( cl != NoClass ) {
           countersClass[ cl ]++;
         }
       }
-      InsTripCompLyrsQry.SetVariable( "xname", iseat->xname );
-      InsTripCompLyrsQry.SetVariable( "yname", iseat->yname );
-      InsTripCompLyrsQry.Execute();
+      InsTripCompElemsQry.SetVariable( "xname", iseat->xname );
+      InsTripCompElemsQry.SetVariable( "yname", iseat->yname );
+      InsTripCompElemsQry.Execute();
       iseat->GetRemarks( remarks );
       if ( !remarks.empty() ) {
         QryRemarks.SetVariable( "x", iseat->x );
