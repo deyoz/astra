@@ -110,6 +110,15 @@ class Airps : public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const;
 };
 
+class Cities : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string refreshSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
 class TripTypes : public CacheTableReadonly
 {
   public:

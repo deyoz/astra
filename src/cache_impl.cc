@@ -39,6 +39,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
+  if (cacheCode=="CITIES")              return new CacheTable::Cities;
   if (cacheCode=="TRIP_TYPES")          return new CacheTable::TripTypes;
 #endif //ENABLE_ORACLE
   return nullptr;
@@ -564,6 +565,28 @@ std::string Airps::refreshSql() const {
 }
 std::list<std::string> Airps::dbSessionObjectNames() const {
   return {"AIRPS"};
+}
+
+//Cities
+
+bool Cities::userDependence() const {
+  return false;
+}
+std::string Cities::selectSql() const {
+  return "SELECT c.id, c.code, c.code_lat, c.country, c.name, c.name_lat, c.tz_region, c.pr_del, c.tid, d.gmt_offset "
+         "FROM cities c LEFT OUTER JOIN date_time_zonespec d "
+         "ON c.tz_region=d.id AND d.pr_del=0 "
+         "ORDER BY c.code";
+}
+std::string Cities::refreshSql() const {
+  return "SELECT c.id, c.code, c.code_lat, c.country, c.name, c.name_lat, c.tz_region, c.pr_del, c.tid, d.gmt_offset "
+         "FROM cities c LEFT OUTER JOIN date_time_zonespec d "
+         "ON c.tz_region=d.id AND d.pr_del=0 "
+         "WHERE c.tid>:tid "
+         "ORDER BY c.code";
+}
+std::list<std::string> Cities::dbSessionObjectNames() const {
+  return {"CITIES", "DATE_TIME_ZONESPEC"};
 }
 
 //TripTypes
