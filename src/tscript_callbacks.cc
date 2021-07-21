@@ -7,6 +7,7 @@
 #ifdef ENABLE_ORACLE
 #include <serverlib/cursctl.h>
 #endif
+#include <serverlib/testmode.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/commit_rollback.h>
 #include <libtlg/tlg_outbox.h>
@@ -96,6 +97,7 @@ namespace xp_testing { namespace tscript {
 
         virtual void afterTest()
         {
+            if(not inTestMode()) return;
 #ifdef ENABLE_ORACLE
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
