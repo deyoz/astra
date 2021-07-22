@@ -283,6 +283,8 @@ enum class Alarm
     WeightNotDefined,
 };
 
+std::ostream& operator << (std::ostream& os, const TrferList::Alarm alarm);
+
 class AlarmTypes : public ASTRA::PairList<Alarm, std::string>
 {
   private:
@@ -584,5 +586,6 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
                           std::vector<TrferList::TGrpViewItem> &grps);
 
 }; //namespace InboundTrfer
+
 
 #endif /*_TRANSFER_H_*/

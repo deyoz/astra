@@ -1082,7 +1082,7 @@ void APPSMessage::send()
     // отправим телеграмму
     Opt<AppsSettings> settings = AppsSettings::readSettings(settings_id);
     if(!settings) {
-        throw Exception("Cant read Apps Settings from this id: "+settings_id.get());
+        throw Exception("Cant read Apps Settings from this id: "+HelpCpp::string_cast(settings_id.get()));
     }
     send_attempts++;
     //Установка текущего времени отправления сообщения
@@ -1133,7 +1133,7 @@ int APPSMessage::getVersion() const
 {
     Opt<AppsSettings> settings = AppsSettings::readSettings(settings_id);
     if(!settings){
-        throw Exception("Cant read Apps Settings from this id: "+settings_id.get());
+        throw Exception("Cant read Apps Settings from this id: "+HelpCpp::string_cast(settings_id.get()));
     }
     return settings->version();
 }

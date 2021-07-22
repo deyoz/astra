@@ -128,7 +128,7 @@ std::optional<HistoryEventId> HistoryTable::getLastEventId(const RowId_t& rowId)
 }
 
 void HistoryTable::closeLastEvent(const RowId_t& rowId,
-                                  const std::optional<HistoryEventId>& nextEventId)
+                                  const std::optional<HistoryEventId> &nextEventId)
 {
   auto cur = make_db_curs("UPDATE history_events "
                           "SET close_time=:close_time, close_user=:close_user, close_desk=:close_desk "

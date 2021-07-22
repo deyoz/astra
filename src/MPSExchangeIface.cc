@@ -1174,7 +1174,7 @@ void SynchMPSEMD( int grp_id, const NotifyPushEvent &p )
              mps_svc.seg_id == svc.second.seg_id ) {
           SVCS::iterator f;
           if ( !item.second.findSVC( svc.first, f ) ) {
-            throw EXCEPTIONS::Exception( "svc %d not found at TPriceRFISCList", svc.first.svcId );
+            throw EXCEPTIONS::Exception( "svc %d not found at TPriceRFISCList", svc.first.svcId.c_str() );
           }
           f->second.ticknum = mps_svc.emd_number;
           f->second.ticket_cpn = mps_svc.emd_coupon;
@@ -1184,7 +1184,7 @@ void SynchMPSEMD( int grp_id, const NotifyPushEvent &p )
         }
       }
       if ( !prFind ) {
-        throw EXCEPTIONS::Exception( "svc %d not found at MPS notify answer", svc.first.svcId );
+        throw EXCEPTIONS::Exception( "svc %d not found at MPS notify answer", svc.first.svcId.c_str() );
       }
     }
   }

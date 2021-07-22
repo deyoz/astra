@@ -38,20 +38,20 @@ namespace {
 class AstraTlgCallbacks: public telegrams::TlgCallbacks
 {
 public:
-    virtual telegrams::ErrorQueue& errorQueue();
-    virtual telegrams::HandlerQueue& handlerQueue();
-    virtual telegrams::GatewayQueue& gatewayQueue();
+    virtual telegrams::ErrorQueue& errorQueue() override;
+    virtual telegrams::HandlerQueue& handlerQueue() override;
+    virtual telegrams::GatewayQueue& gatewayQueue() override;
 
-    virtual void registerHandlerHook(size_t);
-    virtual int getRouterInfo(int router, telegrams::RouterInfo &ri);
+    virtual void registerHandlerHook(size_t) override;
+    virtual int getRouterInfo(int router, telegrams::RouterInfo &ri) override;
 
     virtual Expected<telegrams::TlgResult, int> putTlg2OutQueue(OUT_INFO *oi,
                                                                 const char *body,
                                                                 std::list<tlgnum_t>* tlgParts = 0) override;
 
-    virtual int readTlg(const tlgnum_t& msg_id, boost::posix_time::ptime& saveTime, int &router, std::string& tlgText);
-    virtual bool ttlExpired(const std::string& tlgText, bool from_our, int router, boost::optional<hth::HthInfo> hthInfo);
-    virtual void readAllRouters(std::list<telegrams::RouterInfo>& routers);
+    virtual int readTlg(const tlgnum_t& msg_id, boost::posix_time::ptime& saveTime, int &router, std::string& tlgText) override;
+    virtual bool ttlExpired(const std::string& tlgText, bool from_our, int router, boost::optional<hth::HthInfo> hthInfo) override;
+    virtual void readAllRouters(std::list<telegrams::RouterInfo>& routers) override;
 
     virtual bool tlgIsHth(const tlgnum_t&) override;
     virtual int readHthInfo(const tlgnum_t&, hth::HthInfo& hthInfo) override;
@@ -73,7 +73,7 @@ public:
     }
     virtual Expected<telegrams::TlgResult, int> putTlg(const std::string &tlgText,
                                                        telegrams::tlg_text_filter filter = telegrams::tlg_text_filter(),
-                                                       int from_addr = 0, int to_addr = 0, hth::HthInfo *hth = 0)
+                                                       int from_addr = 0, int to_addr = 0, hth::HthInfo *hth = 0) override
     {
         NON_IMPLEMENTED_CALL
     }

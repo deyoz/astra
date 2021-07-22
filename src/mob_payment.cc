@@ -410,7 +410,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
     return;
   }
 
-  for(const CheckIn::TSimplePaxItem pax : paxs) add(pax, req.departure);
+  for(const CheckIn::TSimplePaxItem &pax : paxs) add(pax, req.departure);
 }
 
 bool SearchPassengersResponse::suitable(const Passenger& passenger,

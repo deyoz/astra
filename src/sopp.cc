@@ -837,7 +837,7 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
   PrmEnum del_terms_prmenum("names", ",");
   PrmEnum del_gates_prmenum("names", ",");
   {
-    for ( const auto st : chStations ) {
+    for ( const auto &st : chStations ) {
       if ( mode != toDbMode::dbRewriteAll ||
            (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Terms) && st.isTerm()) || //пришла инфа по стойкам - стойки или пусто, значит все удалено - удалем, иначе ничего не делаем
            (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Gates) && st.isGate()) ) {
@@ -879,7 +879,7 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
   {
     PrmEnum terms_prmenum("names", ",");
     PrmEnum gates_prmenum("names", ",");
-    for ( const auto st : chStations ) {
+    for ( const auto &st : chStations ) {
       LogTrace(TRACE5) << "insert " << st.name;
       InsQry.SetVariable( "name", st.name );
       InsQry.SetVariable( "work_mode", st.work_mode );
@@ -889,7 +889,7 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
     if ( mode == toDbMode::dbRewriteAll ) { //записываем в лог то, что пришло
       chStations = *this;
     }
-    for ( const auto st : chStations ) {
+    for ( const auto &st : chStations ) {
       if ( st.isTerm() ) {
         if ( st.pr_main ) {
           PrmLexema prmlexema("", "EVT.DESK_MAIN");

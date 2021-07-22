@@ -224,7 +224,7 @@ void resend_tlg(void)
     Dates::DateTime_t elapsed = Dates::second_clock::universal_time() - seconds(10);
     std::vector<msg> messages = readMessagesByElapsedTime(elapsed);
 
-    for(int i=0; i<messages.size() && (count++)<PROC_COUNT(); i++, ASTRA::rollback()) {
+    for(size_t i=0; i<messages.size() && (count++)<PROC_COUNT(); i++, ASTRA::rollback()) {
         auto [send_time, msg_id, send_attempts] = messages[i];
         auto point_id = APPS::pointIdByMsgId(msg_id);
         if(!point_id) {

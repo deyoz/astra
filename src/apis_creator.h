@@ -93,7 +93,7 @@ struct apis_test_value
   {
     ostringstream f;
     f << "FILES:" << endl;
-    for (const auto i : files)
+    for (const auto &i : files)
     {
       f << i.first << endl;
       f << i.second << endl;
@@ -103,7 +103,7 @@ struct apis_test_value
     f << "TYPE:" << endl;
     f << type << endl;
     f << "FILE_PARAMS:" << endl;
-    for (const auto i : file_params)
+    for (const auto &i : file_params)
     {
       f << i.first << endl;
       f << i.second << endl;
@@ -124,7 +124,7 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
       << " EXCEPTION: " << exception
       << " STRING: \"" << str_exception << "\""
       << " TRY_KEY: " << try_key.ToString() << endl;
-    for (const auto i : *this)
+    for (const auto &i : *this)
       s << i.first.ToString() << endl << i.second.ToString() << endl;
     return s.str();
   }
@@ -157,7 +157,7 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
   {
     const TAirpsRow& row = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv);
     if (row.code_lat.empty())
-      throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv);
+      throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.c_str());
 
     return row.code_lat;
   }
@@ -883,7 +883,7 @@ struct TAPISFormat_EDI_US : public TEdiAPISFormat
     add_rule(r_processDocNumber);
     file_rule = r_file_rule_1;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_EDI_US_FIELDS;
     if (pax == crew && api == apiDoc) return DOC_EDI_US_FIELDS;
@@ -893,9 +893,9 @@ struct TAPISFormat_EDI_US : public TEdiAPISFormat
     if (pax == pass && api == apiDocaD) return DOCA_D_PASS_EDI_US_FIELDS;
     return NO_FIELDS;
   }
-  string unknown_gender() const { return "M"; }
-  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
-  string mesAssCode() const { return "CBP"; }
+  string unknown_gender() const override { return "M"; }
+  string process_doc_no(const string& no) const override { return NormalizeDocNo(no, false); }
+  string mesAssCode() const override { return "CBP"; }
   bool NeedCBPPort(string country_regul_dep) const override { return country_regul_dep!=US_CUSTOMS_CODE; }
 };
 
@@ -912,7 +912,7 @@ struct TAPISFormat_EDI_USBACK : public TEdiAPISFormat
     add_rule(r_processDocNumber);
     file_rule = r_file_rule_1;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_EDI_USBACK_FIELDS;
     if (pax == crew && api == apiDoc) return DOC_EDI_USBACK_FIELDS;
@@ -922,9 +922,9 @@ struct TAPISFormat_EDI_USBACK : public TEdiAPISFormat
     if (pax == pass && api == apiDocaD) return DOCA_D_PASS_EDI_USBACK_FIELDS;
     return NO_FIELDS;
   }
-  string unknown_gender() const { return "M"; }
-  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
-  string mesAssCode() const { return "CBP"; }
+  string unknown_gender() const override { return "M"; }
+  string process_doc_no(const string& no) const override { return NormalizeDocNo(no, false); }
+  string mesAssCode() const override { return "CBP"; }
   bool NeedCBPPort(string country_regul_dep) const override { return country_regul_dep!=US_CUSTOMS_CODE; }
 };
 
@@ -963,14 +963,14 @@ struct TAPISFormat_EDI_ES : public TEdiAPISFormat
     add_rule(r_processDocNumber);
     file_rule = r_file_rule_1;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_EDI_ES_FIELDS;
     if (pax == crew && api == apiDoc) return DOC_EDI_ES_FIELDS;
     return NO_FIELDS;
   }
-  string unknown_gender() const { return "U"; }
-  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+  string unknown_gender() const override { return "U"; }
+  string process_doc_no(const string& no) const override { return NormalizeDocNo(no, false); }
 };
 
 struct TAPISFormat_EDI_DE : public TEdiAPISFormat // Германия
@@ -987,30 +987,30 @@ struct TAPISFormat_EDI_DE : public TEdiAPISFormat // Германия
     add_rule(r_doco); // ВИЗА!!!
     file_rule = r_file_rule_1;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_EDI_DE_FIELDS;
     if (pax == pass && api == apiDoco) return DOCO_EDI_DE_FIELDS;
     return NO_FIELDS;
   }
-  string unknown_gender() const { return "U"; }
-  TIataCodeType IataCodeType() const { return iata_code_DE; }
+  string unknown_gender() const override { return "U"; }
+  TIataCodeType IataCodeType() const override { return iata_code_DE; }
 
   // уточнить
-  void convert_pax_names(string& first_name, string& second_name) const
+  void convert_pax_names(string& first_name, string& second_name) const override
   {
     ConvertPaxNamesTrunc(first_name, second_name);
   }
 
   // уточнить
-  string process_doc_type(const string& doc_type) const
+  string process_doc_type(const string& doc_type) const override
   {
     if (doc_type!="P" && doc_type!="I") return "P";
     else return doc_type;
   }
 
   // уточнить
-  string process_doc_no(const string& no) const
+  string process_doc_no(const string& no) const override
   {
     return NormalizeDocNo(no, false);
   }
@@ -1033,28 +1033,28 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
     add_rule(r_doco);
     file_rule = r_file_rule_txt_common;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_CSV_DE_FIELDS;
     if (pax == pass && api == apiDoco) return DOCO_CSV_DE_FIELDS;
     return NO_FIELDS;
   }
-  void convert_pax_names(string& first_name, string& second_name) const
+  void convert_pax_names(string& first_name, string& second_name) const override
   {
     ConvertPaxNamesTrunc(first_name, second_name);
     ConvertPaxNamesConcat(first_name, second_name);
   }
-  string unknown_gender() const { return "U"; }
-  string process_doc_type(const string& doc_type) const
+  string unknown_gender() const override { return "U"; }
+  string process_doc_type(const string& doc_type) const override
   {
     if (doc_type!="P" && doc_type!="I") return "P";
     else return doc_type;
   }
-  string DateTimeFormat() const { return "yymmdd"; }
+  string DateTimeFormat() const override { return "yymmdd"; }
   void CreateTxtBodies( const TTxtDataFormatted& tdf,
                         ostringstream& body,
                         ostringstream& paxs_body,
-                        ostringstream& crew_body) const
+                        ostringstream& crew_body) const override
   {
     for ( list<TPaxDataFormatted>::const_iterator ipdf = tdf.lstPaxData.begin();
           ipdf != tdf.lstPaxData.end();
@@ -1081,7 +1081,7 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
       body << ENDL;
     }
   }
-  string CreateFilename(const TApisRouteData& route) const
+  string CreateFilename(const TApisRouteData& route) const override
   {
     return CreateCommonFilename(route);
   }
@@ -1090,7 +1090,7 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
                               ostringstream& pax_header,
                               ostringstream& crew_header,
                               ostringstream& crew_body,
-                              int count_overall) const
+                              int count_overall) const override
   {
     header << route.airline_code_lat() << ";"
       << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no() << ";"
@@ -1258,20 +1258,20 @@ struct TAPISFormat_EDI_TR : public TEdiAPISFormat
     file_rule = r_file_rule_1;
     add_rule(r_fileSimplePush); // формировать EDIFACT одним блоком
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_EDI_TR_FIELDS;
     if (pax == crew && api == apiDoc) return DOC_EDI_TR_FIELDS;
     return NO_FIELDS;
   }
-  void convert_pax_names(string& first_name, string& second_name) const
+  void convert_pax_names(string& first_name, string& second_name) const override
   {
     ConvertPaxNamesConcat(first_name, second_name);
   }
-  string unknown_gender() const { return "U"; }
-  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
-  string respAgnCode() const { return "ZZZ"; }
-  string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+  string unknown_gender() const override { return "U"; }
+  string process_doc_no(const string& no) const override { return NormalizeDocNo(no, false); }
+  string respAgnCode() const override { return "ZZZ"; }
+  string ProcessPhoneFax(const string& s) const override { return HyphenToSpace(s); }
   string mesRelNum() const override { return "12B"; } // уточнить
 };
 // -------------------------------------------------------------------------------------------------
@@ -1289,29 +1289,29 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
     add_rule(r_trip_type);
     file_rule = r_file_rule_txt_AE_TH;
   }
-  long int required_fields(TPaxType pax, TAPIType api) const
+  long int required_fields(TPaxType pax, TAPIType api) const override
   {
     if (pax == pass && api == apiDoc) return DOC_CSV_AE_FIELDS;
     if (pax == crew && api == apiDoc) return DOC_CSV_AE_FIELDS;
     return NO_FIELDS;
   }
-  void convert_pax_names(string& first_name, string& second_name) const
+  void convert_pax_names(string& first_name, string& second_name) const override
   {
     ConvertPaxNamesConcat(first_name, second_name);
   }
-  string unknown_gender() const { return "X"; }
-  string process_doc_type(const string& doc_type) const
+  string unknown_gender() const override { return "X"; }
+  string process_doc_type(const string& doc_type) const override
   {
     if (doc_type!="P") return "O";
     else return doc_type;
   }
-  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
-  string apis_country() const { return "АЕ"; }
-  string DateTimeFormat() const { return "dd-mmm-yyyy"; }
+  string process_doc_no(const string& no) const override { return NormalizeDocNo(no, false); }
+  string apis_country() const override { return "АЕ"; }
+  string DateTimeFormat() const override { return "dd-mmm-yyyy"; }
   void CreateTxtBodies( const TTxtDataFormatted& tdf,
                         ostringstream& body,
                         ostringstream& paxs_body,
-                        ostringstream& crew_body) const
+                        ostringstream& crew_body) const override
   {
     for ( list<TPaxDataFormatted>::const_iterator ipdf = tdf.lstPaxData.begin();
           ipdf != tdf.lstPaxData.end();
@@ -1335,7 +1335,7 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
         paxs_body << data.str() << ENDL;
     }
   }
-  string CreateFilename(const TApisRouteData& route) const
+  string CreateFilename(const TApisRouteData& route) const override
   {
     return CreateCommonFilename(route, "");
   }
@@ -1344,11 +1344,11 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
                       ostringstream& pax_header,
                       ostringstream& crew_header,
                       ostringstream& crew_body,
-                      int count_overall) const
+                      int count_overall) const override
   {
     CreateHeader_AE_TH(route, header, pax_header, crew_header, crew_body);
   }
-  void CreatePaxHeader_AE_TH(ostringstream& pax_header) const
+  void CreatePaxHeader_AE_TH(ostringstream& pax_header) const override
   {
     pax_header << "***VERSION 2,,,,,,,,,,,," << ENDL
                << "***HEADER,,,,,,,,,,,," << ENDL;

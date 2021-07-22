@@ -506,7 +506,7 @@ std::string baselStatPaidInfo(const TBaselStat & stat, TDateTime part_key, int p
         {
           WeightConcept::TPaidBagList paid;
           WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
-          for(const auto p : paid) {
+          for(const auto &p : paid) {
             paidInfo.add(p);
           }
         }

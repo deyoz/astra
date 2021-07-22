@@ -19,6 +19,7 @@
 #include <variant>
 #include <map>
 #include <set>
+#include <optional>
 
 #define NICKNAME "ANTON"
 #include <serverlib/slogger.h>
@@ -618,10 +619,12 @@ void TQueryIfaceDbCppImpl::bindVariables()
     m_cur->stb();
     short null = -1, nnull = 0;
     for(auto& [name, var] : m_variables) {
+      auto &name_=name;
+      auto &var_=var;
         std::visit([&](auto &v) {
-            m_cur->bind(":" + name, v, var.IsNull ? &null: &nnull);
+            m_cur->bind(":" + name_, v, var_.IsNull ? &null: &nnull);
         },
-                   var.Value);
+                   var_.Value);
     }
 }
 
@@ -1623,7 +1626,7 @@ START_TEST(sessions_load_save_consistency)
     void fail_unless__(bool expr,const char *file, int line,
       const std::string &what,const std::string &custom_what="");
 
-    fail_unless(false,i.file,i.line,i.text_error);
+    fail_unless(false,i.file,i.line,i.text_error.c_str());
   }
 }
 END_TEST;

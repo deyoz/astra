@@ -232,13 +232,6 @@ class TCompLayerElem {
 
 class TCompLayerPriority: public TCompLayerElem {
   private:
-    std::string code;
-    ASTRA::TCompLayerType layer_type;
-    std::string name;
-    std::string name_lat;
-    std::string color;
-    std::string figure;
-    bool pr_occupy;
     int priority;
   public:
     TCompLayerPriority( ) {

@@ -351,14 +351,15 @@ TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
 
 } //namespace CheckIn
 
+
+namespace TrferList
+{
+
 std::ostream& operator << (std::ostream& os, const TrferList::Alarm alarm)
 {
   os << std::underlying_type<TrferList::Alarm>::type(alarm);
   return os;
 }
-
-namespace TrferList
-{
 
 TBagItem& TBagItem::setZero()
 {

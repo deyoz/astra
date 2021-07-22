@@ -107,7 +107,7 @@ class TPassSeats: public std::set<TSeat,CompareSeat> {
       }
       for ( std::set<TSeat>::const_iterator iseat1=begin(),
             iseat2=seats.begin();
-            iseat1!=end(), iseat2!=seats.end(); iseat1++, iseat2++ ) {
+            iseat1!=end() && iseat2!=seats.end(); iseat1++, iseat2++ ) {
         if (  *iseat1 != *iseat2 ) {
           return false;
         }

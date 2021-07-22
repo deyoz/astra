@@ -131,7 +131,7 @@ class Passengers: public std::vector<Passenger> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "passenger not found, id=%s", id );
+      throw EXCEPTIONS::Exception( "passenger not found, id=%s", id.c_str() );
     }
 };
 
@@ -178,7 +178,7 @@ class Segments: public std::vector<Segment> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "segment not found, id=%s", id );
+      throw EXCEPTIONS::Exception( "segment not found, id=%s", id.c_str() );
     }
 };
 
@@ -237,7 +237,7 @@ class Tickets: public std::vector<Ticket> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "ticket not found, pass_id=%s, seg_id=%s", pass_id, seg_id );
+      throw EXCEPTIONS::Exception( "ticket not found, pass_id=%s, seg_id=%s", pass_id.c_str(), seg_id.c_str() );
     }
     bool getEMD( const std::string& svc_id, Ticket &ticket ) {
       ticket.clear();
@@ -392,13 +392,13 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         SvcEmdSvcsAns::getSvcValue( p.svc_id, svc );
         LogTrace(TRACE5) << "svc_id=" << svc.id << ",pass_id=" << svc.pass_id << ",seg_id=" << svc.seg_id;
         if ( svc.pass_id !=  p.passenger_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from svcs, passengers.pass_id=%s,svcs.pass_id=%s", p.passenger_id,svc.pass_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from svcs, passengers.pass_id=%s,svcs.pass_id=%s", p.passenger_id.c_str(),svc.pass_id.c_str() );
         Ticket ticket;
         tickets.get(svc.pass_id,svc.seg_id,ticket);
         if ( ticket.pass_id !=  p.passenger_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from tickets, passengers.pass_id=%s,tickets.pass_id=%s", p.passenger_id, ticket.pass_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from tickets, passengers.pass_id=%s,tickets.pass_id=%s", p.passenger_id.c_str(), ticket.pass_id.c_str() );
         if ( ticket.seg_id !=  svc.seg_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML seg_id from svcs not equal seg_id from tickets, svcs.seg_id=%s,tickets.seg_id=%s", svc.seg_id, ticket.seg_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML seg_id from svcs not equal seg_id from tickets, svcs.seg_id=%s,tickets.seg_id=%s", svc.seg_id.c_str(), ticket.seg_id.c_str() );
       }
       for ( auto &p : *this ) {
         LogTrace(TRACE5) << p.pass_id << " " << p.status;
@@ -411,7 +411,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         CheckIn::Search search(paxPnl);//!!!paxCheckIn);
         int coupon;
         if ( StrToInt(t.ticket_cpn.c_str(), coupon) == EOF ) {
-          throw EXCEPTIONS::Exception( "Invalid data XML counpon no=%s", t.ticket_cpn );
+          throw EXCEPTIONS::Exception( "Invalid data XML counpon no=%s", t.ticket_cpn.c_str() );
         }
         search(paxs_list, CheckIn::TPaxTknItem(t.ticknum,coupon));
         LogTrace(TRACE5)<<paxs_list.size() << ",ticknum=" <<t.ticknum<<",coupon="<<coupon;

@@ -1048,7 +1048,7 @@ void convertNormsList(const TAirlines &airlines,
         not_trfer_bag_simple.find(n)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
 
     if (!result.emplace(n, n).second)
-      throw Exception("%s: %s already exists in result!", __FUNCTION__, n.key().str(LANG_EN));
+      throw Exception("%s: %s already exists in result!", __FUNCTION__, n.key().str(LANG_EN).c_str());
   };
 }
 

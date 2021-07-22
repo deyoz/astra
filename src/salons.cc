@@ -46,7 +46,7 @@ namespace SALONS2
 std::string TSalonOpType::strip_op_type(const std::string &op_type)
 {
     std::string result = op_type;
-    for(const auto i: pairs()) {
+    for(const auto &i: pairs()) {
         if(op_type.find(i.first) != std::string::npos) {
             result = i.first;
             break;
@@ -1054,7 +1054,7 @@ bool TPlace::CompareRems( const TPlace &seat ) const
   }
     for ( std::map<int, std::vector<TSeatRemark> >::const_iterator p1=remarks.begin(),
             p2=seat.remarks.begin();
-            p1!=remarks.end(),
+            p1!=remarks.end() &&
             p2!=seat.remarks.end();
             p1++, p2++ ) {
         if ( p1->first != p2->first || p1->second.size() != p2->second.size() ) {
@@ -1062,7 +1062,7 @@ bool TPlace::CompareRems( const TPlace &seat ) const
         }
         for ( std::vector<TSeatRemark>::const_iterator lp1=p1->second.begin(),
           lp2=p2->second.begin();
-          lp1!=p1->second.end(),
+          lp1!=p1->second.end() &&
           lp2!=p2->second.end();
           lp1++, lp2++ ) {
       if ( *lp1 != *lp2 ) {
@@ -1080,7 +1080,7 @@ bool TPlace::CompareLayers( const TPlace &seat ) const
   }
   for ( std::map<int, TSetOfLayerPriority >::const_iterator l1=lrss.begin(),
         l2=seat.lrss.begin();
-        l1!=lrss.end(),
+        l1!=lrss.end() &&
         l2!=seat.lrss.end();
         l1++, l2++ ) {
     if ( l1->first != l2->first || l1->second.size() != l2->second.size() ) {
@@ -1088,7 +1088,7 @@ bool TPlace::CompareLayers( const TPlace &seat ) const
     }
     for ( TSetOfLayerPriority::const_iterator lp1=l1->second.begin(),
           lp2=l2->second.begin();
-          lp1!=l1->second.end(),
+          lp1!=l1->second.end() &&
           lp2!=l2->second.end();
           lp1++, lp2++ ) {
       if ( *lp1 != *lp2 ) {
@@ -1108,7 +1108,7 @@ bool TPlace::CompareTariffs( const TPlace &seat ) const
   }
   for ( std::map<int, TSeatTariff>::const_iterator p1=tariffs.begin(),
         p2=seat.tariffs.begin();
-        p1!=tariffs.end(),
+        p1!=tariffs.end() &&
         p2!=seat.tariffs.end();
         p1++, p2++ ) {
     if ( p1->first != p2->first ||
@@ -1127,7 +1127,7 @@ bool TPlace::CompareRFISCs( const TPlace &seat ) const
   }
   for ( std::map<int, TRFISC>::const_iterator p1=rfiscs.begin(),
         p2=seat.rfiscs.begin();
-        p1!=rfiscs.end(),
+        p1!=rfiscs.end() &&
         p2!=seat.rfiscs.end();
         p1++, p2++ ) {
 //    ProgTrace( TRACE5, "point_id1=%d, point_id2=%d, val1=%s, val2=%s", p1->first, p2->first, p1->second.str().c_str(), p2->second.str().c_str() );
@@ -7037,7 +7037,7 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon,
 
   for ( TPlaces::iterator po = oldsalon->places.begin(),
                           pn = newsalon->places.begin();
-        po != oldsalon->places.end(),
+        po != oldsalon->places.end() &&
         pn != newsalon->places.end();
         po++, pn++ ) {
     if ( po->isChange( *pn, compareFlags  ) ) {
@@ -7065,7 +7065,7 @@ bool ChangeCfg( const vector<TPlaceList*> &list1,
   }
   for ( vector<TPlaceList*>::const_iterator s1=list1.begin(),
         s2=list2.begin();
-        s1!=list1.end(),
+        s1!=list1.end() &&
         s2!=list2.end();
         s1++, s2++ ) {
     if ( !EqualSalon( *s1, *s2, compareFlags ) ) {
@@ -7104,14 +7104,14 @@ bool getSalonChanges( const vector<TPlaceList*> &list1, bool pr_craft_lat1,
 
     for ( vector<TPlaceList*>::const_iterator s1=list1.begin(),
             s2=list2.begin();
-            s1!=list1.end(),
+            s1!=list1.end() &&
             s2!=list2.end();
             s1++, s2++ ) {
         if ( (*s1)->places.size() != (*s2)->places.size() )
             return false;
     for ( TPlaces::const_iterator p1 = (*s1)->places.begin(),
             p2 = (*s2)->places.begin();
-          p1 != (*s1)->places.end(),
+          p1 != (*s1)->places.end() &&
           p2 != (*s2)->places.end();
           p1++, p2++ ) {
       if ( p1->isChange( *p2, compareNotChangeFlags ) ) {
@@ -7148,7 +7148,7 @@ bool CompareRems( const vector<TRem> &rems1, const vector<TRem> &rems2 )
         return false;
     for ( vector<TRem>::const_iterator p1=rems1.begin(),
             p2=rems2.begin();
-            p1!=rems1.end(),
+            p1!=rems1.end() &&
             p2!=rems2.end();
             p1++, p2++ ) {
         if ( p1->rem != p2->rem ||
@@ -7164,7 +7164,7 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
         return false;
     for ( vector<TPlaceLayer>::const_iterator p1=layer1.begin(),
             p2=layer2.begin();
-            p1!=layer1.end(),
+            p1!=layer1.end() &&
             p2!=layer2.end();
             p1++, p2++ ) {
         if ( p1->layer_type != p2->layer_type )
@@ -7184,14 +7184,14 @@ bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons,
         return false;
     for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(),
                                           sn=NewSalons.placelists.begin();
-            so!=OldSalons.placelists.end(),
+            so!=OldSalons.placelists.end() &&
             sn!=NewSalons.placelists.end();
             so++, sn++ ) {
         if ( (*so)->places.size() != (*sn)->places.size() )
             return false;
     for ( TPlaces::iterator po = (*so)->places.begin(),
             /*TPlaces::iterator*/ pn = (*sn)->places.begin();
-          po != (*so)->places.end(),
+          po != (*so)->places.end() &&
           pn != (*sn)->places.end();
           po++, pn++ ) {
       if ( po->visible != pn->visible ||
@@ -7748,7 +7748,7 @@ void salonChangesToText( int point_id,
           // это нужный салон
         for ( TPlaces::iterator po = (*so)->places.begin(), // бежим по местам
                                 pn = (*sn)->places.begin();
-                                po != (*so)->places.end(),
+                                po != (*so)->places.end() && 
                                 pn != (*sn)->places.end();
                                 po++, pn++ ) {
           if ( ( pn->visible && !pn->visible ) || ( pn->visible && ( po->elem_type != pn->elem_type || po->clname != pn->clname ) ) )
@@ -8826,14 +8826,14 @@ TSalonChanges& TSalonChanges::get(const TSalonList &oldSalon,
 
   for ( vector<TPlaceList*>::const_iterator s1=oldSalon._seats.begin(),
           s2=newSalon._seats.begin();
-          s1!=oldSalon._seats.end(),
+          s1!=oldSalon._seats.end() &&
           s2!=newSalon._seats.end();
           s1++, s2++ ) {
       if ( (*s1)->places.size() != (*s2)->places.size() )
           throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
      for ( TPlaces::const_iterator p1 = (*s1)->places.begin(),
             p2 = (*s2)->places.begin();
-          p1 != (*s1)->places.end(),
+          p1 != (*s1)->places.end() &&
           p2 != (*s2)->places.end();
           p1++, p2++ ) {
       if ( p1->isChange( *p2, compareNotChangeFlags ) ) {

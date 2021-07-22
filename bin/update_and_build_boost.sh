@@ -158,6 +158,38 @@ echo '--- boost/date_time/time_clock.hpp    2015-03-04 01:19:01.000000000 +0300
      //! Construct a month from the months_of_year enumeration
      greg_month(month_enum theMonth) : 
        greg_month_rep(static_cast<greg_month_rep::value_type>(theMonth)) {}
+
+
+--- libs/regex/src/regex_raw_buffer.cpp	2014-10-18 19:54:49.000000000 +0400
++++ libs/regex/src/regex_raw_buffer.cpp	2021-07-22 09:34:20.809678112 +0300
+@@ -36,15 +36,15 @@
+ 
+ void BOOST_REGEX_CALL raw_storage::resize(size_type n)
+ {
+-   register size_type newsize = start ? last - start : 1024;
++   size_type newsize = start ? last - start : 1024;
+    while(newsize < n)
+       newsize *= 2;
+-   register size_type datasize = end - start;
++   size_type datasize = end - start;
+    // extend newsize to WORD/DWORD boundary:
+    newsize = (newsize + padding_mask) & ~(padding_mask);
+ 
+    // allocate and copy data:
+-   register pointer ptr = static_cast<pointer>(::operator new(newsize));
++   pointer ptr = static_cast<pointer>(::operator new(newsize));
+    BOOST_REGEX_NOEH_ASSERT(ptr)
+    if(start)
+       std::memcpy(ptr, start, datasize);
+@@ -63,7 +63,7 @@
+    BOOST_ASSERT(pos <= size_type(end - start));
+    if(size_type(last - end) < n)
+       resize(n + (end - start));
+-   register void* result = start + pos;
++   void* result = start + pos;
+    std::memmove(start + pos + n, start + pos, (end - start) - pos);
+    end += n;
+    return result;
  
 
 --- boost/asio/ssl/impl/context.ipp 2016-03-30 10:34:22.588612334 +0300

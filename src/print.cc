@@ -143,14 +143,14 @@ namespace to_esc {
         y_modif = AsFloat("y_modif");
     }
 
-    typedef struct {
+    struct TField {
         int x, y, font;
         int len, height, rotation;
         string align;
         string data;
         void dump();
         void parse_data();
-    } TField;
+    } ;
 
     void TField::dump()
     {

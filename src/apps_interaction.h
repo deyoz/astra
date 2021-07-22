@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <optional>
 #include "astra_types.h"
 #include "trip_tasks.h"
 #include "astra_dates.h"

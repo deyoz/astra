@@ -201,7 +201,7 @@ const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const SVCKey& svcK
   Qry.SetVariable("name_view_lat", name_view(AstraLocale::LANG_EN));
   //Qry.SetVariable("list_id",(list_id==ASTRA::NoExists?FNull:list_id));
   if ( svcs.find( svcKey ) == svcs.end() ) {
-    throw EXCEPTIONS::Exception( "svc not found svc_id %d", svcKey.svcId );
+    throw EXCEPTIONS::Exception( "svc not found svc_id %d", svcKey.svcId.c_str() );
   }
   SvcFromSirena svc = svcs.at(svcKey);
   svc.toDB(Qry);

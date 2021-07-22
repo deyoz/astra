@@ -687,7 +687,7 @@ void TServicePaymentList::getAllListKeys(int grp_id, bool is_unaccomp)
     {
       if (item.trfer_num>get_max_tckin_num(grp_id))
       {
-        ProgTrace(TRACE5, e.what());
+        ProgTrace(TRACE5, "%s",e.what());
         throw UserException("MSG.PAYMENT_DISABLED_ON_SEG_DUE_BAG_CONCEPT",
                             LParams() << LParam("flight", IntToString(item.trfer_num+1))
                                       << LParam("svc_key_view", item.key_str_compatible()));
@@ -733,7 +733,7 @@ void TServicePaymentList::getAllListItems(int grp_id, bool is_unaccomp)
     {
       if (item.trfer_num>get_max_tckin_num(grp_id))
       {
-        ProgTrace(TRACE5, e.what());
+        ProgTrace(TRACE5, "%s", e.what());
         throw UserException("MSG.PAYMENT_DISABLED_ON_SEG_DUE_BAG_CONCEPT",
                             LParams() << LParam("flight", IntToString(item.trfer_num+1))
                                       << LParam("svc_key_view", item.key_str()));
@@ -797,7 +797,7 @@ bool TServicePaymentList::equal(const TServicePaymentList &list) const
 
 bool TServicePaymentList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
 {
-  for(const TServicePaymentItem item : *this)
+  for(const TServicePaymentItem &item : *this)
     if (item.sameDoc(asvc)) return true;
   return false;
 }

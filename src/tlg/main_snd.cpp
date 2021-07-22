@@ -287,7 +287,7 @@ bool scan_tlg(bool sendOutAStepByStep)
 
         if (TlgQry.FieldIsNULL("receiver")
          || TlgQry.FieldIsNULL("sender")) {
-          throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
+          throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver").c_str());
         }
 
         const sockaddr_in addr_to = getAddrByName(TlgQry.FieldAsString("receiver"));

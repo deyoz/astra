@@ -25,7 +25,7 @@ namespace Timatic {
 
 // коммент
 
-void fill_container(xmlNodePtr dataNode, const string &name, const auto &container)
+template<typename ContType> void fill_container(xmlNodePtr dataNode, const string &name, const ContType &container)
 {
     xmlNodePtr curNode = dataNode->children;
     if(not GetNodeFast(name.c_str(), curNode)) {
@@ -482,7 +482,7 @@ struct TLayout: public map<string, shared_ptr<TLayoutItem>> {
 
     void SetRequest(ParamValuesReq &req)
     {
-        for(const auto i: *this) {
+        for(const auto &i: *this) {
             if(i.second->empty()) continue;
             const string &code = i.first;
             if(i.second->is<TLayoutStringItem>()) {
@@ -495,7 +495,7 @@ struct TLayout: public map<string, shared_ptr<TLayoutItem>> {
 
     void SetRequest(ParamReq &req)
     {
-        for(const auto i: *this) {
+        for(const auto &i: *this) {
             if(i.second->empty()) continue;
             const string &code = i.first;
             if(i.second->is<TLayoutStringItem>()) {
@@ -519,7 +519,7 @@ struct TLayout: public map<string, shared_ptr<TLayoutItem>> {
 
     void SetRequest(const string &prefix, StayDuration &stayDuration)
     {
-        for(const auto i: *this) {
+        for(const auto &i: *this) {
             if(i.second->empty()) continue;
             const string &code = i.first;
             if(i.second->is<TLayoutStringItem>()) {
@@ -537,7 +537,7 @@ struct TLayout: public map<string, shared_ptr<TLayoutItem>> {
 
     void SetRequest(const string &prefix, VisaData &visaData)
     {
-        for(const auto i: *this) {
+        for(const auto &i: *this) {
             if(i.second->empty()) continue;
             const string &code = i.first;
             if(i.second->is<TLayoutStringItem>()) {
@@ -558,7 +558,7 @@ struct TLayout: public map<string, shared_ptr<TLayoutItem>> {
 
     void SetRequest(DocumentReq &req)
     {
-        for(const auto i: *this) {
+        for(const auto &i: *this) {
             if(i.second->empty()) continue;
             const string &code = i.first;
             if(i.second->is<TLayoutPageItem>()) {
@@ -729,7 +729,7 @@ void TLayout::set_val(const string &name, const string &val)
 
 void TLayout::SetRequest(const string &prefix, TransitCountry &country)
 {
-    for(const auto i: *this) {
+    for(const auto &i: *this) {
         if(i.second->empty()) continue;
         const string &code = i.first;
         if(i.second->is<TLayoutPageItem>()) {
@@ -1245,7 +1245,7 @@ void processReq(xmlNodePtr reqNode, xmlNodePtr resNode, const HttpData &httpData
             "}"
             "document.onkeydown=keypresed;");
 
-    xmlNodePtr styleNode = NewTextChild(headNode, "style", ".default_color{color:#00305B} .red_color{color:red}");
+    /*xmlNodePtr styleNode =*/ NewTextChild(headNode, "style", ".default_color{color:#00305B} .red_color{color:red}");
 
     //    xmlNodePtr styleNode = NewTextChild(headNode, "style",
     //            "*{ "

@@ -129,7 +129,7 @@ class TPriceServiceItem : public TPaxSegRFISCKey
 
     void getSVCS( SVCS& _svcs, EnumSVCS style  ) const {
       _svcs.clear();
-      for ( const auto svc : svcs ) {
+      for ( const auto &svc : svcs ) {
         switch( style ) {
           case only_for_cost:
             if ( !svc.second.only_for_cost() ) {
@@ -150,7 +150,7 @@ class TPriceServiceItem : public TPaxSegRFISCKey
 
     void getSVCS( SVCS& _svcs, const std::string &status_direct ) const {
       _svcs.clear();
-      for ( const auto svc : svcs ) {
+      for ( const auto &svc : svcs ) {
         if ( svc.second.status_direct == status_direct ) {
           _svcs.emplace( svc.first,svc.second );
         }

@@ -375,9 +375,12 @@ public:
     {
         short null = -1, nnull = 0;
         for(const auto & [name, value] : bindedVars) {
+            auto &name_=name;
+            auto &value_=value;
             std::visit([&](const auto &v) {
-                cur_.bind(name, v, isNotNull(v) ? &nnull : &null);
-            }, value);
+                       
+                cur_.bind(name_, v, isNotNull(v) ? &nnull : &null);
+            }, value_);
         }
         return *this;
     }

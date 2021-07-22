@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 #include <serverlib/rip.h>
 #include <serverlib/rip_validators.h>
 #include <serverlib/dates.h>

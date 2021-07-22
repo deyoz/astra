@@ -14,10 +14,10 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
     void SetPostProcessXMLAnswerCallback(void (*post_process_ptr)());
     void ResetPostProcessXMLAnswerCallback();
 
-    virtual void InitInterfaces();
-    virtual void HandleException(ServerFramework::Exception *e);
-    virtual void UserBefore(const std::string &head, const std::string &body);
-    virtual void UserAfter();
+    virtual void InitInterfaces() override;
+    virtual void HandleException(ServerFramework::Exception *e) override;
+    virtual void UserBefore(const std::string &head, const std::string &body) override;
+    virtual void UserAfter() override;
     virtual void initJxtContext(const std::string &pult) override;
 };
 
