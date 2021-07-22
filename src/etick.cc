@@ -3932,7 +3932,10 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
         GetGrpToLogInfo(grp_id, grpInfoAfter);
         TAgentStatInfo agentStat;
         SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TGrpEMDProps(), agentStat);
-      };
+
+        if (is_sync_paxs(grpInfoBefore.point_dep))
+          updatePaxChange(PointId_t(grpInfoBefore.point_dep), GrpId_t(grp_id), TermWorkingMode::CheckIn);
+      }
     }
 
   };

@@ -6157,7 +6157,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
             }
             rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr  );
             if ( pr_is_sync_paxs ) {
-              update_pax_change( ipoint->point_id, iold->first, passes[ iold->first ].reg_no, "" );
+              updatePaxChange( PointId_t(ipoint->point_id), PaxId_t(iold->first), RegNo_t(passes[ iold->first ].reg_no), TermWorkingMode::CheckIn );
             }
           }
         }
@@ -6196,7 +6196,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
         rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr  );
         if ( pr_is_sync_paxs ) {
-          update_pax_change( ipoint->point_id, inew->first, passes[ inew->first ].reg_no, "" );
+          updatePaxChange( PointId_t(ipoint->point_id), PaxId_t(inew->first), RegNo_t(passes[ inew->first ].reg_no), TermWorkingMode::CheckIn );
         }
       }
     }
