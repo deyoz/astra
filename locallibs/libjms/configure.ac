@@ -104,12 +104,11 @@ AM_CONDITIONAL([HAVE_AMQP_CPP], ["$have_amqp_cpp"])
 AS_IF([ "$have_activemq" || "$have_amqp_cpp" || "$have_oracle_aq" ],
       [], [AC_MSG_ERROR([Can't build any backend])])
 
-PKG_CHECK_MODULES([SSL], [openssl = 1.0.2u],
-                  [AM_CONDITIONAL([HAVE_SSL], [[test x$HAVE_SSL=xyes ] ])])
+CHECK_SSL("$jmslib_need_ssl")
 
 AC_ARG_ENABLE(asio-ssl-init, [ Is openssl init should be performed inside Boost::asio [default=yes] ],, enable_asio_ssl_init=$env_enable_asio_ssl_init )
 
-AS_IF([ test "x$jmslib_need_ssl" = "xyes" -a "x$HAVE_SSL" = "xyes" ], [
+AS_IF([ test "x$HAVE_SSL" = "xyes" ], [
     AS_IF([ test "x$enable_asio_ssl_init" = "xno" ], [
            AC_DEFINE([BOOST_ASIO_NO_OPENSSL_STATIC_INIT], , [define if disabling of Boost::asio openssl init is needed ])
            AC_MSG_RESULT([Boost::Asio internal openssl initialization disabled])
@@ -138,3 +137,4 @@ if test x$enable_xp_testing = xyes; then
 fi
 echo Now type 'make' to build $PACKAGE $VERSION,
 echo
+    

@@ -145,6 +145,8 @@ GRTAGS
 GSYMS
 GTAGS
 build_all
-
+rebuild.sh
 buildFromScratchTrunk.sh
 .venv
+cscope.out
+tags

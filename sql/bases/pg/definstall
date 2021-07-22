@@ -2,7 +2,7 @@
 
 PASS=${1?NO_PASSWORD}
 
-CMD="psql --no-psqlrc ${PASS}"
+CMD="psql ${PASS}"
 
 rm -f ok oldlog2 now.run
 if  [ -f oldlog1 ] ; then

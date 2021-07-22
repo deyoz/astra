@@ -7570,7 +7570,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               {
                 if (iPaxItem->dontSaveToDB(ne)) continue;
 
-                boost::optional<SuitablePax> suitablePax;
+                auto suitablePax = boost::make_optional<SuitablePax>(false, SuitablePax{boost::none});
 
                 if (ne.indicator==ADD||ne.indicator==CHG||ne.indicator==DEL)
                 {

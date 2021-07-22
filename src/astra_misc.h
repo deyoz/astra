@@ -2,6 +2,7 @@
 #define _ASTRA_MISC_H_
 
 #include <vector>
+#include <optional>
 #include <string>
 #include <set>
 #include <tr1/memory>
@@ -104,13 +105,6 @@ class TSimpleMktFlight
       return airline == flt.airline &&
              flt_no == flt.flt_no &&
              suffix == flt.suffix;
-    }
-
-    void operator = (const TSimpleMktFlight &flt)
-    {
-        airline = flt.airline;
-        flt_no = flt.flt_no;
-        suffix = flt.suffix;
     }
 
     const TSimpleMktFlight& toXML(xmlNodePtr node,

@@ -120,9 +120,6 @@ class BitSet
     }
     return true;
   }
-  void operator = (const BitSet &bs) {
-    flags = bs.flags;
-  }
   void operator += (const BitSet &bs) {
     for (typename std::map<T,bool>::const_iterator pos = bs.flags.begin(); pos!=bs.flags.end(); pos++) {
       if ( pos->second ) {
