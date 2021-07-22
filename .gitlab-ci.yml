@@ -82,6 +82,5 @@ deploy-db:
   script:
     - docker-compose stop
     - docker run --rm -e PG_CONNECT_STRING -e PG_CONNECT_STRING_ARX -e PG_SYSPAROL gitlab.komtex:4567/dcs/astra:trunk ./buildFromScratch.sh no/ora --createtcl --createdb
-    - docker exec -it ./bin/demo.sh
     - docker-compose restart
     - docker-compose logs
