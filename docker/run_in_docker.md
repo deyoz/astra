@@ -13,7 +13,7 @@ docker-compose -f docker/docker-compose.yaml run astra docker/init_run.sh
 
 ``` bash
 mv .env .env.1
-docker-compose -f docker/docker-compose.yaml run astra ./buildFromScratch.sh no/ora --createtcl --createdb
+docker-compose -f docker/docker-compose.yaml run astra ./bin/demo.sh
 mv .env.1 .env
 ```
 
