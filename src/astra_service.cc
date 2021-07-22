@@ -804,7 +804,7 @@ bool CreateCommonFileData( bool pr_commit,
                                 str_file.replace( str_file.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
                               }
                           } catch(EConvertError &E) {
-                              ProgError(STDLOG, E.what());
+                              ProgError(STDLOG, "%s", E.what());
                               throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", encoding));
                           }
                       res = true;

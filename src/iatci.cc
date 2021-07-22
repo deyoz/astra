@@ -1678,7 +1678,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
 static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::string& dest)
 {
     LogTrace(TRACE3) << "check destination for " << dest;
-    for(const auto tab: tabs.ediTabs()) {
+    for(const auto &tab: tabs.ediTabs()) {
         if(BaseTables::Port(tab.xmlSeg().seg_info.airp_arv)->ida() == BaseTables::Port(dest)->ida()) {
             return true;
         }

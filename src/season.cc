@@ -3399,7 +3399,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     bool canRange = false;
     bool canTrips = false;
     bool DestsExists = false;
-    for( const auto schedd: lschd ) {
+    for( const auto &schedd: lschd ) {
         TDateTime first = BoostToDateTime(schedd.first_day);
         TDateTime last = BoostToDateTime(schedd.last_day);
         string flight_tz_region;

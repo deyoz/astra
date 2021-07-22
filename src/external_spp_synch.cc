@@ -299,7 +299,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     TParseFlight flight( TReqInfo::Instance()->desk.airp );
     flight.record = line_buffer;
     for ( std::vector<std::string>::iterator ifield=fields.begin(), ivalue=values.begin();
-         ifield!=fields.end(), ivalue!=values.end(); ifield++, ivalue++ ) {
+         ifield!=fields.end() && ivalue!=values.end(); ifield++, ivalue++ ) {
        flight<<FlightProperty( *ifield, *ivalue );
     }
 

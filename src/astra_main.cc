@@ -109,7 +109,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
         ;
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
-                 char **res, int len)
+                 char **res, int len) override
     {
       ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
       query_runner.getEdiHelpManager().multiMsgidMode(true);
@@ -119,7 +119,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       int i= jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
       return i;
     }
-    virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req)
+    virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req) override
     {
 #ifdef ENABLE_ORACLE
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
@@ -145,11 +145,11 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
 
     virtual int message_control(int type /* 0 - request, 1 - answer */,
                                 const char *head, int hlen,
-                                const char *body, int blen)
+                                const char *body, int blen) override
     {
       return astraMsgControl(type,head,hlen,body,blen);
     }
-    virtual void connect_db()
+    virtual void connect_db() override
     {
          ApplicationCallbacks::connect_db();
 #ifdef ENABLE_ORACLE
@@ -157,34 +157,34 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
          OraSession.Initialize(OciCpp::mainSession().getLd() );
 #endif // ENABLE_ORACLE
     }
-    virtual void on_exit(void)
+    virtual void on_exit(void) override
     {
     }
-    virtual int tcl_init(Tcl_Interp *interp)
+    virtual int tcl_init(Tcl_Interp *interp) override
     {
       ApplicationCallbacks::tcl_init(interp);
       jxtlib::JXTLib::Instance()->SetCallbacks(std::make_unique<AstraJxtCallbacks>());
       return 0;
     }
 
-    virtual int tcl_start(Tcl_Interp *interp)
+    virtual int tcl_start(Tcl_Interp *interp) override
     {
       return ApplicationCallbacks::tcl_start(interp);
     }
 
-    virtual void levC_app_init();
+    virtual void levC_app_init() override;
 
-    virtual int nosir_proc(int argc,char **argv);
-    virtual void help_nosir()
+    virtual int nosir_proc(int argc,char **argv) override;
+    virtual void help_nosir() override
     {
       return help_nosir_user();
     }
-    virtual size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
+    virtual size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error) override
     {
         return ::form_crypt_error(res,res_len,head,hlen,error);
     }
 #if defined USE_MESPRO && defined ENABLE_ORACLE
-    virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
+    virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params) override
     {
       OciCpp::mainSession().set7();
       return ::getMesProParams(head,hlen,error,params);
