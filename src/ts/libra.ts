@@ -13,6 +13,9 @@ include(ts/pax/checkin_macro.ts)
 
 $(desc_test 1)
 
+$(settcl LIBRA_HTTP_HOST localhost)
+$(settcl LIBRA_HTTP_PORT 8008)
+
 $(init_term)
 
 $(http_forecast content="<result><status>OK</status><answer><root name=\"get_schedule\" result=\"ok\"><block name=\"Text\"/></root></answer></result>")
@@ -239,6 +242,9 @@ $(dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="I
 
 $(desc_test 8)
 
+$(settcl LIBRA_HTTP_HOST localhost)
+$(settcl LIBRA_HTTP_PORT 8008)
+
 $(init_term)
 
 include(ts/spp/write_dests_macro.ts)
@@ -352,7 +358,7 @@ $(NEW_SPP_FLIGHT_REQUEST
 
 >>
 GET /libra/get_plan_id?bort=44444 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -360,7 +366,7 @@ $()
 
 >>
 GET /libra/get_config?airline=%9E%92&bort=44444&plan_id=561 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -368,7 +374,7 @@ $()
 
 >>
 GET /libra/get_config?airline=%9E%92&bort=44444&plan_id=561 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -376,7 +382,7 @@ $()
 
 >>
 GET /libra/get_class_rows?conf_id=461 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -384,7 +390,7 @@ $()
 
 >>
 GET /libra/get_seat_props?plan_id=561 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -392,7 +398,7 @@ $()
 
 >>
 GET /libra/get_aisle_data?plan_id=561 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
@@ -400,7 +406,7 @@ $()
 
 >>
 GET /libra/get_config?airline=%9E%92&bort=44444&conf_id=461&plan_id=561 HTTP/1.1
-Host: $()
+Host: localhost
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
