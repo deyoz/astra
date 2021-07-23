@@ -1151,8 +1151,8 @@ std::string CrsSet::selectSql() const {
   return
    "SELECT id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl "
    "FROM crs_set "
-   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
-            + getSQLFilter("airp_dep",    AccessControl::PermittedAirports) +
+   "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp_dep", AccessControl::PermittedAirportsOrNull) +
    "ORDER BY airline,airp_dep,flt_no,crs";
 }
 
