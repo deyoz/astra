@@ -5582,11 +5582,11 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   flights.Get( point_id, ftAll );  //весь маршрут
   flights.Lock(__FUNCTION__);
 
-  TQuery Qry(&OraSession);
-    Qry.SQLText=
+  DB::TQuery Qry(PgOra::getROSession("points"), STDLOG);
+  Qry.SQLText=
       "SELECT move_id,airline,flt_no,suffix,act_out,point_num,pr_del "
-    "FROM points "
-    "WHERE point_id=:point_id AND pr_del <> -1 AND act_out IS NOT NULL";
+      "FROM points "
+      "WHERE point_id=:point_id AND pr_del <> -1 AND act_out IS NOT NULL";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
@@ -5597,14 +5597,16 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     string suffix = Qry.FieldAsString( "suffix" );
     TDateTime act_out = Qry.FieldAsDateTime( "act_out" );
     int pr_del = Qry.FieldAsInteger( "pr_del" );
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery QryUpd(PgOra::getRWSession("POINTS"), STDLOG);
+    QryUpd.SQLText =
      "UPDATE points "
-     "  SET act_out=NULL, act_in=DECODE(point_num,:point_num,act_in,NULL) "
-     " WHERE move_id=:move_id AND point_num>=:point_num";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.CreateVariable( "point_num", otInteger, point_num );
-    Qry.Execute();
+     "SET act_out = NULL, "
+     "    act_in = (CASE WHEN point_num = :point_num THEN act_in ELSE NULL END) "
+     "WHERE move_id = :move_id "
+     "AND point_num >= :point_num ";
+    QryUpd.CreateVariable("move_id", otInteger, move_id);
+    QryUpd.CreateVariable("point_num", otInteger, point_num);
+    QryUpd.Execute();
     TReqInfo *reqInfo = TReqInfo::Instance();
     reqInfo->LocaleToLog("EVT.DISP.DELETE_TAKEOFF_FACT", LEvntPrms() << PrmFlight("flt", airline, flt_no, suffix),
                        evtDisp, move_id, point_id);

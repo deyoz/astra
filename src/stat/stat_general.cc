@@ -424,91 +424,89 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::vector<
 string GetStatSQLText(const TStatParams &params, int pass)
 {
     static const string sum_pax_by_client_type =
-        " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
-        " SUM(DECODE(client_type, :web, term_bag, 0)) web_bag, \n"
-        " SUM(DECODE(client_type, :web, term_bp, 0)) web_bp, \n"
-
-        " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-        " SUM(DECODE(client_type, :kiosk, term_bag, 0)) kiosk_bag, \n"
-        " SUM(DECODE(client_type, :kiosk, term_bp, 0)) kiosk_bp, \n"
-
-        " SUM(DECODE(client_type, :mobile, adult + child + baby, 0)) mobile, \n"
-        " SUM(DECODE(client_type, :mobile, term_bp, 0)) mobile_bp, \n"
-        " SUM(DECODE(client_type, :mobile, term_bag, 0)) mobile_bag \n";
+        " sum(CASE WHEN client_type = :web THEN (adult + child + baby) ELSE 0 END) AS web, "
+        " sum(CASE WHEN client_type = :web THEN term_bag ELSE 0 END) AS web_bag, "
+        " sum(CASE WHEN client_type = :web THEN term_bp ELSE 0 END) AS web_bp, "
+        " sum(CASE WHEN client_type = :kiosk THEN (adult + child + baby) ELSE 0 END) AS kiosk, "
+        " sum(CASE WHEN client_type = :kiosk THEN term_bag ELSE 0 END) AS kiosk_bag, "
+        " sum(CASE WHEN client_type = :kiosk THEN term_bp ELSE 0 END) AS kiosk_bp, "
+        " sum(CASE WHEN client_type = :mobile THEN (adult + child + baby) ELSE 0 END) AS mobile, "
+        " sum(CASE WHEN client_type = :mobile THEN term_bp ELSE 0 END) AS mobile_bp, "
+        " sum(CASE WHEN client_type = :mobile THEN term_bag ELSE 0 END) AS mobile_bag ";
 
     static const string sum_pax_by_class =
-        " sum(f) f, \n"
-        " sum(c) c, \n"
-        " sum(y) y, \n";
+        " sum(f) f, "
+        " sum(c) c, "
+        " sum(y) y, ";
 
   ostringstream sql;
-  sql << "SELECT \n";
+  sql << "SELECT ";
 
   if (params.statType==statTrferFull)
   {
-    sql << " points.airp, \n"
-           " points.airline, \n"
-           " points.flt_no, \n"
-           " points.scd_out, \n"
-           " trfer_stat.point_id, \n"
-           " trfer_stat.trfer_route places, \n"
-           " adult + child + baby pax_amount, \n"
-           " adult, \n"
-           " child, \n"
-           " baby, \n"
-           " unchecked rk_weight, \n"
-           " pcs bag_amount, \n"
-           " weight bag_weight, \n"
-           " excess_wt, \n"
-           " NVL(excess_pc,0) AS excess_pc \n";
+    sql << " points.airp, "
+           " points.airline, "
+           " points.flt_no, "
+           " points.scd_out, "
+           " trfer_stat.point_id, "
+           " trfer_stat.trfer_route places, "
+           " adult + child + baby pax_amount, "
+           " adult, "
+           " child, "
+           " baby, "
+           " unchecked rk_weight, "
+           " pcs bag_amount, "
+           " weight bag_weight, "
+           " excess_wt, "
+           " COALESCE(excess_pc,0) AS excess_pc ";
   };
   if (params.statType==statFull)
   {
-    sql << " points.airp, \n"
-           " points.airline, \n"
-           " points.flt_no, \n"
-           " points.scd_out, \n";
-    sql << " stat.point_id, \n"
-           " SUM(adult + child + baby) pax_amount, \n" <<
+    sql << " points.airp, "
+           " points.airline, "
+           " points.flt_no, "
+           " points.scd_out, ";
+    sql << " stat.point_id, "
+           " SUM(adult + child + baby) pax_amount, " <<
            sum_pax_by_class <<
            sum_pax_by_client_type <<
-           ", SUM(adult) adult, \n"
-           " SUM(child) child, \n"
-           " SUM(baby) baby, \n"
-           " SUM(unchecked) rk_weight, \n"
-           " SUM(pcs) bag_amount, \n"
-           " SUM(weight) bag_weight, \n"
-           " SUM(excess_wt) AS excess_wt, \n"
-           " SUM(NVL(excess_pc,0)) AS excess_pc \n";
+           ", SUM(adult) adult, "
+           " SUM(child) child, "
+           " SUM(baby) baby, "
+           " SUM(unchecked) rk_weight, "
+           " SUM(pcs) bag_amount, "
+           " SUM(weight) bag_weight, "
+           " SUM(excess_wt) AS excess_wt, "
+           " SUM(NVL(excess_pc,0)) AS excess_pc ";
   };
   if (params.statType==statShort)
   {
     if(params.airp_column_first)
-      sql << " points.airp, \n";
+      sql << " points.airp, ";
     else
-      sql << " points.airline, \n";
-    sql << " COUNT(distinct stat.point_id) flt_amount, \n"
-           " SUM(adult + child + baby) pax_amount, \n" <<
+      sql << " points.airline, ";
+    sql << " COUNT(distinct stat.point_id) flt_amount, "
+           " SUM(adult + child + baby) pax_amount, " <<
            sum_pax_by_class <<
            sum_pax_by_client_type;
   };
   if (params.statType==statDetail)
   {
-    sql << " points.airp, \n"
-           " points.airline, \n"
-           " COUNT(distinct stat.point_id) flt_amount, \n"
-           " SUM(adult + child + baby) pax_amount, \n" <<
+    sql << " points.airp, "
+           " points.airline, "
+           " COUNT(distinct stat.point_id) flt_amount, "
+           " SUM(adult + child + baby) pax_amount, " <<
            sum_pax_by_class <<
            sum_pax_by_client_type;
   };
-  sql << "FROM points, \n";
+  sql << "FROM points, ";
   if (params.statType==statTrferFull)
   {
-      sql << " trfer_stat \n";
+      sql << " trfer_stat ";
   };
   if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
   {
-      sql << " stat \n";
+      sql << " stat ";
   };
 
   if (params.seance==seanceAirport ||
@@ -520,84 +518,84 @@ string GetStatSQLText(const TStatParams &params, int pass)
         sql << ",(" << AIRLINE_PERIODS << ") periods ";;
   }
 
-  sql << "WHERE \n";
+  sql << "WHERE ";
   if(params.flt_no != NoExists)
-    sql << " points.flt_no = :flt_no AND \n";
+    sql << " points.flt_no = :flt_no AND ";
   if (params.statType==statTrferFull)
   {
-      sql << " points.point_id = trfer_stat.point_id AND \n";
+      sql << " points.point_id = trfer_stat.point_id AND ";
   };
   if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
   {
-      sql << " points.point_id = stat.point_id AND \n";
+      sql << " points.point_id = stat.point_id AND ";
   };
 
   if (params.seance==seanceAirport ||
       params.seance==seanceAirline)
   {
-      sql << " points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date AND \n";
+      sql << " points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date AND ";
   }
   else
   {
-      sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
+      sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
   };
 
-  sql << " points.pr_del>=0 \n";
+  sql << " points.pr_del>=0 ";
   if (params.seance==seanceAirport)
   {
-    sql << " AND points.airp = :ap \n";
+    sql << " AND points.airp = :ap ";
   }
   else
   {
     if (!params.airps.elems().empty()) {
       if (params.airps.elems_permit())
-        sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << "\n";
+        sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << "";
       else
-        sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << "\n";
+        sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << "";
     };
   };
 
   if (params.seance==seanceAirline)
   {
-    sql << " AND points.airline = :ak \n";
+    sql << " AND points.airline = :ak ";
   }
   else
   {
     if (!params.airlines.elems().empty()) {
       if (params.airlines.elems_permit())
-        sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << "\n";
+        sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << " ";
       else
-        sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << "\n";
+        sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << " ";
     }
   };
 
   if(params.seance==seanceAirport)
-    sql << " AND points.airline NOT IN \n" << AIRLINE_LIST;
+    sql << " AND points.airline NOT IN " << AIRLINE_LIST;
   if(params.seance==seanceAirline)
-    sql << " AND points.airp IN \n" << AIRP_LIST;
+    sql << " AND points.airp IN " << AIRP_LIST;
 
   if (params.statType==statFull)
   {
-    sql << "GROUP BY \n"
-           " points.airp, \n"
-           " points.airline, \n"
-           " points.flt_no, \n"
-           " points.scd_out, \n";
-    sql << " stat.point_id \n";
+    sql << "GROUP BY "
+           " points.airp, "
+           " points.airline, "
+           " points.flt_no, "
+           " points.scd_out, ";
+    sql << " stat.point_id ";
   };
   if (params.statType==statShort)
   {
-    sql << "GROUP BY \n";
+    sql << "GROUP BY ";
     if(params.airp_column_first)
-      sql << " points.airp \n";
+      sql << " points.airp ";
     else
-      sql << " points.airline \n";
+      sql << " points.airline ";
   };
   if (params.statType==statDetail)
   {
-    sql << "GROUP BY \n"
-           " points.airp, \n"
-           " points.airline \n";
+    sql << "GROUP BY "
+           " points.airp, "
+           " points.airline ";
   };
   return sql.str();
 }
@@ -1785,7 +1783,7 @@ void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"POINTS","TRFER_STAT","STAT"}), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -2004,7 +2002,7 @@ void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"POINTS","TRFER_STAT","STAT"}), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     if (params.statType==statFull)

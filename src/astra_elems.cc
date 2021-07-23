@@ -741,7 +741,18 @@ static string GetElemByTableNameFromBaseTables(
 static string GetOraPgTableNameFromType(const TElemType& type)
 {
     switch(type) {
-    case etCompElemType: return "COMP_ELEM_TYPES";
+    case etTypeBSender:   return "TYPEB_SENDERS";
+    case etDelayType:     return "DELAYS";
+    case etTripLiter:     return "TRIP_LITERS";
+    case etValidatorType: return "VALIDATOR_TYPES";
+    case etSalePoint:     return "SALE_POINTS";
+    case etAgency:        return "AGENCIES";
+    case etCompElemType:  return "COMP_ELEM_TYPES";
+    case etBPType:
+    case etBIType:
+    case etVOType:
+    case etEMDAType:      return "BP_TYPES";
+    case etBTType:        return "TAG_TYPES";
     default: break;
     }
     return "";

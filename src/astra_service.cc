@@ -148,13 +148,16 @@ public:
   virtual bool validatePoints( int point_id ) {
     return true;
   }
-  void createPointSQL( const TSQLCondDates &cond_dates ) {
-    TQuery Qry( &OraSession );
-    TQuery PointsQry( &OraSession );
+  void createPointSQL( const TSQLCondDates &cond_dates )
+  {
+    DB::TQuery Qry(PgOra::getROSession({"FILE_PARAM_SETS","DESKS"}), STDLOG);
     Qry.SQLText =
-      "SELECT point_addr,airline,flt_no,airp,param_name,param_value FROM file_param_sets, desks "
-      " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
-      "       desks.code=file_param_sets.point_addr "
+      "SELECT point_addr,airline,flt_no,airp,param_name,param_value "
+      "FROM file_param_sets, desks "
+      "WHERE type=:type "
+      "AND own_point_addr=:own_point_addr "
+      "AND pr_send=:pr_send "
+      "AND desks.code=file_param_sets.point_addr "
       "ORDER BY point_addr";
     string point_addr;
     vector<string> airlines, airps;
@@ -179,7 +182,7 @@ public:
                    point_addr.c_str(), airlines.size(), airps.size(),  flt_nos.size() );
         if ( validateParams( point_addr, airlines, airps, flt_nos, params, cond_dates.point_id ) ) {
           ProgTrace( TRACE5, "validateparams" );
-          PointsQry.Clear();
+          DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
           string res = "SELECT point_id, airline, airp, flt_no FROM points WHERE ";
           if ( cond_dates.sql.empty() ) //такого не должно быть
             res = " 1=1 ";
@@ -276,9 +279,9 @@ public:
           flt_nos.push_back( Qry.FieldAsInteger( "flt_no" ) );
       params[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
       ProgTrace( TRACE5, "point_addr=%s, param_name=%s,param_value=%s,airline=%s,airp=%s,flt_no=%s",
-                 point_addr.c_str(), Qry.FieldAsString( "param_name" ),
-                 Qry.FieldAsString( "param_value" ), Qry.FieldAsString( "airline" ),
-                 Qry.FieldAsString( "airp" ),Qry.FieldAsString( "flt_no" ) );
+                 point_addr.c_str(), Qry.FieldAsString( "param_name" ).c_str(),
+                 Qry.FieldAsString( "param_value" ).c_str(), Qry.FieldAsString( "airline" ).c_str(),
+                 Qry.FieldAsString( "airp" ).c_str(),Qry.FieldAsString( "flt_no" ).c_str() );
       Qry.Next();
       }
   }
@@ -967,11 +970,8 @@ public:
 
 void sync_aodb( int point_id )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
-  Qry.Execute();
-  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  TDateTime currdate = NowUTC();
+  modf(currdate, &currdate);
 
   TAODBPointAddr point_addr;
   TSQLCondDates cond_dates;
