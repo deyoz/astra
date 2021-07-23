@@ -171,10 +171,13 @@ bool asyncHttpMode()
 
 bool needSendHttpRequest()
 {
+    if(!LIBRA_HTTP_HOST().empty() && LIBRA_HTTP_PORT() > 0) {
+        return true;
+    }
     // TODO временная реализация - на период отладки:
     // идем по http только для пультов, начинающихся с МОВ..
-    std::string desk = TReqInfo::Instance()->desk.code;
-    return desk.substr(0, 3) == "МОВ";
+    // std::string desk = TReqInfo::Instance()->desk.code;
+    // return desk.substr(0, 3) == "МОВ";
 }
 
 void synchronousHttpGetRequest(const std::string& req, const std::string& path)
