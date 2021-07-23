@@ -242,8 +242,11 @@ namespace PgOra
                 "TRIP_STATIONS",
                 "STATIONS",
         }},
-
         // ASTRA MINIMUM END
+        { "SP_PG_GROUP_TASKS", {
+                "TASKS",
+        }},
+
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

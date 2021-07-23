@@ -103,7 +103,7 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
       sleep( sleepsec );
     };
   }
-  catch( std::exception &E ) {
+  catch( const std::exception &E ) {
     ProgError( STDLOG, "std::exception: %s", E.what() );
   }
   catch( ... ) {
@@ -120,14 +120,15 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
     modf( (double)utcdate, &utcdate );
     EncodeTime( Hour, Min, 0, VTime );
     utcdate += VTime;
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TASKS"),STDLOG);
     Qry.SQLText =
-     "SELECT name,last_exec,next_exec,interval FROM tasks "\
-     " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate AND proc_name=:proc_name ";
+     "SELECT name,last_exec,next_exec,interval FROM tasks "
+     " WHERE pr_denial=0 AND COALESCE(next_exec,:utcdate) <= :utcdate AND proc_name=:proc_name ";
     Qry.CreateVariable( "utcdate", otDate, utcdate );
     Qry.CreateVariable( "proc_name", otString, proc_name );
     Qry.Execute();
-    TQuery UQry(&OraSession);
+
+    DB::TQuery UQry(PgOra::getRWSession("TASKS"),STDLOG);
     UQry.SQLText =
      "UPDATE tasks SET last_exec=:utcdate,next_exec=:next_exec WHERE name=:name";
     UQry.CreateVariable( "utcdate", otDate, utcdate );

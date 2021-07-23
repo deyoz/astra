@@ -349,10 +349,9 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
   SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
   bool pr_find = false;
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
-    for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-      NewTextChild( variablesNode, "trip", j->name );
+    if(!i->trips.empty()) {
+      NewTextChild( variablesNode, "trip", i->trips.front().name );
       pr_find = true;
-      break;
     }
   }
   if ( !pr_find ) {
