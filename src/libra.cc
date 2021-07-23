@@ -174,6 +174,7 @@ bool needSendHttpRequest()
     if(!LIBRA_HTTP_HOST().empty() && LIBRA_HTTP_PORT() > 0) {
         return true;
     }
+    return false;
     // TODO временная реализация - на период отладки:
     // идем по http только для пультов, начинающихся с МОВ..
     // std::string desk = TReqInfo::Instance()->desk.code;
