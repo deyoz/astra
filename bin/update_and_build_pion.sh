@@ -79,9 +79,9 @@ function uab_config_and_build() {
      my_reader_ptr->set_max_content_length(m_max_content_length);
      my_reader_ptr->receive();
  }
---- include/pion/http/message.hpp_      2021-07-23 13:30:57.938391404 +0300
+--- include/pion/http/message.hpp       2021-07-23 13:30:57.938391404 +0300
 +++ include/pion/http/message.hpp       2021-07-23 13:31:35.218500993 +0300
-@@ -58,7 +58,8 @@
+@@ -58,6 +58,7 @@
      typedef std::vector<char>   chunk_cache_t;
 
      /// data type for library errors returned during receive() operations
