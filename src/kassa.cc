@@ -8,6 +8,7 @@
 #include "astra_consts.h"
 #include "exceptions.h"
 #include "qrys.h"
+#include "hist.h"
 #include "db_tquery.h"
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
@@ -74,9 +75,8 @@ void checkParams(int id, TDateTime first_date, TDateTime last_date,
     checkPeriod(id == ASTRA::NoExists, first_date, last_date, BASIC::date_time::NowUTC(), first, last, pr_opd);
 }
 
-void updateBagTableRange(const std::string& table_name,
-                         int id, int tid, TDateTime first_date, TDateTime last_date,
-                         const std::string& setting_user, const std::string& station)
+bool updateBagTableRange(const std::string& table_name,
+                         int id, int tid, TDateTime first_date, TDateTime last_date)
 {
     const std::string sql =
             "UPDATE " + table_name + " SET "
@@ -91,13 +91,10 @@ void updateBagTableRange(const std::string& table_name,
            << QParam("id", otInteger, id);
     DB::TCachedQuery Qry(PgOra::getRWSession(table_name), sql, params, STDLOG);
     Qry.get().Execute();
-    if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory(table_name, id, setting_user, station);
-    }
+    return (Qry.get().RowsProcessed() > 0);
 }
 
-void updateBagTableAsDeleted(const std::string& table_name, int id, int tid,
-                             const std::string& setting_user, const std::string& station)
+bool updateBagTableAsDeleted(const std::string& table_name, int id, int tid)
 {
     const std::string sql =
             "UPDATE " + table_name + " SET "
@@ -109,13 +106,10 @@ void updateBagTableAsDeleted(const std::string& table_name, int id, int tid,
            << QParam("id", otInteger, id);
     DB::TCachedQuery Qry(PgOra::getRWSession(table_name), sql, params, STDLOG);
     Qry.get().Execute();
-    if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory(table_name, id, setting_user, station);
-    }
+    return (Qry.get().RowsProcessed() > 0);
 }
 
-void updateBagTableLastDate(const std::string& table_name, int id, int tid, TDateTime last_date,
-                            const std::string& setting_user, const std::string& station)
+bool updateBagTableLastDate(const std::string& table_name, int id, int tid, TDateTime last_date)
 {
     const std::string sql =
             "UPDATE " + table_name + " SET "
@@ -128,13 +122,10 @@ void updateBagTableLastDate(const std::string& table_name, int id, int tid, TDat
            << QParam("id", otInteger, id);
     DB::TCachedQuery Qry(PgOra::getRWSession(table_name), sql, params, STDLOG);
     Qry.get().Execute();
-    if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory(table_name, id, setting_user, station);
-    }
+    return (Qry.get().RowsProcessed() > 0) ;
 }
 
-void updateBagTableTid(const std::string& table_name, int id, int tid,
-                       const std::string& setting_user, const std::string& station)
+bool updateBagTableTid(const std::string& table_name, int id, int tid)
 {
     const std::string sql =
             "UPDATE " + table_name + " SET "
@@ -145,9 +136,7 @@ void updateBagTableTid(const std::string& table_name, int id, int tid,
            << QParam("id", otInteger, id);
     DB::TCachedQuery Qry(PgOra::getRWSession(table_name), sql, params, STDLOG);
     Qry.get().Execute();
-    if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory(table_name, id, setting_user, station);
-    }
+    return (Qry.get().RowsProcessed() > 0);
 }
 
 struct ItemIdDateRange
@@ -164,49 +153,52 @@ public:
 protected:
     virtual std::string tableName() const = 0;
     virtual void checkItem() const {}
-    void updateRange(int id, int tid, TDateTime first_date, TDateTime last_date,
-                     const std::string& setting_user,
-                     const std::string& station) const
+    virtual void writeHistory(int id) const
     {
-        updateBagTableRange(tableName(), id, tid, first_date, last_date, setting_user, station);
+        HistoryTable(tableName()).synchronize(RowId_t(id));
     }
 
-    void updateAsDeleted(int id, int tid,
-                         const std::string& setting_user,
-                         const std::string& station) const
+    void updateRange(int id, int tid, TDateTime first_date, TDateTime last_date) const
     {
-        updateBagTableAsDeleted(tableName(), id, tid, setting_user, station);
+        if (updateBagTableRange(tableName(), id, tid, first_date, last_date)) {
+            writeHistory(id);
+        }
     }
 
-    void updateLastDate(int id, int tid, TDateTime last_date,
-                        const std::string& setting_user,
-                        const std::string& station) const
+    void updateAsDeleted(int id, int tid) const
     {
-        updateBagTableLastDate(tableName(), id, tid,  last_date, setting_user, station);
+        if (updateBagTableAsDeleted(tableName(), id, tid)) {
+            writeHistory(id);
+        }
     }
 
-    void updateTid(int id, int tid,
-                   const std::string& setting_user,
-                   const std::string& station) const
+    void updateLastDate(int id, int tid, TDateTime last_date) const
     {
-        updateBagTableTid(tableName(), id, tid, setting_user, station);
+        if (updateBagTableLastDate(tableName(), id, tid,  last_date)) {
+            writeHistory(id);
+        }
     }
 
-    virtual int save(int tid, const std::string& setting_user, const std::string& station) const = 0;
-    virtual int copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-                     const std::string& setting_user, const std::string& station) const = 0;
+    void updateTid(int id, int tid) const
+    {
+        if (updateBagTableTid(tableName(), id, tid)) {
+            writeHistory(id);
+        }
+    }
+
+    virtual int save(int tid) const = 0;
+    virtual int copy(int id, int tid, TDateTime first_date, TDateTime last_date) const = 0;
     virtual std::vector<ItemIdDateRange> loadRangedIdList(TDateTime first, TDateTime last) const = 0;
 
     template<typename TItem>
-    static void modifyItemById(TItem& item, int id, TDateTime last_date, const std::string& setting_user,
-                               const std::string& station, int tid = ASTRA::NoExists)
+    static void modifyItemById(TItem& item, int id, TDateTime last_date, int tid = ASTRA::NoExists)
     {
         item.last_date = last_date;
-        item.add(id, tid, item.first_date, item.last_date, setting_user, station);
+        item.add(id, tid, item.first_date, item.last_date);
     }
 
     template<typename TItem>
-    static void deleteItemById(const TItem& item, int id, const std::string& setting_user, const std::string& station,
+    static void deleteItemById(const TItem& item, int id,
                                int tid = ASTRA::NoExists)
     {
         const TDateTime now = BASIC::date_time::NowUTC();
@@ -214,41 +206,38 @@ protected:
                                                 : tid;
         if (item.last_date == ASTRA::NoExists || item.last_date > now) {
             if (item.first_date < now) {
-                item.updateLastDate(id, tidh, now, setting_user, station);
+                item.updateLastDate(id, tidh, now);
             } else {
-                item.updateAsDeleted(id, tidh, setting_user, station);
+                item.updateAsDeleted(id, tidh);
             }
         } else {
             /* специально чтобы в кэше появилась неизмененная строка */
-            item.updateTid(id, tidh, setting_user, station);
+            item.updateTid(id, tidh);
         }
     }
 
     template<typename TItem>
-    static void copyBasicItems(const std::vector<TItem>& items, const std::string& airline,
-                               const std::string& setting_user, const std::string& station)
+    static void copyBasicItems(const std::vector<TItem>& items, const std::string& airline)
     {
         const TDateTime now = BASIC::date_time::NowUTC();
         const int tidh = PgOra::getSeqNextVal_int("TID__SEQ");
         for (const TItem& item: items) {
             if (item.last_date == ASTRA::NoExists || item.last_date > now) {
                 if (item.first_date < now) {
-                    item.updateLastDate(item.id, tidh, now, setting_user, station);
+                    item.updateLastDate(item.id, tidh, now);
                 } else {
-                    item.updateAsDeleted(item.id, tidh, setting_user, station);
+                    item.updateAsDeleted(item.id, tidh);
                 }
             }
         }
-        TItem::copy(airline, tidh, now, setting_user, station);
+        TItem::copy(airline, tidh, now);
     }
 
 public:
-    int add(int id, int tid, TDateTime first_date, TDateTime last_date,
-            const std::string& setting_user, const std::string& station) const;
+    int add(int id, int tid, TDateTime first_date, TDateTime last_date) const;
 };
 
-int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_date,
-                        const std::string& setting_user, const std::string& station) const
+int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_date) const
 {
     TDateTime first = ASTRA::NoExists;
     TDateTime last = ASTRA::NoExists;
@@ -269,10 +258,10 @@ int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_da
             if (item_id.first_date < first) {
                 /* отрезок [first_date,first) */
                 if (idh != ASTRA::NoExists) {
-                    updateRange(item_id.id, tid, item_id.first_date, first, setting_user, station);
+                    updateRange(item_id.id, tid, item_id.first_date, first);
                     idh = ASTRA::NoExists;
                 } else {
-                    copy(item_id.id, tidh, item_id.first_date, first, setting_user, station);
+                    copy(item_id.id, tidh, item_id.first_date, first);
                     idh = ASTRA::NoExists;
                 }
             }
@@ -281,27 +270,27 @@ int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_da
             {
                 /* отрезок [last,last_date)  */
                 if (idh != ASTRA::NoExists) {
-                    updateRange(item_id.id, tid, last, item_id.last_date, setting_user, station);
+                    updateRange(item_id.id, tid, last, item_id.last_date);
                     idh = ASTRA::NoExists;
                 } else {
-                    copy(item_id.id, tidh, last, item_id.last_date, setting_user, station);
+                    copy(item_id.id, tidh, last, item_id.last_date);
                     idh = ASTRA::NoExists;
                 }
             }
 
             if (idh != ASTRA::NoExists) {
-                updateAsDeleted(item_id.id, tidh, setting_user, station);
+                updateAsDeleted(item_id.id, tidh);
             }
         }
     }
     if (id == ASTRA::NoExists) {
         if (!pr_opd) {
             /*новый отрезок [first,last) */
-            idh = save(tidh, setting_user, station);
+            idh = save(tidh);
         }
     } else {
         /* при редактировании апдейтим строку */
-        updateLastDate(id, tidh, last, setting_user, station);
+        updateLastDate(id, tidh, last);
     }
 
     return idh;
@@ -347,43 +336,38 @@ protected:
     std::string tableName() const { return "bag_norms"; }
     static BagNormItem fromDB(DB::TQuery& Qry);
 
-    int save(int tid, const std::string& setting_user, const std::string& station) const;
-    int copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-             const std::string& setting_user, const std::string& station) const;
+    int save(int tid) const;
+    int copy(int id, int tid, TDateTime first_date, TDateTime last_date) const;
     std::vector<ItemIdDateRange> loadRangedIdList(TDateTime first, TDateTime last) const;
     static std::optional<BagNormItem> load(int id);
     static std::vector<BagNormItem> load(const std::string& airline);
 
 public:
-    static void copy(const std::string& airline, int tid, TDateTime now,
-                     const std::string& setting_user, const std::string& station);
-    static void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                           const std::string& station, int tid = ASTRA::NoExists)
+    static void copy(const std::string& airline, int tid, TDateTime now);
+    static void modifyById(int id, TDateTime last_date, int tid = ASTRA::NoExists)
     {
         std::optional<BagNormItem> item = load(id);
         if (item) {
-            modifyItemById(*item, id, last_date, setting_user, station, tid);
+            modifyItemById(*item, id, last_date, tid);
         }
     }
 
-    static void deleteById(int id, const std::string& setting_user, const std::string& station,
-                           int tid = ASTRA::NoExists)
+    static void deleteById(int id, int tid = ASTRA::NoExists)
     {
         std::optional<BagNormItem> item = load(id);
         if (item) {
-            deleteItemById(*item, id, setting_user, station, tid);
+            deleteItemById(*item, id, tid);
         }
     }
 
-    static void copyBasic(const std::string& airline, const std::string& setting_user,
-                          const std::string& station)
+    static void copyBasic(const std::string& airline)
     {
         const std::vector<BagNormItem> items = BagNormItem::load(airline);
-        copyBasicItems(items, airline, setting_user, station);
+        copyBasicItems(items, airline);
     }
 };
 
-int BagNormItem::save(int tid, const std::string& setting_user, const std::string& station) const
+int BagNormItem::save(int tid) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -422,13 +406,12 @@ int BagNormItem::save(int tid, const std::string& setting_user, const std::strin
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_NORMS"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_norms", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-int BagNormItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-                      const std::string& setting_user, const std::string& station) const
+int BagNormItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -450,13 +433,12 @@ int BagNormItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_NORMS"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_norms", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-void BagNormItem::copy(const std::string& airline, int tid, TDateTime now,
-                       const std::string& setting_user, const std::string& station)
+void BagNormItem::copy(const std::string& airline, int tid, TDateTime now)
 {
     int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -478,7 +460,7 @@ void BagNormItem::copy(const std::string& airline, int tid, TDateTime now,
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_NORMS"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_norms", new_id, setting_user, station);
+        HistoryTable("bag_norms").synchronize(RowId_t(new_id));
     }
 }
 
@@ -609,33 +591,28 @@ int add(int id, const std::string& airline, std::optional<bool> pr_trfer, const 
         const std::string& cls, int flt_no, const std::string& craft,
         const std::string& trip_type, TDateTime first_date, TDateTime last_date,
         int bag_type, int amount, int weight, int per_unit, const std::string& norm_type,
-        const std::string& extra, int tid, const std::string& setting_user,
-        const std::string& station)
+        const std::string& extra, int tid)
 {
     const BagNormData data = {
         id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, cls, flt_no, craft, trip_type,
         first_date, last_date, bag_type, amount, weight, per_unit, norm_type, extra
     };
-    return BagNormItem(data).add(id, tid, first_date, last_date, setting_user, station);
+    return BagNormItem(data).add(id, tid, first_date, last_date);
 }
 
-void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                const std::string& station, int tid)
+void modifyById(int id, TDateTime last_date, int tid)
 {
-    BagNormItem::modifyById(id, last_date, setting_user, station, tid);
+    BagNormItem::modifyById(id, last_date, tid);
 }
 
-void deleteById(int id, const std::string& setting_user, const std::string& station,
-                int tid)
+void deleteById(int id, int tid)
 {
-    BagNormItem::deleteById(id, setting_user, station, tid);
+    BagNormItem::deleteById(id, tid);
 }
 
-void copyBasic(const std::string& airline,
-               const std::string& setting_user,
-               const std::string& station)
+void copyBasic(const std::string& airline)
 {
-    BagNormItem::copyBasic(airline, setting_user, station);
+    BagNormItem::copyBasic(airline);
 }
 
 } // namespace BagNorm
@@ -679,39 +656,34 @@ protected:
 
     static BagRateItem fromDB(DB::TQuery& Qry);
 
-    int save(int tid, const std::string& setting_user, const std::string& station) const;
-    int copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-             const std::string& setting_user, const std::string& station) const;
+    int save(int tid) const;
+    int copy(int id, int tid, TDateTime first_date, TDateTime last_date) const;
     std::vector<ItemIdDateRange> loadRangedIdList(TDateTime first, TDateTime last) const;
     static std::optional<BagRateItem> load(int id);
     static std::vector<BagRateItem> load(const std::string& airline);
 
 public:
-    static void copy(const std::string& airline, int tid, TDateTime now,
-                     const std::string& setting_user, const std::string& station);
-    static void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                           const std::string& station, int tid = ASTRA::NoExists)
+    static void copy(const std::string& airline, int tid, TDateTime now);
+    static void modifyById(int id, TDateTime last_date, int tid = ASTRA::NoExists)
     {
         std::optional<BagRateItem> item = load(id);
         if (item) {
-            modifyItemById(*item, id, last_date, setting_user, station, tid);
+            modifyItemById(*item, id, last_date, tid);
         }
     }
 
-    static void deleteById(int id, const std::string& setting_user, const std::string& station,
-                           int tid = ASTRA::NoExists)
+    static void deleteById(int id, int tid = ASTRA::NoExists)
     {
         std::optional<BagRateItem> item = load(id);
         if (item) {
-            deleteItemById(*item, id, setting_user, station, tid);
+            deleteItemById(*item, id, tid);
         }
     }
 
-    static void copyBasic(const std::string& airline, const std::string& setting_user,
-                          const std::string& station)
+    static void copyBasic(const std::string& airline)
     {
         const std::vector<BagRateItem> items = BagRateItem::load(airline);
-        copyBasicItems(items, airline, setting_user, station);
+        copyBasicItems(items, airline);
     }
 };
 
@@ -750,7 +722,7 @@ BagRateItem BagRateItem::fromDB(DB::TQuery& Qry)
     });
 }
 
-int BagRateItem::save(int tid, const std::string& setting_user, const std::string& station) const
+int BagRateItem::save(int tid) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -788,13 +760,12 @@ int BagRateItem::save(int tid, const std::string& setting_user, const std::strin
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_rates", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-int BagRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-                      const std::string& setting_user, const std::string& station) const
+int BagRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -816,13 +787,12 @@ int BagRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_rates", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-void BagRateItem::copy(const std::string& airline, int tid, TDateTime now,
-                       const std::string& setting_user, const std::string& station)
+void BagRateItem::copy(const std::string& airline, int tid, TDateTime now)
 {
     int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -844,7 +814,7 @@ void BagRateItem::copy(const std::string& airline, int tid, TDateTime now,
     DB::TCachedQuery Qry(PgOra::getRWSession("BAG_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("bag_rates", new_id, setting_user, station);
+        HistoryTable("bag_rates").synchronize(RowId_t(new_id));
     }
 }
 
@@ -948,31 +918,28 @@ int add(int id, const std::string& airline, std::optional<bool> pr_trfer, const 
         const std::string& cls, int flt_no, const std::string& craft,
         const std::string& trip_type, TDateTime first_date, TDateTime last_date,
         int bag_type, int rate, const std::string& rate_cur, int min_weight,
-        const std::string& extra, int tid, const std::string& setting_user,
-        const std::string& station)
+        const std::string& extra, int tid)
 {
     const BagRateData data = {
         id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, cls, flt_no, craft, trip_type,
         first_date, last_date, bag_type, rate, rate_cur, min_weight, extra
     };
-    return BagRateItem(data).add(id, tid, first_date, last_date, setting_user, station);
+    return BagRateItem(data).add(id, tid, first_date, last_date);
 }
 
-void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                const std::string& station, int tid)
+void modifyById(int id, TDateTime last_date, int tid)
 {
-    BagRateItem::modifyById(id, last_date, setting_user, station, tid);
+    BagRateItem::modifyById(id, last_date, tid);
 }
 
-void deleteById(int id, const std::string& setting_user, const std::string& station, int tid)
+void deleteById(int id, int tid)
 {
-    BagRateItem::deleteById(id, setting_user, station, tid);
+    BagRateItem::deleteById(id, tid);
 }
 
-void copyBasic(const std::string& airline, const std::string& setting_user,
-               const std::string& station)
+void copyBasic(const std::string& airline)
 {
-    BagRateItem::copyBasic(airline, setting_user, station);
+    BagRateItem::copyBasic(airline);
 }
 
 } // namespace BagRate
@@ -1006,42 +973,41 @@ public:
 protected:
     std::string tableName() const { return "value_bag_taxes"; }
     virtual void checkItem() const;
+    virtual void writeHistory(int id) const
+    {
+        syncHistory(tableName(), id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
+    }
 
     static ValueBagTaxItem fromDB(DB::TQuery& Qry);
 
-    int save(int tid, const std::string& setting_user, const std::string& station) const;
-    int copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-             const std::string& setting_user, const std::string& station) const;
+    int save(int tid) const;
+    int copy(int id, int tid, TDateTime first_date, TDateTime last_date) const;
     std::vector<ItemIdDateRange> loadRangedIdList(TDateTime first, TDateTime last) const;
     static std::optional<ValueBagTaxItem> load(int id);
     static std::vector<ValueBagTaxItem> load(const std::string& airline);
 
 public:
-    static void copy(const std::string& airline, int tid, TDateTime now,
-                     const std::string& setting_user, const std::string& station);
-    static void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                           const std::string& station, int tid = ASTRA::NoExists)
+    static void copy(const std::string& airline, int tid, TDateTime now);
+    static void modifyById(int id, TDateTime last_date, int tid = ASTRA::NoExists)
     {
         std::optional<ValueBagTaxItem> item = load(id);
         if (item) {
-            modifyItemById(*item, id, last_date, setting_user, station, tid);
+            modifyItemById(*item, id, last_date, tid);
         }
     }
 
-    static void deleteById(int id, const std::string& setting_user, const std::string& station,
-                           int tid = ASTRA::NoExists)
+    static void deleteById(int id, int tid = ASTRA::NoExists)
     {
         std::optional<ValueBagTaxItem> item = load(id);
         if (item) {
-            deleteItemById(*item, id, setting_user, station, tid);
+            deleteItemById(*item, id, tid);
         }
     }
 
-    static void copyBasic(const std::string& airline, const std::string& setting_user,
-                          const std::string& station)
+    static void copyBasic(const std::string& airline)
     {
         const std::vector<ValueBagTaxItem> items = ValueBagTaxItem::load(airline);
-        copyBasicItems(items, airline, setting_user, station);
+        copyBasicItems(items, airline);
     }
 };
 
@@ -1070,7 +1036,7 @@ ValueBagTaxItem ValueBagTaxItem::fromDB(DB::TQuery& Qry)
     });
 }
 
-int ValueBagTaxItem::save(int tid, const std::string& setting_user, const std::string& station) const
+int ValueBagTaxItem::save(int tid) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1101,13 +1067,12 @@ int ValueBagTaxItem::save(int tid, const std::string& setting_user, const std::s
     DB::TCachedQuery Qry(PgOra::getRWSession("VALUE_BAG_TAXES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("value_bag_taxes", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-int ValueBagTaxItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-                          const std::string& setting_user, const std::string& station) const
+int ValueBagTaxItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1129,13 +1094,12 @@ int ValueBagTaxItem::copy(int id, int tid, TDateTime first_date, TDateTime last_
     DB::TCachedQuery Qry(PgOra::getRWSession("VALUE_BAG_TAXES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("value_bag_taxes", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-void ValueBagTaxItem::copy(const std::string& airline, int tid, TDateTime now,
-                           const std::string& setting_user, const std::string& station)
+void ValueBagTaxItem::copy(const std::string& airline, int tid, TDateTime now)
 {
     int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1157,7 +1121,7 @@ void ValueBagTaxItem::copy(const std::string& airline, int tid, TDateTime now,
     DB::TCachedQuery Qry(PgOra::getRWSession("VALUE_BAG_TAXES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("value_bag_taxes", new_id, setting_user, station);
+        syncHistory("value_bag_taxes", new_id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
     }
 }
 
@@ -1245,32 +1209,29 @@ std::vector<ValueBagTaxItem> ValueBagTaxItem::load(const std::string& airline)
 
 int add(int id, const std::string& airline, std::optional<bool> pr_trfer, const std::string& city_dep,
         const std::string& city_arv, TDateTime first_date, TDateTime last_date,
-        int tax, int min_value, const std::string& min_value_cur, const std::string& extra,
-        int tid, const std::string& setting_user, const std::string& station)
+        int tax, int min_value, const std::string& min_value_cur, const std::string& extra, int tid)
 {
     const ValueBagTaxData data = {
         id, airline, pr_trfer, city_dep, city_arv,
         first_date, last_date, tax, min_value, min_value_cur, extra
     };
-    return ValueBagTaxItem(data).add(id, tid, first_date, last_date, setting_user, station);
+    return ValueBagTaxItem(data).add(id, tid, first_date, last_date);
 
 }
 
-void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                const std::string& station, int tid)
+void modifyById(int id, TDateTime last_date, int tid)
 {
-    ValueBagTaxItem::modifyById(id, last_date, setting_user, station, tid);
+    ValueBagTaxItem::modifyById(id, last_date, tid);
 }
 
-void deleteById(int id, const std::string& setting_user, const std::string& station, int tid)
+void deleteById(int id, int tid)
 {
-    ValueBagTaxItem::deleteById(id, setting_user, station, tid);
+    ValueBagTaxItem::deleteById(id, tid);
 }
 
-void copyBasic(const std::string& airline, const std::string& setting_user,
-               const std::string& station)
+void copyBasic(const std::string& airline)
 {
-    ValueBagTaxItem::copyBasic(airline, setting_user, station);
+    ValueBagTaxItem::copyBasic(airline);
 }
 
 } // namespace ValueBagTax
@@ -1305,39 +1266,34 @@ protected:
 
     static ExchangeRateItem fromDB(DB::TQuery& Qry);
 
-    int save(int tid, const std::string& setting_user, const std::string& station) const;
-    int copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-             const std::string& setting_user, const std::string& station) const;
+    int save(int tid) const;
+    int copy(int id, int tid, TDateTime first_date, TDateTime last_date) const;
     std::vector<ItemIdDateRange> loadRangedIdList(TDateTime first, TDateTime last) const;
     static std::optional<ExchangeRateItem> load(int id);
     static std::vector<ExchangeRateItem> load(const std::string& airline);
 
 public:
-    static void copy(const std::string& airline, int tid, TDateTime now,
-                     const std::string& setting_user, const std::string& station);
-    static void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                           const std::string& station, int tid = ASTRA::NoExists)
+    static void copy(const std::string& airline, int tid, TDateTime now);
+    static void modifyById(int id, TDateTime last_date, int tid = ASTRA::NoExists)
     {
         std::optional<ExchangeRateItem> item = load(id);
         if (item) {
-            modifyItemById(*item, id, last_date, setting_user, station, tid);
+            modifyItemById(*item, id, last_date, tid);
         }
     }
 
-    static void deleteById(int id, const std::string& setting_user, const std::string& station,
-                           int tid = ASTRA::NoExists)
+    static void deleteById(int id, int tid = ASTRA::NoExists)
     {
         std::optional<ExchangeRateItem> item = load(id);
         if (item) {
-            deleteItemById(*item, id, setting_user, station, tid);
+            deleteItemById(*item, id, tid);
         }
     }
 
-    static void copyBasic(const std::string& airline, const std::string& setting_user,
-                          const std::string& station)
+    static void copyBasic(const std::string& airline)
     {
         const std::vector<ExchangeRateItem> items = ExchangeRateItem::load(airline);
-        copyBasicItems(items, airline, setting_user, station);
+        copyBasicItems(items, airline);
     }
 };
 
@@ -1373,7 +1329,7 @@ ExchangeRateItem ExchangeRateItem::fromDB(DB::TQuery& Qry)
     });
 }
 
-int ExchangeRateItem::save(int tid, const std::string& setting_user, const std::string& station) const
+int ExchangeRateItem::save(int tid) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1398,13 +1354,12 @@ int ExchangeRateItem::save(int tid, const std::string& setting_user, const std::
     DB::TCachedQuery Qry(PgOra::getRWSession("EXCHANGE_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("exchange_rates", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-int ExchangeRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date,
-                           const std::string& setting_user, const std::string& station) const
+int ExchangeRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last_date) const
 {
     const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1426,13 +1381,12 @@ int ExchangeRateItem::copy(int id, int tid, TDateTime first_date, TDateTime last
     DB::TCachedQuery Qry(PgOra::getRWSession("EXCHANGE_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("exchange_rates", new_id, setting_user, station);
+        writeHistory(new_id);
     }
     return new_id;
 }
 
-void ExchangeRateItem::copy(const std::string& airline, int tid, TDateTime now,
-                            const std::string& setting_user, const std::string& station)
+void ExchangeRateItem::copy(const std::string& airline, int tid, TDateTime now)
 {
     int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
     const std::string sql =
@@ -1454,7 +1408,7 @@ void ExchangeRateItem::copy(const std::string& airline, int tid, TDateTime now,
     DB::TCachedQuery Qry(PgOra::getRWSession("EXCHANGE_RATES"), sql, params, STDLOG);
     Qry.get().Execute();
     if (Qry.get().RowsProcessed() > 0) {
-        ASTRA::syncHistory("exchange_rates", new_id, setting_user, station);
+        HistoryTable("exchange_rates").synchronize(RowId_t(new_id));
     }
 }
 
@@ -1531,31 +1485,28 @@ std::vector<ExchangeRateItem> ExchangeRateItem::load(const std::string& airline)
 
 int add(int id, const std::string& airline, int rate1, const std::string& cur1,
         int rate2, const std::string& cur2, TDateTime first_date, TDateTime last_date,
-        const std::string& extra, int tid, const std::string& setting_user,
-        const std::string& station)
+        const std::string& extra, int tid)
 {
     const ExchangeRateData data = {
         id, airline, rate1,cur1,rate2,cur2,
         first_date, last_date, extra
     };
-    return ExchangeRateItem(data).add(id, tid, first_date, last_date, setting_user, station);
+    return ExchangeRateItem(data).add(id, tid, first_date, last_date);
 }
 
-void modifyById(int id, TDateTime last_date, const std::string& setting_user,
-                const std::string& station, int tid)
+void modifyById(int id, TDateTime last_date, int tid)
 {
-    ExchangeRateItem::modifyById(id, last_date, setting_user, station, tid);
+    ExchangeRateItem::modifyById(id, last_date, tid);
 }
 
-void deleteById(int id, const std::string& setting_user, const std::string& station, int tid)
+void deleteById(int id, int tid)
 {
-    ExchangeRateItem::deleteById(id, setting_user, station, tid);
+    ExchangeRateItem::deleteById(id, tid);
 }
 
-void copyBasic(const std::string& airline, const std::string& setting_user,
-               const std::string& station)
+void copyBasic(const std::string& airline)
 {
-    ExchangeRateItem::copyBasic(airline, setting_user, station);
+    ExchangeRateItem::copyBasic(airline);
 }
 
 } // namespace ExchangeRate

@@ -1288,12 +1288,6 @@ void BagNorms::onApplyingRowChanges(const TCacheUpdateStatus status,
                                     const std::optional<CacheTable::Row>& oldRow,
                                     const std::optional<CacheTable::Row>& newRow) const
 {
-
-//здесь в зависимости от type_ и status надо вызывать переписанные в с++ функции из kassa
-//:SYS_user_descr,:SYS_desk_code уберутся, потому что они нужны только для вызова hist.synchronize_history('bag_norms',vid,vsetting_user,vstation);
-//вместо этого на каждое изменение строки (может быть закрыто несколько периодов одновременно) писать историю по каждому измененному id
-// например: HistoryTable("bag_norms").synchronize(RowId_t(id))
-
   if (status==usInserted)
   {
     const CacheTable::Row& row=newRow.value();
@@ -1317,26 +1311,19 @@ void BagNorms::onApplyingRowChanges(const TCacheUpdateStatus status,
                 row.getAsInteger("per_unit", ASTRA::NoExists),
                 row.getAsString("norm_type"),
                 row.getAsString("extra"),
-                getCurrentTid(),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                getCurrentTid());
   }
 
   if (status==usModified)
   {
     Kassa::BagNorm::modifyById(
                 oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists));
   }
 
   if (status==usDeleted)
   {
-    Kassa::BagNorm::deleteById(
-                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+    Kassa::BagNorm::deleteById(oldRow.value().getAsInteger_ThrowOnEmpty("id"));
   }
 
 }
@@ -1391,26 +1378,19 @@ void BagRates::onApplyingRowChanges(const TCacheUpdateStatus status,
                 row.getAsString("rate_cur"),
                 row.getAsInteger("min_weight", ASTRA::NoExists),
                 row.getAsString("extra"),
-                getCurrentTid(),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                getCurrentTid());
   }
 
   if (status==usModified)
   {
     Kassa::BagRate::modifyById(
                 oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists));
   }
 
   if (status==usDeleted)
   {
-    Kassa::BagRate::deleteById(
-                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+    Kassa::BagRate::deleteById(oldRow.value().getAsInteger_ThrowOnEmpty("id"));
   }
 }
 
@@ -1457,26 +1437,19 @@ void ValueBagTaxes::onApplyingRowChanges(const TCacheUpdateStatus status,
                 row.getAsInteger("min_value", ASTRA::NoExists),
                 row.getAsString("min_value_cur"),
                 row.getAsString("extra"),
-                getCurrentTid(),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                getCurrentTid());
   }
 
   if (status==usModified)
   {
     Kassa::ValueBagTax::modifyById(
                 oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists));
   }
 
   if (status==usDeleted)
   {
-    Kassa::ValueBagTax::deleteById(
-                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+    Kassa::ValueBagTax::deleteById(oldRow.value().getAsInteger_ThrowOnEmpty("id"));
   }
 }
 
@@ -1527,26 +1500,19 @@ void ExchangeRates::onApplyingRowChanges(const TCacheUpdateStatus status,
                 row.getAsDateTime_ThrowOnEmpty("first_date"),
                 row.getAsDateTime("last_date", ASTRA::NoExists),
                 row.getAsString("extra"),
-                getCurrentTid(),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                getCurrentTid());
   }
 
   if (status==usModified)
   {
     Kassa::ExchangeRate::modifyById(
                 oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists));
   }
 
   if (status==usDeleted)
   {
-    Kassa::ExchangeRate::deleteById(
-                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                TReqInfo::Instance()->user.descr,
-                TReqInfo::Instance()->desk.code);
+    Kassa::ExchangeRate::deleteById(oldRow.value().getAsInteger_ThrowOnEmpty("id"));
   }
 }
 
