@@ -697,7 +697,7 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     }
 
     CreateSysVariables(vars, Qry, fieldsForLogging);
-    CreateVariablesFromParams(vars, SQLParams, Qry, false);
+    CreateVariablesFromParams(vars, SQLParams, Qry, callbacks!=nullptr);
 
     if (callbacks)
       callbacks->beforeSelectOrRefresh(query_type, SQLParams, Qry);

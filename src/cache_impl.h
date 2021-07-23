@@ -302,6 +302,8 @@ class BaggageWt : public CacheTableWritableHandmade
 {
   public:
     enum class Type { AllAirlines, SingleAirline, Basic };
+
+  private:
     mutable std::optional<int> currentTid;
   protected:
     Type type_;

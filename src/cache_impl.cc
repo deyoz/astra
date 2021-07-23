@@ -1190,8 +1190,6 @@ void BaggageWt::beforeSelectOrRefresh(const TCacheQueryType queryType,
                                       DB::TQuery& Qry) const
 {
   Qry.CreateVariable("now_local", otDate, BASIC::date_time::Now());
-  if (type_==Type::SingleAirline)
-    CreateVariablesFromParams({"airline"}, sqlParams, Qry);
 }
 
 void BaggageWt::beforeApplyingRowChanges(const TCacheUpdateStatus status,
