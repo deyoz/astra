@@ -14,6 +14,7 @@
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace std;
 using namespace EXCEPTIONS;

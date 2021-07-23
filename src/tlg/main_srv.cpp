@@ -28,7 +28,6 @@
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
-using namespace std;
 
 enum { tEdi, tAPPS, tTYPEB, tNone };
 
@@ -348,7 +347,7 @@ void process_tlg(void)
           TlgQry.Execute();
           for(;!TlgQry.Eof;TlgQry.Next())
           {
-            string text=getTlgText(TlgQry.FieldAsInteger("id"));
+              std::string text=getTlgText(TlgQry.FieldAsInteger("id"));
             if ((int)text.size()==tlg_len)
             {
               if (memcmp(tlg_body,text.c_str(),tlg_len)==0) break;
@@ -381,7 +380,7 @@ void process_tlg(void)
               "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,typeb_tlg_id,typeb_tlg_num) "
               "VALUES(:id,:sender,:tlg_num,:receiver,:type,NULL,:time,NULL,NULL)";
             TlgInsQry.Execute();
-            putTlgText(tlg_id, string(tlg_body,tlg_len));
+            putTlgText(tlg_id, std::string(tlg_body,tlg_len));
 
             // tlg_queue
             TlgInsQry.SQLText=

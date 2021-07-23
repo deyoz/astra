@@ -1,6 +1,7 @@
 #ifndef __HTTPSRV_H
 #define __HTTPSRV_H
 
+#include <map>
 #include <vector>
 #include <string>
 #include <boost/optional.hpp>

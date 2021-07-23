@@ -242,7 +242,7 @@ void TPax::fromDB(TQuery &Qry)
         cbbg_list.fromDB(simple.id);
 
     if(pax_list.options.flags.isFlag(oeSeatNo) and not pax_list.complayers) {
-        pax_list.complayers = boost::in_place();
+        pax_list.complayers = TTlgCompLayerList{};
         TAdvTripInfo flt_info;
         flt_info.getByPointId(pax_list.point_id);
         if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
@@ -260,8 +260,8 @@ void TPax::fromDB(TQuery &Qry)
     }
 
     if(not pax_list.rem_grp and pax_list.options.rem_event_type) {
-        pax_list.rem_grp = boost::in_place();
-        pax_list.rem_grp.get().Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
+        pax_list.rem_grp = TRemGrp{};
+        pax_list.rem_grp->Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
@@ -281,7 +281,7 @@ void TPax::fromDB(DB::TQuery &Qry)
         cbbg_list.fromDB(simple.id);
 
     if(pax_list.options.flags.isFlag(oeSeatNo) and not pax_list.complayers) {
-        pax_list.complayers = boost::in_place();
+        pax_list.complayers = TTlgCompLayerList{};
         TAdvTripInfo flt_info;
         flt_info.getByPointId(pax_list.point_id);
         if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
@@ -299,8 +299,8 @@ void TPax::fromDB(DB::TQuery &Qry)
     }
 
     if(not pax_list.rem_grp and pax_list.options.rem_event_type) {
-        pax_list.rem_grp = boost::in_place();
-        pax_list.rem_grp.get().Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
+        pax_list.rem_grp = TRemGrp{};
+        pax_list.rem_grp->Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
@@ -442,7 +442,7 @@ int TPax::rk_weight(bool cbbg_weight) const
             result += cbbg.pax_info->baggage.rk_weight;
             if(cbbg_weight) {
                 if(not pax_list.pwr) {
-                    pax_list.pwr = boost::in_place();
+                    pax_list.pwr = PersWeightRules{};
                     pax_list.pwr->read(pax_list.point_id);
                 }
                 ClassesPersWeight cpw;
@@ -534,7 +534,7 @@ const CheckIn::TSimplePaxGrpItem &TPax::grp() const
 {
     auto &result = pax_list.grps[simple.grp_id];
     if(not result) {
-        result = boost::in_place();
+        result = CheckIn::TSimplePaxGrpItem{};
         result->getByGrpId(simple.grp_id);
     }
     return result.get();

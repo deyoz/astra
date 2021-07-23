@@ -239,7 +239,7 @@ void resend_tlg(void)
         }
         // maximum time to wait for a response from APPS is 4 sec
         auto now = Dates::second_clock::universal_time();
-        time_duration ttw_sec = seconds(apps_down ? 600.0 : 10.0);
+        time_duration ttw_sec = Dates::seconds(apps_down ? 600 : 10);
         if (now - send_time < ttw_sec) {
             ProgTrace(TRACE5, "HERE WE GO AGAIN...");
             continue;

@@ -23,6 +23,9 @@ public:
         /// Perform handshaking as a server.
         server = net::ssl::stream_base::server
     };
+    static_assert(std::is_same_v<stream_type::executor_type, ssl_stream_type::executor_type>);
+    using executor_type = stream_type::executor_type;
+
 
 private:
     std::shared_ptr<void> stream_ptr_;
@@ -50,15 +53,6 @@ public:
     static stream_holder create_stream(net::io_service& io_service)
     {
         return stream_holder(std::make_shared<stream_type>(io_service));
-    }
-
-    net::io_service& get_io_service() const
-    {
-        if(is_ssl_)
-        {
-            return ssl_stream().get_io_service();
-        }
-        return stream().get_io_service();
     }
 
     bool is_ssl() const
@@ -147,7 +141,7 @@ public:
             ssl_stream().async_handshake(net::ssl::stream_base::handshake_type(type), handler);
             return;
         }
-        get_io_service().post(std::bind(handler,net_error_code()));
+        boost::asio::post(stream().get_executor(), std::bind(handler,net_error_code()));
     }
 
     template <typename ShutdownHandler>
@@ -163,7 +157,7 @@ public:
             ssl_stream().async_shutdown(internal_handler);
             return;
         }
-        get_io_service().post(std::bind(internal_handler, net_error_code()));
+        boost::asio::post(stream().get_executor(), std::bind(internal_handler,net_error_code()));
     }
 
     template <typename ConstBufferSequence>

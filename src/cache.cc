@@ -23,6 +23,7 @@
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL","UTF",""};
 

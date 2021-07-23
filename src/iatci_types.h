@@ -82,8 +82,7 @@ public:
     const std::string& airline() const;
     const std::string& port() const;
 
-protected:
-    OriginatorDetails() {} // for boost serialization only
+    explicit OriginatorDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -132,8 +131,7 @@ public:
     const std::string&                      fcIndicator() const;
     std::string                             toKeyString() const;
 
-protected:
-    FlightDetails() {} // for boost serialization only
+    explicit FlightDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -179,8 +177,7 @@ public:
     const boost::gregorian::date& birthDate() const;
     const boost::gregorian::date& expiryDate() const;
 
-protected:
-    DocDetails() {} // for boost serialization only
+    explicit DocDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -212,8 +209,7 @@ public:
     const boost::gregorian::date& issueDate() const;
     const boost::gregorian::date& expiryDate() const;
 
-protected:
-    VisaDetails() {} // for boost serialization only
+    explicit VisaDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -247,9 +243,7 @@ struct AddressDetails
         const std::string&     region() const;
         const std::string& postalCode() const;
 
-    protected:
-        AddrInfo()
-        {} // for boost serialization only
+        explicit AddrInfo() {} // for boost serialization only
     };
 
 protected:
@@ -318,8 +312,7 @@ public:
     static PaxType_e strToType(const std::string& s);
     static WithInftIndicator_e strToWithInftIndicator(const std::string& s);
 
-protected:
-    PaxDetails()
+    explicit PaxDetails()
         : m_type(Adult),
           m_withInftIndic(WithoutInfant)
     {} // for boost serialization only
@@ -427,8 +420,7 @@ public:
 
     Ticketing::SubClass subclass() const;
 
-protected:
-    ReservationDetails() {} // for boost serialization only
+    explicit ReservationDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -499,10 +491,13 @@ public:
     const std::string& cabinClass() const;
     const std::string& regNo() const;
 
+    explicit FlightSeatDetails() : SeatDetails(None) {} // for boost serialization only
+    /*
 protected:
     FlightSeatDetails(SmokeIndicator_e smokeInd = None)
         : SeatDetails(smokeInd)
     {} // for boost serialization only
+    */
 };
 
 //---------------------------------------------------------------------------------------
@@ -621,9 +616,7 @@ public:
     std::list<BagTagInfo>     bagTagsReduced() const;
     std::list<BagTagInfo>    bagTagsExpanded() const;
 
-protected:
-    BaggageDetails()
-    {} // for boost serialization only
+    explicit BaggageDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -764,10 +757,7 @@ public:
     unsigned firstRow() const;
     unsigned lastRow() const;
 
-protected:
-    RowRange()
-        : m_firstRow(0), m_lastRow(0)
-    {} // for boost serialization only
+    explicit RowRange() : m_firstRow(0), m_lastRow(0) {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -793,8 +783,7 @@ public:
 
     void setAisle();
 
-protected:
-    SeatColumnDetails() {} // for boost serialization only
+    explicit SeatColumnDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -830,8 +819,7 @@ public:
     const boost::optional<RowRange>&    smokingArea() const;
     const boost::optional<RowRange>&    overwingArea() const;
 
-protected:
-    CabinDetails() {} // for boost serialization only
+    explicit CabinDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -858,8 +846,7 @@ public:
     void setOccupied();
     void setNoExist();
 
-protected:
-    SeatOccupationDetails() {} // for boost serialization only
+    explicit SeatOccupationDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -886,8 +873,7 @@ public:
     const std::list<SeatOccupationDetails>& lOccupationDetails() const;
     const std::string&                      characteristic() const;
 
-protected:
-    RowDetails() {} // for boost serialization only
+    explicit RowDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -911,8 +897,7 @@ public:
     const std::list<RowDetails>&               lRow() const;
     const boost::optional<SeatRequestDetails>& seatRequest() const;
 
-protected:
-    SeatmapDetails() {} // for boost serialization only
+    explicit SeatmapDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -1011,8 +996,7 @@ public:
     const Ticketing::ErrMsg_t& errCode() const;
     const std::string&         errDesc() const;
 
-protected:
-    ErrorDetails() {} // for boost serialization only
+    explicit ErrorDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -1030,8 +1014,7 @@ public:
 
     const std::string& equipment() const;
 
-protected:
-    EquipmentDetails() {} // for boost serialization only
+    explicit EquipmentDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -1052,8 +1035,7 @@ public:
     const Ticketing::ErrMsg_t& warningCode() const;
     const std::string&         warningDesc() const;
 
-protected:
-    WarningDetails() {} // for boost serialization only
+    explicit WarningDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------

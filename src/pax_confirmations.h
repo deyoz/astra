@@ -106,20 +106,13 @@ class Setting
 
     Setting& afterFetchProcessing()
     {
-      if (!brand_airline.empty() && !brand_code.empty())
-        brand=boost::in_place(AirlineCode_t(brand_airline), brand_code);
-      else
-        brand=boost::none;
+        brand = boost::make_optional<TBrand::Key>(!brand_airline.empty() && !brand_code.empty(),
+                                                  TBrand::Key(AirlineCode_t(brand_airline), brand_code));
 
-      if (!fqt_airline.empty() && !fqt_tier_level.empty())
-        tierLevel=boost::in_place(AirlineCode_t(fqt_airline), fqt_tier_level);
-      else
-        tierLevel=boost::none;
+        tierLevel = boost::make_optional<TierLevelKey>(!fqt_airline.empty() && !fqt_tier_level.empty(),
+                                                       TierLevelKey(AirlineCode_t(fqt_airline), fqt_tier_level));
 
-      if (fqt_airline.empty() && !fqt_tier_level.empty())
-        fqtShouldNotExists=true;
-      else
-        fqtShouldNotExists=false;
+        fqtShouldNotExists = fqt_airline.empty() && !fqt_tier_level.empty();
 
       return *this;
     }

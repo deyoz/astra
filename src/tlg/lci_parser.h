@@ -2,7 +2,7 @@
 #define _LCI_PARSER_H
 
 #include "tlg_parser.h"
-#include <tr1/memory>
+#include <memory>
 
 
 namespace TypeB
@@ -295,7 +295,7 @@ struct TSimpleWeight:public TSubTypeHolder {
     TSimpleWeight(){ clear(); };
 };
 
-typedef std::map<TWMType, std::tr1::shared_ptr<TSubTypeHolder> > TWMTypeMap;
+typedef std::map<TWMType, std::shared_ptr<TSubTypeHolder> > TWMTypeMap;
 typedef std::map<TWMDesignator, TWMTypeMap> TWMMap;
 
 struct TWM:public TWMMap {

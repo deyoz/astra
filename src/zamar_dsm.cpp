@@ -21,6 +21,7 @@
 
 #define NICKNAME "GRISHA"
 #include <serverlib/slogger.h>
+#include <boost/utility/in_place_factory.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 

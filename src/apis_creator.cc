@@ -12,6 +12,7 @@
 #define NICKNAME "GRISHA"
 #include "serverlib/test.h"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 // TODO приведение типов в стиле C++
 // TODO убрать все дубликаты относительно apis.cc

@@ -38,6 +38,7 @@
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;

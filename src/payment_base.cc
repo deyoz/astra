@@ -6,6 +6,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace std;
 using namespace AstraLocale;

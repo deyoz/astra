@@ -4,9 +4,11 @@
 #include "tripinfo.h"
 #include "checkin.h"
 #include <serverlib/testmode.h>
+#include <boost/utility/in_place_factory.hpp>
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace std;
 using namespace EXCEPTIONS;

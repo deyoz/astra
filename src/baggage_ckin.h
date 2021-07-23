@@ -8,6 +8,7 @@
 #include "astra_consts.h"
 #include "hooked_session.h"
 #include <optional>
+#include <unordered_map>
 #include "astra_types.h"
 #include "baggage_tags.h"
 

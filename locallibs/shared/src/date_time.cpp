@@ -1,6 +1,6 @@
 
 #include <string>
-#include <memory> // auto_ptr
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -117,7 +117,7 @@ namespace BASIC {
         }
 
         TDateTime LocalToUTCInner(TDateTime dt, const std::string& region, int isDst = INT_MIN) {
-            static std::auto_ptr<TimeZone> TimeZoneUTC(TimeZone::createTimeZone("Etc/GMT"));
+            static std::unique_ptr<TimeZone> TimeZoneUTC(TimeZone::createTimeZone("Etc/GMT"));
 
             if (region.empty())
                 throw EXCEPTIONS::Exception("Region not specified");
@@ -184,7 +184,7 @@ namespace BASIC {
                 throw EXCEPTIONS::Exception("Region not specified");
 
             UErrorCode success = U_ZERO_ERROR;
-            std::auto_ptr<TimeZone> region_tz(TimeZone::createTimeZone(region.c_str()));
+            std::unique_ptr<TimeZone> region_tz(TimeZone::createTimeZone(region.c_str()));
             // Календарь управляет временем жизни TimeZoneUTC
             GregorianCalendar gc(TimeZoneUTC, success);
             DateTime2Calendar(dt, gc);

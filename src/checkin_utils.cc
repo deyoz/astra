@@ -14,6 +14,7 @@
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
 #include <serverlib/slogger.h>
+#include <boost/utility/in_place_factory.hpp>
 #include <serverlib/algo.h>
 
 using namespace std;

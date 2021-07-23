@@ -79,7 +79,7 @@ private:
 public:
   Client(boost::asio::io_service& io_service, const RequestInfo& request)
     : req_info_(request), deadline_(io_service),  resolver_(io_service),
-      ctx(io_service, boost::asio::ssl::context::sslv23_client),
+      ctx(boost::asio::ssl::context::sslv23_client),
       ssl_socket_(io_service, ctx), socket_(io_service) {
     //  would_block_(true) {
 

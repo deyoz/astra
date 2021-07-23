@@ -412,7 +412,7 @@ class TGrpEMDProps : public std::set<TGrpEMDPropsItem>
     TGrpEMDPropsItem get(const std::string &_emd_no,
                          const int &_emd_coupon) const
     {
-      TGrpEMDPropsItem item(_emd_no, _emd_coupon, boost::none, boost::none);
+      TGrpEMDPropsItem item(_emd_no, _emd_coupon, false, false);
       TGrpEMDProps::const_iterator i=find(item);
       return i!=end()?*i:item;
     }

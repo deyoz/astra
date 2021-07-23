@@ -1618,22 +1618,22 @@ void TWM::fromXML(xmlNodePtr node)
             if(sthNode) {
                 xmlNodePtr sthDataNode = sthNode->children;
                 TWMSubType sub_type = DecodeWMSubType(NodeAsStringFast("WMSubType", sthDataNode, ""));
-                tr1::shared_ptr<TSubTypeHolder> sth;
+                std::shared_ptr<TSubTypeHolder> sth;
                 switch(sub_type) {
                     case wmsGender:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TGenderCount);
+                        sth = std::shared_ptr<TSubTypeHolder>(new TGenderCount);
                         break;
                     case wmsClass:
                         if(desig == wmdStandard and type == wmtBag)
-                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsBagWeight);
+                            sth = std::shared_ptr<TSubTypeHolder>(new TClsBagWeight);
                         else
-                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsWeight);
+                            sth = std::shared_ptr<TSubTypeHolder>(new TClsWeight);
                         break;
                     case wmsClsGender:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TClsGenderWeight);
+                        sth = std::shared_ptr<TSubTypeHolder>(new TClsGenderWeight);
                         break;
                     case wmsUnknown:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
+                        sth = std::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
                         break;
                 }
                 sth->fromXML(WMTypeMapItemNode);
@@ -1704,7 +1704,7 @@ void TWM::parse(const char *val)
         throw ETlgError("duplicate WM rows found %s", val);
 
 
-    tr1::shared_ptr<TSubTypeHolder> sth;
+    std::shared_ptr<TSubTypeHolder> sth;
     TMeasur measur = DecodeMeasur(items.back().c_str());
     if(measur == mUnknown)
         throw ETlgError("unknown WM measur unit %s", items.back().c_str());
@@ -1716,22 +1716,22 @@ void TWM::parse(const char *val)
         if(sub_type == wmsUnknown) {
             // парсинг строки вида WM.WB.TT.4257/PT.2000/HT.150/BT.1000/CT.1100/MT.7.KG
             if(parse_wb(val)) return;
-            sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
+            sth = std::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
         } else {
             items.erase(items.begin(), items.begin() + 1); // избавляемся от идентификатора sub_type
             if(not items.empty())
                 switch(sub_type) {
                     case wmsGender:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TGenderCount);
+                        sth = std::shared_ptr<TSubTypeHolder>(new TGenderCount);
                         break;
                     case wmsClass:
                         if(desig == wmdStandard and type == wmtBag)
-                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsBagWeight);
+                            sth = std::shared_ptr<TSubTypeHolder>(new TClsBagWeight);
                         else
-                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsWeight);
+                            sth = std::shared_ptr<TSubTypeHolder>(new TClsWeight);
                         break;
                     case wmsClsGender:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TClsGenderWeight);
+                        sth = std::shared_ptr<TSubTypeHolder>(new TClsGenderWeight);
                         break;
                     case wmsUnknown:
                         break;
@@ -1741,7 +1741,7 @@ void TWM::parse(const char *val)
         sth->sub_type = sub_type;
     }
     if(sth == NULL)
-        sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
+        sth = std::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
     sth->measur = measur;
     (*this)[desig][type] = sth;
 }
@@ -2891,7 +2891,7 @@ string TLCIContent::answer()
             createInfo.set_addrs(sender);
             result = TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
         } else if(action_code.action == aUpdate) {
-            std::tr1::shared_ptr<TSubTypeHolder> sth = wm[wmdWB][wmtWBTotalWeight];
+            std::shared_ptr<TSubTypeHolder> sth = wm[wmdWB][wmtWBTotalWeight];
             if(sth) {
                 const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
                 if(mc.measur != mN) {

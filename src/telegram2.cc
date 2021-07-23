@@ -32,6 +32,7 @@
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
+#include <boost/utility/in_place_factory.hpp>
 
 #include "alarms.h"
 #include "TypeBHelpMng.h"

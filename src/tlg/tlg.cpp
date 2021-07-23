@@ -35,11 +35,10 @@
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
-using namespace std;
 
 const char* ETS_CANON_NAME()
 {
-  static string VAR;
+  static std::string VAR;
   if ( VAR.empty() )
     VAR=getTCLParam("ETS_CANON_NAME",NULL);
   return VAR.c_str();
@@ -47,7 +46,7 @@ const char* ETS_CANON_NAME()
 
 const char* OWN_CANON_NAME()
 {
-  static string VAR;
+  static std::string VAR;
   if ( VAR.empty() )
     VAR=getTCLParam("OWN_CANON_NAME",NULL);
   return VAR.c_str();
@@ -56,7 +55,7 @@ const char* OWN_CANON_NAME()
 const char* DEF_CANON_NAME()
 {
   static bool init=false;
-  static string VAR;
+  static std::string VAR;
   if ( !init ) {
     VAR=getTCLParam("DEF_CANON_NAME","");
     init=true;
@@ -258,7 +257,7 @@ int saveTlg(const char * receiver,
   return tlg_num;
 }
 
-void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
+void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body)
 {
   if (tlg_body.empty()) return;
   if (tlg_id==ASTRA::NoExists)
@@ -280,9 +279,9 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   longToDB(TextQry.get(), "text", tlg_body);
 }
 
-string getTypeBBody(int tlg_id, int tlg_num)
+std::string getTypeBBody(int tlg_id, int tlg_num)
 {
-  string result;
+    std::string result;
 
   const char* sql=
     "SELECT text FROM typeb_in_body WHERE id=:id AND num=:num ORDER BY page_no";
@@ -296,7 +295,7 @@ string getTypeBBody(int tlg_id, int tlg_num)
   return result;
 };
 
-void putTlgText(int tlg_id, const string &tlg_text)
+void putTlgText(int tlg_id, const std::string &tlg_text)
 {
   if (tlg_text.empty()) return;
   if (tlg_id==ASTRA::NoExists)
@@ -680,7 +679,7 @@ bool deleteTlg(int tlg_id)
   };
 };
 
-bool errorTlg(int tlg_id, const string &type, const string &msg)
+bool errorTlg(int tlg_id, const std::string &type, const std::string &msg)
 {
   try
   {
@@ -754,7 +753,7 @@ void errorTypeB(int tlg_id,
                 int &error_no,
                 int error_pos,
                 int error_len,
-                const string &text)
+                const std::string &text)
 {
   try
   {
@@ -861,7 +860,7 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
       throw EXCEPTIONS::Exception( "sendCmd: cmd too long (%d)", cmd_len);
     static int sockfd=-1;
     static struct sockaddr_un sock_addr;
-    static map<string,string> addrs;
+    static std::map<std::string,std::string> addrs;
     if (sockfd==-1)
     {
       if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
@@ -873,7 +872,7 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
 
     if (addrs.find(receiver)==addrs.end())
     {
-      string sun_path=readStringFromTcl( receiver, "");
+      auto sun_path=readStringFromTcl( receiver, "");
       if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
         throw EXCEPTIONS::Exception( "sendCmd: can't read parameter '%s'", receiver );
       addrs[receiver]=sun_path;
@@ -903,7 +902,7 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
   };
 }
 
-int bindLocalSocket(const string &sun_path)
+int bindLocalSocket(const std::string &sun_path)
 {
   int sockfd=socket(AF_UNIX,SOCK_DGRAM,0);
   if ((sockfd)==-1)
@@ -935,7 +934,7 @@ int waitCmd(const char* receiver, int msecs, char* buf, int buflen)
     throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
   if (buf==NULL || buflen <= 1 )
     throw EXCEPTIONS::Exception( "waitCmd: buf not defined");
-  static map<string,int> sockfds;
+  static std::map<std::string,int> sockfds;
 
   int sockfd;
   if (sockfds.find(receiver)==sockfds.end())

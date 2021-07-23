@@ -34,13 +34,13 @@ namespace ASTRA {
 
             season operator++(int) {
                 season tmp = *this;
-                (*this)++;
+                this->operator++();
                 return tmp;
             }
 
             season operator--(int) {
                 season tmp = *this;
-                (*this)--;
+                this->operator--();
                 return tmp;
             }
 

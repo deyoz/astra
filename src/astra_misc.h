@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 #include <set>
-#include <tr1/memory>
+#include <memory>
 #include "date_time.h"
 #include "astra_consts.h"
 #include "oralib.h"

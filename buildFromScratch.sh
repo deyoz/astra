@@ -43,7 +43,7 @@ else
     CXX=$LOCALCXX
 fi
 if echo $CXX | fgrep -w clang ; then
-    export MY_LOCAL_CFLAGS="-pipe -Wno-mismatched-tags -Wno-overloaded-virtual -Wno-invalid-source-encoding -Qunused-arguments -fstack-protector -Wstack-protector -foptimize-sibling-calls -Werror-unknown-warning-option ${MY_LOCAL_CFLAGS}"
+    export MY_LOCAL_CFLAGS="-pipe -Wno-mismatched-tags -Wno-overloaded-virtual -Wno-invalid-source-encoding -Qunused-arguments -fstack-protector -Wstack-protector -foptimize-sibling-calls -Wno-unknown-warning-option ${MY_LOCAL_CFLAGS}"
     # ubsan is broken in 3.2 ... -fsanitize=undefined
 elif [ $($CXX -dumpversion | sed 's/\./0/' | sed 's/\..*//') -ge 408 ]; then
     export MY_LOCAL_CFLAGS="-Wno-unused-local-typedefs $MY_LOCAL_CFLAGS"

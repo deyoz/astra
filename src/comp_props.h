@@ -43,11 +43,6 @@ class SimpleProp {
       return ( (row >= getFirstRow() || getFirstRow() == ASTRA::NoExists) &&
               (row <= getLastRow() || getLastRow() == ASTRA::NoExists) ); // внутри секции или нет границ секции
     }
-    void operator = (const SimpleProp &simpleProp) {
-      this->name = simpleProp.getName();
-      this->first_row = simpleProp.getFirstRow();
-      this->last_row = simpleProp.getLastRow();
-    }
     bool operator == ( const SimpleProp &value ) const {
       return ( name == value.name &&
                first_row == value.first_row &&

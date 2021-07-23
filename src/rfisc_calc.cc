@@ -5,6 +5,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace std;
 using namespace ASTRA;
@@ -402,7 +403,7 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
     if (!svcsAuto.removeEqualWithoutEMD(svcAuto)) result=true;
   }
 
-  if (any_of(svcsAuto.begin(), svcsAuto.end(), not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)))) result=true;
+  if (std::any_of(svcsAuto.begin(), svcsAuto.end(), std::not_fn(&TGrpServiceAutoItem::withEMD))) result=true;
 
   svcsAuto.replaceWithoutEMDFrom(actualWithoutEMD);
 

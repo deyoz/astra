@@ -830,7 +830,7 @@ TOriginatorInfo getOriginator(const string &airline,
   return originator;
 };
 
-tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
+std::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
 {
   string basic_type;
   if (!tlg_type.empty())
@@ -846,41 +846,41 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
 
   if      (basic_type=="PTM" ||
            basic_type=="BTM")
-    return tr1::shared_ptr<TCreateOptions>(new TAirpTrferOptions);
+    return std::shared_ptr<TCreateOptions>(new TAirpTrferOptions);
   else if (basic_type=="PFS" ||
            basic_type=="ASL" ||
            basic_type=="FTL")
-    return tr1::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
+    return std::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
   else if (basic_type=="PRL")
-    return tr1::shared_ptr<TCreateOptions>(new TPRLOptions);
+    return std::shared_ptr<TCreateOptions>(new TPRLOptions);
   else if (basic_type=="COM")
-    return tr1::shared_ptr<TCreateOptions>(new TCOMOptions);
+    return std::shared_ptr<TCreateOptions>(new TCOMOptions);
   else if (basic_type=="SOM")
-    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+    return std::shared_ptr<TCreateOptions>(new TFranchiseOptions);
   else if (basic_type=="CPM")
-    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+    return std::shared_ptr<TCreateOptions>(new TFranchiseOptions);
   else if (basic_type=="PSM")
-    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+    return std::shared_ptr<TCreateOptions>(new TFranchiseOptions);
   else if (basic_type=="TPM")
-    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+    return std::shared_ptr<TCreateOptions>(new TFranchiseOptions);
   else if (basic_type=="LDM")
-    return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
+    return std::shared_ptr<TCreateOptions>(new TLDMOptions);
   else if (basic_type=="ETL")
-    return tr1::shared_ptr<TCreateOptions>(new TETLOptions);
+    return std::shared_ptr<TCreateOptions>(new TETLOptions);
   else if (basic_type=="MVT")
-    return tr1::shared_ptr<TCreateOptions>(new TMVTOptions);
+    return std::shared_ptr<TCreateOptions>(new TMVTOptions);
   else if (basic_type=="LCI")
-    return tr1::shared_ptr<TCreateOptions>(new TLCIOptions);
+    return std::shared_ptr<TCreateOptions>(new TLCIOptions);
   else if (basic_type=="BSM")
-    return tr1::shared_ptr<TCreateOptions>(new TBSMOptions);
+    return std::shared_ptr<TCreateOptions>(new TBSMOptions);
   else if (basic_type=="PNL")
-    return tr1::shared_ptr<TCreateOptions>(new TPNLADLOptions);
+    return std::shared_ptr<TCreateOptions>(new TPNLADLOptions);
   else if (basic_type=="->>")
-    return tr1::shared_ptr<TCreateOptions>(new TForwardOptions);
+    return std::shared_ptr<TCreateOptions>(new TForwardOptions);
   else if (basic_type=="???")
-    return tr1::shared_ptr<TCreateOptions>(new TUnknownFmtOptions);
+    return std::shared_ptr<TCreateOptions>(new TUnknownFmtOptions);
   else
-    return tr1::shared_ptr<TCreateOptions>(new TCreateOptions);
+    return std::shared_ptr<TCreateOptions>(new TCreateOptions);
 };
 
 bool TSendInfo::isSend() const

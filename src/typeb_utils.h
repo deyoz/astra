@@ -3,7 +3,7 @@
 
 #include <sstream>
 #include <string>
-#include <tr1/memory>
+#include <memory>
 #include "date_time.h"
 #include "astra_locale.h"
 #include "astra_misc.h"
@@ -168,7 +168,7 @@ class TUnknownFmtOptions : public TCreateOptions
       if (!TCreateOptions::similar(item)) return false;
       try
       {
-        dynamic_cast<const TUnknownFmtOptions&>(item);
+        [[maybe_unused]] auto& r = dynamic_cast<const TUnknownFmtOptions&>(item);
         return true;
       }
       catch(std::bad_cast&)
@@ -181,7 +181,7 @@ class TUnknownFmtOptions : public TCreateOptions
       if (!TCreateOptions::equal(item)) return false;
       try
       {
-        dynamic_cast<const TUnknownFmtOptions&>(item);
+        [[maybe_unused]] auto& r = dynamic_cast<const TUnknownFmtOptions&>(item);
         return true;
       }
       catch(std::bad_cast&)
@@ -1972,13 +1972,13 @@ class TPNLADLOptions : public TMarkInfoOptions
     };
 };
 
-std::tr1::shared_ptr<TCreateOptions> make_options(const std::string &tlg_type);
+std::shared_ptr<TCreateOptions> make_options(const std::string &tlg_type);
 
 class TOptionsInfo
 {
   private:
     std::string tlg_type;
-    std::tr1::shared_ptr<TCreateOptions> options;
+    std::shared_ptr<TCreateOptions> options;
     void init()
     {
       tlg_type.clear();

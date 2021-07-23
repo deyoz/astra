@@ -24,7 +24,7 @@ namespace REPORTS {
         {
             options.lang = _rpt_params.GetLang();
             options.sort = _rpt_params.sort;
-            options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvNOT_NULL);
+            options.pr_brd = REPORTS::TBrdVal::bvNOT_NULL;
             options.flags.setFlag(REPORTS::oeSeatNo);
             is_spec = _rpt_params.rpt_type == rtSPEC or _rpt_params.rpt_type == rtSPECTXT;
             spec_rems = boost::none;
@@ -63,8 +63,8 @@ namespace REPORTS {
         REPORT_PAX_REMS::get(Qry, pax_list.options.lang, get_pax_list().rems, _final_rems);
         if(get_pax_list().is_spec) {
             if(not get_pax_list().spec_rems) {
-                get_pax_list().spec_rems = boost::in_place();
-                get_pax_list().spec_rems.get().Load(retRPT_SS, pax_list.point_id);
+                get_pax_list().spec_rems = TRemGrp{};
+                get_pax_list().spec_rems->Load(retRPT_SS, pax_list.point_id);
             }
             for(multiset<CheckIn::TPaxRemItem>::iterator r=_final_rems.begin();r!=_final_rems.end();)
             {
@@ -79,8 +79,8 @@ namespace REPORTS {
         REPORT_PAX_REMS::get(Qry, pax_list.options.lang, get_pax_list().rems, _final_rems);
         if(get_pax_list().is_spec) {
             if(not get_pax_list().spec_rems) {
-                get_pax_list().spec_rems = boost::in_place();
-                get_pax_list().spec_rems.get().Load(retRPT_SS, pax_list.point_id);
+                get_pax_list().spec_rems = TRemGrp{};
+                get_pax_list().spec_rems->Load(retRPT_SS, pax_list.point_id);
             }
             for(multiset<CheckIn::TPaxRemItem>::iterator r=_final_rems.begin();r!=_final_rems.end();)
             {

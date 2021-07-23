@@ -15,26 +15,9 @@ namespace Ticketing {
 
 namespace {
 
-struct FindTktByNum: public std::binary_function< TktEdifact, TicketNum_t, bool >
-{
-    bool operator()(const TktEdifact& l, const TicketNum_t& r) const
-    {
-        return (l.tkt_ && l.tkt_->m_ticketNum == r);
-    }
-};
-
-struct FindCpnByNum: public std::binary_function< CpnEdifact, CouponNum_t, bool >
-{
-    bool operator()(const CpnEdifact& l, const CouponNum_t& r) const
-    {
-        return (l.cpn_ && l.cpn_->m_num == r);
-    }
-};
-
 TktEdifact& findTktByNum_throwNotFound(std::list<TktEdifact>& ltkt, TicketNum_t num)
 {
-    std::list<TktEdifact>::iterator it = find_if(ltkt.begin(), ltkt.end(),
-                                                 bind2nd(FindTktByNum(), num));
+    auto it = std::find_if(ltkt.begin(), ltkt.end(), [&num](auto&l){ return l.tkt_ && l.tkt_->m_ticketNum == num; });
     if(it == ltkt.end()) {
         throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Ticket " << num << " not found at EMD!";
     }
@@ -44,8 +27,7 @@ TktEdifact& findTktByNum_throwNotFound(std::list<TktEdifact>& ltkt, TicketNum_t 
 
 CpnEdifact& findCpnByNum_throwNotFound(std::list<CpnEdifact>& lcpn, CouponNum_t num)
 {
-    std::list<CpnEdifact>::iterator it = find_if(lcpn.begin(), lcpn.end(),
-                                                 bind2nd(FindCpnByNum(), num));
+    auto it = std::find_if(lcpn.begin(), lcpn.end(), [&num](auto&l){ return l.cpn_ && l.cpn_->m_num == num; });
     if(it == lcpn.end()) {
         throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Coupon " << num << " not found at EMD!";
     }

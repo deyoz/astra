@@ -8,7 +8,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include <boost/any.hpp>
-#include <tr1/memory>
+#include <memory>
 
 struct QParam {
     std::string name;
@@ -98,7 +98,7 @@ struct TQry {
     TQry(STDLOG_SIGNATURE): Qry(&OraSession, STDLOG_VARIABLE), count(0), in_use(false) {};
 };
 
-typedef std::tr1::shared_ptr<TQry> TQry_ptr;
+typedef std::shared_ptr<TQry> TQry_ptr;
 
 class TCachedQuery {
     private:

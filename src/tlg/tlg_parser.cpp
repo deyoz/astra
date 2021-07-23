@@ -6671,7 +6671,7 @@ class SuitablePax
     SuitablePax(TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
     {
       if (!Qry.get().FieldIsNULL("parent_pax_id"))
-        parentPaxId=boost::in_place(Qry.get().FieldAsInteger("parent_pax_id"));
+        parentPaxId=PaxId_t{Qry.get().FieldAsInteger("parent_pax_id")};
       deleted=Qry.get().FieldAsInteger("pr_del")!=0;
       last_op=Qry.get().FieldAsDateTime("last_op");
       classChanged=false;
@@ -7399,9 +7399,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
        for(bool delIndicatorPass : {true, false})
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
-          boost::optional<TPaxSegmentPair> segmentPair;
-          if (point_id_spp != ASTRA::NoExists)
-            segmentPair=boost::in_place(point_id_spp, iTotals->dest);
+            auto segmentPair = boost::make_optional<TPaxSegmentPair>
+                (point_id_spp != ASTRA::NoExists, TPaxSegmentPair(point_id_spp, iTotals->dest));
 
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
@@ -7640,7 +7639,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   }
                   else
                   {
-                    if (suitablePax) suitablePaxIdOrSeatId=boost::in_place(suitablePax.get().paxId.get());
+                    if (suitablePax) suitablePaxIdOrSeatId=suitablePax->paxId;
                   }
 
                   if (!suitablePaxIdOrSeatId)

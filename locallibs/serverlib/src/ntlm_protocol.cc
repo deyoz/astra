@@ -28,8 +28,8 @@ enum class NtlmError {
     WWWAuthenticateNotFound,
     Type2MsgNotFound
 };
-
-struct NtlmErrorCategory : public boost::system::error_category
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+struct NtlmErrorCategory final : public boost::system::error_category
 {
     const char *name() const noexcept final { return "ntlm"; }
     std::string message(int ev) const final

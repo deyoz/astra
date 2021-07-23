@@ -1,8 +1,10 @@
 #!/bin/bash
 set -e
 
+wanna_boost_ver=107600
+
 grep_version() {
-    grep -w "BOOST_VERSION[ ]\+$2" $1/boost/version.hpp
+    grep -w "BOOST_VERSION[ ]\+$wanna_boost_ver" $1/boost/version.hpp
 }
 
 uab_config_and_build() {
@@ -65,14 +67,13 @@ b2_options="$b2_options threading=multi --layout=system"
 [[ ${SIRENA_ENABLE_SHARED:-} == 1 ]] && b2_options="$b2_options link=shared runtime-link=shared"
 [[ ${SIRENA_ENABLE_SHARED:-} == 0 ]] && b2_options="$b2_options link=static runtime-link=static"
 
-exclude_libs="math mpi atomic graph_parallel context coroutine signals python wave locale random timer"
-grep_version $prefix/src 106100 && exclude_libs="$exclude_libs metaparse type_erasure log"
-for i in $exclude_libs ; do
-    b2_options="$b2_options --without-$i"
-done
+exclude_libs_1_57="math mpi atomic graph_parallel context coroutine signals python wave locale random timer"
+exclude_libs_1_76=" atomic container context coroutine fiber graph_parallel locale log math mpi python random test timer type_erasure wave contract graph headers nowide"
+test $wanna_boost_ver = 107600 && exclude_libs="$exclude_libs_1_76" || exclude_libs="$exclude_libs_1_57"
+b2_options="$b2_options `echo \"$exclude_libs\" | sed 's/ \b/ --without-/g'`"
 cd $prefix/src
 
-patch -p0 << EOF
+test $wanna_boost_ver != 107600 && patch -p0 << EOF
 --- boost/config/stdlib/libcpp.hpp	2016-12-22 15:33:14.000000000 +0300
 +++ boost/config/stdlib/libcpp.hpp	2020-01-15 16:11:40.045855577 +0300
 @@ -110,4 +110,7 @@
@@ -110,6 +111,8 @@ echo '--- boost/date_time/time_clock.hpp    2015-03-04 01:19:01.000000000 +0300
      }
  
 
+' | patch -p0
+test $wanna_boost_ver != 107600 && patch -p0 << EOF
 --- libs/date_time/src/gregorian/greg_month.cpp 2016-02-18 13:42:17.140625396 +0300
 +++ libs/date_time/src/gregorian/greg_month.cpp 2016-02-18 13:45:05.701701551 +0300
 @@ -34,21 +34,21 @@
@@ -237,65 +240,7 @@ echo '--- boost/date_time/time_clock.hpp    2015-03-04 01:19:01.000000000 +0300
          return static_cast<T &>(t);
      }
  public:
-' | patch -p0
-[ 1 -ne 1 ] && echo '--- boost/serialization/void_cast.hpp	2016-07-06 10:18:45.369509843 +0300
-+++ boost/serialization/void_cast.hpp	2016-07-06 10:34:36.279039438 +0300
-@@ -18,6 +18,7 @@
- //  See http://www.boost.org for updates, documentation, and revision history.
- 
- #include <cstddef> // for ptrdiff_t
-+#include <type_traits>
- #include <boost/config.hpp>
- #include <boost/noncopyable.hpp>
- 
-@@ -172,33 +173,19 @@
-         return false;
-     }
- public:
--    void_caster_primitive();
--    virtual ~void_caster_primitive();
-+    template <class VC = typename std::enable_if<std::is_base_of<Base, Derived>::value, void_caster>::type>
-+    void_caster_primitive()
-+        : VC( & type_info_implementation<Derived>::type::get_const_instance(),
-+              & type_info_implementation<Base>::type::get_const_instance() )
-+    {
-+        recursive_register();
-+    }
-+    virtual ~void_caster_primitive() {
-+        recursive_unregister();
-+    }
- };
- 
- template <class Derived, class Base>
--void_caster_primitive<Derived, Base>::void_caster_primitive() :
--    void_caster( 
--        & type_info_implementation<Derived>::type::get_const_instance(), 
--        & type_info_implementation<Base>::type::get_const_instance(),
--        // note:I wanted to displace from 0 here, but at least one compiler
--        // treated 0 by not shifting it at all.
--        reinterpret_cast<std::ptrdiff_t>(
--            static_cast<Derived *>(
--                reinterpret_cast<Base *>(8)
--            )
--        ) - 8
--    )
--{
--    recursive_register();
--}
--
--template <class Derived, class Base>
--void_caster_primitive<Derived, Base>::~void_caster_primitive(){
--    recursive_unregister();
--}
--
--template <class Derived, class Base>
- class BOOST_SYMBOL_VISIBLE void_caster_virtual_base :
-     public void_caster
- {
-' | patch -p0
-
-grep_version . 106100 && \
-echo '--- boost/optional/optional_fwd.hpp 2016-07-04 18:12:16.088459101 +0300
+--- boost/optional/optional_fwd.hpp 2016-07-04 18:12:16.088459101 +0300
 +++ boost/optional/optional_fwd.hpp 2016-07-04 18:12:08.619474276 +0300
 @@ -16,7 +16,7 @@
 #ifndef BOOST_OPTIONAL_OPTIONAL_FWD_FLC_19NOV2002_HPP
@@ -305,7 +250,7 @@ echo '--- boost/optional/optional_fwd.hpp 2016-07-04 18:12:16.088459101 +0300
 +#include <boost/config.hpp>
  
  namespace boost {
-' | patch -p0
+EOF
 
 sed -i 's/print sys\.prefix/print(sys.prefix)/' ./bootstrap.sh
 CC="$LOCALCC" ./bootstrap.sh --prefix=$prefix --without-icu
@@ -319,15 +264,27 @@ echo "./b2 $b2_build_flags install" > build.previous
 cat "$BOOST_BUILD_USER_CONFIG" >> build.previous
 rm -f "$BOOST_BUILD_USER_CONFIG"
 
+    needed_libs='-lboost_serialization -lboost_system -lboost_date_time -lboost_program_options -lboost_filesystem -lboost_regex'
+    test $wanna_boost_ver = 106300 && uab_chk_pc $prefix boost '1.63.0' "'$needed_libs', Cflags='-DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED'"
+    test $wanna_boost_ver = 107600 && uab_chk_pc $prefix boost '1.76.0' "'$needed_libs', Cflags='-DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED'"
+    true
 }
 
 uab_check_version() {
-grep_version $1/include 105700 && \
+grep_version $1/include && \
     ! grep -w shared_ptr $1/include/boost/date_time/gregorian/greg_month.hpp && \
-    ! grep -w shared_ptr $1/include/boost/date_time/time_clock.hpp
+    ! grep -w shared_ptr $1/include/boost/date_time/time_clock.hpp && \
+    test `awk '/^Version: /{print $2}' $1/lib/pkgconfig/boost.pc` = "1.76.0"
 }
 
 uab_pkg_tarball() {
-    echo boost_1_57_0.tar.bz2
+    test $wanna_boost_ver = 105700 && echo boost_1_57_0.tar.bz2
+    test $wanna_boost_ver = 107600 && echo boost_1_76_0.tar.bz2
+    true
 }
 
+uab_sha1sum() {
+    test $wanna_boost_ver = 105700 && echo e151557ae47afd1b43dc3fac46f8b04a8fe51c12
+    test $wanna_boost_ver = 107600 && echo 8064156508312dde1d834fec3dca9b11006555b6
+    true
+}

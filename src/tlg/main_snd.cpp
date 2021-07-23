@@ -27,7 +27,6 @@
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
-using namespace std;
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -302,7 +301,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         tlg_out.Receiver[5]=0;
         strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
         strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver").data(),5);
-        string text=getTlgText(tlg_id);
+        std::string text=getTlgText(tlg_id);
         strcpy(tlg_out.body, text.c_str());
 
         //проверим, надо ли лепить h2h

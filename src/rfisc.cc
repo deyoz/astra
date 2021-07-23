@@ -9,6 +9,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
+#include <boost/utility/in_place_factory.hpp>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -1958,8 +1959,8 @@ bool TGrpServiceAutoList::removeEqualWithoutEMD(const TGrpServiceAutoItem& item)
 
 void TGrpServiceAutoList::replaceWithoutEMDFrom(const TGrpServiceAutoList& list)
 {
-  this->remove_if(not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)));
-  copy_if(list.begin(), list.end(), inserter(*this, this->end()), not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)));
+  this->remove_if(std::not_fn(&TGrpServiceAutoItem::withEMD));
+  std::copy_if(list.begin(), list.end(), inserter(*this, this->end()), std::not_fn(&TGrpServiceAutoItem::withEMD));
 }
 
 void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const
