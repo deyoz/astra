@@ -2,7 +2,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN echo "deb http://security.ubuntu.com/ubuntu bionic-security main" >> /etc/apt/sources.list && \
     apt update \
-    && apt install -yqq gcc-8 g++-8 alien wget subversion libtool libssl1.0-dev tcl \
+    && apt install -yqq gcc-8 g++-8 alien wget subversion libtool libssl-dev tcl \
                         tcl-dev tk tk-dev pkg-config gettext libpq-dev distcc python2.7 \
                         python cmake libpng-dev libaio1 libaio-dev libtool-bin \
                         libxml2-dev postgresql-client postgresql-server-dev-all \

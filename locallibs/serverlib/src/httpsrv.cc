@@ -1652,7 +1652,7 @@ public:
     }
 
 private:
-    static const std::size_t WATCH_INTERVAL = 10;
+    static constexpr long WATCH_INTERVAL = 10;
 
     void onTimer(const boost::system::error_code& err)
     {
