@@ -28,6 +28,7 @@
 #include "remarks.h"
 #include "etick.h"
 #include "qrys.h"
+#include "hist.h"
 #include "points.h"
 #include "counters.h"
 #include "pax_calc_data.h"
@@ -7165,7 +7166,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       insertCrsSet(new_id, info.sender, con.flt);
       try
       {
-        ASTRA::syncHistory("crs_set", new_id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
+        HistoryTable("crs_set").synchronize(RowId_t(new_id));
       }
       catch(const EOracleError &E)
       {

@@ -61,6 +61,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CITIES")              return new CacheTable::Cities;
   if (cacheCode=="TRIP_TYPES")          return new CacheTable::TripTypes;
 #endif //ENABLE_ORACLE
+  if (cacheCode=="CRS_SET")          return new CacheTable::CrsSet;
   return nullptr;
 }
 
@@ -1140,6 +1141,63 @@ void HotelAcmd::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("hotel_acmd").synchronize(getRowId("id", oldRow, newRow));
 }
 
+//CrsSet
+
+bool CrsSet::userDependence() const {
+  return true;
+}
+
+std::string CrsSet::selectSql() const {
+  return
+   "SELECT id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl "
+   "FROM crs_set "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airp_dep",    AccessControl::PermittedAirports) +
+   "ORDER BY airline,airp_dep,flt_no,crs";
+}
+
+std::string CrsSet::insertSql() const {
+  return "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
+         "VALUES(:id,:airline,:flt_no,:airp_dep,:crs,:priority,:pr_numeric_pnl)";
+}
+
+std::string CrsSet::updateSql() const {
+  return "UPDATE crs_set SET "
+         "airline=:airline, "
+         "flt_no=:flt_no, "
+         "airp_dep=:airp_dep,"
+         "crs=:crs, "
+         "priority=:priority, "
+         "pr_numeric_pnl=:pr_numeric_pnl "
+         "WHERE id=:OLD_id";
+}
+
+std::string CrsSet::deleteSql() const {
+  return "DELETE FROM crs_set "
+         "WHERE id=:OLD_id";
+}
+
+std::list<std::string> CrsSet::dbSessionObjectNames() const {
+  return {"CRS_SET"};
+}
+
+void CrsSet::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<CacheTable::Row>& oldRow,
+                                      std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void CrsSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                     const std::optional<CacheTable::Row>& oldRow,
+                                     const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("crs_set").synchronize(getRowId("id", oldRow, newRow));
+}
+
 std::string lastDateSelectSQL(const std::string& objectName)
 {
   return PgOra::supportsPg(objectName)?"last_date - interval '1 second' AS last_date":
@@ -1883,6 +1941,5 @@ void TripExchangeRates::onSelectOrRefresh(const TParams& sqlParams, CacheTable::
         .addRow();
   }
 }
-
 
 } //namespace CacheTables
