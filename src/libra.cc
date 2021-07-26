@@ -171,7 +171,7 @@ bool asyncHttpMode()
 
 bool needSendHttpRequest()
 {
-    static bool force_libra_ora_scheme = getVariableStaticBool("LIBRA_FORCE_ORA", NULL, 1);
+    static bool force_libra_ora_scheme = getVariableStaticBool("LIBRA_FORCE_ORA", NULL, 0);
     if(force_libra_ora_scheme) {
         LogTrace(TRACE5) << "forcing libra to local oracle due to LIBRA_FORCE_ORA var";
         return false;
