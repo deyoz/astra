@@ -207,8 +207,8 @@ class TGrpMktFlight : public TSimpleMktFlight
 
     const TGrpMktFlight& toXML(xmlNodePtr node) const;
     TGrpMktFlight& fromXML(xmlNodePtr node);
-    const TGrpMktFlight& toDB(TQuery &Qry) const;
-    TGrpMktFlight& fromDB(TQuery &Qry);
+    const TGrpMktFlight& toDB(DB::TQuery &Qry) const;
+    TGrpMktFlight& fromDB(DB::TQuery &Qry);
     bool getByGrpId(int grp_id);
 };
 

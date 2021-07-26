@@ -5092,74 +5092,92 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         timing.start("CheckInPassengers", grp.point_dep);
 
-        TQuery Qry(&OraSession);
-        Qry.SQLText=
-          "DECLARE "
-          "  pass BINARY_INTEGER; "
-          "BEGIN "
-          "  FOR pass IN 1..2 LOOP "
-          "    BEGIN "
-          "      SELECT point_id INTO :mark_point_id FROM mark_trips "
-          "      WHERE scd=:mark_scd AND airline=:mark_airline AND flt_no=:mark_flt_no AND airp_dep=:mark_airp_dep AND "
-          "            (suffix IS NULL AND :mark_suffix IS NULL OR suffix=:mark_suffix) FOR UPDATE; "
-          "      EXIT; "
-          "    EXCEPTION "
-          "      WHEN NO_DATA_FOUND THEN "
-          "        IF :mark_point_id IS NULL OR pass=2 THEN "
-          "          SELECT cycle_id__seq.nextval INTO :mark_point_id FROM dual; "
-          "        END IF; "
-          "        BEGIN "
-          "          INSERT INTO mark_trips(point_id,airline,flt_no,suffix,scd,airp_dep) "
-          "          VALUES (:mark_point_id,:mark_airline,:mark_flt_no,:mark_suffix,:mark_scd,:mark_airp_dep); "
-          "          EXIT; "
-          "        EXCEPTION "
-          "          WHEN DUP_VAL_ON_INDEX THEN "
-          "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
-          "        END; "
-          "    END; "
-          "  END LOOP; "
-          "  IF :grp_id IS NULL THEN "
-          "    SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
-          "  END IF; "
-          "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-          "    status,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
-          "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
-          "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-          "    :status,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
-          "    :mark_point_id,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
-          "END;";
-        Qry.DeclareVariable("grp_id",otInteger);
-        Qry.DeclareVariable("point_dep",otInteger);
-        Qry.DeclareVariable("point_arv",otInteger);
-        Qry.DeclareVariable("airp_dep",otString);
-        Qry.DeclareVariable("airp_arv",otString);
-        Qry.DeclareVariable("class",otString);
-        Qry.DeclareVariable("status",otString);
-        Qry.DeclareVariable("hall",otInteger);
-        grp.toDB(Qry);
+        int mark_point_id = ASTRA::NoExists;
+        if (grpMktFlight.equalFlight(fltInfo.grpMktFlight())) {
+          mark_point_id = grp.point_dep;
+        }
+        for (int step = 1; step <= 2; ++step) {
+          DB::TQuery idQry(PgOra::getRWSession("MARK_TRIPS"), STDLOG);
+          idQry.SQLText =
+              "SELECT point_id FROM mark_trips "
+              "WHERE scd=:mark_scd "
+              "AND airline=:mark_airline "
+              "AND flt_no=:mark_flt_no "
+              "AND airp_dep=:mark_airp_dep "
+              "AND (suffix IS NULL AND :mark_suffix IS NULL OR suffix=:mark_suffix) "
+              "FOR UPDATE ";
+          grpMktFlight.toDB(idQry);
+          idQry.Execute();
+          if (!idQry.Eof) {
+            mark_point_id = idQry.FieldAsInteger("point_id");
+            break;
+          }
+          if (mark_point_id == ASTRA::NoExists || step > 1) {
+            mark_point_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+          }
+          DB::TQuery insQry(PgOra::getRWSession("MARK_TRIPS"), STDLOG);
+          insQry.SQLText =
+              "INSERT INTO mark_trips( "
+              "point_id,airline,flt_no,suffix,scd,airp_dep "
+              ") VALUES ( "
+              ":mark_point_id,:mark_airline,:mark_flt_no,:mark_suffix,:mark_scd,:mark_airp_dep "
+              ") ";
+          insQry.CreateVariable("mark_point_id", otInteger, mark_point_id);
+          grpMktFlight.toDB(insQry);
+          try {
+            insQry.Execute();
+          } catch (EOracleError &error) {
+            if (step > 1 || error.Code != CERR_U_CONSTRAINT) {
+              throw;
+            }
+          }
+        }
 
-        if (GetNode("generated_grp_id", segs.grpNode())!=NULL)
-          Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id", segs.grpNode()));
+        const int tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+        int grp_id = ASTRA::NoExists;
+        if (GetNode("generated_grp_id", segs.grpNode())!=NULL) {
+          grp_id = NodeAsInteger("generated_grp_id", segs.grpNode());
+        }
+        if (grp_id == ASTRA::NoExists) {
+          grp_id = PgOra::getSeqNextVal_int("PAX_GRP__SEQ");
+        }
+        DB::TQuery insQry(PgOra::getRWSession("PAX_GRP"), STDLOG);
+        insQry.SQLText =
+            "INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
+            "  status,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
+            "  point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
+            "VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
+            "  :status,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
+            "  :mark_point_id,:pr_mark_norms,:trfer_conflict,:inbound_confirm,:tid) ";
+        insQry.DeclareVariable("grp_id",otInteger);
+        insQry.DeclareVariable("point_dep",otInteger);
+        insQry.DeclareVariable("point_arv",otInteger);
+        insQry.DeclareVariable("airp_dep",otString);
+        insQry.DeclareVariable("airp_arv",otString);
+        insQry.DeclareVariable("class",otString);
+        insQry.DeclareVariable("status",otString);
+        insQry.DeclareVariable("hall",otInteger);
+        grp.toDB(insQry);
         if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
-        Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
-        Qry.CreateVariable("trfer_conflict",otInteger,(int)(trferConflicts.isInboundBaggageConflict() &&
+        insQry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
+        insQry.CreateVariable("trfer_conflict",otInteger,(int)(trferConflicts.isInboundBaggageConflict() &&
                                                             reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска и только если есть входящий трансфер
-        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
-        if (reqInfo->client_type!=ctPNL && !reqInfo->api_mode)
-          Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-        else
-          Qry.CreateVariable("user_id",otInteger,FNull);
-        Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-        Qry.CreateVariable("time_create",otDate,NowUTC());
-        Qry.CreateVariable("client_type",otString,EncodeClientType(reqInfo->client_type));
+        insQry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
+        if (reqInfo->client_type!=ctPNL && !reqInfo->api_mode) {
+          insQry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+        } else {
+          insQry.CreateVariable("user_id",otInteger,FNull);
+        }
+        insQry.CreateVariable("desk",otString,reqInfo->desk.code);
+        insQry.CreateVariable("time_create",otDate,NowUTC());
+        insQry.CreateVariable("client_type",otString,EncodeClientType(reqInfo->client_type));
+        insQry.CreateVariable("mark_point_id", otInteger, mark_point_id);
+        insQry.CreateVariable("pr_mark_norms", otInteger, int(grpMktFlight.pr_mark_norms));
+        insQry.CreateVariable("tid",otInteger,tid);
+        insQry.SetVariable("grp_id",grp_id);
+        insQry.Execute();
 
-        if (grpMktFlight.equalFlight(fltInfo.grpMktFlight()))
-          Qry.CreateVariable("mark_point_id",otInteger,grp.point_dep);
-        else
-          Qry.CreateVariable("mark_point_id",otInteger,FNull);
-        grpMktFlight.toDB(Qry);
-        Qry.Execute();
-        grp.id=Qry.GetVariableAsInteger("grp_id");
+        grp.id=grp_id;
 
         boost::optional<RegNo_t> regNo = boost::make_optional(false, RegNo_t(0));
         if (first_reg_no!=NoExists) regNo=boost::in_place(first_reg_no);
@@ -5195,19 +5213,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (segs.isTransitGrp())
             pr_brd_with_reg = setList.value<bool>(tsTransitBrdWithAutoreg);
 
-          Qry.Clear();
+          DB::TQuery Qry(PgOra::getRWSession("PAX"), STDLOG);
           Qry.SQLText=
-            "BEGIN "
-            "  IF :pax_id IS NULL THEN "
-            "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-            "  END IF; "
-            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
-            "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
-            "                  pr_exam,subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,tid) "
-            "  VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
-            "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
-            "         :pr_exam,:subclass,:cabin_subclass,:cabin_class,:cabin_class_grp,:bag_pool_num,cycle_tid__seq.currval); "
-            "END;";
+            "INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
+            "                wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
+            "                pr_exam,subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,tid) "
+            "VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
+            "       :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
+            "       :pr_exam,:subclass,:cabin_subclass,:cabin_class,:cabin_class_grp,:bag_pool_num,:tid) ";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("grp_id",otInteger);
           Qry.DeclareVariable("surname",otString);
@@ -5237,6 +5250,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
             {
               CheckIn::TPaxItem &pax=p->pax;
+              int pax_id = pax.id;
+              if (pax_id == ASTRA::NoExists) {
+                pax_id = PgOra::getSeqNextVal_int("PAX_ID");
+              }
               try
               {
                 if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
@@ -5252,6 +5269,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
                 pax.toDB(Qry);
+                Qry.SetVariable("pax_id", pax_id);
+                Qry.CreateVariable("tid", otInteger, tid);
                 int is_female=pax.is_female();
                 if (is_female!=NoExists)
                   Qry.SetVariable("is_female", is_female);
@@ -5277,7 +5296,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   else
                     throw;
                 }
-                PaxIdWithSegmentPair paxId(PaxId_t(Qry.GetVariableAsInteger("pax_id")), grp.getSegmentPair());
+                PaxIdWithSegmentPair paxId(PaxId_t(pax_id), grp.getSegmentPair());
                 newOrCancelledPax.add(PaxChanges::New, paxId);
                 ReplaceTextChild(p->node,"generated_pax_id",paxId().get());
 #ifdef XP_TESTING

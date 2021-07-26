@@ -300,6 +300,18 @@ const TPaxTknItem& TPaxTknItem::toDB(TQuery &Qry) const
   return *this;
 };
 
+const TPaxTknItem& TPaxTknItem::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("ticket_no", no);
+  if (coupon!=ASTRA::NoExists)
+    Qry.SetVariable("coupon_no", coupon);
+  else
+    Qry.SetVariable("coupon_no", FNull);
+  Qry.SetVariable("ticket_rem", rem);
+  Qry.SetVariable("ticket_confirm", (int)confirm);
+  return *this;
+}
+
 TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -2101,6 +2113,18 @@ const TComplexClass& TComplexClass::toDB(TQuery &Qry, const std::string& fieldPr
   return *this;
 }
 
+const TComplexClass& TComplexClass::toDB(DB::TQuery &Qry, const std::string& fieldPrefix) const
+{
+  if (Qry.GetVariableIndex(fieldPrefix+"subclass")>=0)
+    Qry.SetVariable(fieldPrefix+"subclass", subcl);
+  if (Qry.GetVariableIndex(fieldPrefix+"class")>=0)
+    Qry.SetVariable(fieldPrefix+"class", cl);
+  if (Qry.GetVariableIndex(fieldPrefix+"class_grp")>=0)
+    cl_grp!=ASTRA::NoExists?Qry.SetVariable(fieldPrefix+"class_grp", cl_grp):
+                            Qry.SetVariable(fieldPrefix+"class_grp", FNull);
+  return *this;
+}
+
 const TComplexClass& TComplexClass::toXML(xmlNodePtr node, const std::string& fieldPrefix) const
 {
   if (node==NULL) return *this;
@@ -2151,6 +2175,47 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
     tkn.toDB(Qry);
   return *this;
 };
+
+const TPaxItem& TPaxItem::toDB(DB::TQuery &Qry) const
+{
+  id!=ASTRA::NoExists?Qry.SetVariable("pax_id", id):
+                      Qry.SetVariable("pax_id", FNull);
+  if (Qry.GetVariableIndex("surname")>=0)
+    Qry.SetVariable("surname", surname);
+  if (Qry.GetVariableIndex("name")>=0)
+    Qry.SetVariable("name", name);
+  if (Qry.GetVariableIndex("pers_type")>=0)
+    Qry.SetVariable("pers_type", EncodePerson(pers_type));
+  if (Qry.GetVariableIndex("crew_type")>=0)
+    Qry.SetVariable("crew_type", CrewTypes().encode(crew_type));
+  if (Qry.GetVariableIndex("is_jmp")>=0)
+    Qry.SetVariable("is_jmp", (int)is_jmp);
+  if (Qry.GetVariableIndex("seat_type")>=0)
+    Qry.SetVariable("seat_type", seat_type);
+  if (Qry.GetVariableIndex("seats")>=0)
+    Qry.SetVariable("seats", seats);
+  if (Qry.GetVariableIndex("refuse")>=0)
+    Qry.SetVariable("refuse", refuse);
+  if (Qry.GetVariableIndex("pr_brd")>=0)
+    Qry.SetVariable("pr_brd", (int)pr_brd);
+  if (Qry.GetVariableIndex("pr_exam")>=0)
+    Qry.SetVariable("pr_exam", (int)pr_exam);
+  if (Qry.GetVariableIndex("wl_type")>=0)
+    Qry.SetVariable("wl_type", wl_type);
+  if (Qry.GetVariableIndex("reg_no")>=0)
+    Qry.SetVariable("reg_no", reg_no);
+  if (Qry.GetVariableIndex("subclass")>=0)
+    Qry.SetVariable("subclass", subcl);
+  cabin.toDB(Qry, "cabin_");
+  if (Qry.GetVariableIndex("bag_pool_num")>=0)
+    bag_pool_num!=ASTRA::NoExists?Qry.SetVariable("bag_pool_num", bag_pool_num):
+                                  Qry.SetVariable("bag_pool_num", FNull);
+  if (Qry.GetVariableIndex("tid")>=0)
+    Qry.SetVariable("tid", tid);
+  if (Qry.GetVariableIndex("ticket_no")>=0)
+    tkn.toDB(Qry);
+  return *this;
+}
 
 ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(TQuery &Qry)
 {
@@ -3130,6 +3195,32 @@ const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
     Qry.SetVariable("tid", tid);
   return *this;
 };
+
+const TPaxGrpItem& TPaxGrpItem::toDB(DB::TQuery &Qry) const
+{
+  id!=ASTRA::NoExists?Qry.SetVariable("grp_id", id):
+                      Qry.SetVariable("grp_id", FNull);
+  if (Qry.GetVariableIndex("point_dep")>=0)
+    Qry.SetVariable("point_dep", point_dep);
+  if (Qry.GetVariableIndex("point_arv")>=0)
+    Qry.SetVariable("point_arv", point_arv);
+  if (Qry.GetVariableIndex("airp_dep")>=0)
+    Qry.SetVariable("airp_dep", airp_dep);
+  if (Qry.GetVariableIndex("airp_arv")>=0)
+    Qry.SetVariable("airp_arv", airp_arv);
+  if (Qry.GetVariableIndex("class")>=0)
+    Qry.SetVariable("class", cl);
+  if (Qry.GetVariableIndex("status")>=0)
+    Qry.SetVariable("status", EncodePaxStatus(status));
+  if (Qry.GetVariableIndex("hall")>=0)
+    hall!=ASTRA::NoExists?Qry.SetVariable("hall", hall):
+                          Qry.SetVariable("hall", FNull);
+  if (Qry.GetVariableIndex("bag_refuse")>=0)
+    Qry.SetVariable("bag_refuse",(int)(!bag_refuse.empty()));
+  if (Qry.GetVariableIndex("tid")>=0)
+    Qry.SetVariable("tid", tid);
+  return *this;
+}
 
 TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
 {

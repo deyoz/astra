@@ -301,6 +301,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     const TPaxTknItem& toXML(xmlNodePtr node) const;
     TPaxTknItem& fromXML(xmlNodePtr node);
     const TPaxTknItem& toDB(TQuery &Qry) const;
+    const TPaxTknItem& toDB(DB::TQuery &Qry) const;
     TPaxTknItem& fromDB(TQuery &Qry);
     TPaxTknItem& fromDB(DB::TQuery &Qry);
 
@@ -713,6 +714,7 @@ class TComplexClass
     }
 
     const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
+    const TComplexClass& toDB(DB::TQuery &Qry, const std::string& fieldPrefix) const;
     TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
     TComplexClass& fromDB(DB::TQuery &Qry, const std::string& fieldPrefix);
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
@@ -925,6 +927,7 @@ class TPaxItem : public TSimplePaxItem
     const TPaxItem& toXML(xmlNodePtr node) const;
     TPaxItem& fromXML(xmlNodePtr node);
     const TPaxItem& toDB(TQuery &Qry) const;
+    const TPaxItem& toDB(DB::TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
     int is_female() const;
 };
@@ -1143,6 +1146,7 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
+    const TPaxGrpItem& toDB(DB::TQuery &Qry) const;
     TPaxGrpItem& fromDBWithBagConcepts(TQuery &Qry);
     bool getByGrpIdWithBagConcepts(int grp_id);
     void SyncServiceAuto(const TTripInfo &flt);

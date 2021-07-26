@@ -1695,25 +1695,26 @@ void TMktFlight::getByPaxId(int pax_id)
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, pax_id);
-    TCachedQuery Qry(
-            "select "
-            "    mark_trips.airline mark_airline, "
-            "    mark_trips.flt_no mark_flt_no, "
-            "    mark_trips.suffix mark_suffix, "
-            "    NVL(pax.subclass,pax_grp.class) mark_subcls, "
-            "    mark_trips.scd mark_scd, "
-            "    mark_trips.airp_dep mark_airp_dep, "
-            "    pax_grp.airp_arv mark_airp_arv "
-            "from "
-            "   pax, "
-            "   pax_grp, "
-            "   mark_trips "
-            "where "
-            "    pax.pax_id = :id and "
-            "    pax.grp_id = pax_grp.grp_id and "
-            "    pax_grp.point_id_mark = mark_trips.point_id ",
-            QryParams
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX","PAX_GRP","MARK_TRIPS"}),
+          "SELECT "
+          "    mark_trips.airline mark_airline, "
+          "    mark_trips.flt_no mark_flt_no, "
+          "    mark_trips.suffix mark_suffix, "
+          "    COALESCE(pax.subclass,pax_grp.class) mark_subcls, "
+          "    mark_trips.scd mark_scd, "
+          "    mark_trips.airp_dep mark_airp_dep, "
+          "    pax_grp.airp_arv mark_airp_arv "
+          "FROM "
+          "   pax, "
+          "   pax_grp, "
+          "   mark_trips "
+          "WHERE "
+          "    pax.pax_id = :id and "
+          "    pax.grp_id = pax_grp.grp_id and "
+          "    pax_grp.point_id_mark = mark_trips.point_id ",
+          QryParams,
+          STDLOG);
 
     clear();
     Qry.get().Execute();
@@ -1808,18 +1809,20 @@ TGrpMktFlight& TGrpMktFlight::fromXML(xmlNodePtr node)
   return *this;
 }
 
-const TGrpMktFlight& TGrpMktFlight::toDB(TQuery &Qry) const
+const TGrpMktFlight& TGrpMktFlight::toDB(DB::TQuery &Qry) const
 {
   Qry.CreateVariable("mark_airline", otString, airline);
   Qry.CreateVariable("mark_flt_no", otInteger, flt_no);
   Qry.CreateVariable("mark_suffix", otString, suffix);
   Qry.CreateVariable("mark_scd", otDate, scd_date_local);
   Qry.CreateVariable("mark_airp_dep", otString, airp_dep);
-  Qry.CreateVariable("pr_mark_norms", otInteger,(int)pr_mark_norms);
+  if (Qry.GetVariableIndex("pr_mark_norms") >= 0) {
+    Qry.CreateVariable("pr_mark_norms", otInteger, int(pr_mark_norms));
+  }
   return *this;
 }
 
-TGrpMktFlight& TGrpMktFlight::fromDB(TQuery &Qry)
+TGrpMktFlight& TGrpMktFlight::fromDB(DB::TQuery &Qry)
 {
   clear();
   airline=Qry.FieldAsString("mark_airline");
@@ -1835,7 +1838,8 @@ bool TGrpMktFlight::getByGrpId(int grp_id)
 {
   QParams QryParams;
   QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery Qry(
+  DB::TCachedQuery Qry(
+    PgOra::getROSession({"PAX_GRP", "MARK_TRIPS"}),
     "SELECT mark_trips.airline AS mark_airline, "
     "       mark_trips.flt_no AS mark_flt_no, "
     "       mark_trips.suffix AS mark_suffix, "
@@ -1843,7 +1847,9 @@ bool TGrpMktFlight::getByGrpId(int grp_id)
     "       mark_trips.airp_dep AS mark_airp_dep, "
     "       pax_grp.pr_mark_norms "
     "FROM pax_grp, mark_trips "
-    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id", QryParams);
+    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id",
+    QryParams,
+    STDLOG);
   Qry.get().Execute();
   if(Qry.get().Eof) return false;
   fromDB(Qry.get());

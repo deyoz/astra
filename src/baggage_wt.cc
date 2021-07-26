@@ -1448,12 +1448,16 @@ void PaidBagFromDB(TDateTime part_key, int grp_id, TPaidBagList &paid)
 
 std::string GetCurrSegBagAirline(int grp_id)
 {
-  TCachedQuery Qry("SELECT DECODE(pax_grp.pr_mark_norms, 0, points.airline, mark_trips.airline) AS airline "
-                   "FROM pax_grp, mark_trips, points "
-                   "WHERE pax_grp.point_dep=points.point_id AND "
-                   "      pax_grp.point_id_mark=mark_trips.point_id AND "
-                   "      pax_grp.grp_id=:id",
-                   QParams() << QParam("id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX_GRP", "MARK_TRIPS", "POINTS"}),
+        "SELECT "
+        "CASE WHEN pax_grp.pr_mark_norms = 0 THEN points.airline ELSE mark_trips.airline END AS airline "
+        "FROM pax_grp, mark_trips, points "
+        "WHERE pax_grp.point_dep=points.point_id AND "
+        "      pax_grp.point_id_mark=mark_trips.point_id AND "
+        "      pax_grp.grp_id=:id",
+        QParams() << QParam("id", otInteger, grp_id),
+        STDLOG);
   Qry.get().Execute();
   if (!Qry.get().Eof)
     return Qry.get().FieldAsString("airline");

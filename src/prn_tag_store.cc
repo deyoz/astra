@@ -1310,7 +1310,7 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
                 flt_no = franchise_prop.franchisee.flt_no;
                 suffix = franchise_prop.franchisee.suffix;
             } else {
-                TQuery Qry(&OraSession);
+                DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","MARK_TRIPS"}), STDLOG);
                 Qry.SQLText=
                     "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
                     "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
