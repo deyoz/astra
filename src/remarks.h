@@ -248,7 +248,7 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
              extra.empty() &&
              tier_level.empty();
     }
-    const TPaxFQTItem& toDB(TQuery &Qry) const;
+    void saveDb(PaxId_t pax_id) const;
     TPaxFQTItem& fromDB(DB::TQuery &Qry);
     const TPaxFQTItem& toXML(xmlNodePtr node,
                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;

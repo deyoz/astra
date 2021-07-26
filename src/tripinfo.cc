@@ -1898,13 +1898,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     ostringstream last_trfer_sql;
     last_trfer_sql << "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, " << endl
-                   << "             transfer.grp_id " << endl
-                   << "      FROM pax_grp,transfer,trfer_trips " << endl
-                   << "      WHERE pax_grp.grp_id=transfer.grp_id AND " << endl
-                   << "            transfer.point_id_trfer=trfer_trips.point_id AND " << endl
-                   << "            transfer.pr_final<>0 AND " << endl
-                   << "            " << crew_filter << endl
-                   << "            pax_grp.point_dep=:point_id) last_trfer" << endl;
+                   << "             transfer.grp_id "
+                   << "      FROM pax_grp,transfer,trfer_trips "
+                   << "      WHERE pax_grp.grp_id=transfer.grp_id AND "
+                   << "            transfer.point_id_trfer=trfer_trips.point_id AND "
+                   << "            transfer.pr_final<>0 AND "
+                   << "            " << crew_filter
+                   << "            pax_grp.point_dep=:point_id) last_trfer ";
 
     for(int pass=1;pass<=5;pass++)
     {
@@ -2173,9 +2173,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       };
 
       sql << "GROUP BY " << group_by.str().erase(0,1) << endl;
-
-      TQuery Qry(&OraSession);
-      Qry.SQLText = sql.str().c_str();
+      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2",
+                                          "PAX", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC",
+                                          "PAX_FQT", "PAX_REM", "BAG2"}), STDLOG);
+                    Qry.SQLText = sql.str().c_str();
+      LogTrace(TRACE3) << "mega sql: " << sql.str();
       Qry.CreateVariable("point_id",otInteger,point_id);
       if (pass==3)
       {

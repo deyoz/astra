@@ -4461,43 +4461,47 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxRemBasic &basi
   return true;
 }
 
+static std::string get_pax_subclass(int pax_id)
+{
+    auto cur = make_db_curs(
+        "select crs_pnr.subclass "
+        "from crs_pax, crs_pnr "
+        "where "
+        "   crs_pax.pax_id = :pax_id and "
+        "   crs_pax.pr_del = 0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id and "
+        "   crs_pnr.system = 'CRS'", PgOra::getRWSession("CRS_PAX"));
+
+    std::string subclass;
+    cur.bind(":pax_id", pax_id).def(subclass).EXfet();
+    return subclass;
+}
+
 void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string subcls)
 {
+    LogTrace(TRACE6) << __func__ << " pax_id=" << pax_id << "subcls=" << subcls;
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TCachedQuery Qry(
-        "select "
-        "   pax_fqt.rem_code, "
-        "   pax_fqt.airline, "
-        "   pax_fqt.no, "
-        "   pax_fqt.extra, "
-        "   crs_pnr.subclass "
-        "from "
-        "   pax_fqt, "
-        "   crs_pax, "
-        "   crs_pnr "
+    DB::TCachedQuery Qry(PgOra::getROSession("PAX_FQT"),
+        "select rem_code, airline, no, extra "
+        "from pax_fqt "
         "where "
-        "   pax_fqt.pax_id = :pax_id and "
-        "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
-        "   crs_pax.pr_del(+)=0 and "
-        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "   crs_pnr.system(+) = 'CRS' and "
-        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
-            QryParams);
+        "   pax_id = :pax_id and "
+        "   rem_code in('FQTV', 'FQTU', 'FQTR') ", QryParams, STDLOG);
     Qry.get().Execute();
+
     if(!Qry.get().Eof) {
         int col_rem_code = Qry.get().FieldIndex("rem_code");
         int col_airline = Qry.get().FieldIndex("airline");
         int col_no = Qry.get().FieldIndex("no");
         int col_extra = Qry.get().FieldIndex("extra");
-        int col_subclass = Qry.get().FieldIndex("subclass");
         for(; !Qry.get().Eof; Qry.get().Next()) {
             string item;
             string rem_code = Qry.get().FieldAsString(col_rem_code);
             string airline = Qry.get().FieldAsString(col_airline);
             string no = Qry.get().FieldAsString(col_no);
             string extra = Qry.get().FieldAsString(col_extra);
-            string subclass = Qry.get().FieldAsString(col_subclass);
+            string subclass = get_pax_subclass(pax_id);
             item +=
                 rem_code + " " +
                 info.TlgElemIdToElem(etAirline, airline) + " " +

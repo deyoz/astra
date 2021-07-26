@@ -957,9 +957,10 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
     }
     if(not pr_init) {
         pr_init = true;
-        TQuery Qry(&OraSession);
-        if (!isTestPaxId(apax_id))
-            Qry.SQLText = "select airline, no, extra, tier_level from pax_fqt where pax_id = :pax_id and rownum < 2";
+        const bool test_pax = isTestPaxId(apax_id);
+        DB::TQuery Qry(PgOra::getROSession(test_pax ? "TEST_PAX" : "PAX_FQT"), STDLOG);
+        if (!test_pax)
+            Qry.SQLText = "select airline, no, extra, tier_level from pax_fqt where pax_id = :pax_id FETCH FIRST 1 ROWS ONLY";
         else
             Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra, null tier_level FROM test_pax WHERE id=:pax_id";
         Qry.CreateVariable("pax_id", otInteger, apax_id);

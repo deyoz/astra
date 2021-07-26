@@ -1,4 +1,5 @@
 #include "passenger.h"
+#include "pax_db.h"
 #include "misc.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
@@ -1886,31 +1887,14 @@ void SavePaxFQT(const PaxIdWithSegmentPair& paxId,
   if ((deleteOld || insertNew) &&
        prior!=fqts)
   {
-    TQuery FQTQry(&OraSession);
-    FQTQry.CreateVariable("pax_id",otInteger,paxId().get());
     if (deleteOld)
     {
-      FQTQry.SQLText="DELETE FROM pax_fqt WHERE pax_id=:pax_id";
-      FQTQry.Execute();
+      deletePaxFQT(paxId());
     }
 
-    if (insertNew)
-    {
-      FQTQry.SQLText=
-        "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
-        "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)";
-      FQTQry.DeclareVariable("rem_code",otString);
-      FQTQry.DeclareVariable("airline",otString);
-      FQTQry.DeclareVariable("no",otString);
-      FQTQry.DeclareVariable("extra",otString);
-      FQTQry.DeclareVariable("tier_level",otString);
-      FQTQry.DeclareVariable("tier_level_confirm",otInteger);
-
+    if (insertNew) {
       for(const TPaxFQTItem& fqt : fqts)
-      {
-        fqt.toDB(FQTQry);
-        FQTQry.Execute();
-      }
+        fqt.saveDb(paxId());
     }
 
     modifiedPaxRem.add(remFQT, paxId);

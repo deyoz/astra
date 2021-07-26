@@ -94,6 +94,18 @@ struct TRFISCBag {
     }
 };
 
+static std::string get_subclass_by_pax_id(int pax_id)
+{
+    std::string subclass;
+    auto cur = make_db_curs(
+        "select crs_pnr.subclass from crs_pax, crs_pnr where "
+        "crs_pax.pax_id = :pax_id "
+        "and crs_pax.pr_del = 0 "
+        "and crs_pax.pnr_id = crs_pnr.pnr_id", PgOra::getROSession({"CRS_PAX", "CRS_PNR"}));
+    cur.bind(":pax_id", pax_id).def(subclass).EXfet();
+    return subclass;
+}
+
 void get_rfisc_stat(int point_id)
 {
     QParams QryParams;
@@ -236,24 +248,18 @@ void get_rfisc_stat(int point_id)
             << QParam("bag_num", otInteger)
             );
 
-    TCachedQuery fqtQry(
+    DB::TCachedQuery fqtQry(PgOra::getROSession("PAX_FQT"),
         "select "
-        "   pax_fqt.rem_code, "
-        "   pax_fqt.airline, "
-        "   pax_fqt.no, "
-        "   pax_fqt.extra, "
-        "   crs_pnr.subclass "
+        "   rem_code, "
+        "   airline, "
+        "   no, "
+        "   extra "
         "from "
-        "   pax_fqt, "
-        "   crs_pax, "
-        "   crs_pnr "
+        "   pax_fqt "
         "where "
-        "   pax_fqt.pax_id = :pax_id and "
-        "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
-        "   crs_pax.pr_del(+)=0 and "
-        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
-            QParams() << QParam("pax_id", otInteger));
+        "   pax_id = :pax_id and "
+        "   rem_code in('FQTV', 'FQTU', 'FQTR') ",
+            QParams() << QParam("pax_id", otInteger), STDLOG);
 
     bagQry.get().Execute();
     if(not bagQry.get().Eof) {
@@ -353,7 +359,8 @@ void get_rfisc_stat(int point_id)
             string fqt_no;
             if(not bagQry.get().FieldIsNULL(col_pax_id)) {
                 string subcls = bagQry.get().FieldAsString(col_subclass);
-                fqtQry.get().SetVariable("pax_id", bagQry.get().FieldAsInteger(col_pax_id));
+                const int pax_id = bagQry.get().FieldAsInteger(col_pax_id);
+                fqtQry.get().SetVariable("pax_id", pax_id);
                 fqtQry.get().Execute();
 
 
@@ -362,19 +369,18 @@ void get_rfisc_stat(int point_id)
                     int col_airline = fqtQry.get().FieldIndex("airline");
                     int col_no = fqtQry.get().FieldIndex("no");
                     int col_extra = fqtQry.get().FieldIndex("extra");
-                    int col_subclass = fqtQry.get().FieldIndex("subclass");
                     for(; !fqtQry.get().Eof; fqtQry.get().Next()) {
                         string item;
                         string rem_code = fqtQry.get().FieldAsString(col_rem_code);
                         string airline = fqtQry.get().FieldAsString(col_airline);
                         string no = fqtQry.get().FieldAsString(col_no);
                         string extra = fqtQry.get().FieldAsString(col_extra);
-                        string subclass = fqtQry.get().FieldAsString(col_subclass);
                         item +=
                             rem_code + " " +
                             ElemIdToElem(etAirline, airline, efmtCodeNative, LANG_EN) + " " +
                             transliter(no, 1, true);
                         if(rem_code == "FQTV") {
+                            string subclass = get_subclass_by_pax_id(pax_id);
                             if(not subclass.empty() and subclass != subcls)
                                 item += "-" + ElemIdToElem(etSubcls, subclass, efmtCodeNative, LANG_EN);
                         } else {
@@ -1190,4 +1196,3 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
-

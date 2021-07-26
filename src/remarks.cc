@@ -9,6 +9,8 @@
 #include "date_time.h"
 #include "base_callbacks.h"
 #include "passenger.h"
+#include <serverlib/algo.h>
+#include <serverlib/helpcpp.h>
 
 #include "iapi_interaction.h"
 #include "apps_interaction.h"
@@ -53,14 +55,13 @@ std::ostream& operator<<(std::ostream& os, const TierLevelKey& tierLevel)
 const std::vector<std::string> appsStatusRem={"SXIA", "SPIA", "SBIA"}; //порядок важен
 const std::vector<std::string> appsOverrideRem={"RSIA", "OVRA", "OVRG"};
 
-TRemCategory getRemCategory(const CheckIn::TPaxRemItem& rem)
+map<string, TRemCategory> load_rem_cats()
 {
   static map<string, TRemCategory> rem_cats;
   static bool init=false;
   if (!init)
   {
-    TQuery Qry( &OraSession );
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("REM_CATS"), STDLOG);
     Qry.SQLText =
       "SELECT rem_code, category FROM rem_cats";
     Qry.Execute();
@@ -80,6 +81,12 @@ TRemCategory getRemCategory(const CheckIn::TPaxRemItem& rem)
 
     init=true;
   };
+  return rem_cats;
+}
+
+TRemCategory getRemCategory(const CheckIn::TPaxRemItem& rem)
+{
+  static const auto rem_cats = load_rem_cats();
   if (!rem.code.empty())
   {
     //код ремарки не пустой
@@ -345,21 +352,32 @@ void GetRemarks(int pax_id, const string &lang, std::multiset<CheckIn::TPaxRemIt
         "UNION "
         "SELECT 'ASVC', NULL FROM pax_asvc WHERE pax_id=:pax_id "
         "UNION "
-        "SELECT TRIM(rem_code), NULL FROM pax_fqt where pax_id = :pax_id "
-        "UNION "
         "SELECT TRIM(rem_code), NULL FROM pax_rem "
-        "WHERE pax_id=:pax_id AND "
-        "      rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','DOCA','TKN','ASVC'))";
+        "WHERE pax_id=:pax_id";
 
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
     TCachedQuery Qry(sql, QryParams);
     Qry.get().Execute();
+
     for(;!Qry.get().Eof;Qry.get().Next())
       rems.insert(CheckIn::TPaxRemItem().fromDB(Qry.get()));
-    CheckIn::TPaxRemItem rem = getAPPSRem( pax_id, lang );
+
+    std::set<CheckIn::TPaxFQTItem> fqts;
+    LoadPaxFQT(pax_id, fqts);
+    for(const auto &fqt: fqts)
+      rems.insert(CheckIn::TPaxRemItem(fqt.rem, ""));
+
+    rems = algo::filter(rems, [](const CheckIn::TPaxRemItem &item) {
+      // "rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN
+      //('DOC','DOCO','DOCA','TKN','ASVC'))
+      const auto cat = getRemCategory(item);
+      return !  (cat == remTKN || cat == remDOC || cat == remDOCO || cat == remDOCA || cat == remASVC);
+    });
+
+    CheckIn::TPaxRemItem rem = getAPPSRem(pax_id, lang);
     if ( !rem.empty() )
-     rems.insert( rem );
+      rems.insert(rem);
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)
@@ -528,21 +546,27 @@ std::string TPaxRemItem::get_rem_text(bool inf_indicator,
   return transliter(text, 1, translit_lat);
 }
 
-const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
+void TPaxFQTItem::saveDb(PaxId_t pax_id) const
 {
-  Qry.SetVariable("rem_code", rem);
-  Qry.SetVariable("airline", airline);
-  Qry.SetVariable("no", no);
-  Qry.SetVariable("extra", extra);
-  Qry.SetVariable("tier_level", tier_level);
-  Qry.SetVariable("tier_level_confirm", (int)tier_level_confirm);
-  return *this;
-};
+  LogTrace(TRACE6) << "TPaxFQTItem::saveDb pax_fqt for pad_id = " << pax_id << " " << airline << " " << rem;
+  auto cur = make_db_curs("INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
+                          "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)",
+                          PgOra::getRWSession("PAX_FQT"));
+  cur.stb()
+     .bind(":pax_id", pax_id.get())
+     .bind(":rem_code", rem)
+     .bind(":airline", airline)
+     .bind(":no", no)
+     .bind(":extra", extra)
+     .bind(":tier_level", tier_level)
+     .bind(":tier_level_confirm", (int)tier_level_confirm)
+     .exec();
+}
 
 TPaxFQTItem& TPaxFQTItem::fromDB(DB::TQuery &Qry)
 {
   clear();
-  rem=Qry.FieldAsString("rem_code");
+  rem=StrUtils::trim(Qry.FieldAsString("rem_code"));
   airline=Qry.FieldAsString("airline");
   no=Qry.FieldAsString("no");
   extra=Qry.FieldAsString("extra");
