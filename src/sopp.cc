@@ -6122,88 +6122,88 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     TSOPPDests dests_del;
     string reference;
     internal_ReadDests( move_id, dests_del, reference, NoExists );
-  vector<TSOPPTrip> trs;
-  // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
-  int lock_point_id = NoExists;
-  vector<int> priorPointIds;
-  for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
-    if ( i->pr_del == -1 ) continue;
-    priorPointIds.push_back( i->point_id );
-    if ( lock_point_id == NoExists && i->point_id != NoExists ) {
-      lock_point_id = i->point_id;
+    vector<TSOPPTrip> trs;
+    // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
+    int lock_point_id = NoExists;
+    vector<int> priorPointIds;
+    for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
+      if ( i->pr_del == -1 ) continue;
+      priorPointIds.push_back( i->point_id );
+      if ( lock_point_id == NoExists && i->point_id != NoExists ) {
+        lock_point_id = i->point_id;
+      }
+      TSOPPTrip t = createTrip( move_id, i, dests_del );
+      ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu, t.suffix_out=%s",
+                         t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
+      trs.push_back(t);
+    };
+    TFlights flights;
+    flights.Get( lock_point_id, ftAll );
+    flights.Lock(__FUNCTION__);
+    DB::TQuery QryCnt(PgOra::getROSession({"PAX_GRP","POINTS"}), STDLOG);
+    // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
+    QryCnt.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
+                     "(SELECT point_id FROM points WHERE move_id=:move_id) "
+                     "GROUP BY point_dep ";
+    QryCnt.CreateVariable( "move_id", otInteger, move_id );
+    QryCnt.Execute();
+    if ( !QryCnt.Eof && QryCnt.FieldAsInteger( "c" ) > 0 ) {
+        int point_id = QryCnt.FieldAsInteger( "point_dep" );
+        DB::TQuery QryPoints(PgOra::getROSession("POINTS"), STDLOG);
+        QryPoints.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+        QryPoints.CreateVariable( "point_id", otInteger, point_id );
+        QryPoints.Execute();
+        ProgTrace( TRACE5, "airp=%s", ElemIdToCodeNative(etAirp,QryPoints.FieldAsString("airp")).c_str() );
+        throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS", LParams() << LParam("airp", ElemIdToNameLong(etAirp,QryPoints.FieldAsString("airp"))));
     }
-    TSOPPTrip t = createTrip( move_id, i, dests_del );
-    ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu, t.suffix_out=%s",
-                       t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
-    trs.push_back(t);
-  };
-  TFlights flights;
-  flights.Get( lock_point_id, ftAll );
-  flights.Lock(__FUNCTION__);
-    TQuery Qry(&OraSession);
-  // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
-    Qry.Clear();
-    Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
-                  "( SELECT point_id FROM points WHERE move_id=:move_id ) "
-                  "GROUP BY point_dep ";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.Execute();
-    if ( !Qry.Eof && Qry.FieldAsInteger( "c" ) > 0 ) {
-        int point_id = Qry.FieldAsInteger( "point_dep" );
-        Qry.Clear();
-        Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.Execute();
-        ProgTrace( TRACE5, "airp=%s", ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp")).c_str() );
-        throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
-    }
-    Qry.Clear();
-    Qry.SQLText = "SELECT point_id,airline,flt_no,airp,scd_out,pr_reg "
-                  "FROM points WHERE move_id=:move_id "
-                  "AND pr_del <> -1 "
-                  "ORDER BY point_num";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.Execute();
+    DB::TQuery QryPoints(PgOra::getROSession("POINTS"), STDLOG);
+    QryPoints.SQLText = "SELECT point_id,airline,flt_no,airp,scd_out,pr_reg "
+                        "FROM points "
+                        "WHERE move_id=:move_id "
+                        "AND pr_del <> -1 "
+                        "ORDER BY point_num";
+    QryPoints.CreateVariable( "move_id", otInteger, move_id );
+    QryPoints.Execute();
     bool empty = true;
     PrmEnum name("name", "/");
     PrmEnum dests("dests", "-");
     PrmEnum prior_name("", "");
     string prior_airline, prior_flt_no, prior_date, str_d;
-    while ( !Qry.Eof ) {
-      if ( Qry.FieldAsInteger( "pr_reg" ) && !Qry.FieldIsNULL( "scd_out" ) ) {
-         TTripStages ts( Qry.FieldAsInteger( "point_id" ) );
+    while ( !QryPoints.Eof ) {
+      if ( QryPoints.FieldAsInteger( "pr_reg" ) && !QryPoints.FieldIsNULL( "scd_out" ) ) {
+         TTripStages ts( QryPoints.FieldAsInteger( "point_id" ) );
          if ( ts.getStage( stCheckIn ) != sNoActive )
            throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.STATUS_ACTIVE",
-                                             LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
+                                             LParams() << LParam("airp", ElemIdToNameLong(etAirp,QryPoints.FieldAsString("airp"))));
       }
       if (!empty) {
       name.prms << prior_name;
       prior_name.prms.clearPrms();
       empty = true;
       }
-      if ( prior_airline.empty() || prior_airline != Qry.FieldAsString( "airline" ) ) {
-        prior_airline = Qry.FieldAsString( "airline" );
+      if ( prior_airline.empty() || prior_airline != QryPoints.FieldAsString( "airline" ) ) {
+        prior_airline = QryPoints.FieldAsString( "airline" );
         prior_name.prms << PrmElem<string>("", etAirline, prior_airline);
-        prior_flt_no = Qry.FieldAsString( "flt_no" );
+        prior_flt_no = QryPoints.FieldAsString( "flt_no" );
         prior_name.prms << PrmSmpl<string>("", prior_flt_no);
         empty = false;
       }
-      if ( prior_flt_no.empty() || prior_flt_no != Qry.FieldAsString( "flt_no" ) ) {
-        prior_flt_no = Qry.FieldAsString( "flt_no" );
+      if ( prior_flt_no.empty() || prior_flt_no != QryPoints.FieldAsString( "flt_no" ) ) {
+        prior_flt_no = QryPoints.FieldAsString( "flt_no" );
         prior_name.prms << PrmSmpl<string>("", prior_flt_no);
         empty = false;
       }
       str_d.clear();
-      if ( !Qry.FieldIsNULL( "scd_out" ) ) {
-      str_d = DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "dd.mm" );
+      if ( !QryPoints.FieldIsNULL( "scd_out" ) ) {
+      str_d = DateTimeToStr( QryPoints.FieldAsDateTime( "scd_out" ), "dd.mm" );
       }
       if ( prior_date.empty() || prior_date != str_d ) {
         prior_date = str_d;
-        prior_name.prms << PrmSmpl<string>("", " ") << PrmDate("", Qry.FieldAsDateTime( "scd_out" ), "dd.mm");
+        prior_name.prms << PrmSmpl<string>("", " ") << PrmDate("", QryPoints.FieldAsDateTime( "scd_out" ), "dd.mm");
         empty = false;
       }
-      dests.prms << PrmElem<string>("", etAirp, Qry.FieldAsString("airp"));
-      Qry.Next();
+      dests.prms << PrmElem<string>("", etAirp, QryPoints.FieldAsString("airp"));
+      QryPoints.Next();
     }
 
   for(vector<TSOPPTrip>::iterator j=trs.begin(); j!=trs.end(); j++ ) {
@@ -6216,10 +6216,12 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     }
   }
 
-    Qry.Clear();
-    Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.Execute();
+    DB::TQuery QryUpd(PgOra::getRWSession("POINTS"), STDLOG);
+    QryUpd.SQLText = "UPDATE points "
+                     "SET pr_del = -1 "
+                     "WHERE move_id = :move_id";
+    QryUpd.CreateVariable( "move_id", otInteger, move_id );
+    QryUpd.Execute();
   for (TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
     on_change_trip( CALL_POINT, i->point_id, ChangeTrip::DeleteISGTrips );
   }
@@ -6275,7 +6277,7 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
     //отмена вылета
     try
     {
-      DB::TQuery Qry(PgOra::getROSession("TRIP_SETS"), STDLOG);
+      DB::TQuery Qry(PgOra::getRWSession("TRIP_SETS"), STDLOG);
       Qry.SQLText =
         "UPDATE trip_sets SET "
         "pr_etstatus=0, "

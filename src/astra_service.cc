@@ -1199,11 +1199,8 @@ struct TBagData {
 
 void sync_checkin_data( int point_id )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
-  Qry.Execute();
-  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  TDateTime currdate = NowUTC();
+  modf(currdate, &currdate);
 
   TCheckinDataPointAddr point_addr;
   TSQLCondDates cond_dates;
@@ -1216,7 +1213,7 @@ void sync_checkin_data( int point_id )
   cond_dates.dates.insert( make_pair( "day1", currdate ) );
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
-};
+}
 
 void sync_checkin_data( )
 {
@@ -1643,11 +1640,8 @@ public:
 void sync_fids_data( )
 {
   ProgTrace( TRACE5, "sync_fids_data" );
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
-  Qry.Execute();
-  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  TDateTime currdate = NowUTC();
+  modf(currdate, &currdate);
 
   TFidsPointAddr point_addr;
   TSQLCondDates cond_dates;
@@ -1656,7 +1650,7 @@ void sync_fids_data( )
   cond_dates.dates.insert( make_pair( "day1", currdate ) );
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
-};
+}
 
 inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
                             xmlNodePtr node, const string &region )

@@ -5381,7 +5381,7 @@ void TBagRems::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TBagRems::get(TypeB::TDetailCreateInfo &info)
 {
-    TCachedQuery Qry(
+  std::string sql =
       "SELECT pax_grp.airp_arv, "
       "       bag2.list_id, "
       "       bag2.rfisc, "
@@ -5392,13 +5392,23 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "       bag_types.rem_code_lci, "
       "       SUM(bag2.amount) AS amount, "
       "       SUM(bag2.weight) AS weight "
-      "FROM pax_grp, bag2, bag_types "
-      "WHERE pax_grp.grp_id = bag2.grp_id AND "
-      "      pax_grp.point_dep = :point_id AND "
-      "      pax_grp.status NOT IN ('E') AND "
-      "      bag2.pr_cabin=0 AND "
-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 AND "
-      "      bag2.bag_type = bag_types.code(+) "
+      "FROM pax_grp "
+      "  JOIN (bag2 LEFT OUTER JOIN bag_types ON bag2.bag_type = bag_types.code) "
+      "    ON pax_grp.grp_id = bag2.grp_id "
+      "WHERE "
+      "  pax_grp.point_dep = :point_id "
+      "  AND pax_grp.status NOT IN ('E') "
+      "  AND bag2.pr_cabin = 0 ";
+  if(!DEMO_MODE()) {
+      sql +=
+          "  AND ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) = 0 ";
+  } else {
+      TST();
+      // ‚ DEMO … ‚›‡›‚€…Œ …Š’›… ”“Š–ˆˆ €Š…’‚ „ ……‚„€ ˆ• € c++
+      sql +=
+          "  AND 1=1, ";
+  }
+  sql +=
       "GROUP BY pax_grp.airp_arv, "
       "         bag2.list_id, "
       "         bag2.rfisc, "
@@ -5406,8 +5416,11 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "         bag2.bag_type_str, "
       "         bag2.service_type, "
       "         bag2.airline, "
-      "         bag_types.rem_code_lci",
-      QParams() << QParam("point_id", otInteger, info.point_id));
+      "         bag_types.rem_code_lci";
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX_GRP", "BAG2", "BAG_TYPES"}), sql,
+        QParams() << QParam("point_id", otInteger, info.point_id),
+        STDLOG);
 
     Qry.get().Execute();
 

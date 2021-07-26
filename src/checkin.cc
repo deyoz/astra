@@ -5406,15 +5406,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
         }
 
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getRWSession("PAX_GRP"), STDLOG);
         Qry.SQLText=
           "UPDATE pax_grp "
           "SET bag_refuse=:bag_refuse, "
-          "    trfer_confirm=NVL(:trfer_confirm,trfer_confirm), "
-          "    trfer_conflict=NVL(:trfer_conflict,trfer_conflict), "
-          "    inbound_confirm=NVL(:inbound_confirm,inbound_confirm), "
-          "    tid=cycle_tid__seq.nextval "
-          "WHERE grp_id=:grp_id AND tid=:tid";
+          "    trfer_confirm=COALESCE(:trfer_confirm,trfer_confirm), "
+          "    trfer_conflict=COALESCE(:trfer_conflict,trfer_conflict), "
+          "    inbound_confirm=COALESCE(:inbound_confirm,inbound_confirm), "
+          "    tid=:new_tid "
+          "WHERE grp_id=:grp_id AND tid=:tid ";
         Qry.DeclareVariable("grp_id",otInteger);
         Qry.DeclareVariable("tid",otInteger);
         Qry.DeclareVariable("bag_refuse",otInteger);
@@ -5435,6 +5435,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
           Qry.CreateVariable("inbound_confirm",otInteger,FNull);
 
+        int new_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+        Qry.CreateVariable("new_tid",otInteger,new_tid);
         Qry.Execute();
         if (Qry.RowsProcessed()<=0)
           throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
@@ -5446,8 +5448,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (!pr_unaccomp)
         {
-          TQuery PaxQry(&OraSession);
-          PaxQry.Clear();
+          DB::TQuery PaxQry(PgOra::getRWSession("PAX"), STDLOG);
           ostringstream sql;
           sql << "UPDATE pax SET ";
           if (reqInfo->client_type==ctTerm)
@@ -5478,11 +5479,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             PaxQry.DeclareVariable("bag_pool_num",otInteger);
           }
 
-          sql << "    is_female=DECODE(:doc_exists,0,is_female,:is_female), "
-                 "    refuse=:refuse, "
-                 "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
-                 "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
-                 "    tid=cycle_tid__seq.currval "
+          sql << "    is_female = CASE WHEN :doc_exists = 0 THEN is_female ELSE :is_female END, "
+                 "    refuse = :refuse, "
+                 "    pr_brd = CASE WHEN :refuse IS NULL THEN pr_brd ELSE NULL END, "
+                 "    pr_exam = CASE WHEN :refuse IS NULL THEN pr_exam ELSE 0 END, "
+                 "    tid=:new_tid "
                  "WHERE pax_id=:pax_id AND tid=:tid";
           PaxQry.DeclareVariable("doc_exists",otInteger);
           PaxQry.DeclareVariable("is_female",otInteger);
@@ -5493,13 +5494,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           PaxQry.SQLText=sql.str().c_str();
 
 
-          TQuery LayerQry(&OraSession);
-          LayerQry.Clear();
-          LayerQry.SQLText=
-            "DELETE FROM trip_comp_layers WHERE pax_id=:pax_id AND layer_type="
-            "(SELECT layer_type FROM pax,pax_grp,grp_status_types "
-            "  WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
-            "        pax_grp.status=grp_status_types.code)";
+          DB::TQuery LayerQry(PgOra::getRWSession({"TRIP_COMP_LAYERS", "PAX", "PAX_GRP", "GRP_STATUS_TYPES"}), STDLOG);
+          LayerQry.SQLText =
+            "DELETE FROM trip_comp_layers "
+            "WHERE pax_id=:pax_id AND layer_type= "
+            "(SELECT layer_type FROM pax, pax_grp, grp_status_types "
+            " WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
+            "       pax_grp.status=grp_status_types.code)";
           LayerQry.DeclareVariable("pax_id",otInteger);
 
           int pax_no=1;
@@ -5521,6 +5522,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                         ASTRA::cltProtAfterPay}, pax.id, tid);
                 }
                 pax.toDB(PaxQry);
+                PaxQry.CreateVariable("new_tid", otInteger, new_tid);
                 PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
                 int is_female=pax.is_female();
                 if (pax.DocExists && is_female!=NoExists)
@@ -5544,7 +5546,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
               else
               {
-                Qry.Clear();
+                DB::TQuery Qry(PgOra::getRWSession("PAX"), STDLOG);
                 sql.str("");
                 sql << "UPDATE pax SET ";
                 if (!inbound_group_bag.empty())
@@ -5553,11 +5555,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   sql << "    bag_pool_num=:bag_pool_num, ";
                   Qry.DeclareVariable("bag_pool_num",otInteger);
                 }
-                sql << "    tid=cycle_tid__seq.currval "
-                       "WHERE pax_id=:pax_id AND tid=:tid";
+                sql << "    tid=:new_tid "
+                       "WHERE pax_id=:pax_id AND tid=:tid ";
                 Qry.SQLText=sql.str().c_str();
-                Qry.DeclareVariable("pax_id",otInteger);
-                Qry.DeclareVariable("tid",otInteger);
+                Qry.DeclareVariable("pax_id", otInteger);
+                Qry.DeclareVariable("tid", otInteger);
+                Qry.CreateVariable("new_tid", otInteger, new_tid);
                 pax.toDB(Qry);
                 Qry.Execute();
                 if (Qry.RowsProcessed()<=0)
@@ -5978,7 +5981,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (overload_alarm)
       {
         //проверяем, а не было ли полной отмены регистрации группы по ошибке агента
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
         Qry.SQLText="SELECT grp_id FROM pax_grp WHERE grp_id=:grp_id";
         Qry.CreateVariable("grp_id",otInteger,grp.id);
         Qry.Execute();
@@ -6043,7 +6046,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (!pr_unaccomp && grp.status!=psCrew)
       {
         //посчитаем индекс группы подклассов
-        TQuery PaxQry(&OraSession);
+        DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP"}), STDLOG);
         PaxQry.SQLText=
           "SELECT pax.subclass, pax_grp.class "
           "FROM pax_grp, pax "
@@ -6076,7 +6079,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (!subclass_grp)
             throw EXCEPTIONS::Exception("%s: !subclass_grp!!!", __FUNCTION__);
 
-          TQuery Qry(&OraSession);
+          DB::TQuery Qry(PgOra::getRWSession({"PAX_GRP"}), STDLOG);
           Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
           Qry.CreateVariable("grp_id",otInteger,grp.id);
           Qry.CreateVariable("class_grp",otInteger,subclass_grp.get().value());

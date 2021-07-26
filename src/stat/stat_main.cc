@@ -1426,6 +1426,13 @@ void get_self_ckin_stat(const PointId_t& point_id)
   QryDel.CreateVariable("point_id", otInteger, point_id.get());
   QryDel.Execute();
 
+  if(DEMO_MODE())
+  {
+      // ‚ „…Œ •„ˆŒ ‘ ‘’€’ˆ‘’ˆŠˆ ‘’‰
+      TST();
+      return;
+  }
+
   std::map<SelfCkinStatKey,SelfCkinStatData> self_ckin_stat_map;
   DB::TQuery Qry(PgOra::getRWSession(
   {"BAG2","EVENTS_BILINGUAL","STATIONS","PAX","PAX_GRP","WEB_CLIENTS","DESKS","DESK_GRP","TCKIN_PAX_GRP"}), STDLOG);
