@@ -7563,8 +7563,7 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
         Qry.SQLText = "INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
                       "VALUES (:desk,:airline,:target,:tag_type,:color,:no) "
                       "ON CONFLICT (desk,airline,target) DO UPDATE "
-                      "SET tag_type=:tag_type, color=:color, no=:no "
-                      "WHERE desk=:desk AND airline=:airline AND target=:target";
+                      "SET tag_type=:tag_type, color=:color, no=:no";
         Qry.Execute();
     } else {
         Qry.SetVariable("no",FNull);
