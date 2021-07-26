@@ -192,20 +192,20 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     xmlFreeDoc( paxsDoc );
   }
-  TQuery Qry(&OraSession);
+  DB::TQuery QryAccess(PgOra::getROSession("MERIDIAN_AIRPS_OWNER"), STDLOG);
   std::set<std::string> accessAirps;
-  Qry.SQLText =
+  QryAccess.SQLText =
     "SELECT airp FROM meridian_airps_owner WHERE airline=:airline";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.Execute();
-  bool pr_airps = !Qry.Eof;
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    accessAirps.insert( Qry.FieldAsString( "airp" ) );
+  QryAccess.CreateVariable( "airline", otString, airline );
+  QryAccess.Execute();
+  bool pr_airps = !QryAccess.Eof;
+  for ( ;!QryAccess.Eof; QryAccess.Next() ) {
+    accessAirps.insert( QryAccess.FieldAsString( "airp" ) );
   }
-  Qry.Clear();
+  DB::TQuery QryAODB(PgOra::getROSession("AODB_PAX_CHANGE"), STDLOG);
   string sql_text =
     "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
-    " FROM aodb_pax_change "
+    "FROM aodb_pax_change "
     "WHERE time >= :time AND time <= :uptime ";
   if ( pr_airps ) {
       sql_text += " AND ( airline=:airline OR airp IN ";
@@ -215,15 +215,15 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     sql_text += " AND airline=:airline ";
   }
   sql_text += "ORDER BY time, pax_id, work_mode ";
-  Qry.SQLText = sql_text;
+  QryAODB.SQLText = sql_text;
   ProgTrace( TRACE5, "sql_text=%s", sql_text.c_str() );
   TDateTime nowUTC = NowUTC();
   if ( nowUTC - 1 > vdate )
     vdate = nowUTC - 1;
-  Qry.CreateVariable( "time", otDate, vdate );
-  Qry.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.Execute();
+  QryAODB.CreateVariable( "time", otDate, vdate );
+  QryAODB.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
+  QryAODB.CreateVariable( "airline", otString, airline );
+  QryAODB.Execute();
   TQuery PaxQry(&OraSession);
   PaxQry.SQLText =
        "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,"
@@ -253,7 +253,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       pax.wl_type IS NULL AND "
        "       pax.pax_id=pax_doc.pax_id(+) ";
   PaxQry.DeclareVariable( "pax_id", otInteger );
-  TQuery RemQry(&OraSession);
+  DB::TQuery RemQry(PgOra::getROSession("PAX_REM"), STDLOG);
   RemQry.SQLText =
     "SELECT rem FROM pax_rem WHERE pax_id=:pax_id";
   RemQry.DeclareVariable( "pax_id", otInteger );
@@ -289,17 +289,17 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   OutputLang outputLang(LANG_RU);
   // пробег по всем пассажирам у которых время больше или равно текущему
   int count_row = 0;
-  TQuery FltQry(&OraSession);
+  DB::TQuery FltQry(PgOra::getROSession("POINTS"), STDLOG);
   FltQry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
   FltQry.DeclareVariable( "point_id", otInteger );
-  for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
+  for ( ;!QryAODB.Eof && pax_count<=500; QryAODB.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
     count_row++;
-    int pax_id = Qry.FieldAsInteger( "pax_id" );
+    int pax_id = QryAODB.FieldAsInteger( "pax_id" );
     if ( pax_id == prior_pax_id ) // удаляем дублирование строки с одним и тем же pax_id для регистрации и посадки
       continue; // предыдущий пассажир он же и текущий
     prior_pax_id = pax_id;
-    int p_id = Qry.FieldAsInteger( "point_id" );
+    int p_id = QryAODB.FieldAsInteger( "point_id" );
     if ( trips.find( p_id ) == trips.end() ) {
       FltQry.SetVariable( "point_id", p_id );
       FltQry.Execute();
@@ -317,13 +317,13 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       continue;
     }
 
-    if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
+    if ( max_time != NoExists && max_time != QryAODB.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
       ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
                  DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),
                  DateTimeToStr( max_time, ServerFormatDateTimeAsString ).c_str() );
       Paxs.clear(); // изменилось время - удаляем всех предыдущих пассажиров с пред. временем
     }
-    max_time = Qry.FieldAsDateTime( "time" );
+    max_time = QryAODB.FieldAsDateTime( "time" );
     PaxQry.SetVariable( "pax_id", pax_id );
     PaxQry.Execute();
     if ( col_point_id < 0 ) {

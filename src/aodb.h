@@ -15,12 +15,10 @@ const std::string FILE_AODB_IN_TYPE = "AODBI";
 const std::string FILE_AODB_OUT_TYPE = "AODBO";
 
 bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
-//bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::string &point_addr, TFileDatas &fds );
-//bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fds );
 
 void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name,
-		      const std::string &airline, const std::string &airp,
-			    std::string &fd, const std::string &convert_aodb );
+                      const std::string &airline, const std::string &airp,
+                      std::string &fd, const std::string &convert_aodb );
 bool Get_AODB_overload_alarm( int point_id, int max_commerce );
 void Set_AODB_overload_alarm( int point_id, bool overload_alarm );
 
@@ -39,8 +37,7 @@ namespace AODB_POINTS {
   bool isDelete( int point_id );
   TDateTime getSCD_OUT( int point_id );
 }
-//void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
-//bool is_sync_aodb( int point_id );
+
 std::string getAODBFranchisFlight( int point_id, std::string &airline, const std::string &point_addr );
 
 #endif /*_AODB_H_*/

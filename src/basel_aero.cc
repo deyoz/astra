@@ -688,46 +688,35 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
 
   TRegEvents events;
   events.fromDB(part_key, point_id);
-  string bag_sql;
-  string bag_pc_sql;
-  TQuery BagQry(&OraSession);
-  TQuery TimeQry(&OraSession);
 
-    bag_sql=
-      "SELECT bag2.*, pax_grp.class "
-      "FROM pax_grp,bag2 "
-      "WHERE pax_grp.grp_id=bag2.grp_id AND "
-      "      pax_grp.grp_id=:grp_id ";
-    bag_pc_sql=
-      "SELECT bag2.* "
-      "FROM bag2 "
-      "WHERE bag2.grp_id=:grp_id ";
+  DB::TQuery TimeQry(PgOra::getROSession({"AODB_PAX_CHANGE","STATIONS"}), STDLOG);
+  TimeQry.SQLText =
+      "SELECT time,COALESCE(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
+      "FROM aodb_pax_change "
+      "  LEFT OUTER JOIN stations "
+      "    ON (aodb_pax_change.desk = stations.desk AND aodb_pax_change.work_mode = stations.work_mode) "
+      "WHERE "
+      "  pax_id = :pax_id "
+      "  AND aodb_pax_change.reg_no = :reg_no "
+      "  AND aodb_pax_change.work_mode = :work_mode ";
+  TimeQry.DeclareVariable("pax_id", otInteger);
+  TimeQry.DeclareVariable("reg_no", otInteger);
+  TimeQry.CreateVariable("work_mode", otString, "");
 
-    TimeQry.SQLText =
-      "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
-      " FROM aodb_pax_change,stations "
-      " WHERE pax_id=:pax_id AND aodb_pax_change.reg_no=:reg_no AND "
-      "       aodb_pax_change.work_mode=:work_mode AND "
-      "       aodb_pax_change.desk=stations.desk(+) AND aodb_pax_change.work_mode=stations.work_mode(+)";
-    TimeQry.DeclareVariable( "pax_id", otInteger );
-    TimeQry.DeclareVariable( "reg_no", otInteger );
-    TimeQry.CreateVariable( "work_mode", otString, "" );
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  ostringstream sql;
-  sql <<
-    "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
+  DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP"}), STDLOG);
+  Qry.SQLText =
+    "SELECT pax_grp.grp_id, pax_grp.class, COALESCE(pax_grp.piece_concept, 0) AS piece_concept, "
     "       pax_grp.bag_refuse, pax_grp.excess_wt, "
     "       pax.pax_id, pax.surname, pax.name, "
     "       pax.refuse, pax.pr_brd, pax.reg_no, pax.bag_pool_num "
-    "FROM pax_grp, pax "
-    "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      pax_grp.status NOT IN ('E') "
-    "ORDER BY pax.reg_no NULLS LAST, pax.seats DESC NULLS LAST";
-
-  Qry.SQLText=sql.str().c_str();
+    "FROM pax_grp "
+    "  LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+    "WHERE "
+    "  pax_grp.point_dep = :point_id "
+    "  AND pax_grp.status NOT IN ('E') "
+    "ORDER BY "
+    "  pax.reg_no NULLS LAST, "
+    "  pax.seats DESC NULLS LAST ";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   using namespace CKIN;
@@ -823,21 +812,28 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     };
 
     TPaidToLogInfo paidInfo;
-    BagQry.Clear();
+    DB::TQuery BagQry(PgOra::getROSession({"PAX_GRP","BAG2"}), STDLOG);
     BagQry.CreateVariable("grp_id", otInteger, stat.viewGroup);
     bool is_bag_pc = false;
     if (piece_concept && stat.pax_id!=NoExists)
     {
-      BagQry.SQLText=bag_pc_sql;
+      BagQry.SQLText =
+          "SELECT bag2.* "
+          "FROM bag2 "
+          "WHERE bag2.grp_id=:grp_id ";
       BagQry.CreateVariable("pax_id", otInteger, stat.pax_id);
       is_bag_pc = true;
     }
     else if (stat.pax_id==NoExists || viewEx.isMainPax(grp_id, PaxId_t(stat.pax_id)))
     {
-      BagQry.SQLText = bag_sql;
+      BagQry.SQLText =
+          "SELECT bag2.*, pax_grp.class "
+          "FROM pax_grp,bag2 "
+          "WHERE pax_grp.grp_id=bag2.grp_id AND "
+          "      pax_grp.grp_id=:grp_id ";
       is_bag_pc = false;
     };
-    if (!BagQry.SQLText.IsEmpty())
+    if (!BagQry.SQLText.empty())
     {
       if (is_bag_pc ||  (!is_bag_pc && !CKIN::get_bag_pool_refused(grp_id, opt_bag_pool_num.value_or(0),
                                         Qry.FieldAsString("class"), bag_refuse, std::nullopt))) {
@@ -897,8 +893,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       }
     }
     stats.push_back( stat );
-  };
-};
+  }
+}
 
 int arx_basel_stat(int argc, char **argv)
 {

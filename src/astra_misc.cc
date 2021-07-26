@@ -2390,27 +2390,39 @@ void updatePaxChange(const TTripInfo &fltInfo,
                      const RegNo_t& regNo,
                      const TermWorkingMode::Enum workMode)
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-     "BEGIN "
-     " UPDATE aodb_pax_change "
-     "  SET point_id=:point_id, airline=:airline, airp=:airp, desk=:desk, client_type=NVL(:client_type,client_type), time=:time "
-     " WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode; "
-     " IF SQL%NOTFOUND AND :client_type IS NOT NULL THEN "
-     "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time,airline,airp) "
-     "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time,:airline,:airp); "
-     " END IF; "
-     "END;";
-  Qry.CreateVariable( "pax_id", otInteger, paxId.get() );
-  Qry.CreateVariable( "reg_no", otInteger, regNo.get() );
-  Qry.CreateVariable( "work_mode", otString, termWorkingModes().encode(workMode) );
-  Qry.CreateVariable( "point_id", otInteger, fltInfo.point_id );
-  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
-  Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
-  Qry.CreateVariable( "time", otDate, NowUTC() );
-  Qry.CreateVariable( "airline", otString, fltInfo.airline );
-  Qry.CreateVariable( "airp", otString, fltInfo.airp );
-  Qry.Execute();
+  const std::string client_type = EncodeClientType(TReqInfo::Instance()->client_type);
+  QParams params;
+  params << QParam("pax_id", otInteger, paxId.get())
+         << QParam("reg_no", otInteger, regNo.get())
+         << QParam("work_mode", otString, termWorkingModes().encode(workMode))
+         << QParam("point_id", otInteger, fltInfo.point_id )
+         << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+         << QParam("client_type", otString, client_type)
+         << QParam("time", otDate, NowUTC())
+         << QParam("airline", otString, fltInfo.airline)
+         << QParam("airp", otString, fltInfo.airp);
+  DB::TCachedQuery updQry(
+        PgOra::getRWSession("AODB_PAX_CHANGE"),
+        "UPDATE aodb_pax_change SET "
+        "point_id=:point_id, "
+        "airline=:airline, "
+        "airp=:airp, "
+        "desk=:desk, "
+        "client_type=COALESCE(:client_type,client_type), "
+        "time=:time "
+        "WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode ",
+        params,
+        STDLOG);
+  updQry.get().Execute();
+  if (updQry.get().RowsProcessed() == 0 && !client_type.empty()) {
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("AODB_PAX_CHANGE"),
+          "INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time,airline,airp) "
+          "VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time,:airline,:airp) ",
+          params,
+          STDLOG);
+    insQry.get().Execute();
+  }
 }
 
 void update_flights_change( int point_id )

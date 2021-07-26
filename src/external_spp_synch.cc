@@ -218,30 +218,51 @@ void ToEvent( const std::string &airline, const std::string &type,
 {
   TDateTime filter_scd;
   modf(UTCToLocal( NowUTC(), TReqInfo::Instance()->desk.tz_region ),&filter_scd);
-  TQuery sQry( &OraSession );
-  sQry.SQLText =
-    "DECLARE "
-    " vrec_no aodb_events.rec_no%TYPE;"
-    "BEGIN "
-    " UPDATE aodb_spp_files SET rec_no=NVL(rec_no,-1)+1 "
-    "  WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline "
-    " RETURNING rec_no INTO vrec_no; "
-    " IF SQL%NOTFOUND THEN "
-    "   INSERT INTO aodb_spp_files(filename,point_addr,rec_no,airline) "
-    "    VALUES(:filename,:point_addr,0,:airline); "
-    "   vrec_no := 0;"
-    " END IF;"
-    " INSERT INTO aodb_events(filename,point_addr,rec_no,record,msg,type,time,airline) "
-    "  VALUES(:filename,:point_addr,vrec_no,:record,:msg,:type,:time,:airline);"
-    "END;";
-  sQry.CreateVariable( "filename", otString, DateTimeToStr( filter_scd, "SPPyymmdd.txt" ) );
-  sQry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
-  sQry.CreateVariable( "airline", otString, airline.empty()?"ЮТ":airline );
-  sQry.CreateVariable( "record", otString, record.substr(0,4000) );
-  sQry.CreateVariable( "msg", otString, msg.substr(0,1000) );
-  sQry.CreateVariable( "type", otString, type );
-  sQry.CreateVariable( "time", otDate, NowUTC() );
-  sQry.Execute();
+  QParams params;
+  params << QParam("filename", otString, DateTimeToStr(filter_scd, "SPPyymmdd.txt"))
+             << QParam("point_addr", otString, TReqInfo::Instance()->desk.code)
+             << QParam("airline", otString, airline.empty()?"ЮТ":airline);
+  DB::TCachedQuery lockQry(
+        PgOra::getRWSession("AODB_SPP_FILES"),
+        "SELECT (COALESCE(rec_no,-1) + 1) AS rec_no "
+        "FROM aodb_spp_files "
+        "WHERE filename=:filename "
+        "AND point_addr=:point_addr "
+        "AND airline=:airline "
+        "FOR UPDATE ",
+        params, STDLOG);
+  lockQry.get().Execute();
+  int rec_no = 0;
+  if (lockQry.get().Eof) {
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("AODB_SPP_FILES"),
+          "INSERT INTO aodb_spp_files(filename,point_addr,rec_no,airline) "
+          "VALUES(:filename,:point_addr,:rec_no,:airline) ",
+          params << QParam("rec_no", otInteger, rec_no),
+          STDLOG);
+    insQry.get().Execute();
+  } else {
+    rec_no = lockQry.get().FieldAsInteger("rec_no");
+    DB::TCachedQuery updQry(
+          PgOra::getRWSession("AODB_SPP_FILES"),
+          "UPDATE aodb_spp_files "
+          "SET rec_no=:rec_no "
+          "WHERE filename=:filename "
+          "AND point_addr=:point_addr "
+          "AND airline=:airline ",
+          params << QParam("rec_no", otInteger, rec_no),
+          STDLOG);
+    updQry.get().Execute();
+  }
+  DB::TCachedQuery insQry(
+        PgOra::getRWSession("AODB_EVENTS"),
+        "INSERT INTO aodb_events(filename,point_addr,rec_no,record,msg,type,time,airline) "
+        "VALUES(:filename,:point_addr,:rec_no,:record,:msg,:type,:time,:airline) ",
+        params << QParam("msg", otString, msg.substr(0,1000))
+               << QParam("type", otString, type)
+               << QParam("time", otDate, NowUTC()),
+        STDLOG);
+  insQry.get().Execute();
 }
 
 void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -378,11 +399,12 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
 {
   ProgTrace( TRACE5, "saveFlights" );
-  TQuery uQry( &OraSession );
+  DB::TQuery uQry(PgOra::getROSession({"POINTS", "AODB_POINTS"}), STDLOG);
   uQry.SQLText =
-    "SELECT p.point_id, point_num FROM points p, aodb_points a"
-    " WHERE p.point_id=a.point_id AND p.move_id=:move_id AND airp=:airp AND a.pr_del<>-1"
-    " ORDER BY point_num";
+    "SELECT p.point_id, point_num "
+    "FROM points p, aodb_points a"
+    "WHERE p.point_id=a.point_id AND p.move_id=:move_id AND airp=:airp AND a.pr_del <> -1"
+    "ORDER BY point_num";
   uQry.DeclareVariable( "move_id", otInteger );
   uQry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp );
   bool isSCDINEmptyN = false;
@@ -424,15 +446,9 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         c.code = ElemCtxtToElemId( ecDisp, etAirp, fl_in->second.own_airp, c.fmt, false );
         airps.push_back( c );
         airps.insert( airps.end(), fl_in->second.airps_out.begin(), fl_in->second.airps_out.end() );
-  /*      for ( vector<TElemStruct>::iterator iairp= airps.begin(); iairp!= airps.end(); iairp++ ) {*/
-          pr_land = points.isDouble( ASTRA::NoExists, airline, flt_no, suffix, airp, scd_in, ASTRA::NoExists, doubleMove_id, doublePoint_id );
-          ProgTrace( TRACE5, "fl_in found: airline=%s, flt_no=%d, airp=%s, scd_in=%s, pr_land=%d",
-                     airline.c_str(), flt_no, airp.c_str(), DateTimeToStr( scd_in ).c_str(), pr_land );
-  /*        if ( pr_land ) {
-            tst();
-            break;
-          }
-        }*/
+        pr_land = points.isDouble( ASTRA::NoExists, airline, flt_no, suffix, airp, scd_in, ASTRA::NoExists, doubleMove_id, doublePoint_id );
+        ProgTrace( TRACE5, "fl_in found: airline=%s, flt_no=%d, airp=%s, scd_in=%s, pr_land=%d",
+                   airline.c_str(), flt_no, airp.c_str(), DateTimeToStr( scd_in ).c_str(), pr_land );
       }
       if ( fl_out != iflight->second.end() && fl_out->second.is_valid() ) {
         tst();
@@ -447,25 +463,10 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         c.code = ElemCtxtToElemId( ecDisp, etAirp, fl_out->second.own_airp, c.fmt, false );
         airps.push_back( c );
         airps.insert( airps.end(), fl_out->second.airps_out.begin(), fl_out->second.airps_out.end() );
-        /*for ( vector<TElemStruct>::iterator iairp= airps.begin(); iairp!= airps.end(); iairp++ ) {*/
         pr_takeoff = points.isDouble( ASTRA::NoExists, airline, flt_no, suffix, airp, ASTRA::NoExists, scd_out, doubleMove_id, doublePoint_id );
         ProgTrace( TRACE5, "fl_out found: airline=%s, flt_no=%d, airp=%s, scd_out=%s, pr_takeoff=%d",
                    airline.c_str(), flt_no, airp.c_str(), DateTimeToStr( scd_out ).c_str(), pr_takeoff );
-/*        if ( pr_takeoff ) {
-          tst();
-          break;
-        }
-      }  */
       }
-/*    if ( pr_land || pr_takeoff ) {
-      if ( fl_in != iflight->second.end() ) {
-        ProgTrace( TRACE5, "flight landing not writed %s", fl_in->second.key().c_str() );
-      }
-      if ( fl_out != iflight->second.end() ) {
-        ProgTrace( TRACE5, "flight takeoff not writed %s", fl_out->second.key().c_str() );
-      }
-      continue;
-    }*/
       bool pr_own = false;
       TPointDests dests;
       if ( doubleMove_id != ASTRA::NoExists ) {
@@ -890,7 +891,6 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
   prop += NodeAsStringFast( "flight_no", flightNode );
   prop += NodeAsStringFast( "suffix", flightNode, "" );
   TCheckerFlt checkerFlt;
-  TQuery Qry(&OraSession);
   TElemStruct elem;
   ProgTrace(TRACE5,"check fltNo");
   TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::etExtAODB );
@@ -984,7 +984,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
       }
       std::string work_mode = NodeAsString( propNode );
       try {
-        TSOPPStation station = checkerFlt.checkStation( airp, terminal, name, work_mode, TCheckerFlt::etNormal, Qry );
+        TSOPPStation station = checkerFlt.checkStation( airp, terminal, name, work_mode, TCheckerFlt::etNormal);
         dest.stations.emplace_back( station );
       }
       catch( EConvertError &e ) {
@@ -1139,7 +1139,6 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
   bool pr_takeoff;
   bool pr_charter_range = false;
   bool pr_charter_setSCD = false;
-  TQuery Qry(&OraSession);
   TPointsDest d;
   {
     std::vector<TPointsDest>::iterator idest;
@@ -1164,13 +1163,13 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
        pr_takeoff &&
        d.scd_out != ASTRA::NoExists ) { // возможно это рейс, который в Синхроне удален и добавлен заново с новым плановым временем вылета
     tst();
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery QryAODB(PgOra::getROSession("AODB_POINTS"), STDLOG);
+    QryAODB.SQLText =
       "SELECT point_id FROM aodb_points WHERE aodb_point_id=:aodb_point_id";
-    Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
-    Qry.Execute();
+    QryAODB.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+    QryAODB.Execute();
     TAdvTripInfo astraFlt;
-    if ( Qry.Eof ) { //рейс не найден
+    if ( QryAODB.Eof ) { //рейс не найден
       ConnectSinchronAstraCharterFlight searchAstraFlt;
       TAdvTripInfo sinchronFlt;
       sinchronFlt.airline = d.airline;
@@ -1181,16 +1180,16 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       searchAstraFlt.search( range_hours, sinchronFlt, astraFlt );
     }
     else {
-      astraFlt.point_id = Qry.FieldAsInteger( "point_id" );
+      astraFlt.point_id = QryAODB.FieldAsInteger( "point_id" );
     }
     if ( astraFlt.point_id != ASTRA::NoExists ) {
       pr_find = true;
-      Qry.Clear();
-      Qry.SQLText =
+      DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+      QryPoint.SQLText =
         "SELECT move_id FROM points WHERE point_id=:point_id";
-      Qry.CreateVariable( "point_id", otInteger, astraFlt.point_id );
-      Qry.Execute();
-      points.move_id = Qry.FieldAsInteger( "move_id" );
+      QryPoint.CreateVariable( "point_id", otInteger, astraFlt.point_id );
+      QryPoint.Execute();
+      points.move_id = QryPoint.FieldAsInteger( "move_id" );
       pr_charter_setSCD = true;
       pr_charter_range = true;
       ProgTrace( TRACE5, "astraFlt.point_id=%d, pr_charter_range", astraFlt.point_id );

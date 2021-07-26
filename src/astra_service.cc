@@ -486,23 +486,33 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
       TDateTime d = UTCToLocal( NowUTC(), region );
       string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
       fileparams[ PARAM_FILE_NAME ] = filename;
-      TQuery Qry(&OraSession);
-      Qry.SQLText =
-       "BEGIN "
-       " SELECT rec_no INTO :rec_no FROM aodb_spp_files "
-       "  WHERE filename=:filename AND point_addr=:point_addr AND NVL(airline,'Z')=NVL(:airline,'Z');"
-       " EXCEPTION WHEN NO_DATA_FOUND THEN "
-       " BEGIN "
-       "  :rec_no := -1; "
-       "  INSERT INTO aodb_spp_files(filename,point_addr,airline,rec_no) VALUES(:filename,:point_addr,:airline,:rec_no); "
-       " END;"
-       "END;";
-      Qry.CreateVariable( "filename", otString, filename );
-      Qry.CreateVariable( "point_addr", otString, client_canon_name );
-      Qry.CreateVariable( "airline", otString, airline );
-      Qry.DeclareVariable( "rec_no", otInteger );
-      Qry.Execute();
-      fileparams[ PARAM_FILE_REC_NO ] = Qry.GetVariableAsString( "rec_no" );
+      QParams params;
+      params << QParam("filename", otString, filename)
+             << QParam("point_addr", otString, client_canon_name)
+             << QParam("airline", otString, airline);
+      DB::TCachedQuery Qry(
+            PgOra::getROSession("AODB_SPP_FILES"),
+            "SELECT rec_no "
+            "FROM aodb_spp_files "
+            "WHERE filename=:filename "
+            "AND point_addr=:point_addr "
+            "AND COALESCE(airline,'Z')=COALESCE(:airline,'Z')",
+            params,
+            STDLOG);
+      Qry.get().Execute();
+      int rec_no = -1;
+      if (Qry.get().Eof) {
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("AODB_SPP_FILES"),
+              "INSERT INTO aodb_spp_files(filename,point_addr,airline,rec_no) "
+              "VALUES(:filename,:point_addr,:airline,:rec_no) ",
+              params << QParam("rec_no", otInteger, rec_no),
+              STDLOG);
+        insQry.get().Execute();
+      } else {
+        rec_no = Qry.get().FieldAsInteger("rec_no");
+      }
+      fileparams[ PARAM_FILE_REC_NO ] = rec_no;
     }
     buildFileParams( dataNode, fileparams );
     sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", new_id );
@@ -1813,7 +1823,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
 void AstraServiceInterface::getAodbFiles( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("AODB_SPP_FILES"), STDLOG);
     Qry.SQLText = "SELECT filename, point_addr, airline FROM aodb_spp_files";
     Qry.Execute();
     xmlNodePtr node = NewTextChild( resNode, "files" );
@@ -1832,11 +1842,12 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     string filename = NodeAsString( "filename", reqNode );
     string point_addr = NodeAsString( "point_addr", reqNode );
     string airline = NodeAsString( "airline", reqNode );
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("AODB_EVENTS"), STDLOG);
     Qry.SQLText =
-    "SELECT rec_no, record, msg, type, time FROM aodb_events "
-    " WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline"
-    " ORDER BY rec_no ";
+    "SELECT rec_no, record, msg, type, time "
+    "FROM aodb_events "
+    "WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline "
+    "ORDER BY rec_no ";
     Qry.CreateVariable( "filename", otString, filename );
     Qry.CreateVariable( "point_addr", otString, point_addr );
     Qry.CreateVariable( "airline", otString, airline );

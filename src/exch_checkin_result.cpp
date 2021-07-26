@@ -214,8 +214,8 @@ namespace EXCH_CHECKIN_RESULT
     ChangePaxIdsDBData() {
       clear();
     }
-    void initChangePaxIdsData( TQuery &ChangePaxIdsQry );
-    void createSQLRequest( const Request &request, TQuery &ChangePaxIdsQry  );
+    void initChangePaxIdsData( DB::TQuery &ChangePaxIdsQry );
+    void createSQLRequest( const Request &request, DB::TQuery &ChangePaxIdsQry  );
   };
 
   struct ChangeFlightsDBData {
@@ -329,7 +329,7 @@ namespace EXCH_CHECKIN_RESULT
       PaxQry.DeclareVariable( "pax_id", otInteger );
     }
     int getFltNo( int point_id );
-    bool getFlightInfo( int point_id, TQuery &FltQry );
+    bool getFlightInfo( int point_id, DB::TQuery &FltQry );
     void getPaxTids( TQuery &PaxQry, PaxData &paxData );
     void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData );
     bool virtual is_sync( const TTripInfo &flight ) {
@@ -386,7 +386,7 @@ namespace EXCH_CHECKIN_RESULT
     col_time = (col_time = PaxQry.GetFieldIndex( "time" )) >= 0 ?col_time:ASTRA::NoExists;
   }
 
-  void ChangePaxIdsDBData::initChangePaxIdsData( TQuery &Qry )
+  void ChangePaxIdsDBData::initChangePaxIdsData( DB::TQuery &Qry )
   {
     clear();
     Qry.Execute();
@@ -395,11 +395,11 @@ namespace EXCH_CHECKIN_RESULT
     col_time  = (col_time = Qry.GetFieldIndex( "time" )) >= 0 ?col_time:ASTRA::NoExists;
   }
 
-  void ChangePaxIdsDBData::createSQLRequest( const Request &request, TQuery &ChangePaxIdsQry )
+  void ChangePaxIdsDBData::createSQLRequest( const Request &request, DB::TQuery &ChangePaxIdsQry )
   {
     string sql_text =
       "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
-      " FROM aodb_pax_change "
+      "FROM aodb_pax_change "
       "WHERE time >= :time AND time <= :uptime ";
     if ( !request.airlines.empty() ||
          !request.airps.empty() ) {
@@ -466,7 +466,7 @@ namespace EXCH_CHECKIN_RESULT
     initChangeFlightsData( Qry );
   }
 
-  bool PaxDBData::getFlightInfo( int point_id, TQuery &FltQry )
+  bool PaxDBData::getFlightInfo( int point_id, DB::TQuery &FltQry )
   {
     std::map<int,TTripInfo>::const_iterator iflt = trips.find( point_id );
     if ( iflt == trips.end() ) {
@@ -824,10 +824,10 @@ namespace EXCH_CHECKIN_RESULT
     xmlNodePtr node = docPaxs->children;
     fromContext( request );
     ChangePaxIdsDBData changePaxIdsDBData;
-    TQuery changePaxIdsQry(&OraSession);
+    DB::TQuery changePaxIdsQry(PgOra::getROSession("AODB_PAX_CHANGE"), STDLOG);
     TDateTime nowUTC = NowUTC();
     request.lastRequestTime  = ((request.lastRequestTime < nowUTC - 1.0/24.0)? nowUTC - 1.0/24.0:request.lastRequestTime);
-    changePaxIdsDBData.createSQLRequest( request, changePaxIdsQry );
+    changePaxIdsDBData.createSQLRequest(request, changePaxIdsQry);
     PaxDBData paxDBData;
     TQuery PaxQry(&OraSession);
     paxDBData.createSQLRequest( PaxQry );
@@ -836,9 +836,11 @@ namespace EXCH_CHECKIN_RESULT
     int count_row = 0;
     int pax_count = 0;
     TDateTime max_time = ASTRA::NoExists;
-    TQuery FltQry(&OraSession);
+    DB::TQuery FltQry(PgOra::getROSession("POINTS"), STDLOG);
     FltQry.SQLText =
-      "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+      "SELECT airline,flt_no,suffix,airp,scd_out "
+      "FROM points "
+      "WHERE point_id=:point_id";
     FltQry.DeclareVariable( "point_id", otInteger );
     for ( ;!changePaxIdsQry.Eof && pax_count<=MQRABBIT_TRANSPORT::MAX_SEND_PAXS; changePaxIdsQry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
       count_row++;
@@ -873,12 +875,8 @@ namespace EXCH_CHECKIN_RESULT
       if ( itid != end() &&
            itid->second.pax_tid == paxData.tids.pax_tid &&
            itid->second.grp_tid == paxData.tids.grp_tid ) {
-        //ProgTrace( TRACE5, "itid->second.pax_tid=%d, itid->second.grp_tid =%d",  itid->second.pax_tid, itid->second.grp_tid );
         continue; // уже передавали пассажира
       }
-//      if ( itid != end() ) {
-//        ProgTrace( TRACE5, "itid->second.pax_tid=%d, itid->second.grp_tid =%d",  itid->second.pax_tid, itid->second.grp_tid );
-//      }
       // пассажира не передавали или он изменился
       std::pair<std::map<int,EXCH_CHECKIN_RESULT::Tids>::iterator, bool> ret;
       ret = insert( make_pair( pax_id, paxData.tids ) );

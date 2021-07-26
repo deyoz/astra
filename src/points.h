@@ -307,12 +307,9 @@ class TCheckerFlt {
     BASIC::date_time::TDateTime checkLocalTime( const std::string &value,
                                                 const std::string &region, const std::string stage,
                                                 bool empty_value_exception);
-    TSOPPStation checkStation( const std::string airp, int terminal,
-                               const std::string &value1, const std::string value2,
-                               CheckMode mode );
-    TSOPPStation checkStation( const std::string airp, int terminal,
-                               const std::string &value1, const std::string value2,
-                               CheckMode mode, TQuery &Qry );
+    TSOPPStation checkStation(const std::string airp, int terminal,
+                              const std::string &value1, const std::string value2,
+                              CheckMode mode);
 };
 
 class TPointsDest {

@@ -288,17 +288,9 @@ BASIC::date_time::TDateTime TCheckerFlt::checkLocalTime( const std::string &valu
   return res;
 }
 
-TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
-                                        const std::string &value1, const std::string value2,
-                                        CheckMode mode )
-{
-  TQuery Qry(&OraSession);
-  return checkStation( airp, terminal, value1, value2, mode, Qry );
-}
-
-TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
-                                        const std::string &value1, const std::string value2,
-                                        CheckMode mode, TQuery &Qry )
+TSOPPStation TCheckerFlt::checkStation(const std::string airp, int terminal,
+                                       const std::string &value1, const std::string value2,
+                                       CheckMode mode)
 {
   TSOPPStation station;
   station.name = value1;
@@ -309,19 +301,21 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
     throw EConvertError( "Ошибка формата номера стойки, значение='%s'", value1.c_str() ); //!!!
   if ( !TSOPPStation::isGate(station.work_mode) && !TSOPPStation::isTerm(station.work_mode) )
     throw EConvertError( "Ошибка формата типа стойки, значение='%s'", value2.c_str() );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"STATIONS","AODB_STATIONS"}), STDLOG);
   Qry.SQLText =
-    "SELECT desk, name, 2 as lvl FROM stations "
-    " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
-    " UNION "
-    "SELECT desk, s.name, 1 FROM aodb_stations a, stations s WHERE "
-    " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
-    " a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
-    " ORDER BY lvl";
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.CreateVariable( "work_mode", otString, station.work_mode );
-  Qry.CreateVariable( "code", otString, station.name );
-  Qry.CreateVariable( "terminal", otInteger, terminal );
+    "SELECT desk, name, 2 as lvl "
+    "FROM stations "
+    "WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
+    "UNION "
+    "SELECT desk, s.name, 1 "
+    "FROM aodb_stations a, stations s "
+    "WHERE a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
+    "a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
+    "ORDER BY lvl";
+  Qry.CreateVariable("airp", otString, airp);
+  Qry.CreateVariable("work_mode", otString, station.work_mode);
+  Qry.CreateVariable("code", otString, station.name);
+  Qry.CreateVariable("terminal", otInteger, terminal);
   Qry.Execute();
   string term_name;
   if ( !Qry.RowCount() && mode != etNormal ) {
