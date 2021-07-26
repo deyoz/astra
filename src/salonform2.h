@@ -1,4 +1,4 @@
-#ifndef _SALONSFORM2_H_
+#ifndef _SALONFORM2_H_
 #define _SALONFORM2_H_
 
 #include <libxml/tree.h>

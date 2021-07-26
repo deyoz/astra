@@ -104,19 +104,7 @@ class Setting
          .def(setting.text_lat);
     }
 
-    Setting& afterFetchProcessing()
-    {
-        brand = boost::make_optional<TBrand::Key>(!brand_airline.empty() && !brand_code.empty(),
-                                                  TBrand::Key(AirlineCode_t(brand_airline), brand_code));
-
-        tierLevel = boost::make_optional<TierLevelKey>(!fqt_airline.empty() && !fqt_tier_level.empty(),
-                                                       TierLevelKey(AirlineCode_t(fqt_airline), fqt_tier_level));
-
-        fqtShouldNotExists = fqt_airline.empty() && !fqt_tier_level.empty();
-
-      return *this;
-    }
-
+    Setting& afterFetchProcessing();
 };
 
 typedef std::set<Setting> Settings;

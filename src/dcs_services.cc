@@ -24,6 +24,25 @@ std::ostream& operator<<(std::ostream& os, const SettingsFilter& filter)
   return os;
 }
 
+    Setting& Setting::afterFetchProcessing()
+    {
+      if (!brand_airline.empty() && !brand_code.empty())
+        brand=boost::in_place(AirlineCode_t(brand_airline), brand_code);
+      else
+        brand=boost::none;
+
+      if (!fqt_airline.empty() && !fqt_tier_level.empty())
+        tierLevel=boost::in_place(AirlineCode_t(fqt_airline), fqt_tier_level);
+      else
+        tierLevel=boost::none;
+
+      if (fqt_airline.empty() && !fqt_tier_level.empty())
+        fqtShouldNotExists=true;
+      else
+        fqtShouldNotExists=false;
+
+      return *this;
+    }
 std::ostream& operator<<(std::ostream& os, const Setting& setting)
 {
   os << "  id: " << setting.id;
