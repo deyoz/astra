@@ -7,9 +7,6 @@
 #include "cache_callbacks.h"
 #include "astra_utils.h"
 
-namespace CacheTable
-{
-
 enum class AccessControl { PermittedAirports,
                            PermittedAirportsOrNull,
                            PermittedAirlines,
@@ -21,6 +18,10 @@ std::string getSQLFilter(const std::string& sqlFieldName, const AccessControl ac
 
 bool isPermitted(const std::optional<AirportCode_t>& airportOpt);
 bool isPermitted(const std::optional<AirlineCode_t>& airlineOpt);
+bool isPermitted(const std::optional<CityCode_t>& cityOpt);
+
+namespace CacheTable
+{
 
 void checkAirportAccess(const std::string& fieldName,
                         const std::optional<CacheTable::Row>& oldRow,

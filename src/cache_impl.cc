@@ -55,6 +55,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="TRIP_BAG_RATES2")     return new CacheTable::TripBagRates(false);
   if (cacheCode=="TRIP_VALUE_BAG_TAXES")     return new CacheTable::TripValueBagTaxes;
   if (cacheCode=="TRIP_EXCHANGE_RATES")      return new CacheTable::TripExchangeRates;
+  if (cacheCode=="AIRLINE_PROFILES")    return new CacheTable::AirlineProfiles;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -1906,6 +1907,76 @@ void TripExchangeRates::onSelectOrRefresh(const TParams& sqlParams, CacheTable::
         .setFromString  (airline.get())
         .addRow();
   }
+}
+
+//AirlineProfiles
+
+bool AirlineProfiles::userDependence() const {
+  return true;
+}
+std::string AirlineProfiles::selectSql() const {
+  return
+   "SELECT profile_id, name, airline, airp "
+   "FROM airline_profiles "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirports) +
+   "ORDER BY name, airline, airp";
+}
+std::string AirlineProfiles::insertSql() const {
+  return "INSERT INTO airline_profiles(profile_id, name, airline, airp) "
+         "VALUES(:profile_id, :name, :airline, :airp)";
+}
+std::string AirlineProfiles::updateSql() const {
+  return "UPDATE airline_profiles "
+         "SET name = :name, airline = :airline, airp = :airp "
+         "WHERE profile_id=:OLD_profile_id";
+}
+std::string AirlineProfiles::deleteSql() const {
+  return "DELETE FROM airline_profiles WHERE profile_id=:OLD_profile_id";
+}
+
+std::list<std::string> AirlineProfiles::dbSessionObjectNames() const {
+  return {"AIRLINE_PROFILES"};
+}
+
+void AirlineProfiles::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("profile_id", status, newRow);
+
+  if (status==usDeleted)
+  {
+    auto cur=make_db_curs("SELECT id FROM profile_rights WHERE profile_id=:profile_id FOR UPDATE",
+                          PgOra::getRWSession("PROFILE_RIGHTS"));
+
+    int id;
+    cur.stb()
+       .def(id)
+       .bind(":profile_id", oldRow.value().getAsInteger_ThrowOnEmpty("profile_id"))
+       .exec();
+
+    while (!cur.fen())
+    {
+      auto del=make_db_curs("DELETE FROM profile_rights WHERE id=:id",
+                            PgOra::getRWSession("PROFILE_RIGHTS"));
+
+      del.bind(":id", id)
+         .exec();
+
+      HistoryTable("profile_rights").synchronize(RowId_t(id));
+    }
+  }
+}
+
+void AirlineProfiles::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("airline_profiles").synchronize(getRowId("profile_id", oldRow, newRow));
 }
 
 } //namespace CacheTables

@@ -10,6 +10,7 @@
 #include "qrys.h"
 #include "db_tquery.h"
 #include "PgOraConfig.h"
+#include "cache_access.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -51,18 +52,21 @@ string get_rights_table(TRightListType rlt)
     return table;
 }
 
-int checkProfileAccess(int profile_id, int user_id, int err_code)
+void checkProfileAccess(int profile_id, int err_code)
 {
-  TQuery Qry(&OraSession, STDLOG);
+  DB::TQuery Qry(PgOra::getROSession("AIRLINE_PROFILES"), STDLOG);
   Qry.SQLText =
-      "BEGIN "
-      "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,:err_code); "
-      "END;";
+      "SELECT airline, airp FROM airline_profiles WHERE profile_id=:profile_id";
   Qry.CreateVariable("profile_id", otInteger, profile_id);
-  Qry.CreateVariable("user_id", otInteger, user_id);
-  Qry.CreateVariable("err_code", otInteger, err_code);
   Qry.Execute();
-  return Qry.GetVariableAsInteger("profile_id");;
+  if (Qry.Eof) return;
+
+  bool permitted=isPermitted(AirlineCode_t(Qry.FieldAsString("airline"))) &&
+                 isPermitted(AirportCode_t(Qry.FieldAsString("airp")));
+
+  if (!permitted)
+    throw UserException(err_code==1?"MSG.ACCESS.NO_PERM_ENTER_AIRLINE_PROFILE":
+                                    "MSG.ACCESS.NO_PERM_MODIFY_AIRLINE_PROFILE");
 }
 
 int checkRightAccess(int right_id, int user_id, int err_code)
@@ -151,7 +155,7 @@ void AccessInterface::SaveProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
         if (!error_msg_code) {
           continue;
         }
-        profile_id = checkProfileAccess(profile_id, info.user.user_id, *error_msg_code);
+        checkProfileAccess(profile_id, *error_msg_code);
         right_id = checkRightAccess(right_id, info.user.user_id, *error_msg_code);
         if (state == rsOn) {
           const int new_id = saveProfileRights(profile_id, right_id);
@@ -377,7 +381,7 @@ void AccessInterface::GetProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void AccessInterface::ProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession({"PROFILE_RIGHTS", "RIGHTS_LIST"}),
         "select "
         "   rights_list.ida, "
         "   rights_list.name, "
@@ -388,13 +392,13 @@ void AccessInterface::ProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "where "
         "   profile_rights.profile_id = :profile_id and "
         "   profile_rights.right_id=rights_list.ida and "
-        "   adm.check_profile_aro_access(profile_rights.profile_id, :user_id)<>0 "
+        + getSQLFilter("profile_rights.airline", AccessControl::PermittedAirlines) + " AND "
+        + getSQLFilter("profile_rights.airp",    AccessControl::PermittedAirports) +
         "order by "
         "   ida ",
         QParams()
-        << QParam("profile_id", otInteger, NodeAsInteger("profile_id", reqNode))
-        << QParam("user_id", otInteger, info.user.user_id)
-        );
+        << QParam("profile_id", otInteger, NodeAsInteger("profile_id", reqNode)),
+        STDLOG);
     Qry.get().Execute();
     xmlNodePtr profileRightsNode = NULL;
     for(; !Qry.get().Eof; Qry.get().Next()) {

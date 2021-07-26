@@ -414,21 +414,6 @@ BEGIN
   RETURN vright_id;
 END check_right_access;
 
-FUNCTION check_profile_aro_access(vprofile_id IN airline_profiles.profile_id%TYPE,
-                           vuser_id IN users2.user_id%TYPE) return number
-is
-vairline airlines.code%TYPE;
-vairp airps.code%TYPE;
-begin
-  SELECT airline,airp INTO vairline,vairp FROM airline_profiles WHERE profile_id=vprofile_id;
-  if check_airline_access(vairline,vuser_id)<>0 AND
-     check_airp_access(vairp,vuser_id)<>0 then
-    return 1;
-  else
-    return 0;
-  end if;
-end check_profile_aro_access;
-
 FUNCTION check_role_aro_access(vrole_id IN roles.role_id%TYPE,
                            vuser_id IN users2.user_id%TYPE,
                            view_only IN BOOLEAN) RETURN NUMBER
@@ -560,23 +545,6 @@ IS
 BEGIN
   RETURN check_role_access(vrole_id,vuser_id,FALSE);
 END check_role_access;
-
-FUNCTION check_profile_access(vprofile_id IN airline_profiles.profile_id%TYPE,
-                           vuser_id IN users2.user_id%TYPE,
-                           vexception IN NUMBER) RETURN airline_profiles.profile_id%TYPE
-is
-begin
-  IF check_profile_aro_access(vprofile_id,vuser_id)=0 THEN
-    IF vexception<>0 THEN
-      IF vexception=1 THEN
-        system.raise_user_exception('MSG.ACCESS.NO_PERM_ENTER_AIRLINE_PROFILE');
-      ELSE
-        system.raise_user_exception('MSG.ACCESS.NO_PERM_MODIFY_AIRLINE_PROFILE');
-      END IF;
-    END IF;
-  END IF;
-  RETURN vprofile_id;
-end check_profile_access;
 
 FUNCTION check_role_access(vrole_id IN roles.role_id%TYPE,
                            vuser_id IN users2.user_id%TYPE,

@@ -11,9 +11,6 @@ using namespace std;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
 
-namespace CacheTable
-{
-
 TAccessElems<CityCode_t> getCitiesAccess(const TAccessElems<std::string>& airpsAccess)
 {
   TAccessElems<CityCode_t> citiesAccess;
@@ -109,6 +106,9 @@ bool isPermitted(const std::optional<CityCode_t>& cityOpt)
   else
     return cityAccess.totally_permitted();
 }
+
+namespace CacheTable
+{
 
 void checkAirportAccess(const std::string& fieldName,
                         const std::optional<CacheTable::Row>& oldRow,
