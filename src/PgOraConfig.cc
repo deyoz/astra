@@ -247,7 +247,9 @@ namespace PgOra
         { "SP_PG_GROUP_TASKS", {
                 "TASKS",
         }},
-
+        { "SP_PG_GROUP_TAG_PACKS", {
+                "TAG_PACKS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

@@ -98,8 +98,7 @@ using Ticketing::RemoteSystemContext::DcsSystemContext;
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //load tag packs
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TAG_PACKS"), STDLOG);
   Qry.SQLText="SELECT airline,target,tag_type,no,color FROM tag_packs WHERE desk=:desk";
   Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
   Qry.Execute();
@@ -7545,23 +7544,7 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
   node=GetNode("tag_packs",node);
   if (node==NULL) return;
   TReqInfo* reqInfo = TReqInfo::Instance();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  IF :no IS NULL THEN "
-    "    DELETE FROM tag_packs "
-    "    WHERE desk=:desk AND airline=:airline AND target=:target; "
-    "  ELSE "
-    "    UPDATE tag_packs "
-    "    SET tag_type=:tag_type, color=:color, no=:no "
-    "    WHERE desk=:desk AND airline=:airline AND target=:target; "
-    "    IF SQL%NOTFOUND THEN "
-    "      INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
-    "      VALUES (:desk,:airline,:target,:tag_type,:color,:no); "
-    "    END IF; "
-    "  END IF;   "
-    "END; ";
+  DB::TQuery Qry(PgOra::getRWSession("TAG_PACKS"), STDLOG);
   Qry.CreateVariable("desk",otString,reqInfo->desk.code);
   Qry.DeclareVariable("airline",otString);
   Qry.DeclareVariable("target",otString);
@@ -7575,11 +7558,21 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
     Qry.SetVariable("target",NodeAsStringFast("target",node2));
     Qry.SetVariable("tag_type",NodeAsStringFast("tag_type",node2));
     Qry.SetVariable("color",NodeAsStringFast("color",node2));
-    if (!NodeIsNULLFast("no",node2))
-      Qry.SetVariable("no",NodeAsFloatFast("no",node2));
-    else
-      Qry.SetVariable("no",FNull);
-    Qry.Execute();
+    if (!NodeIsNULLFast("no",node2)) {
+        Qry.SetVariable("no",NodeAsFloatFast("no",node2));
+        Qry.SQLText = "INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
+                      "VALUES (:desk,:airline,:target,:tag_type,:color,:no) "
+                      "ON CONFLICT (desk,airline,target) "
+                      "DO UPDATE tag_packs "
+                      "SET tag_type=:tag_type, color=:color, no=:no "
+                      "WHERE desk=:desk AND airline=:airline AND target=:target";
+        Qry.Execute();
+    } else {
+        Qry.SetVariable("no",FNull);
+        Qry.SQLText = "DELETE FROM tag_packs "
+                      "WHERE desk=:desk AND airline=:airline AND target=:target";
+        Qry.Execute();
+    }
   }
   Qry.Close();
 }
