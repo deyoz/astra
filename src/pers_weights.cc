@@ -377,84 +377,94 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   bool use_counters_by_subcls = weight_type != withBrd && include_wait_list;
 
   DB::TQuery Qry(use_counters_by_subcls ? PgOra::getROSession("COUNTERS_BY_SUBCLS")
-                                        : PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
-  ostringstream sql;
+                                        : PgOra::getROSession({"PAX_GRP", "PAX", "BAG2"}), STDLOG);
+  std::string sql;
   if (use_counters_by_subcls)
   {
-    sql << "SELECT class, subclass, "
-           "       male, female, child, infant, rk_weight, bag_weight "
-           "FROM counters_by_subcls "
-           "WHERE point_id=:point_id";
+    sql =  "SELECT class, subclass, "
+                  "male, female, child, infant, "
+                  "rk_weight, bag_weight "
+             "FROM counters_by_subcls "
+            "WHERE point_id = :point_id";
   }
   else
   {
-    sql << "SELECT COALESCE(pax.cabin_class, pax_grp.class) AS class, subclass, "
-           "       COALESCE(SUM(CASE WHEN pax.pers_type=:adl THEN CASE WHEN pax.is_female=0 THEN 1"
-           "                                                           WHEN pax.is_female IS NULL THEN 1"
-           "                                                           ELSE 0 END "
-           "                         ELSE 0 END), 0) AS male, "
-           "       COALESCE(SUM(CASE WHEN pax.pers_type=:adl THEN CASE WHEN pax.is_female=0 THEN 0"
-           "                                                           WHEN pax.is_female IS NULL THEN 0"
-           "                                                           ELSE 1 END "
-           "                         ELSE 0 END), 0) AS female, "
-           "       COALESCE(SUM(CASE WHEN pax.pers_type=:chd THEN 1"
-           "                         ELSE 0 END), 0) AS child, "
-           "       COALESCE(SUM(CASE WHEN pax.pers_type=:inf THEN 1 "
-           "                         ELSE 0 END), 0) AS infant, ";
-    if(!DEMO_MODE()) {
-        sql <<
-           "       COALESCE(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
-           "       COALESCE(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight ";
-    } else {
-        TST();
-        // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
-        sql <<
-           "       0 as rk_weight, "
-           "       0 as bag_weight ";
+    sql = "WITH cte_grps AS ( "
+           "SELECT grp_id, "
+                  "class, "
+                  "status, "
+                  "bag_refuse "
+             "FROM pax_grp "
+            "WHERE pax_grp.point_dep = :point_id "
+              "AND pax_grp.status <> :status), "
+          "cte_pax AS ( "
+           "SELECT COALESCE(pax.cabin_class, cte_grps.class) AS class, "
+                  "subclass, "
+                  "is_female, "
+                  "pers_type, "
+                  "pax.grp_id, "
+                  "pax.bag_pool_num "
+             "FROM cte_grps JOIN pax "
+               "ON cte_grps.grp_id = pax.grp_id ";
+
+    if (!DEMO_MODE() || !include_wait_list) {
+      TST();
+      sql +=  "AND salons.is_waitlist(pax.pax_id, pax.seats, pax.is_jmp, cte_grps.status, :point_id, rownum) = 0 ";
     }
-    sql <<
-           "FROM pax_grp, pax "
-           "WHERE pax_grp.grp_id=pax.grp_id";
-    if ( weight_type == withBrd )
-      sql << " AND pr_brd=1 ";
-    else
-      sql << " AND pr_brd IS NOT NULL ";
-    if(not include_wait_list) {
-        if(!DEMO_MODE()) {
-            sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
-        } else {
-            TST();
-            // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
-            sql << " and 1=1 ";
-        }
-    }
-    sql << " AND point_dep=:point_id "
-           " AND pax_grp.status NOT IN ('E') "
-           "GROUP BY COALESCE(pax.cabin_class, pax_grp.class), subclass "
-           "UNION "
-           "SELECT class, NULL AS subclass, "
-           "       0 AS male, 0 AS female, 0 AS child, 0 AS infant, ";
-    if(!DEMO_MODE()) {
-        sql <<
-           "       NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
-           "       NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight ";
-    } else {
-        TST();
-        // ‚ DEMO … ‚›‡›‚€…Œ …ŠŽ’Ž›… ”“Š–ˆˆ €Š…’Ž‚ „Ž ……‚Ž„€ ˆ• € c++
-        sql <<
-           "       0 as rk_weight, "
-           "       0 as bag_weight ";
-    }
-    sql <<
-           "FROM pax_grp "
-           "WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
-           "GROUP BY class ";
+    sql += weight_type == withBrd
+            ? "AND pr_brd = 1) "
+            : "AND pr_brd IS NOT NULL) ";
+    sql += "SELECT a.class AS class, "
+                  "a.subclass AS subclass, "
+                  "a.male, "
+                  "a.female, "
+                  "a.child, "
+                  "a.infant, "
+                  "b.rk_weight, "
+                  "b.bag_weight "
+           "FROM ( "
+           "SELECT class, "
+                  "subclass, "
+                  "COALESCE(SUM(CASE WHEN pers_type = :adl "
+                                     "AND COALESCE(is_female, 0) = 0 THEN 1 END), 0) AS male, "
+                  "COALESCE(SUM(CASE WHEN pers_type = :adl "
+                                     "AND is_female = 1  THEN 1 END), 0) AS female, "
+                  "COALESCE(SUM(CASE pers_type WHEN :chd THEN 1 END), 0) AS child, "
+                  "COALESCE(SUM(CASE pers_type WHEN :inf THEN 1 END), 0) AS infant "
+             "FROM cte_pax "
+            "GROUP BY class, subclass) a "
+            "INNER JOIN ( "
+           "SELECT class as class, "
+                  "subclass as subclass, "
+                  "COALESCE(SUM(CASE WHEN pr_cabin = 1 THEN weight END), 0) rk_weight, "
+                  "COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN weight END), 0) bag_weight "
+             "FROM cte_pax c LEFT OUTER JOIN bag2 "
+               "ON c.grp_id = bag2.grp_id "
+              "AND c.bag_pool_num = bag2.bag_pool_num "
+            "GROUP BY class, subclass) b "
+               "ON a.class = b.class "
+              "AND a.subclass = b.subclass "
+          "UNION "
+           "SELECT class, "
+                  "NULL AS subclass, "
+                  "0 AS male, "
+                  "0 AS female, "
+                  "0 AS child, "
+                  "0 AS infant, "
+                  "COALESCE(SUM(CASE WHEN pr_cabin = 1 THEN weight END), 0) rk_weight, "
+                  "COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN weight END), 0) bag_weight "
+             "FROM cte_grps JOIN bag2 "
+               "ON cte_grps.grp_id = bag2.grp_id "
+              "AND class IS NULL "
+              "AND bag_refuse = 0 "
+            "GROUP BY class ";
     Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
     Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
     Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
+    Qry.CreateVariable( "status", otString, string(EncodePaxStatus(ASTRA::psCrew)) );
   };
   //ProgTrace( TRACE5, "TFlightWeights::read: sql=%s", sql.str().c_str() );
-  Qry.SQLText = sql.str().c_str();
+  Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   int m,f,c,i;
@@ -603,29 +613,37 @@ void recountBySubcls(int point_id,
     };
   };
 
-  TCachedQuery Qry("BEGIN "
-                   "  UPDATE counters_by_subcls "
-                   "  SET male=male+:male, female=female+:female, "
-                   "      child=child+:child, infant=infant+:infant, "
-                   "      bag_weight=bag_weight+:bag_weight, rk_weight=rk_weight+:rk_weight "
-                   "  WHERE point_id=:point_id AND "
-                   "        (subclass IS NULL AND :subclass IS NULL OR subclass=:subclass) AND "
-                   "        (class IS NULL AND :class IS NULL OR class=:class); "
-                   "  IF SQL%NOTFOUND THEN "
-                   "    INSERT INTO counters_by_subcls(point_id, subclass, class, male, female, child, infant, bag_weight, rk_weight) "
-                   "    VALUES(:point_id, :subclass, :class, :male, :female, :child, :infant, :bag_weight, :rk_weight); "
-                   "  END IF; "
-                   "END; ",
-                   QParams() << QParam("point_id", otInteger, point_id)
-                             << QParam("subclass", otString)
-                             << QParam("class", otString)
-                             << QParam("male", otInteger)
-                             << QParam("female", otInteger)
-                             << QParam("child", otInteger)
-                             << QParam("infant", otInteger)
-                             << QParam("bag_weight", otInteger)
-                             << QParam("rk_weight", otInteger));
-
+  DB::TCachedQuery Qry(
+    PgOra::getRWSession("COUNTERS_BY_SUBCLS"),
+    PgOra::supportsPg("COUNTERS_BY_SUBCLS")
+     ? "INSERT INTO counters_by_subcls( point_id, subclass, class, male, female, child, infant, bag_weight, rk_weight) "
+                              "VALUES (:point_id,:subclass,:class,:male,:female,:child,:infant,:bag_weight,:rk_weight) "
+       "ON CONFLICT (point_id, subclass, class) DO UPDATE "
+           "SET male = excluded.male + :male, female = excluded.female + :female, "
+               "child = excluded.child + :child, infant = excluded.infant + :infant, "
+               "bag_weight = excluded.bag_weight + :bag_weight, rk_weight = excluded.rk_weight + :rk_weight "
+     : "BEGIN "
+         "UPDATE counters_by_subcls "
+         "SET male  = male + :male, female = female + :female, "
+             "child = child + :child, infant = infant + :infant, "
+             "bag_weight = bag_weight + :bag_weight, rk_weight = rk_weight + :rk_weight "
+         "WHERE point_id = :point_id AND "
+               "(subclass IS NULL AND :subclass IS NULL OR subclass = :subclass) AND "
+               "(class IS NULL AND :class IS NULL OR class = :class); "
+         "IF SQL%NOTFOUND THEN "
+           "INSERT INTO counters_by_subcls( point_id, subclass, class, male, female, child, infant, bag_weight, rk_weight) "
+                                   "VALUES(:point_id,:subclass,:class,:male,:female,:child,:infant,:bag_weight,:rk_weight); "
+         "END IF; "
+       "END; ",
+    QParams() << QParam("point_id", otInteger, point_id)
+              << QParam("subclass", otString)
+              << QParam("class", otString)
+              << QParam("male", otInteger)
+              << QParam("female", otInteger)
+              << QParam("child", otInteger)
+              << QParam("infant", otInteger)
+              << QParam("bag_weight", otInteger)
+              << QParam("rk_weight", otInteger), STDLOG);
 
   for(map<TStatBySubclsKey, TStatBySubclsItem>::const_iterator i=stat.begin(); i!=stat.end(); ++i)
   {
@@ -643,38 +661,93 @@ void recountBySubcls(int point_id,
 
 void recountBySubcls(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  DELETE FROM counters_by_subcls WHERE point_id=:point_id; "
-    "  INSERT INTO counters_by_subcls(point_id, class, subclass, male, female, child, infant, rk_weight, bag_weight)"
-    "  SELECT :point_id, NVL(pax.cabin_class, pax_grp.class) AS class, subclass, "
-    "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
-    "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
-    "         NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
-    "         NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
-    "         NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
-    "         NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight "
-    "  FROM pax_grp, pax "
-    "  WHERE pax_grp.grp_id=pax.grp_id AND "
-    "        pr_brd IS NOT NULL AND "
-    "        point_dep=:point_id AND "
-    "        pax_grp.status NOT IN ('E') "
-    "  GROUP BY NVL(pax.cabin_class, pax_grp.class), subclass "
-    "  UNION "
-    "  SELECT :point_id, class, NULL AS subclass, "
-    "         0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
-    "         NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
-    "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
-    "  FROM pax_grp "
-    "  WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
-    "  GROUP BY class; "
-    "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
-  Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
-  Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
-  Qry.Execute();
+  DbCpp::Session& sess = PgOra::getRWSession({"COUNTERS_BY_SUBCLS", "PAX_GRP", "PAX", "BAG2"});
+  make_db_curs(
+     "DELETE FROM counters_by_subcls WHERE point_id = :point_id",
+      sess)
+     .stb()
+     .bind(":point_id", point_id)
+     .exec();
+
+  std::string cte =
+    "WITH cte_grps AS ( "
+     "SELECT grp_id, "
+            "class, "
+            "bag_refuse "
+       "FROM pax_grp "
+      "WHERE pax_grp.point_dep = :point_id "
+        "AND pax_grp.status <> :status), "
+    "cte_pax AS ( "
+     "SELECT COALESCE(pax.cabin_class, cte_grps.class) AS class, "
+            "subclass, "
+            "is_female, "
+            "pers_type, "
+            "pax.grp_id, "
+            "pax.bag_pool_num "
+       "FROM cte_grps JOIN pax "
+         "ON cte_grps.grp_id = pax.grp_id "
+        "AND pr_brd IS NOT NULL) ";
+  std::string insert =
+     "INSERT INTO counters_by_subcls(point_id, class, subclass, male, female, child, infant, rk_weight, bag_weight) ";
+  std::string main =
+     "SELECT :point_id as point_id, "
+            "a.class, "
+            "a.subclass, "
+            "a.male, "
+            "a.female, "
+            "a.child, "
+            "a.infant, "
+            "b.rk_weight, "
+            "b.bag_weight "
+     "FROM ( "
+     "SELECT class, "
+            "subclass, "
+            "COALESCE(SUM(CASE WHEN pers_type = :adl "
+                               "AND COALESCE(is_female, 0) = 0 THEN 1 END), 0) AS male, "
+            "COALESCE(SUM(CASE WHEN pers_type = :adl "
+                               "AND is_female = 1  THEN 1 END), 0) AS female, "
+            "COALESCE(SUM(CASE pers_type WHEN :chd THEN 1 END), 0) AS child, "
+            "COALESCE(SUM(CASE pers_type WHEN :inf THEN 1 END), 0) AS infant "
+       "FROM cte_pax "
+      "GROUP BY class, subclass) a "
+      "INNER JOIN ( "
+     "SELECT class as class, "
+            "subclass as subclass, "
+            "COALESCE(SUM(CASE WHEN pr_cabin = 1 THEN weight END), 0) rk_weight, "
+            "COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN weight END), 0) bag_weight "
+       "FROM cte_pax c LEFT OUTER JOIN bag2 "
+         "ON c.grp_id = bag2.grp_id "
+        "AND c.bag_pool_num = bag2.bag_pool_num "
+      "GROUP BY class, subclass) b "
+         "ON a.class = b.class "
+        "AND a.subclass = b.subclass "
+    "UNION "
+     "SELECT :point_id as point_id, "
+            "class, "
+            "NULL AS subclass, "
+            "0 AS male, "
+            "0 AS female, "
+            "0 AS child, "
+            "0 AS infant, "
+            "COALESCE(SUM(CASE WHEN pr_cabin = 1 THEN weight END), 0) rk_weight, "
+            "COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN weight END), 0) bag_weight "
+       "FROM cte_grps JOIN bag2 "
+         "ON cte_grps.grp_id = bag2.grp_id "
+        "AND class IS NULL "
+        "AND bag_refuse = 0 "
+      "GROUP BY class ";
+
+  make_db_curs(
+      sess.isOracle()
+        ? (insert + cte + main)
+        : (cte + insert + main),
+      sess)
+     .stb()
+     .bind(":point_id", point_id)
+     .bind(":adl",      EncodePerson(ASTRA::adult))
+     .bind(":chd",      EncodePerson(ASTRA::child))
+     .bind(":inf",      EncodePerson(ASTRA::baby))
+     .bind(":status",   EncodePaxStatus(ASTRA::psCrew))
+     .exec();
 }
 

@@ -212,6 +212,7 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_COUNTERS", {
                 "COUNTERS2",
+                "COUNTERS_BY_SUBCLS"
         }},
         { "SP_PG_GROUP_PAX", {
                 "PAX",

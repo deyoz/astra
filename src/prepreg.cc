@@ -678,8 +678,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
 
 void CheckJMPCount(int point_id, int jmp_cfg)
 {
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("COUNTERS2"), STDLOG);
   Qry.SQLText="SELECT SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS jmp_show "
               "FROM counters2 "
               "WHERE point_dep=:point_id";

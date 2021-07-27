@@ -1686,63 +1686,66 @@ static void getPaxLoadTotal( int point_id, PaxLoadTotalRowStruct &total )
   auto& sess = PgOra::getROSession({"PAX_GRP","PAX","BAG2","COUNTERS2","TRIP_CLASSES"});
   DB::TQuery Qry(sess, STDLOG);
   Qry.SQLText =
-    "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
-    "       b.bag_amount, "
-    "       b.bag_weight, "
-    "       b.rk_weight, "
-    "       c.crs_ok,c.crs_tranzit, "
-    "       e.excess_wt,e.excess_pc,f.cfg "
-    "FROM "
-    " (SELECT COALESCE(SUM(seats),0) AS seats, "
-    "         COALESCE(SUM(CASE WHEN pers_type=:adult THEN CASE WHEN pax.is_female=0 THEN 1"
-    "                                                           WHEN pax.is_female IS NULL THEN 1"
-    "                                                           ELSE 0 END "
-    "                           ELSE 0 END), 0) AS adult_m, "
-    "         COALESCE(SUM(CASE WHEN pers_type=:adult THEN CASE WHEN pax.is_female=0 THEN 0"
-    "                                                           WHEN pax.is_female IS NULL THEN 0"
-    "                                                           ELSE 1 END "
-    "                           ELSE 0 END), 0) AS adult_f, "
-    "         COALESCE(SUM(CASE WHEN pers_type=:child THEN 1 "
-    "                           ELSE 0 END), 0) AS child, "
-    "         COALESCE(SUM(CASE WHEN pers_type=:baby THEN 1 "
-    "                           ELSE 0 END), 0) AS baby "
-    "  FROM pax_grp,pax "
-    "  WHERE pax_grp.grp_id=pax.grp_id AND "
-    "        pax_grp.point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
-    " (SELECT COALESCE(SUM(CASE WHEN pr_cabin=0 THEN amount "
-    "                           ELSE 0 END), 0) AS bag_amount, "
-    "         COALESCE(SUM(CASE WHEN pr_cabin=0 THEN weight "
-    "                           ELSE 0 END), 0) AS bag_weight, "
-    "         COALESCE(SUM(CASE WHEN pr_cabin=0 THEN 0"
-    "                           ELSE weight END), 0) AS rk_weight "
-    "  FROM pax_grp,bag2 "
-    "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        pax_grp.point_dep=:point_id AND status NOT IN ('E') AND ";
-  if(!DEMO_MODE()) {
-      Qry.SQLText +=
-    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, ";
-  } else {
-      TST();
-      // Ç DEMO çÖ ÇõáõÇÄÖå çÖäéíéêõÖ îìçäñàà èÄäÖíéÇ Ñé èÖêÖÇéÑÄ àï çÄ c++
-      Qry.SQLText +=
-    "        1=1) b, ";
-  }
-  Qry.SQLText +=
-    " (SELECT COALESCE(SUM(crs_ok),0) AS crs_ok, "
-    "         COALESCE(SUM(crs_tranzit),0) AS crs_tranzit "
-    "  FROM counters2 "
-    "  WHERE point_dep=:point_id) c, "
-    " (SELECT COALESCE(SUM(excess_wt),0) AS excess_wt, "
-    "         COALESCE(SUM(excess_pc),0) AS excess_pc "
-    "  FROM pax_grp "
-    "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
-    " (SELECT COALESCE(SUM(cfg),0) AS cfg "
-    "  FROM trip_classes "
-    "  WHERE point_id=:point_id) f";
+     "SELECT a.seats, "
+            "a.adult_m, "
+            "a.adult_f, "
+            "a.child, "
+            "a.baby, "
+            "b.bag_amount, "
+            "b.bag_weight, "
+            "b.rk_weight, "
+            "c.crs_ok, "
+            "c.crs_tranzit, "
+            "e.excess_wt, "
+            "e.excess_pc, "
+            "f.cfg "
+      "FROM "
+         "(SELECT COALESCE(SUM(seats),0) AS seats, "
+                 "COALESCE(SUM(CASE WHEN pers_type = :adult "
+                                    "AND COALESCE(pax.is_female, 0) = 0 THEN 1 END), 0) AS adult_m, "
+                 "COALESCE(SUM(CASE WHEN pers_type = :adult "
+                                    "AND pax.is_female =  1 THEN 1 END), 0) AS adult_f, "
+                 "COALESCE(SUM(CASE WHEN pers_type = :child THEN 1 END), 0) AS child, "
+                 "COALESCE(SUM(CASE WHEN pers_type =  :baby THEN 1 END), 0) AS baby "
+            "FROM pax_grp JOIN pax "
+              "ON pax_grp.grp_id = pax.grp_id "
+             "AND pax_grp.point_dep = :point_id "
+             "AND status <> :status "
+             "AND pr_brd IS NOT NULL) a "
+      "CROSS JOIN "
+         "(SELECT COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN amount END), 0) AS bag_amount, "
+                 "COALESCE(SUM(CASE WHEN pr_cabin = 0 THEN weight END), 0) AS bag_weight, "
+                 "COALESCE(SUM(CASE WHEN pr_cabin = 1 THEN weight END), 0) AS rk_weight "
+            "FROM pax_grp JOIN bag2 "
+              "ON pax_grp.grp_id = bag2.grp_id "
+             "AND pax_grp.point_dep = :point_id "
+             "AND status <> :status "
+             "AND pax_grp.bag_refuse = 0 "
+             "AND (pax_grp.class IS NULL OR "
+                  "EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+                                               "AND p.bag_pool_num = bag2.bag_pool_num "
+                                               "AND p.refuse IS NULL))) b "
+      "CROSS JOIN "
+         "(SELECT COALESCE(SUM(crs_ok), 0) AS crs_ok, "
+                 "COALESCE(SUM(crs_tranzit), 0) AS crs_tranzit "
+            "FROM counters2 "
+           "WHERE point_dep = :point_id) c "
+      "CROSS JOIN "
+         "(SELECT COALESCE(SUM(excess_wt), 0) AS excess_wt, "
+                 "COALESCE(SUM(excess_pc), 0) AS excess_pc "
+            "FROM pax_grp "
+           "WHERE point_dep = :point_id "
+             "AND status <> :status "
+             "AND bag_refuse = 0) e "
+      "CROSS JOIN "
+         "(SELECT COALESCE(SUM(cfg), 0) AS cfg "
+            "FROM trip_classes "
+           "WHERE point_id = :point_id) f";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("adult",otString,EncodePerson(ASTRA::adult));
   Qry.CreateVariable("child",otString,EncodePerson(ASTRA::child));
   Qry.CreateVariable("baby",otString,EncodePerson(ASTRA::baby));
+  Qry.CreateVariable("status",otString,EncodePaxStatus(ASTRA::psCrew));
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
@@ -1981,10 +1984,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         involvedTables.insert("PAX_GRP");
         involvedTables.insert("PAX");
         sql << "SELECT SUM(pax.seats) AS seats, " << endl
-            << "       SUM((CASE WHEN pax.pers_type=:adult THEN (CASE WHEN COALESCE(pax.is_female,0)=0 THEN 1 ELSE 0 END) ELSE 0 END)) AS adult_m, " << endl
-            << "       SUM((CASE WHEN pax.pers_type=:adult THEN (CASE WHEN COALESCE(pax.is_female,0)=0 THEN 0 ELSE 1 END) ELSE 0 END)) AS adult_f, " << endl
-            << "       SUM((CASE WHEN pax.pers_type=:child THEN 1 ELSE 0 END)) AS child, " << endl
-            << "       SUM((CASE WHEN pax.pers_type=:baby THEN 1 ELSE 0 END)) AS baby, " << endl
+            << "       COALESCE(SUM(CASE WHEN pax.pers_type = :adult AND COALESCE(is_female, 0) = 0 THEN 1 END), 0) AS adult_m, " << endl
+            << "       COALESCE(SUM(CASE WHEN pax.pers_type = :adult AND pax.is_female = 1 THEN 1 END), 0) AS adult_f, " << endl
+            << "       COALESCE(SUM(CASE WHEN pax.pers_type = :child THEN 1 END), 0) AS child, " << endl
+            << "       COALESCE(SUM(CASE WHEN pax.pers_type = :baby  THEN 1 END), 0) AS baby, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,pax " << endl;
 
@@ -2113,18 +2116,18 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", (CASE WHEN pax_grp.status='E' THEN ' ' ELSE COALESCE(pax.cabin_class, pax_grp.class) END)"
+          if (pr_class)       s << ", CASE pax_grp.status WHEN 'E' THEN ' ' ELSE COALESCE(pax.cabin_class, pax_grp.class) END "
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", (CASE WHEN pax_grp.status='E' THEN 1000000000 ELSE COALESCE(pax.cabin_class_grp, pax_grp.class_grp) END)"
+          if (pr_cl_grp)      s << ", CASE pax_grp.status WHEN 'E' THEN 1000000000 ELSE COALESCE(pax.cabin_class_grp, pax_grp.class_grp) END "
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", COALESCE(bag2.hall, (CASE WHEN bag2.is_trfer=0 THEN bag2.hall ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE bag2.hall END) END ))"
+          if (pr_hall)        s << ", COALESCE(bag2.hall, CASE bag2.is_trfer WHEN 0 THEN bag2.hall ELSE CASE bag2.handmade WHEN 0 THEN 1000000000 ELSE bag2.hall END END) "
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", COALESCE(bag2.user_id, (CASE WHEN bag2.is_trfer=0 THEN bag2.user_id ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE bag2.user_id END) END))"
+          if (pr_user)        s << ", COALESCE(bag2.user_id, CASE bag2.is_trfer WHEN 0 THEN bag2.user_id ELSE CASE bag2.handmade WHRN 0 THEN 1000000000 ELSE bag2.user_id END END) "
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";

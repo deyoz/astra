@@ -470,28 +470,32 @@ void TRegDifferenceMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) 
   if (!empty())
   {
     DB::TCachedQuery UpdQry(PgOra::getRWSession("COUNTERS2"),
-          "UPDATE counters2 "
-          "SET tranzit=    DECODE(:pr_tranzit, 0, 0, "
-          "                       DECODE(:pr_tranz_reg, 0, crs_tranzit, tranzit+:tranzit)), "
-          "    ok=ok+:ok, "
-          "    goshow=goshow+:goshow, "
-          "    jmp_tranzit=DECODE(:pr_tranzit, 0, 0, "
-          "                       DECODE(:pr_tranz_reg, 0, 0, jmp_tranzit+:jmp_tranzit)), "
-          "    jmp_ok=jmp_ok+:jmp_ok, "
-          "    jmp_goshow=jmp_goshow+:jmp_goshow "
-          "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
-          QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
-                    << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
-                    << QParam("point_dep", otInteger)
-                    << QParam("point_arv", otInteger)
-                    << QParam("class", otString)
-                    << QParam("tranzit", otInteger)
-                    << QParam("ok", otInteger)
-                    << QParam("goshow", otInteger)
-                    << QParam("jmp_tranzit", otInteger)
-                    << QParam("jmp_ok", otInteger)
-                    << QParam("jmp_goshow", otInteger),
-          STDLOG);
+     "UPDATE counters2 SET "
+            "tranzit = CASE :pr_tranzit "
+                "WHEN 0 THEN 0 "
+                "ELSE CASE :pr_tranz_reg WHEN 0 THEN crs_tranzit ELSE tranzit + :tranzit END "
+            "END, "
+            "ok = ok + :ok, "
+            "goshow = goshow + :goshow, "
+            "jmp_tranzit = CASE :pr_tranzit "
+                "WHEN 0 THEN 0 "
+                "ELSE CASE :pr_tranz_reg WHEN 0 THEN 0 ELSE jmp_tranzit + :jmp_tranzit END "
+            "END, "
+            "jmp_ok = jmp_ok + :jmp_ok, "
+            "jmp_goshow = jmp_goshow + :jmp_goshow "
+      "WHERE point_dep = :point_dep AND point_arv = :point_arv AND class = :class",
+      QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
+                << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
+                << QParam("point_dep", otInteger)
+                << QParam("point_arv", otInteger)
+                << QParam("class", otString)
+                << QParam("tranzit", otInteger)
+                << QParam("ok", otInteger)
+                << QParam("goshow", otInteger)
+                << QParam("jmp_tranzit", otInteger)
+                << QParam("jmp_ok", otInteger)
+                << QParam("jmp_goshow", otInteger),
+      STDLOG);
     for(const auto &i : *this)
     {
       i.first.toDB(UpdQry.get());
