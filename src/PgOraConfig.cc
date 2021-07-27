@@ -251,6 +251,9 @@ namespace PgOra
         { "SP_PG_GROUP_TAG_PACKS", {
                 "TAG_PACKS",
         }},
+        { "SP_PG_GROUP_TRFER_TRIPS", {
+                "TRFER_TRIPS", //"PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TCKIN_SEGMENTS","TRANSFER_SUBCLS","SUBCLS","BAG2","TRIP_STAGES"
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -405,25 +408,37 @@ namespace PgOra
         return true;
     }
 
-    DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects)
+    DbCpp::Session& getROSession(const std::list<std::string>& objectList)
     {
-        std::list<std::string> objectList(objects);
         ASSERT(areROSessionsEqual(objectList));
         return getROSession(objectList.front());
     }
 
-    DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects)
+    DbCpp::Session& getRWSession(const std::list<std::string>& objectList)
     {
-        std::list<std::string> objectList(objects);
         ASSERT(areRWSessionsEqual(objectList));
         return getRWSession(objectList.front());
     }
 
-    DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects)
+    DbCpp::Session& getAutoSession(const std::list<std::string>& objectList)
     {
-        std::list<std::string> objectList(objects);
         ASSERT(areAutoSessionsEqual(objectList));
         return getAutoSession(objectList.front());
+    }
+
+    DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects)
+    {
+        return getROSession(std::list<std::string>(objects));
+    }
+
+    DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects)
+    {
+        return getRWSession(std::list<std::string>(objects));
+    }
+
+    DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects)
+    {
+        return getAutoSession(std::list<std::string>(objects));
     }
 
     std::string makeSeqNextVal(const std::string& sequenceName)

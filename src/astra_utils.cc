@@ -873,6 +873,10 @@ TPerson DecodePerson(const char* s)
   else
     return NoPerson;
 };
+ASTRA::TPerson DecodePerson(const std::string &s)
+{
+  return DecodePerson(s.c_str());
+}
 
 const char* EncodePerson(TPerson p)
 {
@@ -903,6 +907,10 @@ TPaxStatus DecodePaxStatus(const char* s)
   else
     return psCheckin;
 };
+ASTRA::TPaxStatus DecodePaxStatus(const std::string &s)
+{
+  return DecodePaxStatus(s.c_str());
+}
 
 const char* EncodePaxStatus(TPaxStatus s)
 {

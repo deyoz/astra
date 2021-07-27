@@ -1164,7 +1164,7 @@ bool TTrferRoute::GetRoute(int grp_id,
       item.piece_concept=Qry1.FieldAsInteger("piece_concept")!=0;
   };
 
-  DB::TQuery Qry2(PgOra::getROSession({"TRANSFER","PIECE_CONCEPT"}), STDLOG);
+  DB::TQuery Qry2(PgOra::getROSession({"TRANSFER","TRFER_TRIPS"}), STDLOG);
   Qry2.SQLText=
     "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
     "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt, "

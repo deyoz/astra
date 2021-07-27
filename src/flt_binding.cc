@@ -563,7 +563,7 @@ static string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)
   if (use_scd_utc)
     sql << "      :scd_utc IS NOT NULL AND ";
   sql << "      airline=:airline AND flt_no=:flt_no AND "
-         "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix)";
+         "      (NULLIF(suffix,'') IS NULL AND NULLIF(:suffix,'') IS NULL OR suffix=:suffix)";
   return sql.str();
 }
 

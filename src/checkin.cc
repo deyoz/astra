@@ -7290,73 +7290,126 @@ void CheckInInterface::SaveTCkinSegs(int grp_id,
 
       if(!segs.noMoreSeg())
       {
-          TQuery Qry(&OraSession);
-          Qry.Clear();
-          Qry.SQLText=
-            "DECLARE "
-            "  pass BINARY_INTEGER; "
-            "BEGIN "
-            "  :bind_flt:=0; "
-            "  FOR pass IN 1..2 LOOP "
-            "    BEGIN "
-            "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
-            "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
-            "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
-            "      EXIT; "
-            "    EXCEPTION "
-            "      WHEN NO_DATA_FOUND THEN "
-            "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
-            "        BEGIN "
-            "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-            "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
-            "          :bind_flt:=1; "
-            "          EXIT; "
-            "        EXCEPTION "
-            "          WHEN DUP_VAL_ON_INDEX THEN "
-            "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
-            "        END; "
-            "    END; "
-            "  END LOOP; "
-            "  INSERT INTO tckin_segments(grp_id,seg_no,point_id_trfer,airp_arv,pr_final) "
-            "  VALUES(:grp_id,:seg_no,:point_id_trfer,:airp_arv,:pr_final); "
-            "END;";
-          Qry.DeclareVariable("bind_flt",otInteger);
-          Qry.DeclareVariable("point_id_trfer",otInteger);
-          Qry.CreateVariable("grp_id",otInteger,grp_id);
-          Qry.DeclareVariable("seg_no",otInteger);
-          Qry.DeclareVariable("airline",otString);
-          Qry.DeclareVariable("flt_no",otInteger);
-          Qry.DeclareVariable("suffix",otString);
-          Qry.DeclareVariable("scd",otDate);
-          Qry.DeclareVariable("airp_dep",otString);
-          Qry.DeclareVariable("airp_arv",otString);
-          Qry.DeclareVariable("pr_final",otInteger);
+        DB::TQuery qryLock(PgOra::getRWSession("TRFER_TRIPS"),STDLOG);
+        qryLock.SQLText = "SELECT point_id FROM trfer_trips "
+            "WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+            "( (NULLIF(suffix,'') IS NULL AND NULLIF(:suffix,'') IS NULL) OR suffix=:suffix ) "
+            "FOR UPDATE";
+        qryLock.DeclareVariable("scd",otDate);
+        qryLock.DeclareVariable("airline",otString);
+        qryLock.DeclareVariable("flt_no",otInteger);
+        qryLock.DeclareVariable("airp_dep",otString);
+        qryLock.DeclareVariable("suffix",otString);
 
-          for(int seg_no=1; !segs.noMoreSeg(); segs.setNextSeg(), seg_no++)
+        DB::TQuery qryInsert(PgOra::getRWSession("TRFER_TRIPS"),STDLOG);
+        qryInsert.SQLText = std::string("INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+                            "VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL)")
+                            + (PgOra::supportsPg("TRFER_TRIPS") ? " ON CONFLICT DO NOTHING" : "");
+
+        qryInsert.DeclareVariable("point_id_trfer",otInteger);
+        qryInsert.DeclareVariable("airline",otString);
+        qryInsert.DeclareVariable("flt_no",otInteger);
+        qryInsert.DeclareVariable("suffix",otString);
+        qryInsert.DeclareVariable("scd",otDate);
+        qryInsert.DeclareVariable("airp_dep",otString);
+
+        DB::TQuery qryInsert2(PgOra::getRWSession("TCKIN_SEGMENTS"),STDLOG);
+        qryInsert2.SQLText ="INSERT INTO tckin_segments(grp_id,seg_no,point_id_trfer,airp_arv,pr_final) "
+                            "VALUES (:grp_id,:seg_no,:point_id_trfer,:airp_arv,:pr_final)";
+
+        qryInsert2.CreateVariable("grp_id",otInteger,grp_id);
+        qryInsert2.DeclareVariable("seg_no",otInteger);
+        qryInsert2.DeclareVariable("point_id_trfer",otInteger);
+        qryInsert2.DeclareVariable("airp_arv",otString);
+        qryInsert2.DeclareVariable("pr_final",otInteger);
+
+        for(int seg_no=1; !segs.noMoreSeg(); segs.setNextSeg(), ++seg_no)
+        {
+          int point_id_trfer=ASTRA::NoExists;
+          const CheckIn::Segment& segment=segs.get(PointId_t(NodeAsInteger("point_dep", segs.segNode())), __func__);
+
+          const TTripInfo &fltInfo=segment.flt;
+          TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+          modf(local_scd,&local_scd);
+
+          qryLock.SetVariable("airline",fltInfo.airline);
+          qryLock.SetVariable("flt_no",fltInfo.flt_no);
+          qryLock.SetVariable("suffix",fltInfo.suffix);
+          qryLock.SetVariable("scd",local_scd);
+          qryLock.SetVariable("airp_dep",fltInfo.airp);
+
+          bool created_new_TRFER_TRIPS=false;
+          bool failed_to_lock=true;
+          for(size_t attempt=0; attempt<2; ++attempt)
           {
-            const CheckIn::Segment& segment=segs.get(PointId_t(NodeAsInteger("point_dep", segs.segNode())), __func__);
+            qryLock.Execute();
 
-            const TTripInfo &fltInfo=segment.flt;
-            TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
-            modf(local_scd,&local_scd);
-
-            Qry.SetVariable("seg_no",seg_no);
-            Qry.SetVariable("airline",fltInfo.airline);
-            Qry.SetVariable("flt_no",fltInfo.flt_no);
-            Qry.SetVariable("suffix",fltInfo.suffix);
-            Qry.SetVariable("scd",local_scd);
-            Qry.SetVariable("airp_dep",fltInfo.airp);
-            Qry.SetVariable("airp_arv",segment.airpArv().get());
-            Qry.SetVariable("pr_final",(int)(segs.segNode()->next==nullptr));
-            Qry.Execute();
-            if (Qry.GetVariableAsInteger("bind_flt")!=0)
+            if (qryLock.Eof) // NO_DATA_FOUND
             {
-              int point_id_trfer=Qry.GetVariableAsInteger("point_id_trfer");
-              TTrferBinding().bind_flt_by_point_id(point_id_trfer);
-            }
+              qryInsert.SetVariable("airline",fltInfo.airline);
+              qryInsert.SetVariable("flt_no",fltInfo.flt_no);
+              qryInsert.SetVariable("suffix",fltInfo.suffix);
+              qryInsert.SetVariable("scd",local_scd);
+              qryInsert.SetVariable("airp_dep",fltInfo.airp);
+              point_id_trfer=PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
 
-            segment.formatToLog(route);
+              qryInsert.SetVariable("point_id_trfer",point_id_trfer);
+
+              try
+              {
+                qryInsert.Execute();
+                if(qryInsert.RowsProcessed()>0)
+                {
+                  created_new_TRFER_TRIPS=true;
+                  break;
+                }
+              }
+              catch(const EOracleError &error)
+              {
+                if (error.Code != CERR_U_CONSTRAINT)
+                {
+                  LogError(STDLOG)<<"Failed to create TRFER_TRIPS record using: airline="<<fltInfo.airline<<
+                                                                              " flt_no="<<fltInfo.flt_no<<
+                                                                              " suffix="<<fltInfo.suffix<<
+                                                                              " scd="<<local_scd<<
+                                                                              " airp_dep="<<fltInfo.airp<<
+                                                                              " point_id_trfer="<<point_id_trfer;
+                  throw;
+                }
+              }
+            }
+            else // record locked
+            {
+              point_id_trfer=qryLock.FieldAsInteger("point_id");
+              failed_to_lock=false;
+              break;
+            }
           }
+
+          if(failed_to_lock && !created_new_TRFER_TRIPS) // RAISE
+          {
+            LogError(STDLOG)<<"Failed to create TRFER_TRIPS record using: airline="<<fltInfo.airline<<
+                                                                        " flt_no="<<fltInfo.flt_no<<
+                                                                        " suffix="<<fltInfo.suffix<<
+                                                                        " scd="<<local_scd<<
+                                                                        " airp_dep="<<fltInfo.airp<<
+                                                                        " point_id_trfer="<<point_id_trfer;
+            throw EXCEPTIONS::Exception("Internal error: DB");
+          }
+
+          qryInsert2.SetVariable("point_id_trfer",point_id_trfer);
+          qryInsert2.SetVariable("seg_no",seg_no);
+          qryInsert2.SetVariable("airp_arv",segment.airpArv().get());
+          qryInsert2.SetVariable("pr_final",(int)(segs.segNode()->next==nullptr));
+          qryInsert2.Execute();
+
+          if(created_new_TRFER_TRIPS)
+          {
+            TTrferBinding().bind_flt_by_point_id(point_id_trfer);
+          }
+
+          segment.formatToLog(route);
+        }
       }
 
       for(auto iatciSeg: iatciSegs) {
@@ -7392,53 +7445,44 @@ void CheckInInterface::SaveTransfer(int grp_id,
     else return;
   }
 
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "DECLARE "
-    "  pass BINARY_INTEGER; "
-    "BEGIN "
-    "  :bind_flt:=0; "
-    "  FOR pass IN 1..2 LOOP "
-    "    BEGIN "
-    "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
-    "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
-    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
-    "      EXIT; "
-    "    EXCEPTION "
-    "      WHEN NO_DATA_FOUND THEN "
-    "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
-    "        BEGIN "
-    "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-    "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
-    "          :bind_flt:=1; "
-    "          EXIT; "
-    "        EXCEPTION "
-    "          WHEN DUP_VAL_ON_INDEX THEN "
-    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
-    "        END; "
-    "    END; "
-    "  END LOOP; "
-    "  INSERT INTO transfer(grp_id,transfer_num,point_id_trfer, "
-    "    airline_fmt,suffix_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final) "
-    "  VALUES(:grp_id,:transfer_num,:point_id_trfer, "
-    "    :airline_fmt,:suffix_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:pr_final); "
-    "END;";
-  TrferQry.DeclareVariable("bind_flt",otInteger);
-  TrferQry.DeclareVariable("point_id_trfer",otInteger);
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.DeclareVariable("transfer_num",otInteger);
-  TrferQry.DeclareVariable("airline",otString);
-  TrferQry.DeclareVariable("airline_fmt",otInteger);
-  TrferQry.DeclareVariable("flt_no",otInteger);
-  TrferQry.DeclareVariable("suffix",otString);
-  TrferQry.DeclareVariable("suffix_fmt",otInteger);
-  TrferQry.DeclareVariable("scd",otDate);
-  TrferQry.DeclareVariable("airp_dep",otString);
-  TrferQry.DeclareVariable("airp_dep_fmt",otInteger);
-  TrferQry.DeclareVariable("airp_arv",otString);
-  TrferQry.DeclareVariable("airp_arv_fmt",otInteger);
-  TrferQry.DeclareVariable("pr_final",otInteger);
+  DB::TQuery qryLock(PgOra::getRWSession("TRFER_TRIPS"),STDLOG);
+  qryLock.SQLText = "SELECT point_id FROM trfer_trips "
+      "WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+      "( (NULLIF(suffix,'') IS NULL AND NULLIF(:suffix,'') IS NULL) OR suffix=:suffix ) "
+      "FOR UPDATE";
+  qryLock.DeclareVariable("scd",otDate);
+  qryLock.DeclareVariable("airline",otString);
+  qryLock.DeclareVariable("flt_no",otInteger);
+  qryLock.DeclareVariable("airp_dep",otString);
+  qryLock.DeclareVariable("suffix",otString);
+
+  DB::TQuery qryInsert(PgOra::getRWSession("TRFER_TRIPS"),STDLOG);
+  qryInsert.SQLText = std::string("INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+                      "VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL)") 
+                      + (PgOra::supportsPg("TRFER_TRIPS") ? " ON CONFLICT DO NOTHING" : "");
+
+  qryInsert.DeclareVariable("point_id_trfer",otInteger);
+  qryInsert.DeclareVariable("airline",otString);
+  qryInsert.DeclareVariable("flt_no",otInteger);
+  qryInsert.DeclareVariable("suffix",otString);
+  qryInsert.DeclareVariable("scd",otDate);
+  qryInsert.DeclareVariable("airp_dep",otString);
+
+  DB::TQuery qryInsertTrfer(PgOra::getRWSession("TRANSFER"),STDLOG);
+  qryInsertTrfer.SQLText =" INSERT INTO transfer(grp_id,transfer_num,point_id_trfer, "
+    "airline_fmt,suffix_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final) "
+    "VALUES(:grp_id,:transfer_num,:point_id_trfer, "
+    ":airline_fmt,:suffix_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:pr_final)";
+
+  qryInsertTrfer.CreateVariable("grp_id",otInteger,grp_id);
+  qryInsertTrfer.DeclareVariable("transfer_num",otInteger);
+  qryInsertTrfer.DeclareVariable("point_id_trfer",otInteger);
+  qryInsertTrfer.DeclareVariable("airline_fmt",otInteger);
+  qryInsertTrfer.DeclareVariable("suffix_fmt",otInteger);
+  qryInsertTrfer.DeclareVariable("airp_dep_fmt",otInteger);
+  qryInsertTrfer.DeclareVariable("airp_arv",otString);
+  qryInsertTrfer.DeclareVariable("airp_arv_fmt",otInteger);
+  qryInsertTrfer.DeclareVariable("pr_final",otInteger);
 
   int trfer_num=1;
   PrmEnum route("route", "");
@@ -7455,30 +7499,91 @@ void CheckInInterface::SaveTransfer(int grp_id,
                               LParams()<<LParam("flight",t->flight_view));
     s++;
 
-    TrferQry.SetVariable("transfer_num",trfer_num);
-    TrferQry.SetVariable("airline",t->operFlt.airline);
-    TrferQry.SetVariable("airline_fmt",(int)t->operFlt.airline_fmt);
-    TrferQry.SetVariable("flt_no",t->operFlt.flt_no);
-    if (!t->operFlt.suffix.empty())
-    {
-      TrferQry.SetVariable("suffix",t->operFlt.suffix);
-      TrferQry.SetVariable("suffix_fmt",(int)t->operFlt.suffix_fmt);
-    }
+    int point_id_trfer=ASTRA::NoExists;
+
+    qryLock.SetVariable("scd",t->operFlt.scd_out);
+    qryLock.SetVariable("airline",t->operFlt.airline);
+    qryLock.SetVariable("flt_no",t->operFlt.flt_no);
+    qryLock.SetVariable("airp_dep",t->operFlt.airp);
+    if(!t->operFlt.suffix.empty())
+      qryLock.SetVariable("suffix", t->operFlt.suffix );
     else
+      qryLock.SetVariable("suffix", FNull );
+
+    bool created_new_TRFER_TRIPS=false;
+    bool failed_to_lock=true;
+    for(size_t attempt=0;attempt<2; ++attempt)
     {
-      TrferQry.SetVariable("suffix",FNull);
-      TrferQry.SetVariable("suffix_fmt",FNull);
+      qryLock.Execute();
+      if(qryLock.Eof) // NO DATA FOUND
+      {
+        qryInsert.SetVariable("scd",t->operFlt.scd_out);
+        qryInsert.SetVariable("airline",t->operFlt.airline);
+        qryInsert.SetVariable("flt_no",t->operFlt.flt_no);
+        qryInsert.SetVariable("airp_dep",t->operFlt.airp);
+        if(!t->operFlt.suffix.empty())
+          qryInsert.SetVariable("suffix", t->operFlt.suffix);
+        else
+          qryInsert.SetVariable("suffix", FNull );
+
+        point_id_trfer = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+
+        qryInsert.SetVariable("point_id_trfer",point_id_trfer);
+
+        try
+        {
+          qryInsert.Execute();
+          if(qryInsert.RowsProcessed()>0)
+          {
+            created_new_TRFER_TRIPS=true;
+            break;
+          }
+        }
+        catch(const EOracleError &error)
+        {
+          if(error.Code != CERR_U_CONSTRAINT)
+          {
+            LogError(STDLOG)<<"Failed to create TRFER_TRIPS record using: airline="<<t->operFlt.airline<<
+                                                                        " flt_no="<<t->operFlt.flt_no<<
+                                                                        " scd="<<t->operFlt.scd_out<<
+                                                                        " airp_dep="<<t->operFlt.airp<<
+                                                                        " point_id_trfer="<<point_id_trfer;
+            throw;
+          }
+        }
+      }
+      else // record locked
+      {
+        point_id_trfer=qryLock.FieldAsInteger("point_id");
+        failed_to_lock=false;
+        break;
+      }
     }
-    TrferQry.SetVariable("scd",t->operFlt.scd_out);
-    TrferQry.SetVariable("airp_dep",t->operFlt.airp);
-    TrferQry.SetVariable("airp_dep_fmt",(int)t->operFlt.airp_fmt);
-    TrferQry.SetVariable("airp_arv",t->airp_arv);
-    TrferQry.SetVariable("airp_arv_fmt",(int)t->airp_arv_fmt);
-    TrferQry.SetVariable("pr_final",(int)(t+1==trfer.end()));
-    TrferQry.Execute();
-    if (TrferQry.GetVariableAsInteger("bind_flt")!=0)
+    if(failed_to_lock && !created_new_TRFER_TRIPS)
     {
-      int point_id_trfer=TrferQry.GetVariableAsInteger("point_id_trfer");
+      LogError(STDLOG)<<"Failed to create TRFER_TRIPS record using: airline="<<t->operFlt.airline<<
+                                                                  " flt_no="<<t->operFlt.flt_no<<
+                                                                  " scd="<<t->operFlt.scd_out<<
+                                                                  " airp_dep="<<t->operFlt.airp<<
+                                                                  " point_id_trfer="<<point_id_trfer;
+      throw EXCEPTIONS::Exception("Internal error: DB");
+    }
+
+    qryInsertTrfer.SetVariable("transfer_num",trfer_num);
+    qryInsertTrfer.SetVariable("point_id_trfer",point_id_trfer);
+    qryInsertTrfer.SetVariable("airline_fmt",(int)t->operFlt.airline_fmt);
+    if(!t->operFlt.suffix.empty())
+      qryInsertTrfer.SetVariable("suffix_fmt", (int)t->operFlt.suffix_fmt);
+    else
+      qryInsertTrfer.SetVariable("suffix_fmt", FNull);
+    qryInsertTrfer.SetVariable("airp_dep_fmt",(int)t->operFlt.airp_fmt);
+    qryInsertTrfer.SetVariable("airp_arv",t->airp_arv);
+    qryInsertTrfer.SetVariable("airp_arv_fmt",(int)t->airp_arv_fmt);
+    qryInsertTrfer.SetVariable("pr_final",(int)(t+1==trfer.end()));
+    qryInsertTrfer.Execute();
+
+    if(created_new_TRFER_TRIPS)
+    {
       TTrferBinding().bind_flt_by_point_id(point_id_trfer);
     }
 
@@ -7487,6 +7592,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
                << PrmSmpl<string>("", "/") << PrmDate("", t->operFlt.scd_out,"dd") << PrmSmpl<string>("", ":")
                << PrmElem<string>("",  etAirp, t->operFlt.airp) << PrmSmpl<string>("", "-") << PrmElem<string>("", etAirp, t->airp_arv);
   }
+
   tlocale.prms << route;
 }
 

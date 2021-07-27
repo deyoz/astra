@@ -851,17 +851,17 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
       Qry.SQLText =
           "SELECT crs_pax.pax_id AS crs_pax_id, "
           "       crs_inf.pax_id AS crs_pax_id_parent, "
-          "       DECODE(pax.pax_id,NULL,crs_pax.surname,pax.surname) AS surname, "
-          "       DECODE(pax.pax_id,NULL,crs_pax.name,pax.name) AS name, "
-          "       DECODE(pax.pax_id,NULL,crs_pax.pers_type,pax.pers_type) AS pers_type, "
+          "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.surname ELSE pax.surname END) AS surname, "
+          "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.name ELSE pax.name END) AS name, "
+          "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.pers_type ELSE pax.pers_type END) AS pers_type, "
           "       crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats AS crs_seats, crs_pnr.point_id AS point_id_tlg, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
-          "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
+          "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.seats ELSE pax.seats END) AS seats, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" ELSE pax_grp.class END AS class, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" ELSE pax.subclass END AS subclass, "
-          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" ELSE NVL(pax.cabin_class, pax_grp.class) END AS cabin_class, "
-          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" ELSE NVL(pax.cabin_subclass, pax.subclass) END AS cabin_subclass, "
-          "       DECODE(pax.pax_id,NULL,crs_pnr.airp_arv,pax_grp.airp_arv) AS airp_arv, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" ELSE COALESCE(pax.cabin_class, pax_grp.class) END AS cabin_class, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" ELSE COALESCE(pax.cabin_subclass, pax.subclass) END AS cabin_subclass, "
+          "       (CASE WHEN pax.pax_id IS NULL THEN crs_pnr.airp_arv ELSE pax_grp.airp_arv END) AS airp_arv, "
           "       crs_pnr.status AS pnr_status, "
           "       crs_pax.bag_norm AS crs_bag_norm, crs_pax.bag_norm_unit AS crs_bag_norm_unit, "
           "       crs_pnr.tid AS crs_pnr_tid, "
@@ -1899,11 +1899,15 @@ void BPReprintOptions::check_access(int julian_date_of_flight, const string &air
   if(airp_id.empty() || airline_id.empty()) throw UserException("MSG.REPRINT_ACCESS_ERR");
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("BCBP_REPRINT_OPTIONS"),STDLOG);
   Qry.SQLText =
     "SELECT lower_shift, upper_shift, "
-    "       DECODE(airline,NULL,0,:airline,2,-100)+ "
-    "       DECODE(airp,NULL,0,:airp,1,-100) AS priority "
+    "       (CASE WHEN airline IS NULL THEN 0 "
+                 "WHEN airline=:airline THEN 2 "
+                 "ELSE -100 END) + "
+    "       (CASE WHEN airp IS NULL THEN 0 "
+                 "WHEN airp=:airp THEN 1 "
+                 "ELSE -100 END) AS priority "
     "FROM bcbp_reprint_options "
     "WHERE desk_grp=:desk_grp AND "
     "      (desk IS NULL OR desk=:desk) "
@@ -2038,12 +2042,12 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   params.fromXML(reqNode);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("DESK_BP_SET"),STDLOG);
+  Qry.ClearParams();
   Qry.SQLText =
       "SELECT bp_type, "
-      "       DECODE(desk_grp_id,NULL,0,2)+ "
-      "       DECODE(desk,NULL,0,4) AS priority "
+      "       (CASE WHEN desk_grp_id IS NULL THEN 0 ELSE 2 END)+ "
+      "       (CASE WHEN desk IS NULL THEN 0 ELSE 4 END) AS priority "
       "FROM desk_bp_set "
       "WHERE op_type=:op_type AND "
       "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "

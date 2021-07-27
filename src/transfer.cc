@@ -523,10 +523,10 @@ TGrpItem& TGrpItem::trferFromDB(bool fromTlg)
       "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
       "      grp_id=:grp_id AND transfer_num>1";
 
-  DB::TQuery TrferQry(
-        PgOra::getROSession(fromTlg ? "TLG_TRFER_ONWARDS"
-                                    : "ORACLE"), STDLOG
-        );
+  auto &db_session = fromTlg ? PgOra::getROSession("TLG_TRFER_ONWARDS")
+                             : PgOra::getROSession({"TRANSFER","TRFER_TRIPS"});
+
+  DB::TQuery TrferQry(db_session, STDLOG);
   TrferQry.SQLText=fromTlg?trfer_sql_tlg:trfer_sql_ckin;
   TrferQry.DeclareVariable("grp_id", otInteger);
   TrferQry.SetVariable("grp_id", grp_id);
@@ -2452,14 +2452,14 @@ void LoadPaxLists(int point_id,
 {
   paxs_ckin.clear();
   paxs_crs.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}),STDLOG);
+  Qry.ClearParams();
   Qry.SQLText=
     "SELECT pax_id, surname, name "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv AND "
-    "      pax_grp.status NOT IN ('E') AND NVL(inbound_confirm,0)=0"; //NVL потом убрать!!!
+    "      pax_grp.status NOT IN ('E') AND COALESCE(inbound_confirm,0)=0"; //NVL потом убрать!!!
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("airp_arv", otString, grp_out.airp_arv);
   Qry.Execute();
@@ -2469,8 +2469,9 @@ void LoadPaxLists(int point_id,
     paxs_ckin.push_back(TPaxItem("",Qry.FieldAsString("surname"),Qry.FieldAsString("name")));
   };
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery Qry2(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX","PAX"}),STDLOG);
+  Qry2.ClearParams();
+  Qry2.SQLText=
     "SELECT crs_pax.pax_id, crs_pax.surname, crs_pax.name "
     "FROM tlg_binding, crs_pnr, crs_pax, pax "
     "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
@@ -2479,12 +2480,12 @@ void LoadPaxLists(int point_id,
     "      tlg_binding.point_id_spp=:point_id AND "
     "      crs_pnr.system='CRS' AND "
     "      crs_pax.pr_del=0 ";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  Qry2.CreateVariable("point_id", otInteger, point_id);
+  Qry2.Execute();
+  for(;!Qry2.Eof;Qry2.Next())
   {
-    if (pax_out_ids.find(Qry.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
-    paxs_crs.push_back(TPaxItem("",Qry.FieldAsString("surname"),Qry.FieldAsString("name")));
+    if (pax_out_ids.find(Qry2.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
+    paxs_crs.push_back(TPaxItem("",Qry2.FieldAsString("surname"),Qry2.FieldAsString("name")));
   };
 };
 

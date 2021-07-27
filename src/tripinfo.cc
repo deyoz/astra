@@ -1571,11 +1571,11 @@ void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem
     ic.second = 0;
   }
   paxLoad.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_INF"}),STDLOG);
+  Qry.ClearParams();
   ostringstream sql;
   sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, " << endl
-      << "       NVL(pax.is_female, 0) AS is_female, " << endl
+      << "       COALESCE(pax.is_female, 0) AS is_female, " << endl
       << "       crs_inf.pax_id AS parent_pax_id, " << endl
       << "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, " << endl
       << "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, " << endl
@@ -1765,20 +1765,20 @@ static void getBagLoadByCabinClasses( int point_id, PaxLoadTotalRowStruct &total
 {
   total.bags.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","BAG2"}),STDLOG);
+  Qry.ClearParams();
   Qry.SQLText =
-    "SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
-    "       NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
-    "       NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight, "
-    "       NVL(pax.cabin_class, pax_grp.class) AS class "
+    "SELECT COALESCE(SUM((CASE WHEN pr_cabin=0 THEN amount ELSE 0 END)),0) AS bag_amount, "
+    "       COALESCE(SUM((CASE WHEN pr_cabin=0 THEN weight ELSE 0 END)),0) AS bag_weight, "
+    "       COALESCE(SUM((CASE WHEN pr_cabin=0 THEN 0 ELSE weight END)),0) AS rk_weight, "
+    "       COALESCE(pax.cabin_class, pax_grp.class) AS class "
     "  FROM pax_grp, bag2, pax "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
     "        bag2.grp_id=pax.grp_id(+) AND "
     "        bag2.bag_pool_num=pax.bag_pool_num(+) AND "
     "        point_dep=:point_id AND status NOT IN ('E') AND "
     "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-    " GROUP BY NVL(pax.cabin_class, pax_grp.class)";
+    " GROUP BY COALESCE(pax.cabin_class, pax_grp.class)";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   for ( ; !Qry.Eof; Qry.Next() ) {
@@ -1896,6 +1896,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   if (!pr_section)
   {
+    std::set<std::string> involvedTables;
+
+    std::set<std::string> involvedTablesTrfer({"PAX_GRP","TRANSFER","TRFER_TRIPS"});
     ostringstream last_trfer_sql;
     last_trfer_sql << "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, " << endl
                    << "             transfer.grp_id "
@@ -1929,6 +1932,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           if (pr_class)       s << ", trip_classes.class";
         };
 
+        involvedTables.insert("TRIP_CLASSES");
         sql << "SELECT SUM(trip_classes.cfg) AS cfg, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM trip_classes " << endl
@@ -1944,6 +1948,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           if (pr_airp_arv)    s << ", counters2.point_arv";
         };
 
+        involvedTables.insert("COUNTERS2");
         sql << "SELECT SUM(counters2.crs_ok) AS crs_ok, " << endl
             << "       SUM(counters2.crs_tranzit) AS crs_tranzit, " << endl
             << "       " << select.str().erase(0,1) << endl
@@ -1956,9 +1961,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',COALESCE(pax.cabin_class, pax_grp.class))"
+          if (pr_class)       s << ", (CASE WHEN pax_grp.status='E' THEN ' ' ELSE COALESCE(pax.cabin_class, pax_grp.class) END)"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,COALESCE(pax.cabin_class_grp, pax_grp.class_grp))"
+          if (pr_cl_grp)      s << ", (CASE WHEN pax_grp.status='E' THEN 1000000000 ELSE COALESCE(pax.cabin_class_grp, pax_grp.class_grp) END)"
                                 << (i==0?" AS class_grp":"");
           if (pr_hall)        s << ", pax_grp.hall";
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
@@ -1973,16 +1978,22 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           if (pr_rems)        s << ", pax_rem.rem_code";
         };
 
+        involvedTables.insert("PAX_GRP");
+        involvedTables.insert("PAX");
         sql << "SELECT SUM(pax.seats) AS seats, " << endl
-            << "       SUM(DECODE(pax.pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)) AS adult_m, " << endl
-            << "       SUM(DECODE(pax.pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)) AS adult_f, " << endl
-            << "       SUM(DECODE(pax.pers_type,:child,1,0)) AS child, " << endl
-            << "       SUM(DECODE(pax.pers_type,:baby,1,0)) AS baby, " << endl
+            << "       SUM((CASE WHEN pax.pers_type=:adult THEN (CASE WHEN COALESCE(pax.is_female,0)=0 THEN 1 ELSE 0 END) ELSE 0 END)) AS adult_m, " << endl
+            << "       SUM((CASE WHEN pax.pers_type=:adult THEN (CASE WHEN COALESCE(pax.is_female,0)=0 THEN 0 ELSE 1 END) ELSE 0 END)) AS adult_f, " << endl
+            << "       SUM((CASE WHEN pax.pers_type=:child THEN 1 ELSE 0 END)) AS child, " << endl
+            << "       SUM((CASE WHEN pax.pers_type=:baby THEN 1 ELSE 0 END)) AS baby, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,pax " << endl;
 
-        if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql.str() << endl;
+        if (pr_trfer)
+        {
+          involvedTables.insert(involvedTablesTrfer.begin(),involvedTablesTrfer.end());
+          sql << "    ," << endl
+              << last_trfer_sql.str() << endl;
+        }
         if (pr_rems)
         {
           sql << ",( " << endl;
@@ -1992,6 +2003,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             switch(iRem->first)
             {
               case remTKN:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
                 sql << "  SELECT pax.pax_id,pax.ticket_rem AS rem_code" << endl
                     << "  FROM pax_grp,pax " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2001,6 +2014,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        pax.ticket_rem IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remDOC:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_DOC");
                 sql << "  SELECT pax.pax_id,'DOCS' AS rem_code " << endl
                     << "  FROM pax_grp,pax,pax_doc " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2011,6 +2027,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        'DOCS' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remDOCO:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_DOCO");
                 sql << "  SELECT pax.pax_id,'DOCO' AS rem_code " << endl
                     << "  FROM pax_grp,pax,pax_doco " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2021,6 +2040,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        'DOCO' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remDOCA:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_DOCA");
                 sql << "  SELECT DISTINCT pax.pax_id,'DOCA' AS rem_code " << endl
                     << "  FROM pax_grp,pax,pax_doca " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2031,6 +2053,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        'DOCA' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remASVC:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_ASVC");
                 sql << "  SELECT DISTINCT pax.pax_id,'ASVC' AS rem_code " << endl
                     << "  FROM pax_grp,pax,pax_asvc " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2041,6 +2066,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        'ASVC' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remFQT:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_FQT");
                 sql << "  SELECT DISTINCT pax.pax_id, pax_fqt.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_fqt " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2055,6 +2083,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
               case remAPPSOverride:
               case remAPPSStatus:
               case remUnknown:
+                involvedTables.insert("PAX_GRP");
+                involvedTables.insert("PAX");
+                involvedTables.insert("PAX_REM");
                 sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_rem " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2073,7 +2104,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "      pax_grp.point_dep=:point_id AND " << endl
             << "      " << crew_filter << endl
             << "      pax.pr_brd IS NOT NULL " << endl;
-        if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
+        if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl; // it must work in PG
         if (pr_rems)  sql << "      AND pax.pax_id=pax_rem.pax_id " << endl;
       };
       if (pass==4)
@@ -2082,35 +2113,43 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',NVL(pax.cabin_class, pax_grp.class))"
+          if (pr_class)       s << ", (CASE WHEN pax_grp.status='E' THEN ' ' ELSE COALESCE(pax.cabin_class, pax_grp.class) END)"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,NVL(pax.cabin_class_grp, pax_grp.class_grp))"
+          if (pr_cl_grp)      s << ", (CASE WHEN pax_grp.status='E' THEN 1000000000 ELSE COALESCE(pax.cabin_class_grp, pax_grp.class_grp) END)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, DECODE(bag2.handmade, 0, 1000000000, bag2.hall)))"
+          if (pr_hall)        s << ", COALESCE(bag2.hall, (CASE WHEN bag2.is_trfer=0 THEN bag2.hall ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE bag2.hall END) END ))"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, DECODE(bag2.handmade, 0, 1000000000, bag2.user_id)))"
+          if (pr_user)        s << ", COALESCE(bag2.user_id, (CASE WHEN bag2.is_trfer=0 THEN bag2.user_id ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE bag2.user_id END) END))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
         };
 
-        sql << "SELECT SUM(DECODE(bag2.pr_cabin,0,bag2.amount,0)) AS bag_amount, " << endl
-            << "       SUM(DECODE(bag2.pr_cabin,0,bag2.weight,0)) AS bag_weight, " << endl
-            << "       SUM(DECODE(bag2.pr_cabin,0,0,bag2.weight)) AS rk_weight, " << endl
+        involvedTables.insert("PAX_GRP");
+        involvedTables.insert("BAG2");
+        sql << "SELECT SUM((CASE WHEN bag2.pr_cabin=0 THEN bag2.amount ELSE 0 END)) AS bag_amount, " << endl
+            << "       SUM((CASE WHEN bag2.pr_cabin=0 THEN bag2.weight ELSE 0 END)) AS bag_weight, " << endl
+            << "       SUM((CASE WHEN bag2.pr_cabin=0 THEN 0 ELSE bag2.weight END)) AS rk_weight, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,bag2 " << endl;
 
         if (pr_trfer)
+        {
+          involvedTables.insert(involvedTablesTrfer.begin(),involvedTablesTrfer.end());
           sql << "    ," << endl
               << last_trfer_sql.str() << endl;
+        }
 
         if (pr_class || pr_cl_grp)
+        {
+          involvedTables.insert("PAX");
           sql << ", pax " << endl;
+        }
 
 
         sql << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
@@ -2129,32 +2168,40 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+          if (pr_class)       s << ", (CASE WHEN pax_grp.status='E' THEN ' ' ELSE pax_grp.class END)"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+          if (pr_cl_grp)      s << ", (CASE WHEN pax_grp.status='E' THEN 1000000000 ELSE pax_grp.class_grp END)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, DECODE(bag2.handmade, 0, 1000000000, pax_grp.hall))))"
+          if (pr_hall)        s << ", (CASE WHEN bag2.grp_id IS NULL THEN  pax_grp.hall ELSE COALESCE(bag2.hall, (CASE WHEN bag2.is_trfer=0 THEN pax_grp.hall ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE pax_grp.hall END) END)) END)"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, DECODE(bag2.handmade, 0, 1000000000, pax_grp.user_id))))"
+          if (pr_user)        s << ", (CASE WHEN bag2.grp_id IS NULL THEN pax_grp.user_id ELSE COALESCE(bag2.user_id, (CASE WHEN bag2.is_trfer=0 THEN pax_grp.user_id ELSE (CASE WHEN bag2.handmade=0 THEN 1000000000 ELSE pax_grp.user_id END) END)) END)"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
         };
 
+        involvedTables.insert("PAX_GRP");
         sql << "SELECT SUM(excess_wt) AS excess_wt, " << endl
             << "       SUM(excess_pc) AS excess_pc, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp " << endl;
 
-        if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql.str() << endl;
+        if (pr_trfer)
+        {
+          involvedTables.insert(involvedTablesTrfer.begin(),involvedTablesTrfer.end());
+          sql << "    ," << endl
+              << last_trfer_sql.str() << endl;
+        }
 
         if (pr_hall || pr_user)
+        {
+          involvedTables.insert("PAX_GRP");
+          involvedTables.insert("BAG2");
           sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer,bag2.handmade " << endl
               << "     FROM bag2, " << endl
               << "          (SELECT bag2.grp_id,MAX(bag2.num) AS num " << endl
@@ -2162,6 +2209,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
               << "           WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.point_dep=:point_id " << endl
               << "           GROUP BY bag2.grp_id) last_bag " << endl
               << "     WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 " << endl;
+        }
 
         sql << "WHERE pax_grp.point_dep=:point_id AND " << endl
             << "      " << crew_filter << endl
@@ -2173,11 +2221,17 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       };
 
       sql << "GROUP BY " << group_by.str().erase(0,1) << endl;
-      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2",
-                                          "PAX", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC",
-                                          "PAX_FQT", "PAX_REM", "BAG2"}), STDLOG);
-                    Qry.SQLText = sql.str().c_str();
+
+      std::list<std::string> tablesList(involvedTables.begin(),involvedTables.end());
+
+      //DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2",
+      //                                    "PAX", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC",
+      //                                    "PAX_FQT", "PAX_REM", "BAG2"}), STDLOG);
+
+      DB::TQuery Qry(PgOra::getROSession(tablesList),STDLOG);
+      Qry.SQLText = sql.str().c_str();
       LogTrace(TRACE3) << "mega sql: " << sql.str();
+
       Qry.CreateVariable("point_id",otInteger,point_id);
       if (pass==3)
       {
@@ -2249,14 +2303,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
     //заполняем все недостающие поля TPaxLoadItem
 
-    TQuery HallsQry(&OraSession);
-    HallsQry.Clear();
+    DB::TQuery HallsQry(PgOra::getROSession("HALLS2"),STDLOG);
+    HallsQry.ClearParams();
     HallsQry.SQLText="SELECT airp FROM halls2 WHERE id=:id";
     HallsQry.DeclareVariable("id",otInteger);
     map<int, pair<string,string> > halls; //кэшируем информацию по залам
 
-    TQuery PointsQry(&OraSession);
-    PointsQry.Clear();
+    DB::TQuery PointsQry(PgOra::getROSession("POINTS"),STDLOG);
+    PointsQry.ClearParams();
     PointsQry.SQLText="SELECT airp,point_num FROM points WHERE point_id=:point_id AND pr_del>=0";
     PointsQry.DeclareVariable("point_id",otInteger);
     map<int, pair<string,int> > points; //кэшируем информацию по пунктам

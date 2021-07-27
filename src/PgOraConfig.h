@@ -48,6 +48,10 @@ namespace PgOra
     DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects);
     DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects);
 
+    DbCpp::Session& getROSession(const std::list<std::string>& objects);
+    DbCpp::Session& getRWSession(const std::list<std::string>& objects);
+    DbCpp::Session& getAutoSession(const std::list<std::string>& objects);
+
     std::string makeSeqNextVal(const std::string& sequenceName);
     long getSeqNextVal(const std::string& sequenceName);
     int getSeqNextVal_int(const std::string& sequenceName);
