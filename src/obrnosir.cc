@@ -189,6 +189,7 @@ int edi_load_messages_local(int argc, char** argv)
 
 int main_nosir_user(int argc,char **argv)
 {
+  int res = -1;
   try
   {
     puts(""); //отделим пустой строкой вывод обработчика
@@ -203,7 +204,7 @@ int main_nosir_user(int argc,char **argv)
       {
 
         ProgTrace(TRACE1,"nosir func started: name='%s, id=%i, argc=%i", argv[0], i, argc);
-        int res=obrnosirnick[i].p(argc,argv);
+        res=obrnosirnick[i].p(argc,argv);
         ProgTrace(TRACE1,"nosir func finished: name='%s, id=%i, res=%i", argv[0], i, res);
 
         callPostHooksBefore();
@@ -249,7 +250,7 @@ int main_nosir_user(int argc,char **argv)
     puts("Bad error! Contact with developers!");
   };
   //LocalIsNosir=0;
-  return 0;
+  return res;
 }
 
 void help_nosir_user(void)

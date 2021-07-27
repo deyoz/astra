@@ -1,4 +1,6 @@
 #!/bin/sh
+set -e
+
 if [ -f ../locallibs/external_env_file ] ; then . ../locallibs/external_env_file ; fi
 if [ $# -gt 0 ]
 then

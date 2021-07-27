@@ -52,9 +52,6 @@ checkresult build_ora_database $?
 ( cd src && make install-edimessages )
 checkresult installedimessages $?
 
-( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
-checkresult html_to_db $?
-
 ( cd src && ./nosir.tcl -load_fr ../sql/nosir_load/fr_reports )
 checkresult load_fr $?
 
@@ -69,4 +66,7 @@ checkresult pg_sessions_check $?
 
 if [ "$ENABLE_ORACLE" = "0" ]; then
       echo "==== ENABLE_ORACLE=$ENABLE_ORACLE ORACLE DB not built ====="
+else
+    ( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
+    checkresult html_to_db $?
 fi
