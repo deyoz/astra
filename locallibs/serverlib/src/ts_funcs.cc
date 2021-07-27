@@ -844,8 +844,8 @@ FP_REGISTER("if", FP_if);
 FP_REGISTER("eq", FP_eq);
 FP_REGISTER("cat", FP_cat)
 FP_REGISTER("pg_dump_table", FP_db_dump_table)
-#ifdef ENABLE_ORACLE
 FP_REGISTER("sql",  FP_sql)
+#ifdef ENABLE_ORACLE
 FP_REGISTER("dump_table", FP_dump_table)
 FP_REGISTER("savepoint", FP_savepoint)
 FP_REGISTER("clean_edi_help", FP_clean_edi_help)
