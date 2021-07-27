@@ -163,7 +163,9 @@ void TCompElemTypes::Update()
         UpdatePg(QUERY, is_places, max_time_create, default_elem_code);
     }
 #ifdef ENABLE_ORACLE
-    UpdateOra(QUERY, is_places, max_time_create, default_elem_code);
+    if (PgOra::Config("SP_PG_GROUP_COMP").writeOracle()) {
+        UpdateOra(QUERY, is_places, max_time_create, default_elem_code);
+    }
 #endif
 }
 
