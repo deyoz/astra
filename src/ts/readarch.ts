@@ -363,7 +363,7 @@ $(GET_ARX_EVENTS $(get point_dep) $(date_format %d.%m.%Y +1))
         <scd_out>01.12.0002</scd_out>
         <real_out>01.12.0002</real_out>
         <scd_date>01.12</scd_date>
-        <date_issue>$(date_format %d.%m.%y) $(date_format %H:%M)</date_issue>
+        <date_issue>$(date_format %d.%m.%y) xx:xx</date_issue>
         <day_issue>$(date_format %d.%m.%y)</day_issue>
         <lang>RU</lang>
         <own_airp_name>€’ €Œ‘’…„€Œ</own_airp_name>
