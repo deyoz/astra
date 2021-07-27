@@ -2803,43 +2803,6 @@ BEGIN
   END LOOP;
 END modify_rem_event_sets;
 
-PROCEDURE check_stage_access(vstage_id     IN graph_stages.stage_id%TYPE,
-                             vairline      IN airlines.code%TYPE,
-                             vairline_view IN VARCHAR2,
-                             vairp         IN airps.code%TYPE,
-                             vairp_view    IN VARCHAR2,
-                             vuser_id      IN users2.user_id%TYPE,
-                             vexception    IN NUMBER)
-IS
-vairlineh       airlines.code%TYPE;
-vairph          airps.code%TYPE;
-is_airp_stage   graph_stages.pr_airp_stage%TYPE;
-vuser_type      users2.type%TYPE;
-BEGIN
-  vairlineh:=check_airline_access(vairline,vairline_view,vuser_id,vexception);
-  vairph:=check_airp_access(vairp,vairp_view,vuser_id,vexception);
-  IF vexception<>0 THEN
-    SELECT pr_airp_stage INTO is_airp_stage FROM graph_stages WHERE stage_id=vstage_id;
-    SELECT type INTO vuser_type FROM users2 WHERE user_id=vuser_id;
-    IF vairline IS NULL AND vuser_type=utAirport AND is_airp_stage=0 THEN
-      IF vexception=1 THEN
-        system.raise_user_exception('MSG.NEED_SET_CODE_AIRLINE');
-      ELSE
-        system.raise_user_exception('MSG.NO_PERM_MODIFY_INDEFINITE_AIRLINE');
-      END IF;
-    END IF;
-    IF vairp IS NULL AND vuser_type=utAirline AND is_airp_stage<>0 THEN
-      IF vexception=1 THEN
-        system.raise_user_exception('MSG.NEED_SET_CODE_AIRP');
-      ELSE
-        system.raise_user_exception('MSG.NO_PERM_MODIFY_INDEFINITE_AIRPORT');
-      END IF;
-    END IF;
-  END IF;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN NULL;
-END check_stage_access;
-
 PROCEDURE delete_create_points(vid            typeb_addrs.id%TYPE,
                                vsetting_user  history_events.open_user%TYPE,
                                vstation       history_events.open_desk%TYPE)

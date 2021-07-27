@@ -368,14 +368,6 @@ PROCEDURE modify_rem_event_sets(old_set_id          rem_event_sets.set_id%TYPE,
                                 vsetting_user       history_events.open_user%TYPE,
                                 vstation            history_events.open_desk%TYPE);
 
-PROCEDURE check_stage_access(vstage_id     IN graph_stages.stage_id%TYPE,
-                             vairline      IN airlines.code%TYPE,
-                             vairline_view IN VARCHAR2,
-                             vairp         IN airps.code%TYPE,
-                             vairp_view    IN VARCHAR2,
-                             vuser_id      IN users2.user_id%TYPE,
-                             vexception    IN NUMBER);
-
 PROCEDURE check_sita_addr(str         IN VARCHAR2,
                           cache_table IN cache_tables.code%TYPE,
                           cache_field IN cache_fields.name%TYPE,
