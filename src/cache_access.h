@@ -112,5 +112,10 @@ void checkDeskAndDeskGrp(const std::string& deskFieldName,
                          const std::string& deskGrpIdFieldName,
                          std::optional<CacheTable::Row>& row);
 
+void checkUserTypesAccess(const std::string& userTypeFieldName1,
+                          const std::string& userTypeFieldName2,
+                          const std::optional<CacheTable::Row>& oldRow,
+                          const std::optional<CacheTable::Row>& newRow);
+
 } //namespace CacheTable
 

@@ -56,6 +56,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="TRIP_VALUE_BAG_TAXES")     return new CacheTable::TripValueBagTaxes;
   if (cacheCode=="TRIP_EXCHANGE_RATES")      return new CacheTable::TripExchangeRates;
   if (cacheCode=="AIRLINE_PROFILES")    return new CacheTable::AirlineProfiles;
+  if (cacheCode=="EXTRA_ROLE_ACCESS")   return new CacheTable::ExtraRoleAccess;
+  if (cacheCode=="EXTRA_USER_ACCESS")   return new CacheTable::ExtraUserAccess;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -1977,6 +1979,125 @@ void AirlineProfiles::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                               const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("airline_profiles").synchronize(getRowId("profile_id", oldRow, newRow));
+}
+
+//ExtraRoleAccess
+
+bool ExtraRoleAccess::userDependence() const {
+  return true;
+}
+std::string ExtraRoleAccess::selectSql() const {
+  return
+   "SELECT id, airline_from, airp_from, airline_to, airp_to, full_access "
+   "FROM extra_role_access "
+   "WHERE " + getSQLFilter("airline_from", AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airline_to",   AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airp_from",    AccessControl::PermittedAirports) + " AND "
+            + getSQLFilter("airp_to",      AccessControl::PermittedAirports) +
+   "ORDER BY id";
+}
+std::string ExtraRoleAccess::insertSql() const {
+  return "INSERT INTO extra_role_access(id, airline_from, airp_from, airline_to, airp_to, full_access) "
+         "VALUES(:id, :airline_from, :airp_from, :airline_to, :airp_to, :full_access)";
+}
+std::string ExtraRoleAccess::updateSql() const {
+  return "UPDATE extra_role_access "
+         "SET airline_from=:airline_from, airp_from=:airp_from, "
+         "    airline_to=:airline_to, airp_to=:airp_to, full_access=:full_access "
+         "WHERE id=:OLD_id";
+}
+std::string ExtraRoleAccess::deleteSql() const {
+  return "DELETE FROM extra_role_access WHERE id=:OLD_id";
+}
+
+std::list<std::string> ExtraRoleAccess::dbSessionObjectNames() const {
+  return {"EXTRA_ROLE_ACCESS"};
+}
+
+void ExtraRoleAccess::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline_from", oldRow, newRow);
+  checkAirportAccess("airp_from", oldRow, newRow);
+  checkAirlineAccess("airline_to", oldRow, newRow);
+  checkAirportAccess("airp_to", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void ExtraRoleAccess::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("extra_role_access").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//ExtraUserAccess
+
+bool ExtraUserAccess::userDependence() const {
+  return true;
+}
+std::string ExtraUserAccess::selectSql() const {
+  return
+   "SELECT id, airline_from, airp_from, airline_to, airp_to, full_access, "
+   "       type_from AS type_code_from, type_from AS type_name_from, "
+   "       type_to AS type_code_to, type_to AS type_name_to "
+   "FROM extra_user_access "
+   "WHERE " + getSQLFilter("airline_from", AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airline_to",   AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp_from",    AccessControl::PermittedAirportsOrNull) + " AND "
+            + getSQLFilter("airp_to",      AccessControl::PermittedAirportsOrNull) +
+   (TReqInfo::Instance()->user.user_type!=utSupport?
+      " AND (type_from=:user_type OR type_to=:user_type) ":"") +
+   "ORDER BY id";
+}
+std::string ExtraUserAccess::insertSql() const {
+  return "INSERT INTO extra_user_access(id, type_from, airline_from, airp_from, type_to, airline_to, airp_to, full_access) "
+         "VALUES(:id, :type_code_from, :airline_from, :airp_from, :type_code_to, :airline_to, :airp_to, :full_access)";
+}
+std::string ExtraUserAccess::updateSql() const {
+  return "UPDATE extra_user_access "
+         "SET type_from=:type_code_from, airline_from=:airline_from, airp_from=:airp_from, "
+         "    type_to=:type_code_to, airline_to=:airline_to, airp_to=:airp_to, full_access=:full_access "
+         "WHERE id=:OLD_id";
+}
+std::string ExtraUserAccess::deleteSql() const {
+  return "DELETE FROM extra_user_access WHERE id=:OLD_id";
+}
+
+std::list<std::string> ExtraUserAccess::dbSessionObjectNames() const {
+  return {"EXTRA_USER_ACCESS"};
+}
+
+void ExtraUserAccess::beforeSelectOrRefresh(const TCacheQueryType queryType,
+                                            const TParams& sqlParams,
+                                            DB::TQuery& Qry) const
+{
+  TUserType userType=TReqInfo::Instance()->user.user_type;
+  if (userType!=utSupport)
+    Qry.CreateVariable("user_type", otInteger, (int)userType);
+}
+
+void ExtraUserAccess::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               std::optional<CacheTable::Row>& newRow) const
+{
+  checkUserTypesAccess("type_code_from", "type_code_to", oldRow, newRow);
+
+  checkAirlineAccess("airline_from", oldRow, newRow);
+  checkAirportAccess("airp_from", oldRow, newRow);
+  checkAirlineAccess("airline_to", oldRow, newRow);
+  checkAirportAccess("airp_to", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void ExtraUserAccess::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("extra_user_access").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables

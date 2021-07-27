@@ -96,26 +96,6 @@ FUNCTION check_user_access(vuser_id1 IN users2.user_id%TYPE,
                            vuser_id2 IN users2.user_id%TYPE,
                            vexception IN NUMBER) RETURN users2.user_id%TYPE;
 
-FUNCTION check_extra_view_access(vuser_type_from IN user_types.code%TYPE,
-                                 vairline_from IN airlines.code%TYPE,
-                                 vairp_from IN airps.code%TYPE,
-                                 vuser_type_to IN user_types.code%TYPE,
-                                 vairline_to IN airlines.code%TYPE,
-                                 vairp_to IN airps.code%TYPE,
-                                 vuser_id IN users2.user_id%TYPE) RETURN NUMBER;
-PROCEDURE check_extra_access(vuser_type_from    IN user_types.code%TYPE,
-                             vairline_from      IN airlines.code%TYPE,
-                             vairline_from_view IN VARCHAR2,
-                             vairp_from         IN airps.code%TYPE,
-                             vairp_from_view    IN VARCHAR2,
-                             vuser_type_to      IN user_types.code%TYPE,
-                             vairline_to        IN airlines.code%TYPE,
-                             vairline_to_view   IN VARCHAR2,
-                             vairp_to           IN airps.code%TYPE,
-                             vairp_to_view      IN VARCHAR2,
-                             vuser_id           IN users2.user_id%TYPE,
-                             vexception         IN NUMBER);
-
 FUNCTION check_airline_access(vairline  IN airlines.code%TYPE,
                               vuser_id  IN users2.user_id%TYPE) RETURN NUMBER;
 FUNCTION check_airline_access(vairline  IN airlines.code%TYPE,

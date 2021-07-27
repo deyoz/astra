@@ -326,8 +326,6 @@ void ViewAccess<DeskCode_t>::downloadPermissions()
   while (!cur.fen()) permitted.value().emplace(desk);
 }
 
-
-
 //проверка прав работы с группой пультов
 
 void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
@@ -346,7 +344,8 @@ void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
     DeskGrpId_t deskGrpId(valueOpt.value());
 
     if (!Access(deskGrpId).check(deskGrpId))
-      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":"MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP"); //!!! хорошо бы в сообщении выводить название группы
+      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":
+                                   "MSG.ACCESS.NO_PERM_MODIFY_DESK_GRP"); //!!! хорошо бы в сообщении выводить название группы
   }
 }
 
@@ -400,6 +399,29 @@ void checkDeskAndDeskGrp(const std::string& deskFieldName,
     throw UserException("MSG.DESK_GRP_DOES_NOT_MEET_DESK");
 
   row.value().setFromInteger(deskGrpIdFieldName, grpId);
+}
+
+void checkUserTypesAccess(const std::string& userTypeFieldName1,
+                          const std::string& userTypeFieldName2,
+                          const std::optional<CacheTable::Row>& oldRow,
+                          const std::optional<CacheTable::Row>& newRow)
+{
+  TUserType ownUserType=TReqInfo::Instance()->user.user_type;
+
+  if (ownUserType==utSupport) return;
+
+  for(bool isNewRow : {false, true})
+  {
+    const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
+    if (!row) continue;
+
+    TUserType userType1=static_cast<TUserType>(row.value().getAsInteger_ThrowOnEmpty(userTypeFieldName1));
+    TUserType userType2=static_cast<TUserType>(row.value().getAsInteger_ThrowOnEmpty(userTypeFieldName2));
+
+    if (ownUserType!=userType1 || ownUserType!=userType2)
+      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_USER_TYPES":
+                                   "MSG.ACCESS.NO_PERM_MODIFY_USER_TYPES");
+  }
 }
 
 } //namespace CacheTable
