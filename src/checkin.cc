@@ -3383,7 +3383,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             ts.act != NoExists and
             TReqInfo::Instance()->user.access.rights().permitted(997)
       )
+    {
         throw AstraLocale::UserException(ElemIdToNameLong(etRight, 997));
+    }
     SavePax(reqNode, NULL, resNode);
 }
 
@@ -6824,10 +6826,12 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                         << QParam("piece_concept", otInteger)
                         << QParam("point_id", otInteger));
 
-    TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
-                          QParams() << QParam("grp_id", otInteger)
-                          << QParam("transfer_num", otInteger)
-                          << QParam("piece_concept", otInteger));
+    DB::TCachedQuery TrferQry(PgOra::getRWSession("TRANSFER"),
+                              "UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
+                              QParams() << QParam("grp_id", otInteger)
+                              << QParam("transfer_num", otInteger)
+                              << QParam("piece_concept", otInteger),
+                              STDLOG);
 
     TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin();
     if (bag_concept_by_seg.empty())

@@ -166,7 +166,7 @@ bool existsTransfer(PointId_t point_id)
         "SELECT 1 FROM TRANSFER "
         "WHERE POINT_ID_TRFER = :point_id "
         "FETCH FIRST 1 ROWS ONLY ",
-        PgOra::getRWSession("TRANSFER"));
+        PgOra::getROSession("TRANSFER"));
   cur.stb()
       .bind(":point_id", point_id.get())
       .EXfet();

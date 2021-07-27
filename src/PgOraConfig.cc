@@ -235,6 +235,7 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_TRANSFER", {
                 "TRANSFER",
+                "TRANSFER_SUBCLS",
         }},
         { "SP_PG_GROUP_TRIP_CALC", {
                 "TRIP_CALC_DATA",

@@ -939,37 +939,39 @@ namespace PRL_SPACE {
     void TTagList::get(int grp_id, int bag_pool_num)
     {
         string SQLText =
-            "select "
-            "    bag_tags.tag_type,  "
-            "    tag_types.no_len,  "
-            "    bag_tags.no,  "
-            "    bag_tags.color,  "
-            "    COALESCE(transfer.airp_arv, pax_grp.airp_arv) airp_arv  "
-            "from "
-            "    bag_tags, "
-            "    bag2, "
-            "    tag_types, "
-            "    transfer, "
-            "    pax_grp "
-            "where "
-            "    bag_tags.grp_id = :grp_id and "
-            "    bag_tags.grp_id = bag2.grp_id(+) and "
-            "    bag_tags.bag_num = bag2.num(+) and ";
+        "select "
+          "bag_tags.tag_type, "
+          "tag_types.no_len, "
+          "bag_tags.no, "
+          "bag_tags.color, "
+          "COALESCE(transfer.airp_arv, pax_grp.airp_arv) as airp_arv "
+        "from BAG_TAGS "
+          "join PAX_GRP "
+            "on BAG_TAGS.GRP_ID = PAX_GRP.GRP_ID "
+          "left outer join TRANSFER "
+            "on ( "
+              "BAG_TAGS.GRP_ID = TRANSFER.GRP_ID "
+              "and TRANSFER.PR_FINAL <> 0 "
+            ") "
+          "join TAG_TYPES "
+            "on BAG_TAGS.TAG_TYPE = TAG_TYPES.CODE "
+          "left outer join BAG2 "
+            "on ( "
+              "BAG_TAGS.GRP_ID = BAG2.GRP_ID "
+              "and BAG_TAGS.BAG_NUM = BAG2.NUM "
+            ") "
+        "where "
+          "BAG_TAGS.GRP_ID = :grp_id AND ";
         if(bag_pool_num == 1) // непривязанные бирки приобщаем к bag_pool_num = 1
-            SQLText +=
-                "    (bag2.bag_pool_num = :bag_pool_num or bag_tags.bag_num is null) and ";
+          SQLText+="(BAG2.BAG_POOL_NUM = :bag_pool_num OR BAG_TAGS.BAG_NUM IS NULL)";
         else
-            SQLText +=
-                "    bag2.bag_pool_num = :bag_pool_num and ";
-        SQLText +=
-            "    bag_tags.tag_type = tag_types.code and "
-            "    bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
-            "    bag_tags.grp_id = pax_grp.grp_id ";
+          SQLText+="BAG2.BAG_POOL_NUM = :bag_pool_num";
+
         QParams QryParams;
         QryParams
             << QParam("grp_id", otInteger, grp_id)
             << QParam("bag_pool_num", otInteger, bag_pool_num);
-        TCachedQuery Qry(SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession({"BAG_TAGS","BAG2","TAG_TYPES","TRANSFER","PAX_GRP"}),SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(!Qry.get().Eof) {
             int col_tag_type = Qry.get().FieldIndex("tag_type");
@@ -2754,29 +2756,30 @@ void TPList::get(TypeB::TDetailCreateInfo &info, string trfer_cls)
         QryParams << QParam("bag_pool_num", otInteger, FNull);
     else
         QryParams << QParam("bag_pool_num", otInteger, grp->bag_pool_num);
-    TCachedQuery Qry(
-        "select \n"
-        "   pax.pax_id, \n"
-        "   pax.pr_brd, \n"
-        "   pax.seats, \n"
-        "   system.transliter(pax.surname, 1, :pr_lat) surname, \n"
-        "   pax.pers_type, \n"
-        "   system.transliter(pax.name, 1, :pr_lat) name, \n"
-        "   subcls.class \n"
-        "from \n"
-        "   pax, \n"
-        "   transfer_subcls, \n"
-        "   subcls \n"
-        "where \n"
-        "  pax.grp_id = :grp_id and \n"
-        "  COALESCE(pax.bag_pool_num, 0) = COALESCE(:bag_pool_num, 0) and \n"
-        "  pax.pax_id = transfer_subcls.pax_id(+) and \n"
-        "  transfer_subcls.transfer_num(+) = 1 and \n"
-        "  transfer_subcls.subclass = subcls.code(+) \n"
-        "order by \n"
-        "   surname, \n"
-        "   name \n",
-        QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX","TRANSFER_SUBCLS","SUBCLS"}),
+        "SELECT "
+          "PAX.PAX_ID, "
+          "PAX.PR_BRD, "
+          "PAX.SEATS, "
+          "SYSTEM.TRANSLITER(PAX.SURNAME, 1, :pr_lat) AS SURNAME, "
+          "PAX.PERS_TYPE, "
+          "SYSTEM.TRANSLITER(PAX.NAME, 1, :pr_lat) AS NAME, "
+          "SUBCLS.CLASS "
+        "FROM PAX "
+          "LEFT OUTER JOIN TRANSFER_SUBCLS "
+            "ON ( "
+              "PAX.PAX_ID = TRANSFER_SUBCLS.PAX_ID "
+              "AND TRANSFER_SUBCLS.TRANSFER_NUM = 1 "
+            ") "
+          "LEFT OUTER JOIN SUBCLS "
+            "ON TRANSFER_SUBCLS.SUBCLASS = SUBCLS.CODE "
+        "WHERE ( "
+          "PAX.GRP_ID = :grp_id "
+          "AND coalesce(PAX.BAG_POOL_NUM, 0) = coalesce(:bag_pool_num, 0) "
+        ") "
+        "ORDER BY SURNAME, NAME",
+        QryParams,
+        STDLOG);
     Qry.get().Execute();
     if(Qry.get().Eof) {
         TPPax item;
@@ -2846,54 +2849,59 @@ void TBTMGrpList::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, TF
 void TBTMGrpList::get(TypeB::TDetailCreateInfo &info, TFItem &FItem)
 {
     const TypeB::TAirpTrferOptions &trferOptions=*(info.optionsAs<TypeB::TAirpTrferOptions>());
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"TRANSFER","PAX_GRP","PAX","TRANSFER_SUBCLS","SUBCLS"}),STDLOG);
     Qry.SQLText =
-        "select distinct  \n"
-        "   transfer.grp_id,  \n"
-        "   nvl2(pax.grp_id, pax.bag_pool_num, 1) bag_pool_num, \n"
-        "   ckin.get_bag_pool_pax_id(transfer.grp_id, pax.bag_pool_num) bag_pool_pax_id  \n"
-        "from   \n"
-        "   transfer,  \n"
-        "   pax_grp,  \n"
-        "   pax, \n"
-        "   (select  \n"
-        "       pax_grp.grp_id,  \n"
-        "       subcls.class  \n"
-        "    from  \n"
-        "       pax_grp,  \n"
-        "       pax,  \n"
-        "       transfer_subcls,  \n"
-        "       subcls  \n"
-        "    where  \n"
-        "      pax_grp.point_dep = :point_id and \n"
-        "      pax_grp.airp_arv = :airp_arv and  \n"
-        "      pax_grp.grp_id = pax.grp_id and  \n"
-        "      pax.pax_id = transfer_subcls.pax_id and  \n"
-        "      transfer_subcls.transfer_num = 1 and  \n"
-        "      transfer_subcls.subclass = subcls.code  \n"
-        "   ) a \n"
-        "where   \n"
-        "   pax_grp.grp_id = pax.grp_id(+) and  \n"
-        "   transfer.point_id_trfer = :point_id_trfer and  \n"
-        "   transfer.grp_id = pax_grp.grp_id and  \n"
-        "   transfer.transfer_num = 1 and  \n"
-        "   transfer.airp_arv = :trfer_airp and  \n"
-        "   pax_grp.status NOT IN ('T', 'E') and \n"
-        "   pax_grp.point_dep = :point_id and  \n"
-        "   pax_grp.airp_arv = :airp_arv and \n"
-        "   pax_grp.grp_id = a.grp_id(+) and \n"
-        "   COALESCE(a.class, ' ') = COALESCE(:trfer_cls, ' ') \n"
-        "order by  \n"
-        "   grp_id,  \n"
-        "   bag_pool_num \n";
+        "select distinct "
+          "TRANSFER.GRP_ID, "
+          "case "
+            "when PAX.GRP_ID is not null then PAX.BAG_POOL_NUM "
+            "else 1 "
+          "end as BAG_POOL_NUM, "
+          "CKIN.GET_BAG_POOL_PAX_ID(TRANSFER.GRP_ID, PAX.BAG_POOL_NUM) as BAG_POOL_PAX_ID "
+        "from TRANSFER "
+          "join ( "
+            "PAX_GRP "
+              "left outer join PAX "
+                "on PAX_GRP.GRP_ID = PAX.GRP_ID "
+              "left outer join ( "
+                "select PAX_GRP.GRP_ID, SUBCLS.CLASS "
+                "from PAX_GRP "
+                  "join PAX "
+                    "on PAX_GRP.GRP_ID = PAX.GRP_ID "
+                  "join TRANSFER_SUBCLS "
+                    "on PAX.PAX_ID = TRANSFER_SUBCLS.PAX_ID "
+                  "join SUBCLS "
+                    "on TRANSFER_SUBCLS.SUBCLASS = SUBCLS.CODE "
+                "where ( "
+                  "PAX_GRP.POINT_DEP = :point_id "
+                  "and PAX_GRP.AIRP_ARV = :airp_arv "
+                  "and TRANSFER_SUBCLS.TRANSFER_NUM = 1 "
+                ") "
+              ") as a "
+                "on PAX_GRP.GRP_ID = A.GRP_ID "
+          ") "
+            "on TRANSFER.GRP_ID = PAX_GRP.GRP_ID "
+        "where ( "
+          "TRANSFER.POINT_ID_TRFER = :point_id_trfer "
+          "and TRANSFER.TRANSFER_NUM = 1 "
+          "and TRANSFER.AIRP_ARV = :trfer_airp "
+          "and PAX_GRP.STATUS not in ( "
+            "'T', 'E' "
+          ") "
+          "and PAX_GRP.POINT_DEP = :point_id "
+          "and PAX_GRP.AIRP_ARV = :airp_arv "
+          "and COALESCE(A.CLASS, ' ') = COALESCE(:trfer_cls, ' ') "
+        ") "
+        "order by GRP_ID, BAG_POOL_NUM";
+
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp_arv", otString, trferOptions.airp_trfer);
     Qry.CreateVariable("trfer_airp", otString, FItem.airp_arv);
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
     Qry.CreateVariable("trfer_cls", otString, FItem.trfer_cls);
 
-    for(int i = 0; i < Qry.VariablesCount(); i++)
-        LogTrace(TRACE5) << Qry.VariableName(i) << " = " << Qry.GetVariableAsString(i);
+    //for(int i = 0; i < Qry.VariablesCount(); i++)
+    //    LogTrace(TRACE5) << Qry.VariableName(i) << " = " << Qry.GetVariableAsString(i);
 
     Qry.Execute();
     if(!Qry.Eof) {

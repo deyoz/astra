@@ -273,7 +273,8 @@ void RunUNACCStat(
         "   transfer.pr_final(+) <> 0 \n"
         "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
 
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"POINTS","PAX_GRP","BAG2","BAG_TAGS","USERS2","UNACCOMP_BAG_INFO","TRANSFER","TRFER_TRIPS"}),
+                     SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         TAirpArvInfo airp_arv_info;

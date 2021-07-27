@@ -1851,9 +1851,11 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
   else
     sql << " AND pax_grp.grp_id=pax.grp_id and pax.pax_id = :id ";
 
+  auto &dbSession=(not pr_grp)
+                    ? PgOra::getROSession({"PAX_GRP","PAX"})
+                    : PgOra::getROSession("PAX_GRP");
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(dbSession,STDLOG);
   Qry.SQLText=sql.str();
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
@@ -1874,7 +1876,7 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
 
   if (!pr_unaccomp)
   {
-    Qry.Clear();
+    DB::TQuery QryTr(PgOra::getROSession({"PAX","TRANSFER_SUBCLS","SUBCLS","CLASSES"}),STDLOG);
     string SQLText=(string)
       "SELECT DISTINCT transfer_subcls.transfer_num, classes.code, classes.priority "
       "FROM pax, transfer_subcls, subcls, classes "
@@ -1883,46 +1885,46 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
       "      subcls.class=classes.code AND "
       "      pax." + (pr_grp ? "grp_id" : "pax_id") + "=:id AND transfer_subcls.transfer_num>0 "
       "ORDER BY transfer_num, priority ";
-    Qry.SQLText=SQLText;
-    Qry.CreateVariable("id",otInteger,id);
-    Qry.Execute();
+    QryTr.SQLText=SQLText;
+    QryTr.CreateVariable("id",otInteger,id);
+    QryTr.Execute();
     int num=0;
-    for(;!Qry.Eof;Qry.Next())
+    for(;!QryTr.Eof;QryTr.Next())
     {
-      if (num!=Qry.FieldAsInteger("transfer_num"))
+      if (num!=QryTr.FieldAsInteger("transfer_num"))
       {
-        num=Qry.FieldAsInteger("transfer_num");
+        num=QryTr.FieldAsInteger("transfer_num");
         con.OnwardCls.push_back(list<string>());
       };
-      con.OnwardCls.back().push_back(Qry.FieldAsString("code"));
+      con.OnwardCls.back().push_back(QryTr.FieldAsString("code"));
     };
 
-    Qry.Clear();
+    DB::TQuery QryPax(PgOra::getROSession("PAX"),STDLOG);
     SQLText=(string)
       "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
-      "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status, "
+      "       DECODE(CASE WHEN pr_brd IS NULL THEN 'N' WHEN pr_brd=0 THEN 'C' ELSE 'B' END) AS status, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,0) AS seat_no, "      //is_jmp ¤.¡. NULL!
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,1) AS seat_no_lat "   //is_jmp ¤.¡. NULL!
       "FROM pax "
       "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL AND "
       "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0)";
-    Qry.SQLText=SQLText;
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("grp_status", otString, grp_status);
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    QryPax.SQLText=SQLText;
+    QryPax.CreateVariable("id", otInteger, id);
+    QryPax.CreateVariable("grp_status", otString, grp_status);
+    QryPax.CreateVariable("point_id", otInteger, point_id);
+    QryPax.Execute();
+    for(;!QryPax.Eof;QryPax.Next())
     {
       TPaxItem pax;
-      int pax_id=Qry.FieldAsInteger("pax_id");
-      pax.reg_no=Qry.FieldAsInteger("reg_no");
-      pax.surname=Qry.FieldAsString("surname");
-      pax.name=Qry.FieldAsString("name");
-      pax.status=Qry.FieldAsString("status");
-      pax.seat_no=Qry.FieldAsString("seat_no");
-      pax.seat_no_lat=Qry.FieldAsString("seat_no_lat");
+      int pax_id=QryPax.FieldAsInteger("pax_id");
+      pax.reg_no=QryPax.FieldAsInteger("reg_no");
+      pax.surname=QryPax.FieldAsString("surname");
+      pax.name=QryPax.FieldAsString("name");
+      pax.status=QryPax.FieldAsString("status");
+      pax.seat_no=QryPax.FieldAsString("seat_no");
+      pax.seat_no_lat=QryPax.FieldAsString("seat_no_lat");
       pax.pnr_addr=TPnrAddrs().firstAddrByPaxId(pax_id, TPnrAddrInfo::AddrOnly);
-      pax.bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
+      pax.bag_pool_num=QryPax.FieldAsInteger("bag_pool_num");
       con.pax[pax.bag_pool_num]=pax;
     };
   }
@@ -1934,13 +1936,13 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
     con.pax[pax.bag_pool_num]=pax;
   };
 
-  Qry.Clear();
-  Qry.SQLText=
+  TQuery QryBags2(&OraSession);
+  QryBags2.SQLText=
     "SELECT * FROM bag2 WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    con.addBag(CheckIn::TBagItem().fromDB(Qry));
+  QryBags2.CreateVariable("grp_id",otInteger,grp_id);
+  QryBags2.Execute();
+  for(;!QryBags2.Eof;QryBags2.Next())
+    con.addBag(CheckIn::TBagItem().fromDB(QryBags2));
 
   DB::TQuery QryTags(PgOra::getROSession("BAG_TAGS"), STDLOG);
   QryTags.SQLText=

@@ -111,13 +111,16 @@ void get_rfisc_stat(int point_id)
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
 
-    TCachedQuery delQry("delete from rfisc_stat where point_id = :point_id", QryParams);
+    DB::TCachedQuery delQry(PgOra::getRWSession("RFISC_STAT"),
+                            "delete from rfisc_stat where point_id = :point_id",
+                            QryParams,
+                            STDLOG);
     delQry.get().Execute();
 
-    TCachedQuery bagQry(
+    DB::TCachedQuery bagQry(PgOra::getROSession({"PAX_GRP","POINTS","BAG2","PAX","TRANSFER","TRFER_TRIPS","USERS2"}),
             "select "
             "    points.point_id, "
-            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, "
+            "    (CASE WHEN transfer.grp_id IS NOT NULL THEN 1 ELSE 0 END) pr_trfer, "
             "    trfer_trips.airline trfer_airline, "
             "    trfer_trips.flt_no trfer_flt_no, "
             "    trfer_trips.suffix trfer_suffix, "
@@ -166,10 +169,11 @@ void get_rfisc_stat(int point_id)
             "    transfer.pr_final(+) <> 0 and "
             "    transfer.point_id_trfer = trfer_trips.point_id(+) and "
             "    bag2.user_id = users2.user_id(+) ",
-        QryParams
+            QryParams,
+            STDLOG
             );
 
-    TCachedQuery insQry(
+    DB::TCachedQuery insQry(PgOra::getRWSession("RFISC_STAT"),
             "insert into rfisc_stat( "
             "  point_id, "
             "  pr_trfer, "
@@ -239,13 +243,15 @@ void get_rfisc_stat(int point_id)
             << QParam("bag_tag", otFloat)
             << QParam("fqt_no", otString)
             << QParam("excess", otInteger)
-            << QParam("paid", otInteger)
+            << QParam("paid", otInteger),
+            STDLOG
             );
 
-    TCachedQuery tagsQry("select no from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
+    DB::TCachedQuery tagsQry(PgOra::getROSession("BAG_TAGS"),"select no from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
             QParams()
             << QParam("grp_id", otInteger)
-            << QParam("bag_num", otInteger)
+            << QParam("bag_num", otInteger),
+            STDLOG
             );
 
     DB::TCachedQuery fqtQry(PgOra::getROSession("PAX_FQT"),

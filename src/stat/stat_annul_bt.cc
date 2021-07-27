@@ -245,21 +245,20 @@ void RunAnnulBTStat(
         int col_user_id = Qry.get().FieldIndex("user_id");
 
         DB::TCachedQuery trferQry(
-              PgOra::getROSession("TRANSFER-TRFER_TRIPS"),
-              "SELECT \n"
-              "   trfer_trips.airline trfer_airline, \n"
-              "   trfer_trips.airp_dep trfer_airp_dep, \n"
-              "   trfer_trips.flt_no trfer_flt_no, \n"
-              "   trfer_trips.suffix trfer_suffix, \n"
-              "   trfer_trips.scd trfer_scd, \n"
-              "   transfer.airp_arv trfer_airp_arv \n"
-              "FROM \n"
-              "   transfer, \n"
-              "   trfer_trips \n"
-              "WHERE \n"
-              "   transfer.grp_id = :grp_id AND \n"
-              "   transfer.pr_final <> 0 AND \n"
-              "   transfer.point_id_trfer = trfer_trips.point_id(+) ",
+              PgOra::getROSession({"TRANSFER","TRFER_TRIPS"}),
+              "SELECT "
+                "TRFER_TRIPS.AIRLINE AS TRFER_AIRLINE, "
+                "TRFER_TRIPS.AIRP_DEP AS TRFER_AIRP_DEP, "
+                "TRFER_TRIPS.FLT_NO AS TRFER_FLT_NO, "
+                "TRFER_TRIPS.SUFFIX AS TRFER_SUFFIX, "
+                "TRFER_TRIPS.SCD AS TRFER_SCD, "
+                "TRANSFER.AIRP_ARV AS TRFER_AIRP_ARV "
+              "FROM TRANSFER "
+                "LEFT OUTER JOIN TRFER_TRIPS "
+                  "ON TRANSFER.POINT_ID_TRFER = TRFER_TRIPS.POINT_ID "
+              "WHERE " 
+                "TRANSFER.GRP_ID = :grp_id "
+                "AND TRANSFER.PR_FINAL <> 0",
               QParams() << QParam("grp_id", otInteger), STDLOG);
 
         for(; not Qry.get().Eof; Qry.get().Next()) {

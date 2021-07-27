@@ -108,7 +108,6 @@ struct TBag2PK {
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);
     string rpt_name;
     if(rpt_params.airp_arv.empty() ||
             rpt_params.rpt_type==rtBTMTXT) {
@@ -126,22 +125,23 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     get_compatible_report_form(rpt_name, reqNode, resNode);
 
     t_rpt_bm_bag_name bag_names;
-    Qry.Clear();
-    Qry.SQLText = "select airp, airline from points where point_id = :point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.Execute();
-    if(Qry.Eof)
+    DB::TQuery QryPoints(PgOra::getROSession("POINTS"),STDLOG);
+    QryPoints.SQLText = "select airp, airline from points where point_id = :point_id AND pr_del>=0";
+    QryPoints.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    QryPoints.Execute();
+    if(QryPoints.Eof)
         throw Exception("RunBMNew: point_id %d not found", rpt_params.point_id);
-    string airp = Qry.FieldAsString(0);
-    string airline = Qry.FieldAsString(1);
+    string airp = QryPoints.FieldAsString(0);
+    string airline = QryPoints.FieldAsString(1);
     bag_names.init(airp, airline);
     vector<TBagTagRow> bag_tags;
-    Qry.Clear();
+
+    std::list<std::string> involvedTables({"PAX_GRP","POINTS","BAG2","HALLS2","PAX"});
     string SQLText =
         "select ";
     if(rpt_params.pr_trfer)
         SQLText +=
-            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
+            "    (CASE WHEN transfer.grp_id IS NOT NULL THEN 1 ELSE 0 END) pr_trfer, \n"
             "    trfer_trips.airline trfer_airline, \n"
             "    trfer_trips.flt_no trfer_flt_no, \n"
             "    trfer_trips.suffix trfer_suffix, \n"
@@ -160,7 +160,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax.pax_id, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    nvl(pax.cabin_class, pax_grp.class) class, "
+        "    COALESCE(pax.cabin_class, pax_grp.class) class, "
         "    pax_grp.status, "
         "    bag2.bag_type, "
         "    bag2.rfisc, "
@@ -176,9 +176,16 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    halls2, "
         "    pax ";
     if(rpt_params.pr_trfer)
+    {
         SQLText += ", transfer, trfer_trips ";
+        involvedTables.push_back("TRANSFER");
+        involvedTables.push_back("TRFER_TRIPS");
+    }
     if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All)
+    {
         SQLText += ", tckin_pax_grp \n";
+        involvedTables.push_back("TCKIN_PAX_GRP");
+    }
     SQLText +=
         "where "
         "    points.pr_del>=0 AND "
@@ -210,13 +217,15 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    bag2.pr_cabin = 0 and "
         "    bag2.hall = halls2.id(+) and "
         "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+) ";
+
+    DB::TQuery Qry(PgOra::getROSession(involvedTables),STDLOG);
     if(!rpt_params.airp_arv.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
+            "   and COALESCE(NULLIF(halls2.rpt_grp,''), ' ') = COALESCE(NULLIF(:zone,''), ' ') and bag2.hall IS NOT NULL ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     if(rpt_params.pr_trfer)
@@ -273,12 +282,13 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bag_tag_row.weight = Qry.FieldAsInteger("weight");
         bag_tag_row.pr_liab_limit = Qry.FieldAsInteger("pr_liab_limit");
 
-        TQuery tagsQry(&OraSession);
+        DB::TQuery tagsQry(PgOra::getROSession("BAG_TAGS"),STDLOG);
         tagsQry.SQLText =
             "select "
             "   bag_tags.tag_type, "
             "   bag_tags.color, "
-            "   to_char(bag_tags.no) no "
+            //"   to_char(bag_tags.no) no " // oracle version
+            "   bag_tags.no "
             "from "
             "   bag_tags "
             "where "
@@ -464,7 +474,11 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "TotPcs", TotAmount);
     NewTextChild(variablesNode, "TotWeight", TotWeight);
     NewTextChild(variablesNode, "Tot", vs_number(TotAmount, rpt_params.IsInter()));
-    Qry.Clear();
+
+    auto &dbSession = rpt_params.ckin_zone != ALL_CKIN_ZONES
+                        ? PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER"})
+                        : PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER","HALLS2"});
+    DB::TQuery Qry2(dbSession,STDLOG);
     SQLText =
         "select "
         "  sum(bag2.amount) amount, "
@@ -488,21 +502,23 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         SQLText +=
             "   and bag2.hall = halls2.id(+) "
             "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
-        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+        Qry2.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.Execute();
+    Qry2.SQLText = SQLText;
+    Qry2.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry2.Execute();
     int trfer_amount = 0;
     int trfer_weight = 0;
-    if(not Qry.Eof) {
-        trfer_amount = Qry.FieldAsInteger("amount");
-        trfer_weight = Qry.FieldAsInteger("weight");
+    if(not Qry2.Eof) {
+        trfer_amount = Qry2.FieldAsInteger("amount");
+        trfer_weight = Qry2.FieldAsInteger("weight");
     }
     NewTextChild(variablesNode, "TotTrferPcs", trfer_amount);
     NewTextChild(variablesNode, "TotTrferWeight", trfer_weight);
-    Qry.Clear();
-    Qry.SQLText =
+
+    DB::TQuery QryPoints2(PgOra::getROSession("POINTS"),STDLOG);
+
+    QryPoints2.SQLText =
         "select "
         "   airp, "
         "   airline, "
@@ -521,14 +537,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   points "
         "where "
         "   point_id = :point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
+    QryPoints2.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    ProgTrace(TRACE5, "SQLText: %s", QryPoints2.SQLText.c_str());
+    QryPoints2.Execute();
+    if(QryPoints2.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
-    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
-    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)QryPoints2.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)QryPoints2.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)QryPoints2.FieldAsInteger("craft_fmt");
 
     string suffix;
     int flt_no = NoExists;
@@ -542,22 +558,24 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             flt_no = franchise_prop.franchisee.flt_no;
             suffix = franchise_prop.franchisee.suffix;
         } else {
-            airline = Qry.FieldAsString("airline");
-            flt_no = Qry.FieldAsInteger("flt_no");
-            suffix = Qry.FieldAsString("suffix");
+            airline = QryPoints2.FieldAsString("airline");
+            flt_no = QryPoints2.FieldAsInteger("flt_no");
+            suffix = QryPoints2.FieldAsString("suffix");
         }
     } else {
         airline = rpt_params.mkt_flt.airline;
         flt_no = rpt_params.mkt_flt.flt_no;
         suffix = rpt_params.mkt_flt.suffix;
     }
-    string craft = Qry.FieldAsString("craft");
-    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+    string craft = QryPoints2.FieldAsString("craft");
+    string tz_region = AirpTZRegion(QryPoints2.FieldAsString("airp"));
 
     //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",
+       LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",
+       LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
     ostringstream flt;
@@ -566,9 +584,9 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(3) << setfill('0') << flt_no
         << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
     NewTextChild(variablesNode, "flt", flt.str());
-    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "bort", QryPoints2.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
-    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    NewTextChild(variablesNode, "park", QryPoints2.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
@@ -597,8 +615,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
     TDateTime takeoff = NoExists;
-    if(not Qry.FieldIsNULL("act_out"))
-        takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
+    if(not QryPoints2.FieldIsNULL("act_out"))
+        takeoff = UTCToLocal(QryPoints2.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
     NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
     NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));

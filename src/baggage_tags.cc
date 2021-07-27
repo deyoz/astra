@@ -253,16 +253,25 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
 
   if (tag_count<=0) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"POINTS","PAX_GRP","TRANSFER"}),STDLOG);
+  //Qry.ClearParams();
   Qry.SQLText=
-    "SELECT points.airline, "
-    "       pax_grp.point_dep,pax_grp.airp_dep,pax_grp.class, "
-    "       NVL(transfer.airp_arv,pax_grp.airp_arv) AS airp_arv "
-    "FROM points, pax_grp, transfer "
-    "WHERE points.point_id=pax_grp.point_dep AND "
-    "      pax_grp.grp_id=transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND "
-    "      pax_grp.grp_id=:grp_id";
+      "SELECT "
+        "POINTS.AIRLINE, "
+        "PAX_GRP.POINT_DEP, "
+        "PAX_GRP.AIRP_DEP, "
+        "PAX_GRP.CLASS, "
+        "COALESCE(TRANSFER.AIRP_ARV, PAX_GRP.AIRP_ARV) AS AIRP_ARV "
+      "FROM PAX_GRP "
+        "LEFT OUTER JOIN TRANSFER "
+          "ON ( "
+            "PAX_GRP.GRP_ID = TRANSFER.GRP_ID "
+            "AND TRANSFER.PR_FINAL <> 0 "
+          ") "
+        "JOIN POINTS "
+          "ON POINTS.POINT_ID = PAX_GRP.POINT_DEP "
+      "WHERE PAX_GRP.GRP_ID = :grp_id";
+
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) throw EXCEPTIONS::Exception("%s: group not found (grp_id=%d)", __FUNCTION__, grp_id);

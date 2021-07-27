@@ -33,9 +33,11 @@ bool TTransferItem::equalSubclasses(const TTransferItem &item) const
 void PaxTransferFromDB(int pax_id, list<TPaxTransferItem> &trfer)
 {
   trfer.clear();
-  TCachedQuery Qry("SELECT transfer_num,subclass,subclass_fmt FROM transfer_subcls "
+  DB::TCachedQuery Qry(PgOra::getROSession("TRANSFER_SUBCLS"),
+                   "SELECT transfer_num,subclass,subclass_fmt FROM transfer_subcls "
                    "WHERE pax_id=:pax_id ORDER BY transfer_num",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+                   QParams() << QParam("pax_id", otInteger, pax_id),
+                   STDLOG);
   Qry.get().Execute();
   int trfer_num=1;
   for(; !Qry.get().Eof; Qry.get().Next(), trfer_num++)
@@ -74,29 +76,29 @@ void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer
   CheckIn::TTransferList::const_iterator firstTrfer=trfer.begin();
   for(;firstTrfer!=trfer.end()&&seg_no_tmp>1;firstTrfer++,seg_no_tmp--);
 
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText="DELETE FROM transfer_subcls WHERE pax_id=:pax_id";
-  TrferQry.CreateVariable("pax_id",otInteger,pax_id);
-  TrferQry.Execute();
+  DB::TQuery TrferDelQry(PgOra::getRWSession("TRANSFER_SUBCLS"),STDLOG);
+  TrferDelQry.SQLText="DELETE FROM transfer_subcls WHERE pax_id=:pax_id";
+  TrferDelQry.CreateVariable("pax_id",otInteger,pax_id);
+  TrferDelQry.Execute();
 
-  TrferQry.SQLText=
+  DB::TQuery TrferInsQry(PgOra::getRWSession("TRANSFER_SUBCLS"),STDLOG);
+  TrferInsQry.SQLText=
     "INSERT INTO transfer_subcls(pax_id,transfer_num,subclass,subclass_fmt) "
     "VALUES (:pax_id,:transfer_num,:subclass,:subclass_fmt)";
-  TrferQry.DeclareVariable("transfer_num",otInteger);
-  TrferQry.DeclareVariable("subclass",otString);
-  TrferQry.DeclareVariable("subclass_fmt",otInteger);
+  TrferInsQry.CreateVariable("pax_id",otInteger,pax_id);
+  TrferInsQry.DeclareVariable("transfer_num",otInteger);
+  TrferInsQry.DeclareVariable("subclass",otString);
+  TrferInsQry.DeclareVariable("subclass_fmt",otInteger);
 
   int trfer_num=1;
   for(CheckIn::TTransferList::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
   {
     const CheckIn::TPaxTransferItem &pax=t->pax.at(pax_no-1);
-    TrferQry.SetVariable("transfer_num",trfer_num);
-    TrferQry.SetVariable("subclass",pax.subclass);
-    TrferQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
-    TrferQry.Execute();
+    TrferInsQry.SetVariable("transfer_num",trfer_num);
+    TrferInsQry.SetVariable("subclass",pax.subclass);
+    TrferInsQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
+    TrferInsQry.Execute();
   }
-  TrferQry.Close();
 }
 
 void TTransferList::load(int grp_id)
