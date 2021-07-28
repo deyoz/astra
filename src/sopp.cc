@@ -1398,7 +1398,7 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession(({"POINTS", "MOVE_REF", "TRIP_CREW"}), STDLOG);
+  DB::TQuery PointsQry(PgOra::getROSession({"POINTS", "MOVE_REF", "TRIP_CREW"}), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
   bool pr_addCondition_N = false;
