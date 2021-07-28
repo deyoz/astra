@@ -77,7 +77,7 @@ namespace PgOra
                                 "EXCHANGE_RATES", "HIST_EXCHANGE_RATES",
                                 "PAID_BAG", "PAID_BAG_EMD_PROPS" } },
         { "SP_PG_GROUP_AODB_1",{ "AODB_BAG_NAMES", "AODB_BAG", "AODB_PAX", "AODB_UNACCOMP",
-                                 "AODB_SPP_FILES", "AODB_EVENTS" } },
+                                 "AODB_SPP_FILES", "AODB_EVENTS", "SNAPSHOT_PARAMS", "MERIDIAN_AIRPS_OWNER" } },
         { "SP_PG_GROUP_AODB_STATIONS",{ "AODB_STATIONS", "AODB_PAX_CHANGE" } }, // STATIONS
         { "SP_PG_GROUP_AODB_POINTS",{ "SNAPSHOT_POINTS", "AODB_POINTS" } }, // POINTS
 

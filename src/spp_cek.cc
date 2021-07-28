@@ -402,12 +402,14 @@ inline string GetStrDate( TDateTime d1 )
 
 bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &point_addr, TFileDatas &fds )
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
     ProgTrace( TRACE5, "sppdate=%s, file_type=%s, point_addr=%s", DateTimeToStr( sppdate, "dd.mm.yy" ).c_str(), file_type.c_str(), point_addr.c_str() );
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("SNAPSHOT_PARAMS"), STDLOG);
     Qry.SQLText =
-    "SELECT * FROM snapshot_params "
-    " WHERE name=:sppdate AND file_type=:file_type AND point_addr=:point_addr";
+        "SELECT * FROM snapshot_params "
+        "WHERE name=:sppdate "
+        "AND file_type=:file_type "
+        "AND point_addr=:point_addr";
     Qry.CreateVariable( "sppdate", otString, DateTimeToStr( sppdate, "SPPdd.mm.yy" ) );
     Qry.CreateVariable( "file_type", otString, file_type );
     Qry.CreateVariable( "point_addr", otString, point_addr );
@@ -522,13 +524,14 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
         xmlFreeDoc( doc );
         throw;
     }
-  Qry.Clear();
-  Qry.SQLText =
-  "INSERT INTO snapshot_params(file_type,point_addr,name,value) VALUES(:file_type,:point_addr,:sppdate,'SPP')";
-    Qry.CreateVariable( "sppdate", otString, DateTimeToStr( sppdate, "SPPdd.mm.yy" ) );
-    Qry.CreateVariable( "file_type", otString, file_type );
-    Qry.CreateVariable( "point_addr", otString, point_addr );
-    Qry.Execute();
+    DB::TQuery insQry(PgOra::getRWSession("SNAPSHOT_PARAMS"), STDLOG);
+    insQry.SQLText =
+        "INSERT INTO snapshot_params(file_type,point_addr,name,value) "
+        "VALUES(:file_type,:point_addr,:sppdate,'SPP')";
+    insQry.CreateVariable( "sppdate", otString, DateTimeToStr( sppdate, "SPPdd.mm.yy" ) );
+    insQry.CreateVariable( "file_type", otString, file_type );
+    insQry.CreateVariable( "point_addr", otString, point_addr );
+    insQry.Execute();
     return !fds.empty();
 }
 

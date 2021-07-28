@@ -192,15 +192,15 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     xmlFreeDoc( paxsDoc );
   }
-  DB::TQuery QryAccess(PgOra::getROSession("MERIDIAN_AIRPS_OWNER"), STDLOG);
+  DB::TQuery QryMeridian(PgOra::getROSession("MERIDIAN_AIRPS_OWNER"), STDLOG);
   std::set<std::string> accessAirps;
-  QryAccess.SQLText =
+  QryMeridian.SQLText =
     "SELECT airp FROM meridian_airps_owner WHERE airline=:airline";
-  QryAccess.CreateVariable( "airline", otString, airline );
-  QryAccess.Execute();
-  bool pr_airps = !QryAccess.Eof;
-  for ( ;!QryAccess.Eof; QryAccess.Next() ) {
-    accessAirps.insert( QryAccess.FieldAsString( "airp" ) );
+  QryMeridian.CreateVariable( "airline", otString, airline );
+  QryMeridian.Execute();
+  bool pr_airps = !QryMeridian.Eof;
+  for ( ;!QryMeridian.Eof; QryMeridian.Next() ) {
+    accessAirps.insert( QryMeridian.FieldAsString( "airp" ) );
   }
   DB::TQuery QryAODB(PgOra::getROSession("AODB_PAX_CHANGE"), STDLOG);
   string sql_text =
