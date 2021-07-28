@@ -748,12 +748,12 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       }
       DB::TQuery QrySeat(PgOra::getROSession("ORACLE"), STDLOG);
       QrySeat.SQLText =
-          "SELECT salons.get_seat_no(:pax_id,:seats,NULL,:status,point_id,'one',:rownum) AS seat_no FROM dual ";
+          "SELECT salons.get_seat_no(:pax_id,:seats,NULL,:status,point_id,'one',:num) AS seat_no FROM dual ";
       QrySeat.CreateVariable("pax_id", otInteger, Qry3.FieldAsInteger("pax_id"));
       QrySeat.CreateVariable("seats", otInteger, Qry3.FieldAsInteger("seats"));
       QrySeat.CreateVariable("status", otString, Qry3.FieldAsString("status"));
       QrySeat.CreateVariable("point_id", otInteger, point_id);
-      QrySeat.CreateVariable("rownum", otInteger, rownum);
+      QrySeat.CreateVariable("num", otInteger, rownum);
       QrySeat.Execute();
       record<<setw(5)<<QrySeat.FieldAsString( "seat_no" );
       record<<setw(2)<<Qry3.FieldAsInteger( "seats" )-1;
