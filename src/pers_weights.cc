@@ -407,10 +407,14 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
              "FROM cte_grps JOIN pax "
                "ON cte_grps.grp_id = pax.grp_id ";
 
-    if (!DEMO_MODE() || !include_wait_list) {
-      TST();
-      sql +=  "AND salons.is_waitlist(pax.pax_id, pax.seats, pax.is_jmp, cte_grps.status, :point_id, rownum) = 0 ";
+    if (!include_wait_list) {
+      if (DEMO_MODE()) {
+        TST();
+      } else {
+        sql +="AND salons.is_waitlist(pax.pax_id, pax.seats, pax.is_jmp, cte_grps.status, :point_id, rownum) = 0 ";
+      }
     }
+
     sql += weight_type == withBrd
             ? "AND pr_brd = 1) "
             : "AND pr_brd IS NOT NULL) ";
