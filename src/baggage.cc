@@ -59,7 +59,7 @@ TValueBagItem& TValueBagItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
-const TValueBagItem& TValueBagItem::toDB(TQuery &Qry) const
+/*const TValueBagItem& TValueBagItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("num",num);
   Qry.SetVariable("value",value);
@@ -93,6 +93,42 @@ TValueBagItem& TValueBagItem::fromDB(TQuery &Qry)
   };
   return *this;
 };
+*/
+const TValueBagItem& TValueBagItem::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("value",value);
+  Qry.SetVariable("value_cur",value_cur);
+  if (tax_id!=ASTRA::NoExists)
+  {
+    Qry.SetVariable("tax_id",tax_id);
+    Qry.SetVariable("tax",tax);
+    Qry.SetVariable("tax_trfer",(int)tax_trfer);
+  }
+  else
+  {
+    Qry.SetVariable("tax_id",FNull);
+    Qry.SetVariable("tax",FNull);
+    Qry.SetVariable("tax_trfer",FNull);
+  };
+  return *this;
+};
+
+TValueBagItem& TValueBagItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  value=Qry.FieldAsFloat("value");
+  value_cur=Qry.FieldAsString("value_cur");
+  if (!Qry.FieldIsNULL("tax_id"))
+  {
+    tax_id=Qry.FieldAsInteger("tax_id");
+    tax=Qry.FieldAsFloat("tax");
+    tax_trfer=Qry.FieldAsInteger("tax_trfer")!=0;
+  };
+  return *this;
+};
+
 
 const TBagItem& TBagItem::toXML(xmlNodePtr node) const
 {
@@ -176,7 +212,7 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool baggage_pc)
   return *this;
 };
 
-const TSimpleBagItem& TSimpleBagItem::toDB(TQuery &Qry) const
+const TSimpleBagItem& TSimpleBagItem::toDB(DB::TQuery &Qry) const
 {
   if (!pc) TRFISCKey().toDB(Qry);   //устанавливаем FNull
   if (!wt) TBagTypeKey().toDBcompatible(Qry, "TBagItem::toDB"); //устанавливаем FNull
@@ -187,6 +223,54 @@ const TSimpleBagItem& TSimpleBagItem::toDB(TQuery &Qry) const
   return *this;
 }
 
+/*const TSimpleBagItem& TSimpleBagItem::toDB(TQuery &Qry) const
+{
+  if (!pc) TRFISCKey().toDB(Qry);   //устанавливаем FNull
+  if (!wt) TBagTypeKey().toDBcompatible(Qry, "TBagItem::toDB"); //устанавливаем FNull
+  if (pc) pc.get().toDB(Qry);
+  else if (wt) wt.get().toDBcompatible(Qry, "TBagItem::toDB");
+  Qry.SetVariable("amount",amount);
+  Qry.SetVariable("weight",weight);
+  return *this;
+}
+*/
+const TBagItem& TBagItem::toDB2(DB::TQuery &Qry) const
+{
+  TSimpleBagItem::toDB(Qry);
+  if (id!=ASTRA::NoExists)
+    Qry.SetVariable("id",id);
+  else
+  {
+    Qry.SetVariable("id",PgOra::getSeqNextVal_int("CYCLE_ID__SEQ"));
+  }
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("pr_cabin",(int)pr_cabin);
+  if (value_bag_num!=ASTRA::NoExists)
+    Qry.SetVariable("value_bag_num",value_bag_num);
+  else
+    Qry.SetVariable("value_bag_num",FNull);
+  Qry.SetVariable("pr_liab_limit",(int)pr_liab_limit);
+  Qry.SetVariable("to_ramp",(int)to_ramp);
+  Qry.SetVariable("using_scales",(int)using_scales);
+  Qry.SetVariable("bag_pool_num",bag_pool_num);
+  if (hall!=ASTRA::NoExists)
+    Qry.SetVariable("hall",hall);
+  else
+    Qry.SetVariable("hall",FNull);
+  if (user_id!=ASTRA::NoExists)
+    Qry.SetVariable("user_id",user_id);
+  else
+    Qry.SetVariable("user_id",FNull);
+  Qry.SetVariable("desk",desk);
+  if (time_create!=ASTRA::NoExists)
+    Qry.SetVariable("time_create",time_create);
+  else
+    Qry.SetVariable("time_create",FNull);
+  Qry.SetVariable("is_trfer",(int)is_trfer);
+  Qry.SetVariable("handmade",(int)handmade);
+  return *this;
+};
+/*
 const TBagItem& TBagItem::toDB(TQuery &Qry) const
 {
   TSimpleBagItem::toDB(Qry);
@@ -240,7 +324,7 @@ TSimpleBagItem& TSimpleBagItem::fromDB(TQuery &Qry)
   amount=Qry.FieldAsInteger("amount");
   weight=Qry.FieldAsInteger("weight");
   return *this;
-}
+}*/
 
 TSimpleBagItem& TSimpleBagItem::fromDB(DB::TQuery &Qry)
 {
@@ -261,7 +345,7 @@ TSimpleBagItem& TSimpleBagItem::fromDB(DB::TQuery &Qry)
   weight=Qry.FieldAsInteger("weight");
   return *this;
 }
-
+/*
 TBagItem& TBagItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -285,7 +369,7 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
   handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
-};
+};*/
 
 TBagItem& TBagItem::fromDB(DB::TQuery &Qry)
 {
@@ -474,7 +558,7 @@ TTagItem& TTagItem::fromXML(xmlNodePtr node)
   pr_print=NodeAsIntegerFast("pr_print",node2)!=0;
   return *this;
 };
-
+/*
 const TTagItem& TTagItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("num",num);
@@ -487,8 +571,21 @@ const TTagItem& TTagItem::toDB(TQuery &Qry) const
     Qry.SetVariable("bag_num",FNull);
   Qry.SetVariable("pr_print",(int)pr_print);
   return *this;
+};*/
+const TTagItem& TTagItem::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("tag_type",tag_type);
+  Qry.SetVariable("no",no);
+  Qry.SetVariable("color",color);
+  if (bag_num!=ASTRA::NoExists)
+    Qry.SetVariable("bag_num",bag_num);
+  else
+    Qry.SetVariable("bag_num",FNull);
+  Qry.SetVariable("pr_print",(int)pr_print);
+  return *this;
 };
-
+/*
 TTagItem& TTagItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -504,7 +601,7 @@ TTagItem& TTagItem::fromDB(TQuery &Qry)
     printable=Qry.FieldAsInteger("printable")!=0;
   pr_print=Qry.FieldAsInteger("pr_print")!=0;
   return *this;
-};
+};*/
 
 TTagItem& TTagItem::fromDB(DB::TQuery &Qry)
 {
@@ -567,7 +664,27 @@ TUnaccompInfoItem& TUnaccompInfoItem::fromXML(xmlNodePtr node)
   return *this;
 }
 
-const TUnaccompInfoItem& TUnaccompInfoItem::toDB(TQuery &Qry) const
+/*const TUnaccompInfoItem& TUnaccompInfoItem::toDB(TQuery &Qry) const
+{
+  if ( isEmpty() ) {
+    return *this;
+  }
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("original_tag_no",original_tag_no);
+  Qry.SetVariable("surname",surname);
+  Qry.SetVariable("name",name);
+  Qry.SetVariable("airline",airline);
+  Qry.SetVariable("flt_no",flt_no==ASTRA::NoExists?FNull:flt_no);
+  Qry.SetVariable("suffix",suffix);
+  if ( scd==ASTRA::NoExists ) {
+    Qry.SetVariable("scd",FNull);
+  }
+  else {
+    Qry.SetVariable("scd",scd);
+  }
+  return *this;
+}*/
+const TUnaccompInfoItem& TUnaccompInfoItem::toDB(DB::TQuery &Qry) const
 {
   if ( isEmpty() ) {
     return *this;
@@ -587,8 +704,22 @@ const TUnaccompInfoItem& TUnaccompInfoItem::toDB(TQuery &Qry) const
   }
   return *this;
 }
-
+/*
 TUnaccompInfoItem& TUnaccompInfoItem::fromDB(TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  original_tag_no=Qry.FieldAsString("original_tag_no");
+  surname=Qry.FieldAsString("surname");
+  name=Qry.FieldAsString("name");
+  airline=Qry.FieldAsString("airline");
+  flt_no=Qry.FieldIsNULL("flt_no")?ASTRA::NoExists:Qry.FieldAsInteger("flt_no");
+  suffix=Qry.FieldAsString("suffix");
+  scd=Qry.FieldIsNULL("scd")?ASTRA::NoExists:Qry.FieldAsDateTime("scd");
+  return *this;
+}*/
+
+TUnaccompInfoItem& TUnaccompInfoItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   num=Qry.FieldAsInteger("num");
@@ -705,8 +836,7 @@ bool TGroupBagItem::tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, i
     tagOwner=ASTRA::NoExists;
     if (pax_id==ASTRA::NoExists) return false;
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("PAX"),STDLOG);
     int grp_id = NoExists;
     Qry.SQLText =
       "select grp_id "
@@ -719,7 +849,7 @@ bool TGroupBagItem::tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, i
           grp_id=Qry.FieldAsInteger("grp_id");
     }
 
-    TQuery QryBag(&OraSession);
+    DB::TQuery QryBag(PgOra::getROSession({"BAG2","BAG_TAGS"}),STDLOG);
     QryBag.SQLText =
         "select bag_tags.grp_id "
         "from BAG_TAGS, BAG2 "
@@ -1018,17 +1148,16 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
   }
 };
 
-std::string TValueBagMap::clearSQLText()
+std::list<std::pair<std::string, std::string> > TValueBagMap::clearSQLText()
 {
-  return "DELETE FROM value_bag WHERE grp_id=:grp_id; ";
+  return {std::make_pair("VALUE_BAG","DELETE FROM value_bag WHERE grp_id=:grp_id")};
 }
 
 void TValueBagMap::toDB(int grp_id) const
 {
   if (empty()) return;
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getRWSession("VALUE_BAG"),STDLOG);
   BagQry.SQLText=
     "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
     "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
@@ -1056,30 +1185,24 @@ void TValueBagMap::toXML(xmlNodePtr bagtagNode) const
     i->second.toXML(NewTextChild(node,"value_bag"));
 }
 
-std::string TBagMap::clearSQLText()
+std::list<std::pair<std::string, std::string> > TBagMap::clearSQLText()
 {
-  return "DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id; "
-         "DELETE FROM bag2 WHERE grp_id=:grp_id; ";
+  return {std::make_pair("UNACCOMP_BAG_INFO","DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id"),
+          std::make_pair("BAG2","DELETE FROM bag2 WHERE grp_id=:grp_id")};
 }
 
 void TBagMap::toDB(int grp_id, int point_dep) const
 {
   if (empty()) return;
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getRWSession("BAG2"),STDLOG);
   BagQry.SQLText=
-    "BEGIN "
-    "  IF :id IS NULL THEN "
-    "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
-    "  END IF; "
     "  INSERT INTO bag2 (grp_id, num, id, list_id, bag_type, bag_type_str, rfisc, service_type, airline, "
     "    pr_cabin,amount,weight,value_bag_num, "
     "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade, point_dep) "
     "  VALUES (:grp_id, :num, :id, :list_id, :bag_type, :bag_type_str, :rfisc, :service_type, :airline, "
     "    :pr_cabin,:amount,:weight,:value_bag_num, "
-    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade, :point_dep); "
-    "END;";
+    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade, :point_dep)";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.CreateVariable("point_dep",otInteger, point_dep);
   BagQry.DeclareVariable("num",otInteger);
@@ -1105,8 +1228,7 @@ void TBagMap::toDB(int grp_id, int point_dep) const
   BagQry.DeclareVariable("is_trfer",otInteger);
   BagQry.DeclareVariable("handmade",otInteger);
 
-  TQuery UnaccQry(&OraSession);
-  UnaccQry.Clear();
+  DB::TQuery UnaccQry(PgOra::getRWSession("UNACCOMP_BAG_INFO"),STDLOG);
   UnaccQry.SQLText=
     "INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
     "VALUES(:grp_id,:num,:original_tag_no,:surname,:name,:airline,:flt_no,:suffix,:scd) ";
@@ -1122,7 +1244,7 @@ void TBagMap::toDB(int grp_id, int point_dep) const
 
   for(TBagMap::const_iterator nb=begin();nb!=end();++nb)
   {
-    nb->second.toDB(BagQry);
+    nb->second.toDB2(BagQry);
     BagQry.Execute();
     if (nb->second.unaccompInfo)
     {
@@ -1155,17 +1277,16 @@ void TUnaccompRules::toXML(xmlNodePtr bagtagNode) const
     i->toXML(NewTextChild(node,"rule"));
 }
 
-std::string TTagMap::clearSQLText()
+std::list<std::pair<std::string, std::string> > TTagMap::clearSQLText()
 {
-  return "DELETE FROM bag_tags WHERE grp_id=:grp_id; ";
+  return {std::make_pair("BAG_TAGS","DELETE FROM bag_tags WHERE grp_id=:grp_id")};
 }
 
 void TTagMap::toDB(int grp_id, int point_dep) const
 {
   if (empty()) return;
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getRWSession("BAG_TAGS"),STDLOG);
   BagQry.SQLText=
     "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
     "VALUES (:grp_id,:num,:tag_type,:no,:color,:bag_num,:pr_print,:point_dep)";
@@ -1195,18 +1316,19 @@ void TTagMap::toXML(xmlNodePtr bagtagNode) const
 
 void TGroupBagItem::clearDB(int grp_id, bool isPayment)
 {
-  ostringstream sql;
-  sql << "BEGIN "
-      << TValueBagMap::clearSQLText()
-      << TBagMap::clearSQLText();
+  std::list<std::pair<std::string, std::string> > clearQueries;
+  clearQueries.splice(clearQueries.end(),TValueBagMap::clearSQLText());
+  clearQueries.splice(clearQueries.end(),TBagMap::clearSQLText());
   if (!isPayment)
-    sql << TTagMap::clearSQLText();
-  sql << "END; ";
+    clearQueries.splice(clearQueries.end(),TTagMap::clearSQLText());
 
-  TQuery DelQry(&OraSession);
-  DelQry.SQLText=sql.str().c_str();
-  DelQry.CreateVariable("grp_id", otInteger, grp_id);
-  DelQry.Execute();
+  for(auto &query : clearQueries)
+  {
+    DB::TQuery DelQry(PgOra::getRWSession(query.first),STDLOG);
+    DelQry.SQLText=query.second;
+    DelQry.CreateVariable("grp_id", otInteger, grp_id);
+    DelQry.Execute();
+  }
 }
 
 void TGroupBagItem::toDB(int grp_id, int point_dep) const
@@ -1279,38 +1401,53 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest, const PointI
 
   make_db_curs("DELETE FROM paid_bag WHERE grp_id=:grp_id",
                PgOra::getRWSession("PAID_BAG"))
-      .stb()
-      .bind(":grp_id", dest.get())
-      .exec();
+      .stb().bind(":grp_id", dest.get()).exec();
 
-  auto cur=make_db_curs("BEGIN "
-                     "  DELETE FROM value_bag WHERE grp_id=:grp_id_dest; "
-                     "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id_dest; "
-                     "  DELETE FROM bag2 WHERE grp_id=:grp_id_dest; "
-                     "  DELETE FROM bag_tags WHERE grp_id=:grp_id_dest; "
-                     "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+  make_db_curs("DELETE FROM BAG2 WHERE GRP_ID=:grp_id",
+               PgOra::getRWSession("BAG2"))
+      .stb().bind(":grp_id", dest.get()).exec();
+
+  make_db_curs("DELETE FROM VALUE_BAG WHERE grp_id=:grp_id",
+               PgOra::getRWSession("VALUE_BAG"))
+      .stb().bind(":grp_id", dest.get()).exec();
+
+  make_db_curs("DELETE FROM UNACCOMP_BAG_INFO WHERE grp_id=:grp_id",
+               PgOra::getRWSession("UNACCOMP_BAG_INFO"))
+      .stb().bind(":grp_id", dest.get()).exec();
+
+  make_db_curs("DELETE FROM BAG_TAGS WHERE grp_id=:grp_id",
+               PgOra::getRWSession("BAG_TAGS"))
+      .stb().bind(":grp_id", dest.get()).exec();
+
+  make_db_curs("INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
                      "  SELECT :grp_id_dest ,num,value,value_cur,NULL,NULL,NULL "
-                     "  FROM value_bag WHERE grp_id=:grp_id_src; "
-                     "  INSERT INTO bag2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
+                     "  FROM value_bag WHERE grp_id=:grp_id_src",
+               PgOra::getRWSession("VALUE_BAG"))
+      .stb().bind(":grp_id_dest", dest.get()).bind(":grp_id_src", src.get()).exec();
+
+  make_db_curs("INSERT INTO BAG2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
                      "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade,"
                      "    list_id, bag_type_str, service_type, airline, point_dep) "
                      "  SELECT :grp_id_dest,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
                      "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0, "
                      "    list_id, bag_type_str, service_type, airline, :point_id_dest "
-                     "  FROM bag2 WHERE grp_id=:grp_id_src; "
-                     "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
+                     "  FROM BAG2 WHERE grp_id=:grp_id_src",
+               PgOra::getRWSession("BAG2"))
+      .stb().bind(":grp_id_dest", dest.get()).bind(":grp_id_src", src.get())
+      .bind(":point_id_dest", point_dest.get()).exec();
+
+  make_db_curs("INSERT INTO BAG_TAGS(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
                      "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print, :point_id_dest "
-                     "  FROM bag_tags WHERE grp_id=:grp_id_src; "
-                     "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+                     "  FROM BAG_TAGS WHERE grp_id=:grp_id_src",
+               PgOra::getRWSession("BAG_TAGS"))
+      .stb().bind(":grp_id_dest", dest.get()).bind(":grp_id_src", src.get())
+      .bind(":point_id_dest", point_dest.get()).exec();
+
+  make_db_curs("INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
                      "  SELECT :grp_id_dest,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
-                     "  FROM unaccomp_bag_info WHERE grp_id=:grp_id_src; "
-                     "END; ",
-                    PgOra::getRWSession("VALUE_BAG"));
-  cur
-      .stb()
-      .bind(":grp_id_src", src.get())
-      .bind(":grp_id_dest", dest.get())
-      .bind(":point_id_dest", point_dest.get())
+                     "  FROM unaccomp_bag_info WHERE grp_id=:grp_id_src",
+               PgOra::getRWSession("UNACCOMP_BAG_INFO"))
+      .stb().bind(":grp_id_dest", dest.get()).bind(":grp_id_src", src.get())
       .exec();
 
   copyPaxPool(src, dest);
@@ -1318,8 +1455,7 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest, const PointI
 
 void TGroupBagItem::checkTagUniquenessOnFlight(int grp_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG_TAGS","TAG_TYPES"}),STDLOG);
   Qry.SQLText=
     "SELECT pax_grp1.point_dep, bag_tags1.no, tag_types1.no_len, "
     "       tag_types1.printable AS printable1, "
@@ -1557,8 +1693,7 @@ void TValueBagMap::fromDB(int grp_id)
 {
   clear();
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getROSession("VALUE_BAG"),STDLOG);
   BagQry.SQLText="SELECT * FROM value_bag WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
@@ -1574,8 +1709,7 @@ void TBagMap::fromDB(int grp_id)
 {
   clear();
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getROSession("BAG2"),STDLOG);
   BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
@@ -1586,23 +1720,22 @@ void TBagMap::fromDB(int grp_id)
     emplace(bag.num, bag);
   }
 
-  BagQry.Clear();
-  BagQry.SQLText="SELECT * FROM unaccomp_bag_info WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  for(;!BagQry.Eof;BagQry.Next())
-    add(TUnaccompInfoItem().fromDB(BagQry), false);
+  DB::TQuery UBagQry(PgOra::getROSession("UNACCOMP_BAG_INFO"),STDLOG);
+  UBagQry.SQLText="SELECT * FROM unaccomp_bag_info WHERE grp_id=:grp_id";
+  UBagQry.CreateVariable("grp_id",otInteger,grp_id);
+  UBagQry.Execute();
+  for(;!UBagQry.Eof;UBagQry.Next())
+    add(TUnaccompInfoItem().fromDB(UBagQry), false);
 }
 
 void TTagMap::fromDB(int grp_id)
 {
   clear();
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
+  DB::TQuery BagQry(PgOra::getROSession({"BAG_TAGS","TAG_TYPES"}),STDLOG);
   BagQry.SQLText=
     "SELECT num, tag_type, no, color, bag_num, pr_print, "
-    "       no_len, NVL(printable, 1) AS printable "
+    "       no_len, COALESCE(printable, 1) AS printable "
     "FROM bag_tags,tag_types "
     "WHERE bag_tags.tag_type=tag_types.code AND grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -1641,8 +1774,7 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
   {
     //старый терминал не поддерживает привязку багажа к разрегистрированным пассажирам
     //следовательно, мы должны убрать разрегистрированный багаж
-    TQuery BagQry(&OraSession);
-    BagQry.Clear();
+    DB::TQuery BagQry(PgOra::getROSession("PAX_GRP"),STDLOG);
     BagQry.SQLText="SELECT class, bag_refuse FROM pax_grp WHERE grp_id=:grp_id";
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();

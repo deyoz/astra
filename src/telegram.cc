@@ -1936,7 +1936,7 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
     con.pax[pax.bag_pool_num]=pax;
   };
 
-  TQuery QryBags2(&OraSession);
+  DB::TQuery QryBags2(PgOra::getROSession("BAG2"),STDLOG);
   QryBags2.SQLText=
     "SELECT * FROM bag2 WHERE grp_id=:grp_id";
   QryBags2.CreateVariable("grp_id",otInteger,grp_id);

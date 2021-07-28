@@ -929,6 +929,7 @@ class TPaxItem : public TSimplePaxItem
     const TPaxItem& toDB(TQuery &Qry) const;
     const TPaxItem& toDB(DB::TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
+    TPaxItem& fromDB(DB::TQuery &Qry);
     int is_female() const;
 };
 

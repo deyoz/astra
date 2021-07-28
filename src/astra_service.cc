@@ -715,7 +715,7 @@ void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if ( !pr_error )
         n = GetNode( "mes", reqNode );
     string msg = NodeAsString( n );
-    string file_id = NodeAsString( (char*)PARAM_FILE_ID.c_str(), reqNode );
+    string file_id = NodeAsString( (const char*)PARAM_FILE_ID.c_str(), reqNode );
     if ( pr_error )
     ProgError( STDLOG, "AstraService Exception: %s, file_id=%s", msg.c_str(), file_id.c_str() );
   else
@@ -1343,7 +1343,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
       route_num++;
       n1 = NewTextChild( n, "airp" );
       SetProp( n1, "code_zrt", i->airp );
-      SetProp( n1, "code_iata", ((TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
+      SetProp( n1, "code_iata", ((const TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
       if ( i->pr_cancel )
         SetProp( n1, "pr_cancel", i->pr_cancel );
     }
@@ -1357,7 +1357,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
       route_num++;
       n1 = NewTextChild( n, "airp" );
       SetProp( n1, "code_zrt", i->airp );
-      SetProp( n1, "code_iata", ((TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
+      SetProp( n1, "code_iata", ((const TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
       if ( i->pr_cancel )
         SetProp( n1, "pr_cancel", i->pr_cancel );
       n1 = NewTextChild( n, "booking" );

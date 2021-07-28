@@ -42,8 +42,10 @@ class TValueBagItem
     };
     const TValueBagItem& toXML(xmlNodePtr node) const;
     TValueBagItem& fromXML(xmlNodePtr node);
-    const TValueBagItem& toDB(TQuery &Qry) const;
-    TValueBagItem& fromDB(TQuery &Qry);
+    //const TValueBagItem& toDB(TQuery &Qry) const;
+    //TValueBagItem& fromDB(TQuery &Qry);
+    const TValueBagItem& toDB(DB::TQuery &Qry) const;
+    TValueBagItem& fromDB(DB::TQuery &Qry);
 };
 
 class TUnaccompInfoItem
@@ -82,8 +84,10 @@ class TUnaccompInfoItem
     }
     const TUnaccompInfoItem& toXML(xmlNodePtr node) const;
     TUnaccompInfoItem& fromXML(xmlNodePtr node);
-    const TUnaccompInfoItem& toDB(TQuery &Qry) const;
-    TUnaccompInfoItem& fromDB(TQuery &Qry);
+    //const TUnaccompInfoItem& toDB(TQuery &Qry) const;
+    //TUnaccompInfoItem& fromDB(TQuery &Qry);
+    const TUnaccompInfoItem& toDB(DB::TQuery &Qry) const;
+    TUnaccompInfoItem& fromDB(DB::TQuery &Qry);
 };
 
 class TUnaccompRuleItem
@@ -141,8 +145,9 @@ class TSimpleBagItem
              weight==item.weight;
     }
 
-    const TSimpleBagItem& toDB(TQuery &Qry) const;
-    TSimpleBagItem& fromDB(TQuery &Qry);
+    //const TSimpleBagItem& toDB(TQuery &Qry) const;
+    const TSimpleBagItem& toDB(DB::TQuery &Qry) const;
+    //TSimpleBagItem& fromDB(TQuery &Qry);
     TSimpleBagItem& fromDB(DB::TQuery &Qry);
     std::string get_rem_code_lci(TRFISCListWithPropsCache &lists) const;
     std::string get_rem_code_ldm(TRFISCListWithPropsCache &lists) const;
@@ -187,8 +192,9 @@ class TBagItem : public TSimpleBagItem
     }
     const TBagItem& toXML(xmlNodePtr node) const;
     TBagItem& fromXML(xmlNodePtr node, bool baggage_pc);
-    const TBagItem& toDB(TQuery &Qry) const;
-    TBagItem& fromDB(TQuery &Qry);
+    //const TBagItem& toDB(TQuery &Qry) const;
+    const TBagItem& toDB2(DB::TQuery &Qry) const;
+    //TBagItem& fromDB(TQuery &Qry);
     TBagItem& fromDB(DB::TQuery &Qry);
     bool basicallyEqual(const TBagItem& item) const
     {
@@ -234,15 +240,16 @@ class TTagItem
     };
     const TTagItem& toXML(xmlNodePtr node) const;
     TTagItem& fromXML(xmlNodePtr node);
-    const TTagItem& toDB(TQuery &Qry) const;
-    TTagItem& fromDB(TQuery &Qry);
+    //const TTagItem& toDB(TQuery &Qry) const;
+    const TTagItem& toDB(DB::TQuery &Qry) const;
+    //TTagItem& fromDB(TQuery &Qry);
     TTagItem& fromDB(DB::TQuery &Qry);
 };
 
 class TValueBagMap : public std::map<int /*num*/, TValueBagItem>
 {
   public:
-    static std::string clearSQLText();
+    static std::list<std::pair<std::string, std::string> > clearSQLText();
     void toDB(int grp_id) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;
@@ -251,7 +258,7 @@ class TValueBagMap : public std::map<int /*num*/, TValueBagItem>
 class TBagMap : public std::map<int /*num*/, TBagItem>
 {
   public:
-    static std::string clearSQLText();
+    static std::list<std::pair<std::string, std::string> > clearSQLText();
     void toDB(int grp_id, int point_dep) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;
@@ -263,7 +270,7 @@ class TBagMap : public std::map<int /*num*/, TBagItem>
 class TTagMap : public std::map<int /*num*/, TTagItem>
 {
   public:
-    static std::string clearSQLText();
+    static std::list<std::pair<std::string, std::string> > clearSQLText();
     void toDB(int grp_id, int point_dep) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;

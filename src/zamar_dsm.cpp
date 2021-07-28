@@ -1,4 +1,5 @@
 #include "zamar_dsm.h"
+#include "baggage_tags.h"
 #include "xml_unit.h"
 #include "exceptions.h"
 #include "term_version.h"

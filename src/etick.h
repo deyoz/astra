@@ -9,7 +9,7 @@
 #include "xml_unit.h"
 #include "edi_utils.h"
 #include "emdoc.h"
-#include "baggage.h"
+//#include "baggage.h"
 #include "qrys.h"
 #include "trip_tasks.h"
 #include "astra_pnr.h"

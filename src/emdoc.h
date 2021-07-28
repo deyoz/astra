@@ -3,7 +3,7 @@
 
 #include <list>
 #include "passenger.h"
-#include "baggage.h"
+//#include "baggage.h"
 #include "remarks.h"
 #include "ticket_types.h"
 #include "qrys.h"

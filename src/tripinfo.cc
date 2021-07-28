@@ -1771,17 +1771,26 @@ static void getBagLoadByCabinClasses( int point_id, PaxLoadTotalRowStruct &total
   DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","BAG2"}),STDLOG);
   Qry.ClearParams();
   Qry.SQLText =
-    "SELECT COALESCE(SUM((CASE WHEN pr_cabin=0 THEN amount ELSE 0 END)),0) AS bag_amount, "
-    "       COALESCE(SUM((CASE WHEN pr_cabin=0 THEN weight ELSE 0 END)),0) AS bag_weight, "
-    "       COALESCE(SUM((CASE WHEN pr_cabin=0 THEN 0 ELSE weight END)),0) AS rk_weight, "
-    "       COALESCE(pax.cabin_class, pax_grp.class) AS class "
-    "  FROM pax_grp, bag2, pax "
-    "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        bag2.grp_id=pax.grp_id(+) AND "
-    "        bag2.bag_pool_num=pax.bag_pool_num(+) AND "
-    "        point_dep=:point_id AND status NOT IN ('E') AND "
-    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-    " GROUP BY COALESCE(pax.cabin_class, pax_grp.class)";
+      "SELECT "
+        "coalesce(sum(CASE WHEN PR_CABIN = 0 THEN AMOUNT ELSE 0 END), 0) AS bag_amount, "
+        "coalesce(sum(CASE WHEN PR_CABIN = 0 THEN WEIGHT ELSE 0 END), 0 ) AS bag_weight, "
+        "coalesce(sum(CASE WHEN PR_CABIN = 0 THEN 0 ELSE WEIGHT END), 0 ) AS rk_weight, "
+        "coalesce(PAX.CABIN_CLASS, PAX_GRP.CLASS) AS class "
+      "FROM PAX_GRP "
+        "JOIN ( "
+          "BAG2 "
+            "LEFT OUTER JOIN PAX "
+              "ON ( "
+                "BAG2.GRP_ID = PAX.GRP_ID "
+                "AND BAG2.BAG_POOL_NUM = PAX.BAG_POOL_NUM "
+              ") "
+        ") "
+          "ON PAX_GRP.GRP_ID = BAG2.GRP_ID "
+      "WHERE "
+        "POINT_DEP = :point_id "
+        "AND STATUS NOT IN ('E') "
+        "AND CKIN.BAG_POOL_REFUSED(BAG2.GRP_ID, BAG2.BAG_POOL_NUM, PAX_GRP.CLASS, PAX_GRP.BAG_REFUSE) = 0 "
+      "GROUP BY coalesce(PAX.CABIN_CLASS, PAX_GRP.CLASS)";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   for ( ; !Qry.Eof; Qry.Next() ) {

@@ -269,6 +269,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_CLASSES", {
                 "COMP_CLASSES", // COMPS
         }},
+        { "SP_PG_GROUP_BAG2", {
+                "BAG2",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

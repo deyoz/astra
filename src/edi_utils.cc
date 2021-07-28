@@ -454,6 +454,7 @@ void confirm_notify_levb(const std::string& msgid, int session_id)
 //  }
 }
 
+#ifndef XP_TESTING
 static std::string transformKickIfHttp(const std::string& kickText)
 {
   //доклеим HTTP-заголовок, если обработка HTTP-запроса
@@ -467,6 +468,7 @@ static std::string transformKickIfHttp(const std::string& kickText)
 
   return currRequest.to_string() + kickText;
 }
+#endif
 
 string make_xml_kick(const edifact::KickInfo &kickInfo)
 {

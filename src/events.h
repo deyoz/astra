@@ -57,7 +57,7 @@ class TEventsBagItem : public CheckIn::TBagItem
       clear();
     }
 
-    TEventsBagItem& fromDB(TQuery &Qry);
+    TEventsBagItem& fromDB(DB::TQuery &Qry);
 };
 
 class TEventsSumBagKey

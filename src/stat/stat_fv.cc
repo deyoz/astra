@@ -65,8 +65,10 @@ bool TGrpInfo::TGrpInfoItem::TPrWeapon::get(int bag_pool_num)
 
 void TGrpInfo::TGrpInfoItem::TPrWeapon::fromDB(const CheckIn::TSimplePaxGrpItem &grp, const string &airline)
 {
-    TCachedQuery Qry("select * from bag2 where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, grp.id));
+    DB::TCachedQuery Qry(PgOra::getROSession("BAG2"),
+                         "select * from bag2 where grp_id = :grp_id",
+                         QParams() << QParam("grp_id", otInteger, grp.id),
+                         STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         t_rpt_bm_bag_name bag_names;
@@ -199,11 +201,11 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     if(not info.bort.empty())
         NewTextChild(flightInfoNode, "AirplaneRegNumber", info.bort);
 
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}),
             "select "
             "   pax.*, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,:pr_lat) AS seat_no, "
-            "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight "
+            "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight "
             "from "
             "   pax_grp, "
             "   pax "
@@ -212,7 +214,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             "   pax_grp.grp_id = pax.grp_id ",
             QParams()
             << QParam("point_id", otInteger, point_id)
-            << QParam("pr_lat", otInteger, 1)
+            << QParam("pr_lat", otInteger, 1),
+            STDLOG
             );
 
     Qry.get().Execute();

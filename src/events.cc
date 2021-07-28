@@ -380,7 +380,7 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
     };
 };
 
-TEventsBagItem& TEventsBagItem::fromDB(TQuery &Qry)
+TEventsBagItem& TEventsBagItem::fromDB(DB::TQuery &Qry)
 {
     CheckIn::TBagItem::fromDB(Qry);
 
@@ -478,8 +478,7 @@ void TPaidToLogInfo::trace( TRACE_SIGNATURE, const std::string &descr) const
 void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
 {
     bag.clear();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2"}),STDLOG);
     Qry.SQLText=
             "SELECT bag2.*, pax_grp.class, pax_grp.bag_refuse "
             "FROM pax_grp,bag2  "
@@ -601,21 +600,39 @@ void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
     grpInfo.clear();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}),STDLOG);
     Qry.SQLText=
-            "SELECT "
-            "       pax_grp.point_dep, pax_grp.airp_arv, "
-            "       pax_grp.class AS orig_class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, pax_grp.status, "
-            "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
-            "       pax.pax_id, pax.reg_no, "
-            "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
-            "       salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-            "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
-            "       pax.pr_brd, pax.pr_exam, pax.bag_pool_num, "
-            "       pax_grp.trfer_confirm, NVL(pax_grp.piece_concept, 0) AS piece_concept "
-            "FROM pax_grp, pax "
-            "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
+        "SELECT "
+          "pax_grp.point_dep, "
+          "pax_grp.airp_arv, "
+          "pax_grp.class as orig_class, "
+          "COALESCE(pax.cabin_class, pax_grp.class) as cabin_class, "
+          "pax_grp.status, "
+          "pax_grp.pr_mark_norms, "
+          "pax_grp.bag_refuse, "
+          "pax.pax_id, "
+          "pax.reg_no, "
+          "pax.surname, "
+          "pax.name, "
+          "pax.pers_type, "
+          "pax.refuse, "
+          "pax.subclass, "
+          "pax.is_female, "
+          "pax.seats, "
+          "salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'seats',rownum) as seat_no, " // ROWNUM!!!
+          "pax.ticket_no, "
+          "pax.coupon_no, "
+          "pax.ticket_rem, "
+          "0 as ticket_confirm, "
+          "pax.pr_brd, "
+          "pax.pr_exam, "
+          "pax.bag_pool_num, "
+          "pax_grp.trfer_confirm, "
+          "COALESCE(pax_grp.piece_concept, 0) as piece_concept "
+        "FROM PAX_GRP "
+          "LEFT OUTER JOIN PAX "
+            "ON PAX_GRP.GRP_ID = PAX.GRP_ID "
+        "WHERE PAX_GRP.GRP_ID = :grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if (!Qry.Eof)

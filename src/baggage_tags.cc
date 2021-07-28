@@ -304,7 +304,7 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
 
       for(k=1;k<=5;k++)
       {
-        DB::TQuery Qry(PgOra::getROSession({"TAG_RANGES2", "POINTS"}), STDLOG);
+        DB::TQuery Qry(PgOra::getRWSession({"TAG_RANGES2", "POINTS"}), STDLOG);
         Qry.CreateVariable("aircode",otInteger,aircode);
 
         sql  =   "SELECT range, no FROM tag_ranges2 ";
@@ -483,14 +483,18 @@ void TGeneratedTags::trace(const std::string& where) const
 void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags, bool includeTagColor)
 {
     tags.clear();
-    TCachedQuery Qry("select color, no  from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
-            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_num", otInteger, bag_num));
+    DB::TCachedQuery Qry(PgOra::getROSession("BAG_TAGS"),
+            "select color, no  from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
+            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_num", otInteger, bag_num),
+            STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
+    {
         tags.insert(
                 TBagTagNumber(
                     includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")) : "",
                     Qry.get().FieldAsFloat("no")));
+    }
 }
 
 void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
@@ -502,7 +506,7 @@ void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
         GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, true);
 }
 
-void BagTagContainerFromDB(std::multiset<TBagTagNumber>& container, TQuery& Qry, bool includeTagColor)
+void BagTagContainerFromDB(std::multiset<TBagTagNumber>& container, DB::TQuery& Qry, bool includeTagColor)
 {
   container.clear();
   for(; not Qry.Eof; Qry.Next())
@@ -514,3 +518,47 @@ void FlattenBagTags(const std::multiset<TBagTagNumber> &tags, std::set<std::stri
   result.clear();
   for (auto tag : tags) result.insert(tag.str());
 }
+
+template <typename TBagItem>
+void BagTagContainerFromDB(std::multimap<TBagTagNumber, TBagItem>& container, DB::TQuery& Qry, bool includeTagColor)
+{
+  container.clear();
+  for(; not Qry.Eof; Qry.Next())
+  {
+    TBagTagNumber tag_number(includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.FieldAsString("color")) : "", Qry.FieldAsFloat("no"));
+    TBagItem bag_item;
+    bag_item.fromDB(Qry);
+    container.emplace(tag_number, bag_item);
+  }
+}
+
+template <typename T>
+void GetTagsByPool(int grp_id, int bag_pool_num , T& container, bool includeTagColor)
+{
+    if (bag_pool_num == ASTRA::NoExists) return;
+    DB::TCachedQuery Qry(PgOra::getROSession({"BAG2","BAG_TAGS"}),
+            "select "
+            "    bag_tags.color, "
+            "    bag_tags.no, "
+            "    bag2.* "
+            "from "
+            "    bag2, "
+            "    bag_tags "
+            "where "
+            "    bag2.grp_id = :grp_id and "
+            "    bag2.bag_pool_num = :bag_pool_num and "
+            "    bag2.grp_id = bag_tags.grp_id and "
+            "    bag2.num = bag_tags.bag_num ",
+            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_pool_num", otInteger, bag_pool_num),
+            STDLOG);
+    Qry.get().Execute();
+    container.clear();
+    BagTagContainerFromDB(container, Qry.get(), includeTagColor);
+}
+
+// zamar_dsm
+template void GetTagsByPool<std::multimap<TBagTagNumber, CheckIn::TBagItem, std::less<TBagTagNumber>, 
+                            std::allocator<std::pair<TBagTagNumber const, CheckIn::TBagItem> > > >
+                            (int grp_id, int bag_pool_num , std::multimap<TBagTagNumber, CheckIn::TBagItem, std::less<TBagTagNumber>, 
+                             std::allocator<std::pair<TBagTagNumber const, CheckIn::TBagItem> > >& container, bool includeTagColor);
+

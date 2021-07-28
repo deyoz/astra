@@ -676,10 +676,10 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
 
 void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
 {
-    if (part_key!=NoExists)
-    {
-        return get_basel_aero_arx_flight_stat(part_key, point_id, stats);
-    }
+  if (part_key!=NoExists)
+  {
+      return get_basel_aero_arx_flight_stat(part_key, point_id, stats);
+  }
   stats.clear();
 
   TTripInfo operFlt;
@@ -717,6 +717,72 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     "ORDER BY "
     "  pax.reg_no NULLS LAST, "
     "  pax.seats DESC NULLS LAST ";
+/*
+  string bag_sql;
+  string bag_pc_sql;
+  DB::TQuery BagQry(PgOra::getROSession({"PAX_GRP","BAG2"}),STDLOG);
+  DB::TQuery TimeQry(PgOra::getROSession({"AODB_PAX_CHANGE","STATIONS"}),STDLOG);
+
+  bag_sql=
+    "SELECT bag2.*, pax_grp.class "
+    "FROM pax_grp,bag2 "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      pax_grp.grp_id=:grp_id ";
+  bag_pc_sql=
+    "SELECT bag2.* "
+    "FROM bag2 "
+    "WHERE bag2.grp_id=:grp_id ";
+
+  TimeQry.SQLText =
+          "SELECT "
+            "TIME, "
+            "COALESCE(STATIONS.NAME, AODB_PAX_CHANGE.DESK) AS STATION, "
+            "CLIENT_TYPE, "
+            "STATIONS.AIRP "
+          "FROM AODB_PAX_CHANGE "
+            "LEFT OUTER JOIN STATIONS "
+              "ON ( "
+                "AODB_PAX_CHANGE.DESK = STATIONS.DESK "
+                "AND AODB_PAX_CHANGE.WORK_MODE = STATIONS.WORK_MODE "
+              ") "
+          "WHERE "
+            "PAX_ID = :pax_id "
+            "AND AODB_PAX_CHANGE.REG_NO = :reg_no "
+            "AND AODB_PAX_CHANGE.WORK_MODE = :work_mode";
+  TimeQry.DeclareVariable( "pax_id", otInteger );
+  TimeQry.DeclareVariable( "reg_no", otInteger );
+  TimeQry.CreateVariable( "work_mode", otString, "" );
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  ostringstream sql;
+  sql <<
+        "SELECT"
+          "pax_grp.grp_id, "
+          "pax_grp.class, "
+          "COALESCE(pax_grp.piece_concept, 0) as piece_concept, "
+          "pax_grp.bag_refuse, "
+          "pax_grp.excess_wt, "
+          "pax.pax_id, "
+          "pax.surname, "
+          "pax.name, "
+          "pax.refuse, "
+          "pax.pr_brd, "
+          "pax.reg_no, "
+          "pax.bag_pool_num "
+        "FROM PAX_GRP "
+          "LEFT OUTER JOIN PAX "
+            "ON PAX_GRP.GRP_ID = PAX.GRP_ID "
+        "WHERE ( "
+          "PAX_GRP.POINT_DEP = :point_id "
+          "AND PAX_GRP.STATUS NOT IN ('E') "
+        ") "
+        "ORDER BY "
+          "PAX.REG_NO NULLS LAST, "
+          "PAX.SEATS DESC NULLS LAST";
+
+  Qry.SQLText=sql.str().c_str();
+*/
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   using namespace CKIN;

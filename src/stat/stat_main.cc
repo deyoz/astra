@@ -1094,22 +1094,22 @@ void get_stat(const PointId_t& point_id)
     QryIns.Execute();
   }
 
-  DB::TQuery cur1(PgOra::getROSession("PAX_GRP-BAG2"), STDLOG);
+  DB::TQuery cur1(PgOra::getROSession({"PAX_GRP,BAG2"}), STDLOG);
   cur1.SQLText =
       "SELECT "
       "  airp_arv, "
       "  bag2.hall, "
-      "  DECODE(status,'T','T','N') AS status, "
+      "  (CASE WHEN status='T' THEN 'T' ELSE 'N' END) AS status, "
       "  client_type, "
-      "  SUM(DECODE(pr_cabin,0,amount,0)) AS pcs, "
-      "  SUM(DECODE(pr_cabin,0,weight,0)) AS weight, "
-      "  SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked "
+      "  SUM(CASE WHEN pr_cabin=0 THEN amount ELSE 0 END) AS pcs, "
+      "  SUM(CASE WHEN pr_cabin=0 THEN weight ELSE 0 END) AS weight, "
+      "  SUM(CASE WHEN pr_cabin=1 THEN weight ELSE 0 END) AS unchecked "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id "
       "AND pax_grp.point_dep=:point_id "
       "AND pax_grp.status NOT IN ('E') "
       "AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-      "GROUP BY airp_arv,bag2.hall,DECODE(status,'T','T','N'),client_type ";
+      "GROUP BY airp_arv,bag2.hall,(CASE WHEN status='T' THEN 'T' ELSE 'N' END),client_type ";
   cur1.CreateVariable("point_id", otInteger, point_id.get());
   cur1.Execute();
 
@@ -1161,15 +1161,15 @@ void get_stat(const PointId_t& point_id)
     }
   }
 
-  DB::TQuery cur2(PgOra::getROSession("PAX_GRP-BAG2"), STDLOG);
+  DB::TQuery cur2(PgOra::getROSession({"PAX_GRP","BAG2"}), STDLOG);
   cur2.SQLText =
       "SELECT "
       "  airp_arv, "
-      "  NVL(bag2.hall,pax_grp.hall) AS hall, "
-      "  DECODE(status,'T','T','N') AS status, "
+      "  COALESCE(bag2.hall,pax_grp.hall) AS hall, "
+      "  (CASE WHEN status='T' THEN 'T' ELSE 'N' END) AS status, "
       "  client_type, "
-      "  SUM(DECODE(bag_refuse,0,excess_wt,0)) AS excess_wt, "
-      "  SUM(DECODE(bag_refuse,0,excess_pc,0)) AS excess_pc "
+      "  SUM(CASE WHEN bag_refuse=0 THEN excess_wt ELSE 0 END) AS excess_wt, "
+      "  SUM(CASE WHEN bag_refuse=0 THEN excess_pc ELSE 0 END) AS excess_pc "
       "FROM pax_grp, "
       "     (SELECT bag2.grp_id,bag2.hall "
       "      FROM bag2, "
@@ -1181,7 +1181,7 @@ void get_stat(const PointId_t& point_id)
       "            GROUP BY bag2.grp_id) last_bag "
       "      WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=:point_id AND pax_grp.status NOT IN ('E') "
-      "GROUP BY airp_arv,NVL(bag2.hall,pax_grp.hall),DECODE(status,'T','T','N'),client_type ";
+      "GROUP BY airp_arv,COALESCE(bag2.hall,pax_grp.hall),(CASE WHEN status='T' THEN 'T' ELSE 'N' END),client_type ";
   cur2.CreateVariable("point_id", otInteger, point_id.get());
   cur2.Execute();
 
@@ -1434,8 +1434,8 @@ void get_self_ckin_stat(const PointId_t& point_id)
   }
 
   std::map<SelfCkinStatKey,SelfCkinStatData> self_ckin_stat_map;
-  DB::TQuery Qry(PgOra::getRWSession(
-  {"BAG2","EVENTS_BILINGUAL","STATIONS","PAX","PAX_GRP","WEB_CLIENTS","DESKS","DESK_GRP","TCKIN_PAX_GRP"}), STDLOG);
+  DB::TQuery Qry(PgOra::getRWSession({"BAG2","EVENTS_BILINGUAL","STATIONS","PAX",
+                                      "PAX_GRP","WEB_CLIENTS","DESKS","DESK_GRP","TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText =
       "SELECT "
       "  pax.pax_id, "

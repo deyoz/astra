@@ -459,7 +459,7 @@ void TPriceRFISCList::toDB(int grp_id) const
   for ( const auto &p : *this ) {
     SVCS svcs;
     p.second.getSVCS( svcs, STATUS_DIRECT_PAID );
-    for ( const auto svc : svcs ) {
+    for ( const auto &svc : svcs ) {
       if ( std::find( bd_svcs.begin(), bd_svcs.end(), svc.first ) != bd_svcs.end() ||
            svc.second.ticknum.empty()  ) { //уже есть в БД или еще не выписан
         continue;
@@ -654,7 +654,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
   //  LogTrace(TRACE5) << nitem.first.service_type;
     SVCS svcs;
     nitem.second.getSVCS(svcs,TPriceServiceItem::EnumSVCS::all);
-    for ( const auto nsvc : svcs ) {
+    for ( const auto &nsvc : svcs ) {
     //  LogTrace(TRACE5) << nsvc.second.toString();
       svc_ids.insert( nsvc.first );
     }

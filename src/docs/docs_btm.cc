@@ -484,11 +484,20 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(bag2.amount) amount, "
         "  sum(bag2.weight) weight "
         "from "
-        "  pax_grp, "
-        "  bag2, "
-        "  transfer ";
+        "  pax_grp "
+        "    join TRANSFER "
+        "       on PAX_GRP.GRP_ID = TRANSFER.GRP_ID ";
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES)
-        SQLText += ", halls2 ";
+        SQLText += "  join ( "
+                   "    BAG2 "
+                   "      left outer join HALLS2 "
+                   "        on BAG2.HALL = HALLS2.ID "
+                   "    ) "
+                   "    on PAX_GRP.GRP_ID = BAG2.GRP_ID ";
+
+    else
+        SQLText += "  join BAG2 "
+                   "    on PAX_GRP.GRP_ID = BAG2.GRP_ID ";
     SQLText +=
         "where "
         "  pax_grp.point_dep = :point_id and "
@@ -500,8 +509,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "  transfer.pr_final <> 0 ";
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   and bag2.hall = halls2.id(+) "
-            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
+            "   and COALESCE(halls2.rpt_grp, ' ') = COALESCE(:zone, ' ') and bag2.hall IS NOT NULL ";
         Qry2.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     Qry2.SQLText = SQLText;

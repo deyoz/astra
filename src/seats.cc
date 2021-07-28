@@ -3149,7 +3149,7 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
     TAdulstWithBabys( bool vseparately_seat_adult_with_baby,
                       bool vseparately_seat_chin_emergency ) {
       separately_seat_adult_with_baby = vseparately_seat_adult_with_baby;
-      vseparately_seat_chin_emergency = vseparately_seat_chin_emergency;
+      separately_seat_chin_emergency = vseparately_seat_chin_emergency;
     }
     void setAdultToGrp( const TPassenger& pass ) {
       TAdultWithBabys adult( pass.index );

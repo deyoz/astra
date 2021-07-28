@@ -5422,6 +5422,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
         QParams() << QParam("point_id", otInteger, info.point_id),
         STDLOG);
 
+
     Qry.get().Execute();
 
     TRFISCListWithPropsCache lists;
@@ -5448,8 +5449,8 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
     QryParams << QParam("point_id", otInteger, point_id);
     if(not airp_arv.empty())
         QryParams << QParam("airp_arv", otString, airp_arv);
-    TCachedQuery Qry(
-            (string)
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2"}),
+            std::string(
             "select "
             "   pax_grp.airp_arv, "
             "   sum(amount) amount, "
@@ -5461,7 +5462,7 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
             "   pax_grp.grp_id = bag2.grp_id and "
             "   pax_grp.point_dep = :point_id and "
             "   pax_grp.status NOT IN ('E') AND "
-            "   bag2.pr_cabin=0 AND " +
+            "   bag2.pr_cabin=0 AND ") +
             (st == rbBrd ?
             "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
             :
@@ -5471,7 +5472,8 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
             "   bag2.to_ramp <> 0 "
             "group by "
             "   airp_arv",
-            QryParams
+            QryParams,
+            STDLOG
             );
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
@@ -5483,10 +5485,10 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
 
 void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2"}),STDLOG);
     Qry.SQLText =
-        "SELECT NVL(SUM(weight),0) AS weight, "
-        "       NVL(SUM(amount),0) AS amount "
+        "SELECT COALESCE(SUM(weight),0) AS weight, "
+        "       COALESCE(SUM(amount),0) AS amount "
         "FROM pax_grp,bag2 "
         "WHERE pax_grp.grp_id=bag2.grp_id AND "
         "      pax_grp.point_dep=:point_id AND "
@@ -5501,14 +5503,18 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
         bag_amount = Qry.FieldAsInteger("amount");
         baggage = Qry.FieldAsInteger("weight");
     }
-    Qry.SQLText =
+
+    DB::TQuery QryTripLoad(PgOra::getROSession("TRIP_LOAD"),STDLOG);
+    QryTripLoad.CreateVariable("point_arv", otInteger, point_arv);
+    QryTripLoad.CreateVariable("point_id", otInteger, info.point_id);
+    QryTripLoad.SQLText =
         "SELECT cargo,mail "
         "FROM trip_load "
         "WHERE point_dep=:point_id AND point_arv=:point_arv ";
-    Qry.Execute();
-    if(!Qry.Eof) {
-        cargo = Qry.FieldAsInteger("cargo");
-        mail = Qry.FieldAsInteger("mail");
+    QryTripLoad.Execute();
+    if(!QryTripLoad.Eof) {
+        cargo = QryTripLoad.FieldAsInteger("cargo");
+        mail = QryTripLoad.FieldAsInteger("mail");
     }
 }
 
@@ -5527,9 +5533,9 @@ struct TExcess {
 
 void TExcess::get(int point_id, string airp_arv)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("PAX_GRP"),STDLOG);
     string SQLText =
-        "SELECT NVL(SUM(excess_wt),0) excess_wt "
+        "SELECT COALESCE(SUM(excess_wt),0) excess_wt "
         "FROM pax_grp "
         "WHERE "
         "   point_dep=:point_id AND "
@@ -7020,31 +7026,39 @@ void TLCIPaxTotals::get_bag_info(map<string, pair<int, int> > &bag_info, int &ba
     // bag_info itself
     if(pool_pax_id != NoExists and pool_pax_id == pax_id) {
         DB::TCachedQuery bagInfoQry(PgOra::getROSession({"BAG2","BAG_TYPES"}),
-                "select "
-                "   (CASE WHEN bag2.to_ramp=0 THEN bag_types.rem_code_lci ELSE 'DAA' END) rem_code, "
-                "   sum((CASE WHEN pr_cabin=0 THEN amount ELSE null END)) bag_amount, "
-                "   sum((CASE WHEN pr_cabin=0 THEN weight ELSE null END)) bag_weight "
-                "from "
-                "   bag2, "
-                "   bag_types "
-                "where "
-                "   grp_id = :grp_id and "
-                "   bag_pool_num = :bag_pool_num and "
-                "   bag2.bag_type = bag_types.code(+) "
-                "group by "
-                "   bag2.to_ramp, "
-                "   bag_types.rem_code_lci ",
+                "SELECT"
+                  "CASE"
+                    "WHEN BAG2.TO_RAMP = 0 THEN BAG_TYPES.REM_CODE_LCI"
+                    "ELSE 'DAA'"
+                  "END AS rem_code,"
+                  "sum(CASE"
+                    "WHEN PR_CABIN = 0 THEN AMOUNT"
+                    "ELSE NULL"
+                  "END) AS bag_amount,"
+                  "sum(CASE"
+                    "WHEN PR_CABIN = 0 THEN WEIGHT"
+                    "ELSE NULL"
+                  "END) AS bag_weight"
+                "FROM BAG2"
+                  "LEFT OUTER JOIN BAG_TYPES"
+                    "ON BAG2.BAG_TYPE = BAG_TYPES.CODE"
+                "WHERE"
+                  "GRP_ID = :grp_id"
+                  "AND BAG_POOL_NUM = :bag_pool_num"
+                "GROUP BY BAG2.TO_RAMP, BAG_TYPES.REM_CODE_LCI",
                 QParams()
                 << QParam("grp_id", otInteger, grp_id)
                 << QParam("bag_pool_num", otInteger, bag_pool_num),
                 STDLOG);
         bagInfoQry.get().Execute();
         for(; not bagInfoQry.get().Eof; bagInfoQry.get().Next())
+        {
             bag_info[bagInfoQry.get().FieldAsString("rem_code")] =
                 pair<int, int>(
                         bagInfoQry.get().FieldAsInteger("bag_amount"),
                         bagInfoQry.get().FieldAsInteger("bag_weight")
                         );
+        }
     }
 }
 

@@ -2542,7 +2542,7 @@ std::list<TSimplePaxItem> TSimplePaxItem::getByGrpId(GrpId_t grp_id)
     item.fromDB(Qry);
     result.push_back(item);
   }
-  return result;
+  return std::move(result);
 }
 
 std::list<TSimplePaxItem> TSimplePaxItem::getByDepPointId(const PointId_t& point_id)
@@ -2565,6 +2565,16 @@ std::list<TSimplePaxItem> TSimplePaxItem::getByDepPointId(const PointId_t& point
 }
 
 TPaxItem& TPaxItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TSimplePaxItem::fromDB(Qry);
+  DocExists=CheckIn::LoadPaxDoc(id, doc);
+  DocoExists=CheckIn::LoadPaxDoco(id, doco);
+  DocaExists=CheckIn::LoadPaxDoca(id, doca_map);
+  return *this;
+};
+
+TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TSimplePaxItem::fromDB(Qry);
@@ -2649,7 +2659,7 @@ std::string TSimplePaxItem::checkInStatus() const
 
 boost::optional<TComplexClass> TSimplePaxItem::getCrsClass(const PaxId_t& paxId, bool onlyIfClassChange)
 {
-  TCachedQuery Qry(
+  DB::TCachedQuery Qry(PgOra::getROSession({"CRS_PNR","CRS_PAX"}),
     "SELECT "+origClassFromCrsSQL()+" AS orig_class, "
     "       "+cabinSubclassFromCrsSQL()+" AS subclass, "
     "       "+cabinClassFromCrsSQL()+" AS class "
@@ -2658,7 +2668,8 @@ boost::optional<TComplexClass> TSimplePaxItem::getCrsClass(const PaxId_t& paxId,
     "      crs_pnr.system='CRS' AND "
     "      crs_pax.pax_id=:pax_id AND "
     "      crs_pax.pr_del=0",
-    QParams() << QParam("pax_id", otInteger, paxId.get()));
+    QParams() << QParam("pax_id", otInteger, paxId.get()),
+    STDLOG);
   Qry.get().Execute();
   if (!Qry.get().Eof)
   {
@@ -2694,14 +2705,15 @@ std::string TSimplePaxItem::getCabinSubclass() const
 std::string TSimplePaxItem::getSeatNo(const std::string& fmt) const
 {
   if (id==ASTRA::NoExists) return "";
-  TCachedQuery Qry(
-    "SELECT salons.get_seat_no(:pax_id, :seats, :is_jmp, pax_grp.status, pax_grp.point_dep, :fmt, rownum) seat_no "
+  DB::TCachedQuery Qry(PgOra::getROSession("PAX_GRP"),
+    "SELECT salons.get_seat_no(:pax_id, :seats, :is_jmp, pax_grp.status, pax_grp.point_dep, :fmt, rownum) seat_no " /// ROWNUM
     "FROM pax_grp WHERE grp_id=:grp_id",
     QParams() << QParam("pax_id", otInteger, id)
               << QParam("grp_id", otInteger, grp_id)
               << QParam("seats", otInteger, seats)
               << QParam("is_jmp", otInteger, (int)is_jmp)
-              << QParam("fmt", otString, fmt));
+              << QParam("fmt", otString, fmt),
+              STDLOG);
   Qry.get().Execute();
   if (!Qry.get().Eof)
     return Qry.get().FieldAsString("seat_no");
@@ -2712,7 +2724,8 @@ bool TSimplePaxItem::cabinClassToDB() const
 {
   if (id==ASTRA::NoExists) return false;
 
-  TCachedQuery Qry("UPDATE pax "
+  DB::TCachedQuery Qry(PgOra::getRWSession("pax"),
+                   "UPDATE pax "
                    "SET cabin_subclass=:cabin_subclass, "
                    "    cabin_class=:cabin_class, "
                    "    cabin_class_grp=:cabin_class_grp, "
@@ -2722,7 +2735,8 @@ bool TSimplePaxItem::cabinClassToDB() const
                              << QParam("tid", otInteger, tid)
                              << QParam("cabin_subclass", otString)
                              << QParam("cabin_class", otString)
-                             << QParam("cabin_class_grp", otInteger));
+                             << QParam("cabin_class_grp", otInteger),
+                   STDLOG);
   cabin.toDB(Qry.get(), "cabin_");
   Qry.get().Execute();
 
