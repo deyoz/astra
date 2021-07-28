@@ -4,6 +4,7 @@
 #include "report_common.h"
 #include "passenger.h"
 #include "stat/stat_utils.h"
+#include "cache_access.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -144,7 +145,7 @@ void ArxRunReprintStat(
 {
     LogTrace5 << __func__;
     TFltInfoCache flt_cache;
-    TDeskAccess desk_access;
+    ViewAccess<DeskCode_t> deskViewAccess;
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
@@ -200,7 +201,7 @@ void ArxRunReprintStat(
                     part_key = Qry.get().FieldAsDateTime(col_part_key);
                 row.desk = Qry.get().FieldAsString(col_desk);
 
-                if(not desk_access.get(row.desk)) continue;
+                if(not deskViewAccess.check(DeskCode_t(row.desk))) continue;
 
                 int point_id = Qry.get().FieldAsInteger(col_point_id);
                 const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
@@ -224,7 +225,7 @@ void RunReprintStat(
         )
 {
     TFltInfoCache flt_cache;
-    TDeskAccess desk_access;
+    ViewAccess<DeskCode_t> deskViewAccess;
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
@@ -271,7 +272,7 @@ void RunReprintStat(
                 part_key = Qry.get().FieldAsDateTime(col_part_key);
             row.desk = Qry.get().FieldAsString(col_desk);
 
-            if(not desk_access.get(row.desk)) continue;
+            if(not deskViewAccess.check(DeskCode_t(row.desk))) continue;
 
             const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
             row.airline = info.airline;
@@ -326,7 +327,7 @@ void RunReprintStat(
                 TReprintStatRow row;
                 row.desk = Qry.get().FieldAsString(col_desk);
 
-                if(not desk_access.get(row.desk)) continue;
+                if(not deskViewAccess.check(DeskCode_t(row.desk))) continue;
 
                 row.airline = Qry.get().FieldAsString(col_airline);
                 row.view_airline = ElemIdToCodeNative(etAirline, row.airline);

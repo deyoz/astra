@@ -279,14 +279,6 @@ struct TAirpArvInfo {
     std::string get(DB::TQuery &Qry);
 };
 
-class TDeskAccess {
-    private:
-        std::map<std::string, bool> items;
-    public:
-        bool get(const std::string &desk);
-        void clear() { items.clear(); }
-};
-
 
 class UsersReader
 {

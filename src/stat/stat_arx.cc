@@ -11,6 +11,7 @@
 #include "PgOraConfig.h"
 #include "jms/jms.hpp"
 #include "baggage_ckin.h"
+#include "cache_access.h"
 
 #define NICKNAME "DENIS"
 #define NICKTRACE SYSTEM_TRACE
@@ -1144,7 +1145,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
     DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
-    TDeskAccess desk_access;
+    ViewAccess<DeskCode_t> deskViewAccess;
     if(ARX_EVENTS_DISABLED())
         throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
     Qry.SQLText =
@@ -1267,7 +1268,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
                 if(!user_access[ev_user]) continue;
             }
 
-            if(not station.empty() and not desk_access.get(station))
+            if(not station.empty() and not deskViewAccess.check(DeskCode_t(station)))
                 continue;
 
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
@@ -1386,7 +1387,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
-    TDeskAccess desk_access;
+    ViewAccess<DeskCode_t> deskViewAccess;
     DB::TQuery Qry(PgOra::getROSession("EVENTS_BILINGUAL"), STDLOG);
     Qry.SQLText =
         "SELECT msg, time, "
@@ -1505,7 +1506,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 if(!user_access[ev_user]) continue;
             }
 
-            if(not station.empty() and not desk_access.get(station))
+            if(not station.empty() and not deskViewAccess.check(DeskCode_t(station)))
                 continue;
 
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");

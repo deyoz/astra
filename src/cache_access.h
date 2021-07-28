@@ -41,11 +41,13 @@ void checkNotNullStageAccess(const std::string& stageIdFieldName,
                              const std::optional<CacheTable::Row>& oldRow,
                              const std::optional<CacheTable::Row>& newRow);
 
+} //CacheTable
+
 template<class T>
 class Access
 {
   private:
-    std::set<T> permitted;
+    std::optional< std::set<T> > permitted;
     std::optional<T> id_;
     void init();
     void downloadPermissions();
@@ -54,7 +56,7 @@ class Access
   public:
     Access() { init(); }
     Access(const T& id) : id_(id) { init(); }
-    bool check(const T& id) const;
+    bool check(const T& id);
 };
 
 template<class T>
@@ -76,18 +78,16 @@ void Access<T>::init()
 {
   totally_permitted=TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
                     TReqInfo::Instance()->user.access.airps().totally_permitted();
-
-  if (totally_permitted) return;
-
-  downloadPermissions();
 }
 
 template<class T>
-bool Access<T>::check(const T& id) const
+bool Access<T>::check(const T& id)
 {
   if (totally_permitted) return true;
 
-  return algo::contains(permitted, id);
+  if (!permitted) downloadPermissions();
+
+  return algo::contains(permitted.value(), id);
 }
 
 template<class T>
@@ -99,6 +99,9 @@ bool ViewAccess<T>::check(const T& id)
 
   return algo::contains(permitted.value(), id);
 }
+
+namespace CacheTable
+{
 
 void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
                                const std::optional<CacheTable::Row>& oldRow,

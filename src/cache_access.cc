@@ -226,9 +226,13 @@ void checkNotNullStageAccess(const std::string& stageIdFieldName,
   }
 }
 
+} //namespace CacheTable
+
 template<>
 void Access<DeskGrpId_t>::downloadPermissions()
 {
+  permitted.emplace();
+
   ostringstream sql;
   sql << "SELECT grp_id FROM desk_grp WHERE "
       << getSQLFilter("airline", AccessControl::PermittedAirlines) << " AND "
@@ -246,12 +250,14 @@ void Access<DeskGrpId_t>::downloadPermissions()
   cur.def(grpId)
      .exec();
 
-  while (!cur.fen()) permitted.emplace(grpId);
+  while (!cur.fen()) permitted.value().emplace(grpId);
 }
 
 template<>
 void Access<DeskCode_t>::downloadPermissions()
 {
+  permitted.emplace();
+
   ostringstream sql;
   sql << "SELECT desks.code FROM desk_grp, desks WHERE desk_grp.grp_id=desks.grp_id AND "
       << getSQLFilter("desk_grp.airline", AccessControl::PermittedAirlines) << " AND "
@@ -269,12 +275,14 @@ void Access<DeskCode_t>::downloadPermissions()
   cur.def(desk)
      .exec();
 
-  while (!cur.fen()) permitted.emplace(desk);
+  while (!cur.fen()) permitted.value().emplace(desk);
 }
 
 template<>
 void ViewAccess<DeskGrpId_t>::downloadPermissions()
 {
+  permitted.emplace();
+
   ostringstream sql;
   sql << "SELECT DISTINCT desks.grp_id FROM desk_grp, desks, desk_owners "
          "WHERE desk_grp.grp_id=desks.grp_id AND "
@@ -294,14 +302,14 @@ void ViewAccess<DeskGrpId_t>::downloadPermissions()
   cur.def(grpId)
      .exec();
 
-  permitted.emplace();
-
   while (!cur.fen()) permitted.value().emplace(grpId);
 }
 
 template<>
 void ViewAccess<DeskCode_t>::downloadPermissions()
 {
+  permitted.emplace();
+
   ostringstream sql;
   sql << "SELECT DISTINCT desks.code FROM desk_grp, desks, desk_owners "
          "WHERE desk_grp.grp_id=desks.grp_id AND "
@@ -321,10 +329,11 @@ void ViewAccess<DeskCode_t>::downloadPermissions()
   cur.def(desk)
      .exec();
 
-  permitted.emplace();
-
   while (!cur.fen()) permitted.value().emplace(desk);
 }
+
+namespace CacheTable
+{
 
 //проверка прав работы с группой пультов
 
