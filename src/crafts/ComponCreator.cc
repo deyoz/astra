@@ -12,6 +12,7 @@
 #include "astra_locale_adv.h"
 #include "libra.h"
 #include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -435,16 +436,14 @@ class TTripClasses: private mapTripClasses_t {
       point_id = vpoint_id;
   }
   void deleteCfg( ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getRWSession("TRIP_CLASSES"),STDLOG);
     Qry.SQLText =
       "DELETE trip_classes WHERE point_id = :point_id ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
   }
   void read( TReadElems elemsType = reAll ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_CLASSES"),STDLOG);
     Qry.SQLText =
       "SELECT class, cfg, block, prot FROM trip_classes "
       " WHERE point_id=:point_id";
@@ -479,8 +478,7 @@ class TTripClasses: private mapTripClasses_t {
     return true;
   }
   void readLayerCfg( ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_RANGES","TRIP_COMP_ELEMS"}),STDLOG);
     Qry.SQLText =
     "SELECT t.num, t.x, t.y, t.class, t.elem_type, r.layer_type"
     " FROM trip_comp_ranges r, trip_comp_elems t "
@@ -513,7 +511,7 @@ class TTripClasses: private mapTripClasses_t {
       seat.clname = Qry.FieldAsString( idx_class );
       SALONS2::TLayerSeat seatLayer;
       seatLayer.point_id = point_id;
-      seatLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( idx_layer_type ) );
+      seatLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( idx_layer_type ).c_str() );
       std::vector<SALONS2::TPlace>::iterator iseat;
       for ( iseat=seats[ seat.clname ].begin(); iseat!=seats[ seat.clname ].end(); iseat++ ) {
         if ( iseat->num == seat.num &&
@@ -558,8 +556,7 @@ class TTripClasses: private mapTripClasses_t {
     insert( values.begin(), values.end() );
   }
   void readClassCfg( int id, TReadType readType ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession(readType == rtFlight ? "TRIP_COMP_ELEMS" : "COMP_ELEMS"),STDLOG);
     if ( readType == rtFlight ) {
       Qry.SQLText =
         "SELECT class, elem_type, COUNT( elem_type ) cfg "
@@ -590,8 +587,7 @@ class TTripClasses: private mapTripClasses_t {
     }
   }
   void writeCfg( ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getRWSession("TRIP_CLASSES"),STDLOG);
     Qry.SQLText =
       "INSERT INTO trip_classes(point_id,class,cfg,block,prot) "
       " VALUES(:point_id,:class,:cfg,:block,:prot)";
@@ -705,13 +701,13 @@ int ComponLibraFinder::getPlanId( const std::string& bort ) {
     const LIBRA::RowData data = LIBRA::getHttpRequestDataRow("/libra/get_plan_id", params);
     return data.at("plan_id").fieldAsInteger();
   } else {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"WB_REF_AIRCO_WS_BORTS","WB_REF_WS_AIR_REG_WGT"}),STDLOG);
     Qry.SQLText =
-    "SELECT brw.S_L_ADV_ID AS PLAN_ID "
+    std::string("SELECT brw.S_L_ADV_ID AS PLAN_ID "
     "  FROM WB_REF_AIRCO_WS_BORTS b join WB_REF_WS_AIR_REG_WGT brw "
     "    on b.bort_num=:bort AND "
     "       brw.id_bort=b.id AND "
-    "       brw.date_from<=system.UTCSYSDATE "
+    "       brw.date_from<=") + (PgOra::supportsPg("WB_REF_AIRCO_WS_BORTS") ? "timezone('utc', now()) ": "system.UTCSYSDATE  ") +
     " ORDER BY brw.date_from desc";
     Qry.CreateVariable( "bort", otString, bort );
     Qry.Execute();
@@ -793,10 +789,10 @@ std::string ComponLibraFinder::getConvertClassSQLText() {
 std::string ComponLibraFinder::getConfigSQLText( bool withConfId ) {
   std::string res =
     " SELECT a.id as comp_id, "
-    "      NVL( SUM( DECODE( ls.class, 'F', tt.num_of_seats, 0 )), 0 ) AS F,"
-    "      NVL( SUM( DECODE( ls.class, 'C', tt.num_of_seats, 0 )), 0 ) AS C,"
-    "      NVL( SUM( DECODE( ls.class, 'Y', tt.num_of_seats, 0 )), 0 ) AS Y, "
-    "      NVL( SUM( DECODE( ls.class, NULL,tt.num_of_seats,0)), 0 ) AS invalid_class "
+    "      COALESCE( SUM( ( CASE WHEN ls.class='F' THEN tt.num_of_seats ELSE 0 END)), 0 ) AS F,"
+    "      COALESCE( SUM( ( CASE WHEN ls.class='C' THEN tt.num_of_seats ELSE 0 END)), 0 ) AS C,"
+    "      COALESCE( SUM( ( CASE WHEN ls.class='Y' THEN tt.num_of_seats ELSE 0 END)), 0 ) AS Y, "
+    "      COALESCE( SUM( ( CASE WHEN ls.class IS NULL THEN tt.num_of_seats ELSE 0 END)), 0 ) AS invalid_class "
     " FROM WB_REF_WS_AIR_S_L_C_ADV a join WB_REF_WS_AIR_S_L_C_IDN i "
     "  on a.adv_id=:plan_id AND "
     "     i.id=a.idn join WB_REF_WS_AIR_SL_CAI_TT tt "
