@@ -61,12 +61,5 @@ checkresult comp_elem_types_to_db $?
 ( cd src && ./nosir.tcl -pg_sessions_check )
 checkresult pg_sessions_check $?
 
-#( cd src && ./nosir.tcl -tscript 0 ts/season_ldr.ts )
-#checkresult season_ldr $?
-
-if [ "$ENABLE_ORACLE" = "0" ]; then
-      echo "==== ENABLE_ORACLE=$ENABLE_ORACLE ORACLE DB not built ====="
-else
-    ( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
-    checkresult html_to_db $?
-fi
+( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
+checkresult html_to_db $?
