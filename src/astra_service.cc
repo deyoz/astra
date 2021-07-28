@@ -1879,30 +1879,31 @@ void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void put_string_into_snapshot_points( int point_id, std::string file_type,
                                         std::string point_addr, bool pr_old_record, std::string record )
 {
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
-      "DELETE snapshot_points "
-      " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "file_type", otString, file_type );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.Execute();
-    if ( pr_old_record && record.empty() )
-        return;
-    Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO snapshot_points(point_id,file_type,point_addr,record,page_no ) "
-    "                VALUES(:point_id,:file_type,:point_addr,:record,:page_no) ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "file_type", otString, file_type );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.DeclareVariable( "record", otString );
-  Qry.DeclareVariable( "page_no", otInteger );
+  DB::TQuery delQry(PgOra::getRWSession("SNAPSHOT_POINTS"), STDLOG);
+  delQry.SQLText =
+    "DELETE snapshot_points "
+    "WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr";
+  delQry.CreateVariable( "point_id", otInteger, point_id );
+  delQry.CreateVariable( "file_type", otString, file_type );
+  delQry.CreateVariable( "point_addr", otString, point_addr );
+  delQry.Execute();
+  if (pr_old_record && record.empty()) {
+    return;
+  }
+  DB::TQuery insQry(PgOra::getRWSession("SNAPSHOT_POINTS"), STDLOG);
+  insQry.SQLText =
+    "INSERT INTO snapshot_points(point_id,file_type,point_addr,record,page_no) "
+    "VALUES(:point_id,:file_type,:point_addr,:record,:page_no) ";
+  insQry.CreateVariable( "point_id", otInteger, point_id );
+  insQry.CreateVariable( "file_type", otString, file_type );
+  insQry.CreateVariable( "point_addr", otString, point_addr );
+  insQry.DeclareVariable( "record", otString );
+  insQry.DeclareVariable( "page_no", otInteger );
   int i=0;
   while ( !record.empty() ) {
-    Qry.SetVariable( "record", record.substr( 0, 1000 ) );
-    Qry.SetVariable( "page_no", i );
-    Qry.Execute();
+    insQry.SetVariable( "record", record.substr( 0, 1000 ) );
+    insQry.SetVariable( "page_no", i );
+    insQry.Execute();
     i++;
     record.erase( 0, 1000 );
   }
@@ -1912,14 +1913,14 @@ void get_string_into_snapshot_points( int point_id, const std::string &file_type
                                         const std::string &point_addr, std::string &record )
 {
     record.clear();
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession({"SNAPSHOT_POINTS", "POINTS"}), STDLOG);
     Qry.SQLText =
      "SELECT record FROM points, snapshot_points "
-     " WHERE points.point_id=:point_id AND "
-     "       points.point_id=snapshot_points.point_id AND "
-     "       snapshot_points.point_addr=:point_addr AND "
-     "       snapshot_points.file_type=:file_type "
-     " ORDER BY page_no";
+     "WHERE points.point_id=:point_id AND "
+     "      points.point_id=snapshot_points.point_id AND "
+     "      snapshot_points.point_addr=:point_addr AND "
+     "      snapshot_points.file_type=:file_type "
+     "ORDER BY page_no";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "point_addr", otString, point_addr );
     Qry.CreateVariable( "file_type", otString, file_type );
