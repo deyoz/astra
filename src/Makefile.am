@@ -142,6 +142,7 @@ astra_SOURCES = \
   prn_tag_store.cc \
   rbd.cc \
   remarks.cc \
+  report.cc \
   request_dup.cc \
   rfisc.cc \
   rfisc_calc.cc \
@@ -374,6 +375,7 @@ noinst_HEADERS = \
   prn_tag_store.h \
   rbd.h \
   remarks.h \
+  report.h \
   request_dup.h \
   rfisc.h \
   rfisc_calc.h \

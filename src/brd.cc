@@ -15,6 +15,7 @@
 #include "alarms.h"
 #include "passenger.h"
 #include "rozysk.h"
+#include "report.h"
 #include "transfer.h"
 #include "points.h"
 #include "salons.h"
@@ -45,26 +46,6 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace AstraLocale;
 
-namespace {
-
-std::string get_last_trfer_airp(const GrpId_t& grp_id)
-{
-  std::string result;
-  DB::TQuery Qry(PgOra::getROSession("TRANSFER"), STDLOG);
-  Qry.SQLText =
-      "SELECT airp_arv "
-      "FROM transfer "
-      "WHERE grp_id = :grp_id "
-      "AND pr_final <> 0 ";
-  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
-  Qry.Execute();
-  if (!Qry.Eof) {
-    result = Qry.FieldAsString("airp_arv");
-  }
-  return result;
-}
-
-} // namespace
 
 void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
@@ -1798,7 +1779,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           const int crs_pax_id=QryPaxes.FieldIsNULL(col_crs_pax_id)?NoExists:QryPaxes.FieldAsInteger(col_crs_pax_id);
           const std::string surname=QryPaxes.FieldAsString(col_surname);
           const std::string name=QryPaxes.FieldAsString(col_name);
-          const std::string airp_arv=QryPaxes.FieldAsString(col_airp_arv);
+          std::string airp_arv=QryPaxes.FieldAsString(col_airp_arv);
           const TPaxStatus grp_status=DecodePaxStatus(QryPaxes.FieldAsString(col_status).c_str());
           const TCrewType::Enum crew_type = CrewTypes().decode(QryPaxes.FieldAsString("crew_type").c_str());
           const ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
@@ -1812,9 +1793,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           }
 
           const int excess_wt_raw = QryPaxes.FieldAsInteger(col_excess_wt_raw);
-          std::string last_airp_arv = get_last_trfer_airp(GrpId_t(grp_id));
-          if (last_airp_arv.empty()) {
-              last_airp_arv = airp_arv;
+
+          if(auto last_airp_arv = ASTRA::get_last_trfer_airp(GrpId_t(grp_id))) {
+              airp_arv = last_airp_arv->get();
           }
 
           if(not custom_alarms or not showWholeFlight) {
@@ -1841,7 +1822,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, QryPaxes.FieldAsString(col_pers_type)), def_pers_type);
           NewTextChild(paxNode, "class", classIdsToCodeNative(QryPaxes.FieldAsString(col_class),
                                                               QryPaxes.FieldAsString(col_cabin_class)), def_class);
-          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, last_airp_arv));
+          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, airp_arv));
           NewTextChild(paxNode, "seat_no", seat_no);
           NewTextChild(paxNode, "seats", QryPaxes.FieldAsInteger(col_seats), 1);
           if (!free_seating)
