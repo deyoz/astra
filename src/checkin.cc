@@ -5252,10 +5252,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
             {
               CheckIn::TPaxItem &pax=p->pax;
-              int pax_id = pax.id;
-              if (pax_id == ASTRA::NoExists) {
-                pax_id = PgOra::getSeqNextVal_int("PAX_ID");
-              }
               try
               {
                 if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
@@ -5271,20 +5267,24 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
                 pax.toDB(Qry);
-                Qry.SetVariable("pax_id", pax_id);
-                Qry.CreateVariable("tid", otInteger, tid);
                 int is_female=pax.is_female();
                 if (is_female!=NoExists)
                   Qry.SetVariable("is_female", is_female);
                 else
                   Qry.SetVariable("is_female", FNull);
-                if (pax.id==NoExists)
-                {
+                int pax_id = pax.id;
+                if (pax_id == ASTRA::NoExists) {
                   xmlNodePtr node2=p->node->children;
-                  if (GetNodeFast("generated_pax_id",node2)!=NULL)
-                    Qry.SetVariable("pax_id",NodeAsIntegerFast("generated_pax_id",node2));
+                  if (GetNodeFast("generated_pax_id",node2)!=NULL) {
+                    pax_id = NodeAsIntegerFast("generated_pax_id",node2);
+                  }
+                }
+                if (pax_id == ASTRA::NoExists) {
+                  pax_id = PgOra::getSeqNextVal_int("PAX_ID");
                 }
                 Qry.SetVariable("grp_id", grp.id);
+                Qry.SetVariable("pax_id", pax_id);
+                Qry.CreateVariable("tid", otInteger, tid);
 
                 try
                 {
