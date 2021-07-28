@@ -80,6 +80,7 @@ namespace PgOra
                                  "AODB_SPP_FILES", "AODB_EVENTS", "SNAPSHOT_PARAMS", "MERIDIAN_AIRPS_OWNER" } },
         { "SP_PG_GROUP_AODB_STATIONS",{ "AODB_STATIONS", "AODB_PAX_CHANGE" } }, // STATIONS
         { "SP_PG_GROUP_AODB_POINTS",{ "SNAPSHOT_POINTS", "AODB_POINTS" } }, // POINTS
+        { "SP_PG_GROUP_TRIP_VOUCHERS",{ "TRIP_VOUCHERS", "VOUCHER_TYPES" } },
 
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
