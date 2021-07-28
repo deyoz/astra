@@ -11,6 +11,7 @@
 #include "seat_number.h"
 #include "astra_locale_adv.h"
 #include "libra.h"
+#include "db_tquery.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -2110,7 +2111,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
     "END;";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.DeclareVariable( "point_id", otInteger );
-  TQuery QryBaseLayers(&OraSession);
+  DB::TQuery QryBaseLayers(PgOra::getRWSession({"COMP_BASELAYERS", "TRIP_COMP_BASELAYERS"}), STDLOG);
   QryBaseLayers.SQLText =
     "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
     " SELECT :point_id,num,x,y,layer_type "
@@ -2119,7 +2120,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   QryBaseLayers.CreateVariable( "comp_id", otInteger, comp_id );
   QryBaseLayers.DeclareVariable( "point_id", otInteger );
   QryBaseLayers.DeclareVariable( "layer_type", otString );
-  TQuery QryLayers(&OraSession);
+  DB::TQuery QryLayers(PgOra::getRWSession({"COMP_BASELAYERS", "TRIP_COMP_BASELAYERS", "COMP_ELEMS"}), STDLOG);
   QryLayers.SQLText =
     "INSERT INTO trip_comp_layers("
     "       range_id,point_id,point_dep,point_arv,layer_type, "

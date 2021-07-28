@@ -256,6 +256,9 @@ namespace PgOra
         { "SP_PG_GROUP_TRFER_TRIPS", {
                 "TRFER_TRIPS", //"PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TCKIN_SEGMENTS","TRANSFER_SUBCLS","SUBCLS","BAG2","TRIP_STAGES"
         }},
+        { "SP_PG_GROUP_COMP_BASELAYERS", {
+                "COMP_BASELAYERS", // TRIP_COMP_BASELAYERS, COMP_ELEMS
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -550,4 +553,3 @@ int print_pg_tables(int argc, char **argv)
               << " " << ((1.0 * tab_cnt)/tab_ora_count)*100 << "% moved." << std::endl;
     return 0;
 }
-
