@@ -959,7 +959,7 @@ void importDBF( int external_point_id, string &dbf_file )
   Qry.Execute();
   TTripRoute routesB, routesA;
   //экипаж
-  TQuery CrewsQry( &OraSession );
+  DB::TQuery CrewsQry(PgOra::getROSession("TRIP_CREW"), STDLOG);
   CrewsQry.SQLText =
     "SELECT commander,cockpit,cabin FROM trip_crew WHERE point_id=:point_id";
   CrewsQry.DeclareVariable( "point_id", otInteger );

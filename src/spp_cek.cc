@@ -1242,7 +1242,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
     string file_type = FILE_SPPCEK_TYPE;
     string record;
     TQuery Qry( &OraSession );
-    TQuery COMMANDERQry( &OraSession );
+    DB::TQuery COMMANDERQry(PgOra::getROSession("TRIP_CREW"), STDLOG);
     COMMANDERQry.SQLText =
       "SELECT commander from trip_crew WHERE point_id=:point_id";
     COMMANDERQry.DeclareVariable( "point_id", otInteger );

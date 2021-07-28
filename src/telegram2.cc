@@ -5620,9 +5620,9 @@ void TLDMCrew::get(TypeB::TDetailCreateInfo &info)
 {
     cockpit=NoExists;
     cabin=NoExists;
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_CREW"), STDLOG);
     Qry.SQLText =
-        "SELECT cockpit,cabin FROM trip_crew WHERE point_id=:point_id";
+       "SELECT cockpit, cabin FROM trip_crew WHERE point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     if (!Qry.Eof)

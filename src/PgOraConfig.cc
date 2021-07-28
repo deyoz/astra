@@ -91,6 +91,7 @@ namespace PgOra
                               "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
                               "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" }},
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
+        { "SP_PG_GROUP_SPPCKIN2", {"COUNTERS_BY_SUBCLS", "COUNTERS2", "TRIP_CREW", "TRIP_LOAD"} },
         { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
         { "SP_PG_GROUP_COMP", {
             "COMPARE_COMP_LAYERS",

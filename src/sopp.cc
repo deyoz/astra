@@ -126,23 +126,27 @@ const char* points_id_SOPP_SQL =
     "ORDER BY points.move_id,point_num,point_id ";
 
 const char* points_ISG_SQL =
-    "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, reference ref "
-    " FROM points, move_ref, trip_crew, "
-    " (SELECT DISTINCT move_id FROM points "
-    "   WHERE points.pr_del <> -1 "
-    "         :where_sql AND "
-    "         ( time_in >= :first_date AND time_in < :next_date OR "
-    "           time_out >= :first_date AND time_out < :next_date OR "
-    "           time_in = TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out = TO_DATE('01.01.1900','DD.MM.YYYY') ) ) p "
-    "WHERE points.move_id = p.move_id AND "
-    "      points.point_id = trip_crew.point_id(+) and "
-    "      move_ref.move_id = p.move_id AND "
-    "      points.pr_del <> -1 "
-    "ORDER BY points.move_id,point_num,point_id ";
-
+   "SELECT points.move_id, points.point_id, point_num, airp, airp_fmt, first_point, "
+          "airline, airline_fmt, flt_no, suffix, suffix_fmt, craft, craft_fmt, bort, "
+          "trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
+          "scd_in, est_in, act_in, scd_out, est_out, act_out, "
+          "trip_type, litera, park_in, park_out, remark, "
+          "pr_tranzit, pr_reg, points.pr_del AS pr_del, points.tid AS tid, reference AS ref "
+   "FROM points "
+      "INNER JOIN ("
+     "SELECT DISTINCT move_id "
+       "FROM points "
+      "WHERE ((time_in  >= :FIRST_DATE AND time_in  < :NEXT_DATE) "
+          "OR (time_out >= :FIRST_DATE AND time_out < :NEXT_DATE) "
+          "OR (time_in = to_date('01.01.1900', 'DD.MM.YYYY') AND time_out = to_date('01.01.1900', 'DD.MM.YYYY'))) "
+         "AND points.pr_del <> -1) AS p "
+         "ON points.move_id = p.move_id "
+      "INNER JOIN move_ref "
+         "ON p.move_id = move_ref.move_id "
+       "LEFT OUTER JOIN trip_crew "
+         "ON points.point_id = trip_crew.point_id "
+      "WHERE points.pr_del <> -1 "
+      "ORDER BY points.move_id, point_num, point_id";
 
 std::string arx_points_SOPP_SQL()
 {
@@ -1394,29 +1398,24 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DbCpp::Session& session =
-      trips.module == TSOPPTrips::tISG ? PgOra::getROSession({"POINTS", "MOVE_REF", "TRIP_CREW"})
-                                       : PgOra::getROSession("POINTS");
-  DB::TQuery PointsQry(session, STDLOG);
+  DB::TQuery PointsQry(PgOra::getROSession(({"POINTS", "MOVE_REF", "TRIP_CREW"}), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
   bool pr_addCondition_N = false;
 
   if ( trips.module == TSOPPTrips::tISG ) {
     PointsQry.SQLText = addCondition( points_ISG_SQL, trips.pr_arx ).c_str();
-  } else {
-    if ( point_id == NoExists ) {
-      addCondition_N( PointsQry, points_SOPP_SQL_N, trips.first_date, trips.next_date );
-      pr_addCondition_N = true;
-      TDateTime time_out = ASTRA::NoExists;
-      if (StrToDateTime("01.01.1900", "dd.mm.yyyy", time_out) == EOF) {
-          throw Exception("can't convert time_out: 01.01.1900");
-      }
-      PointsQry.CreateVariable("time_out", otDate, time_out);
-    } else {
-      PointsQry.SQLText = points_id_SOPP_SQL;
-      PointsQry.CreateVariable( "point_id", otInteger, point_id );
+  } else if ( point_id == NoExists ) {
+    addCondition_N( PointsQry, points_SOPP_SQL_N, trips.first_date, trips.next_date );
+    pr_addCondition_N = true;
+    TDateTime time_out = ASTRA::NoExists;
+    if (StrToDateTime("01.01.1900", "dd.mm.yyyy", time_out) == EOF) {
+        throw Exception("can't convert time_out: 01.01.1900");
     }
+    PointsQry.CreateVariable("time_out", otDate, time_out);
+  } else {
+    PointsQry.SQLText = points_id_SOPP_SQL;
+    PointsQry.CreateVariable( "point_id", otInteger, point_id );
   }
   if ( !pr_addCondition_N ) {
     if ( point_id == NoExists ) {
@@ -2085,20 +2084,17 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
+  DB::TQuery PointsQry(PgOra::getROSession({"POINTS", "MOVE_REF", "TRIP_CREW"}), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
 
   if ( module == TSOPPTrips::tISG )
     PointsQry.SQLText = addCondition( points_ISG_SQL, arx ).c_str();
-  else {
-      if ( point_id == NoExists ) {
-          PointsQry.SQLText = addCondition( points_SOPP_SQL, arx ).c_str();
-    }
-    else {
-          PointsQry.SQLText = points_id_SOPP_SQL;
-          PointsQry.CreateVariable( "point_id", otInteger, point_id );
-    }
+  else if ( point_id == NoExists ) {
+    PointsQry.SQLText = addCondition( points_SOPP_SQL, arx ).c_str();
+  } else {
+    PointsQry.SQLText = points_id_SOPP_SQL;
+    PointsQry.CreateVariable( "point_id", otInteger, point_id );
   }
 
   if ( point_id == NoExists ) {
@@ -3359,22 +3355,25 @@ void UpdateCrew(int point_id, std::string commander, int cockpit, int cabin, TSo
     params << PrmLexema("owner",owner==ownerLDM?string("EVT.TLG.LDM"):string(""));
     auto& sess = PgOra::getRWSession("TRIP_CREW");
     DB::TQuery Qry(sess, STDLOG);
+
+    if (commander.size() > 100) {
+      commander = commander.substr(0, 100);
+    }
     Qry.SQLText = sess.isOracle()
-        ? "BEGIN "
-          "  UPDATE trip_crew "
-          "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
-          "  WHERE point_id=:point_id; "
-          "  IF SQL%NOTFOUND THEN "
-          "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
-          "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
-          "  END IF;"
-          "END;"
-        : "INSERT INTO trip_crew AS tc (point_id, commander, cockpit, cabin) "
-          "VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin) "
-          "ON CONFLICT(point_id) "
-          "  DO UPDATE  "
-          "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
-          "  WHERE tc.point_id=:point_id ";
+     ? "BEGIN "
+         "UPDATE trip_crew "
+         "SET commander = :commander, cockpit = :cockpit, cabin = :cabin "
+         "WHERE point_id = :point_id; "
+         "IF SQL%NOTFOUND THEN "
+           "INSERT INTO trip_crew( point_id, commander, cockpit, cabin) "
+                          "VALUES(:point_id,:commander,:cockpit,:cabin); "
+         "END IF; "
+       "END;"
+     : "INSERT INTO trip_crew( point_id, commander, cockpit, cabin) "
+                      "VALUES(:point_id,:commander,:cockpit,:cabin) "
+       "ON CONFLICT(point_id) "
+       "DO UPDATE "
+       "SET commander = :commander, cockpit = :cockpit, cabin = :cabin ";
 
     Qry.CreateVariable( "point_id", otInteger, point_id );
     validateField( commander, "Š‚‘" );
