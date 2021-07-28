@@ -259,6 +259,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_BASELAYERS", {
                 "COMP_BASELAYERS", // TRIP_COMP_BASELAYERS, COMP_ELEMS
         }},
+        { "SP_PG_GROUP_COMP_CLASSES", {
+                "COMP_CLASSES", // COMPS
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

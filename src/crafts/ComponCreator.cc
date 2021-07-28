@@ -1178,14 +1178,13 @@ int ComponFinder::GetCompId( const std::string& craft, const std::string& bort, 
   }
   std::map<int,TComp,std::less<int> > CompMap;
   int idx;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"COMP_CLASSES", "COMPS"}), STDLOG);
   Qry.SQLText =
   "SELECT * FROM "
   "( SELECT COMPS.COMP_ID, BORT, AIRLINE, AIRP, "
-  "         NVL( SUM( DECODE( CLASS, 'è', CFG, 0 )), 0 ) AS F, "
-  "         NVL( SUM( DECODE( CLASS, 'Å', CFG, 0 )), 0 ) AS C, "
-  "         NVL( SUM( DECODE( CLASS, 'ù', cfg, 0 )), 0 ) AS Y "
+  "         COALESCE( SUM( DECODE( CLASS, 'è', CFG, 0 )), 0 ) AS F, "
+  "         COALESCE( SUM( DECODE( CLASS, 'Å', CFG, 0 )), 0 ) AS C, "
+  "         COALESCE( SUM( DECODE( CLASS, 'ù', cfg, 0 )), 0 ) AS Y "
   "   FROM COMPS, COMP_CLASSES "
   "  WHERE COMP_CLASSES.COMP_ID = COMPS.COMP_ID AND COMPS.CRAFT = :craft "
   "  GROUP BY COMPS.COMP_ID, BORT, AIRLINE, AIRP ) "
