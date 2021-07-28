@@ -62,13 +62,13 @@ namespace DbCpp
     }
 #ifdef ENABLE_ORACLE
 
-    OraSession::OraSession(const char* n, const char* f, int l, const std::string& connStr)
-        : mSession(new OciCpp::OciSession(n, f, l, connStr))
+    OraSession::OraSession(STDLOG_SIGNATURE, const std::string& connStr)
+        : mSession(new OciCpp::OciSession(STDLOG_VARIABLE, connStr))
         , mReleaseOnDestruction(false)
     {
     }
 
-    OraSession::OraSession(const char* n, const char* f, int l, OciCpp::OciSession* session,
+    OraSession::OraSession(STDLOG_SIGNATURE, OciCpp::OciSession* session,
                            bool releaseOnDestruction)
         : mSession(session)
         , mReleaseOnDestruction(releaseOnDestruction)
@@ -83,29 +83,27 @@ namespace DbCpp
         }
     }
 
-    CursCtl OraSession::createCursor(const char *n, const char *f, int l, const char *sql)
+    CursCtl OraSession::createCursor(STDLOG_SIGNATURE, const char *sql)
     {
-        return CursCtl(*this, n, f, l, sql, true);
+        return CursCtl(*this, STDLOG_VARIABLE, sql, true);
     }
 
-    CursCtl OraSession::createCursor(const char* n, const char* f, int l, const std::string& sql)
+    CursCtl OraSession::createCursor(STDLOG_SIGNATURE, const std::string& sql)
     {
-        return CursCtl(*this, n, f, l, sql.c_str(), true);
+        return CursCtl(*this, STDLOG_VARIABLE, sql.c_str(), true);
     }
 
-    CursCtl OraSession::createCursorNoCache(const char* n, const char* f, int l, const char* sql)
+    CursCtl OraSession::createCursorNoCache(STDLOG_SIGNATURE, const char* sql)
     {
-        return CursCtl(*this, n, f, l, sql, false);
+        return CursCtl(*this, STDLOG_VARIABLE, sql, false);
     }
 
-    CursCtl OraSession::createCursorNoCache(const char* n, const char* f, int l,
-                                            const std::string& sql)
+    CursCtl OraSession::createCursorNoCache(STDLOG_SIGNATURE, const std::string& sql)
     {
-        return CursCtl(*this, n, f, l, sql.c_str(), false);
+        return CursCtl(*this, STDLOG_VARIABLE, sql.c_str(), false);
     }
 
-    OciCpp::CursCtl OraSession::createOraCursor(const char* n, const char* f, int l,
-                                                const char* sql, bool cacheit)
+    OciCpp::CursCtl OraSession::createOraCursor(STDLOG_SIGNATURE, const char* sql, bool cacheit)
     {
         if (!is_alive())
         {
@@ -113,16 +111,15 @@ namespace DbCpp
         }
         if (cacheit)
         {
-            return mSession->createCursor(n, f, l, sql);
+            return mSession->createCursor(STDLOG_VARIABLE, sql);
         } else
         {
-            return make_curs_no_cache_(sql, mSession.get(), n, f, l);
+            return make_curs_no_cache_(sql, mSession.get(), STDLOG_VARIABLE);
         }
     }
 
     OciCpp::OciSession& OraSession::get_sess4oci8() const { return *mSession; }
-    cda_text* OraSession::mk_cda__(const char* nick, const char* file, int line,
-                                   const std::string& query) const
+    cda_text* OraSession::mk_cda__(STDLOG_SIGNATURE, const std::string& query) const
     {
         cda_text* CU = newCursor(*mSession, query);
         if (CU == NULL)
@@ -146,8 +143,7 @@ namespace DbCpp
         throw comtech::Exception(STDLOG, __func__, "Call of unsupported OraSession method");
     }
 #endif /* ENABLE_ORACLE */
-    static void beginManagedTransaction(const char* nick, const char* file, int line,
-                                        PgCpp::Session& session)
+    static void beginManagedTransaction(STDLOG_SIGNATURE, PgCpp::Session& session)
     {
         PGresult* res = PQexec(static_cast<PGconn*>(session.conn()),
                                "BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE");
@@ -173,8 +169,8 @@ namespace DbCpp
         }
     }
 
-    PgSession_wo_CheckSQL::PgSession_wo_CheckSQL(const char* n, const char* f, int l, const std::string& connStr,
-                         DbSessionType type)
+    PgSession_wo_CheckSQL::PgSession_wo_CheckSQL(STDLOG_SIGNATURE, const std::string& connStr,
+                                                 DbSessionType type)
         : mType(type)
         , mIsActive(false)
 #ifdef XP_TESTING
@@ -237,37 +233,36 @@ namespace DbCpp
     PgSession_wo_CheckSQL::~PgSession_wo_CheckSQL() {}
 
 
-    CursCtl PgSession_wo_CheckSQL::createCursor(const char* n, const char* f, int l, const char* sql)
+    CursCtl PgSession_wo_CheckSQL::createCursor(STDLOG_SIGNATURE, const char* sql)
     {
-        return CursCtl(*this, n, f, l, sql, true);
+        return CursCtl(*this, STDLOG_VARIABLE, sql, true);
     }
 
-    CursCtl PgSession_wo_CheckSQL::createCursor(const char* n, const char* f, int l, const std::string& sql)
+    CursCtl PgSession_wo_CheckSQL::createCursor(STDLOG_SIGNATURE, const std::string& sql)
     {
-        return CursCtl(*this, n, f, l, sql.c_str(), true);
+        return CursCtl(*this, STDLOG_VARIABLE, sql.c_str(), true);
     }
 
-    CursCtl PgSession_wo_CheckSQL::createCursorNoCache(const char* n, const char* f, int l, const char* sql)
+    CursCtl PgSession_wo_CheckSQL::createCursorNoCache(STDLOG_SIGNATURE, const char* sql)
     {
-        return CursCtl(*this, n, f, l, sql, false);
+        return CursCtl(*this, STDLOG_VARIABLE, sql, false);
     }
 
-    CursCtl PgSession_wo_CheckSQL::createCursorNoCache(const char* n, const char* f, int l,
-                                           const std::string& sql)
+    CursCtl PgSession_wo_CheckSQL::createCursorNoCache(STDLOG_SIGNATURE, const std::string& sql)
     {
-        return CursCtl(*this, n, f, l, sql.c_str(), false);
+        return CursCtl(*this, STDLOG_VARIABLE, sql.c_str(), false);
     }
 
 
-    PgCpp::CursCtl PgSession_wo_CheckSQL::createPgCursor(const char* n, const char* f, int l, const std::string& sql,
-                                             bool cacheit)
+    PgCpp::CursCtl PgSession_wo_CheckSQL::createPgCursor(STDLOG_SIGNATURE, const std::string& sql,
+                                                         bool cacheit)
     {
         if (cacheit)
         {
-            return mSession->createCursor(n, f, l, sql);
+            return mSession->createCursor(STDLOG_VARIABLE, sql);
         } else
         {
-            return mSession->createCursorNoCache(n, f, l, sql);
+            return mSession->createCursorNoCache(STDLOG_VARIABLE, sql);
         }
     }
 
@@ -480,7 +475,7 @@ namespace DbCpp
 #endif // XP_TESTING
     }
 
-    void PgSession::prepareSession(const char* nick, const char* file, int line)
+    void PgSession::prepareSession(STDLOG_SIGNATURE)
     {
     //   LogTrace(TRACE6) << "PgSession::" << __func__<< ": forType=" << mForType;
       if (mForType==DbSessionForType::Reading) {
@@ -621,7 +616,7 @@ namespace DbCpp
 #endif // XP_TESTING
     }
 
-    void PgSession::prepareCursor(const char* nick, const char* file, int line,
+    void PgSession::prepareCursor(STDLOG_SIGNATURE,
         const std::string& sql)
     {
         if (DbSessionForType::Reading == mForType
@@ -630,39 +625,38 @@ namespace DbCpp
             LogError(STDLOG_VARIABLE) << "Invalid SQL for readind: " << sql;
             throw comtech::Exception(STDLOG_VARIABLE, __func__, "Invalid SQL for readind");
         }
-        prepareSession(STDLOG);
+        prepareSession(STDLOG_VARIABLE);
     }
 
-    CursCtl PgSession::createCursor(const char* n, const char* f, int l, const char* sql)
+    CursCtl PgSession::createCursor(STDLOG_SIGNATURE, const char* sql)
     {
-        prepareCursor(STDLOG,sql);
-        return CursCtl(*this, n, f, l, sql, true);
+        prepareCursor(STDLOG_VARIABLE,sql);
+        return CursCtl(*this, nick, file, line, sql, true);
     }
 
-    CursCtl PgSession::createCursor(const char* n, const char* f, int l, const std::string& sql)
+    CursCtl PgSession::createCursor(STDLOG_SIGNATURE, const std::string& sql)
     {
-        prepareCursor(STDLOG,sql);
-        return CursCtl(*this, n, f, l, sql.c_str(), true);
+        prepareCursor(STDLOG_VARIABLE,sql);
+        return CursCtl(*this, nick, file, line, sql.c_str(), true);
     }
 
-    CursCtl PgSession::createCursorNoCache(const char* n, const char* f, int l, const char* sql)
+    CursCtl PgSession::createCursorNoCache(STDLOG_SIGNATURE, const char* sql)
     {
-        prepareCursor(STDLOG,sql);
-        return CursCtl(*this, n, f, l, sql, false);
+        prepareCursor(STDLOG_VARIABLE,sql);
+        return CursCtl(*this, nick, file, line, sql, false);
     }
 
-    CursCtl PgSession::createCursorNoCache(const char* n, const char* f, int l,
-                                           const std::string& sql)
+    CursCtl PgSession::createCursorNoCache(STDLOG_SIGNATURE, const std::string& sql)
     {
-        prepareCursor(STDLOG,sql);
-        return CursCtl(*this, n, f, l, sql.c_str(), false);
+        prepareCursor(STDLOG_VARIABLE,sql);
+        return CursCtl(*this, nick, file, line, sql.c_str(), false);
     }
 
-    PgCpp::CursCtl PgSession::createPgCursor(const char* n, const char* f, int l, const std::string& sql,
+    PgCpp::CursCtl PgSession::createPgCursor(STDLOG_SIGNATURE, const std::string& sql,
                                              bool cacheit)
     {
-        prepareCursor(STDLOG,sql);
-        return mPgSession->createPgCursor(n, f, l, sql,cacheit);
+        prepareCursor(STDLOG_VARIABLE,sql);
+        return mPgSession->createPgCursor(nick, file, line, sql,cacheit);
     }
 
 #ifdef ENABLE_ORACLE
