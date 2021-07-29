@@ -264,7 +264,8 @@ namespace PgOra
                 "TRFER_TRIPS", //"PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TCKIN_SEGMENTS","TRANSFER_SUBCLS","SUBCLS","BAG2","TRIP_STAGES"
         }},
         { "SP_PG_GROUP_COMP_BASELAYERS", {
-                "COMP_BASELAYERS", // TRIP_COMP_BASELAYERS, COMP_ELEMS
+                "COMP_BASELAYERS", // "COMP_ELEMS"
+                "TRIP_COMP_BASELAYERS",
         }},
         { "SP_PG_GROUP_COMP_CLASSES", {
                 "COMP_CLASSES", // COMPS

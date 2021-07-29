@@ -1554,7 +1554,7 @@ void deleteByPointId(const PointId_t& point_id)
         make_db_curs("DELETE FROM trip_comp_rem WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rem")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_rates WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rates")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_rfisc WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rfisc")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM trip_comp_baselayers WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_baselayers")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("DELETE FROM trip_comp_baselayers WHERE point_id=:point_id" , PgOra::getRWSession("TRIP_COMP_BASELAYERS")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_elems WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_elems")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_layers WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_layers")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_crew WHERE point_id=:point_id" , PgOra::getRWSession("trip_crew")).bind(":point_id", point_id.get()).exec();

@@ -94,6 +94,7 @@ bool isConstructivePlace( const std::string &elem_type ) {
 bool haveConstructiveCompon( int id, TReadStyle style ) {
   std::vector<std::string> elem_types;
   constructiveElemTypes( elem_types );
+
   if ( style == rComponSalons ) {
       DB::TQuery Qry(PgOra::getROSession("COMP_ELEMS"), STDLOG);
       Qry.SQLText =
@@ -120,7 +121,7 @@ bool forBuild( const TPlace &place, const std::vector<std::string> &elem_types )
 
 void TSelfCkinSalonTariff::setTariffMap( int point_id,
                                          TSeatTariffMap &tariffMap ) {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry( PgOra::getROSession("POINTS"), STDLOG );
   Qry.SQLText =
     "SELECT point_id,airline,flt_no,suffix,airp,craft,scd_out "
     " FROM points WHERE point_id=:point_id";
