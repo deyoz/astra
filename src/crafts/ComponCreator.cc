@@ -2085,7 +2085,11 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
               "TRIP_COMP_REM",
               "TRIP_COMP_BASELAYERS",
               "TRIP_COMP_ELEMS",
-              "TRIP_COMP_LAYERS"}), STDLOG);
+              "TRIP_COMP_LAYERS",
+              "COMP_ELEMS",
+              "COMP_REM",
+              "COMP_RFISC",
+              "COMP_RATES"}), STDLOG);
   Qry.SQLText =
     "BEGIN "
     "DELETE trip_comp_rates WHERE point_id = :point_id;"
