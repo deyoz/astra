@@ -272,6 +272,9 @@ namespace PgOra
         { "SP_PG_GROUP_BAG2", {
                 "BAG2",
         }},
+        { "SP_PG_GROUP_COMP_ELEMS", {
+                "COMP_ELEMS", // COMP_BASELAYERS, TRIP_COMP_RATES, TRIP_COMP_RFISC, TRIP_COMP_REM, TRIP_COMP_BASELAYERS, TRIP_COMP_ELEMS, TRIP_COMP_LAYERS + 7Proc/SALONS !
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

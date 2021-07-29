@@ -94,19 +94,22 @@ bool isConstructivePlace( const std::string &elem_type ) {
 bool haveConstructiveCompon( int id, TReadStyle style ) {
   std::vector<std::string> elem_types;
   constructiveElemTypes( elem_types );
-  TQuery Qry( &OraSession );
   if ( style == rComponSalons ) {
-    Qry.SQLText =
-      "SELECT 1 FROM comp_elems WHERE comp_id=:comp_id AND elem_type IN " + GetSQLEnum( elem_types );
-    Qry.CreateVariable( "comp_id", otInteger, id );
+      DB::TQuery Qry(PgOra::getROSession("COMP_ELEMS"), STDLOG);
+      Qry.SQLText =
+          "SELECT 1 FROM comp_elems WHERE comp_id=:comp_id AND elem_type IN " + GetSQLEnum( elem_types );
+      Qry.CreateVariable( "comp_id", otInteger, id );
+      Qry.Execute();
+      return !Qry.Eof;
   }
   else {
+      DB::TQuery Qry(PgOra::getROSession("TRIP_COMP_ELEMS"), STDLOG);
       Qry.SQLText =
-        "SELECT 1 FROM trip_comp_elems WHERE point_id=:point_id AND elem_type IN " + GetSQLEnum( elem_types );
+          "SELECT 1 FROM trip_comp_elems WHERE point_id=:point_id AND elem_type IN " + GetSQLEnum( elem_types );
       Qry.CreateVariable( "point_id", otInteger, id );
+      Qry.Execute();
+      return !Qry.Eof;
   }
-  Qry.Execute();
-  return !Qry.Eof;
 }
 
 bool forBuild( const TPlace &place, const std::vector<std::string> &elem_types ) {
@@ -6111,7 +6114,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
 }
 
 void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged  )
-{    
+{
   ProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm" );
   if(DEMO_MODE()) {
       // Не осилил в рамках подготовки Демо
@@ -7748,7 +7751,7 @@ void salonChangesToText( int point_id,
           // это нужный салон
         for ( TPlaces::iterator po = (*so)->places.begin(), // бежим по местам
                                 pn = (*sn)->places.begin();
-                                po != (*so)->places.end() && 
+                                po != (*so)->places.end() &&
                                 pn != (*sn)->places.end();
                                 po++, pn++ ) {
           if ( ( pn->visible && !pn->visible ) || ( pn->visible && ( po->elem_type != pn->elem_type || po->clname != pn->clname ) ) )

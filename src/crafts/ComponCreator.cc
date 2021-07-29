@@ -2079,7 +2079,13 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   QryTripSets.DeclareVariable( "crc_comp", otInteger );
   QryTripSets.DeclareVariable( "crc_base_comp", otInteger );
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession({
+              "TRIP_COMP_RATES",
+              "TRIP_COMP_RFISC",
+              "TRIP_COMP_REM",
+              "TRIP_COMP_BASELAYERS",
+              "TRIP_COMP_ELEMS",
+              "TRIP_COMP_LAYERS"}), STDLOG);
   Qry.SQLText =
     "BEGIN "
     "DELETE trip_comp_rates WHERE point_id = :point_id;"
@@ -2106,6 +2112,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
     "END;";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.DeclareVariable( "point_id", otInteger );
+
   DB::TQuery QryBaseLayers(PgOra::getRWSession({"COMP_BASELAYERS", "TRIP_COMP_BASELAYERS"}), STDLOG);
   QryBaseLayers.SQLText =
     "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
@@ -2115,6 +2122,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   QryBaseLayers.CreateVariable( "comp_id", otInteger, comp_id );
   QryBaseLayers.DeclareVariable( "point_id", otInteger );
   QryBaseLayers.DeclareVariable( "layer_type", otString );
+
   DB::TQuery QryLayers(PgOra::getRWSession({"COMP_BASELAYERS", "TRIP_COMP_BASELAYERS", "COMP_ELEMS"}), STDLOG);
   QryLayers.SQLText =
     "INSERT INTO trip_comp_layers("
@@ -2132,6 +2140,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   QryLayers.CreateVariable( "comp_id", otInteger, comp_id );
   QryLayers.DeclareVariable( "point_id", otInteger );
   QryLayers.DeclareVariable( "layer_type", otString );
+
   SALONS2::CompCheckSum checksum(0,0);
   std::vector<int> points_tranzit_check_wait_alarm;
   for ( const auto& i : routes ) {
