@@ -2465,7 +2465,7 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
 /////////////////////Cargos/////////////////////////////////////////////////////
 void TFlightCargos::Load( int point_id, bool pr_tranzit, int first_point, int point_num, int pr_cancel )
 {
-  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_LOAD"}), STDLOG);
+  DB::TQuery Qry(PgOra::getRWSession({"POINTS", "TRIP_LOAD"}), STDLOG); // #41198
   Qry.SQLText =
    "WITH cte AS "
    "(SELECT point_id, point_num, airp, airp_fmt FROM points "

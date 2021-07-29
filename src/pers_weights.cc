@@ -377,7 +377,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   bool use_counters_by_subcls = weight_type != withBrd && include_wait_list;
 
   DB::TQuery Qry(use_counters_by_subcls ? PgOra::getROSession("COUNTERS_BY_SUBCLS")
-                                        : PgOra::getROSession({"PAX_GRP", "PAX", "BAG2"}), STDLOG);
+                                        : PgOra::getRWSession({"PAX_GRP", "PAX", "BAG2"}), STDLOG); // #41198
   std::string sql;
   if (use_counters_by_subcls)
   {
