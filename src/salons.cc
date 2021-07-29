@@ -6826,7 +6826,7 @@ int TPlaceList::Add( TPlace &pl )
 void LoadCompRemarksPriority( std::map<std::string, int> &rems )
 {
   rems.clear();
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"COMP_REM_TYPES"}), STDLOG);
   Qry.SQLText = "SELECT code, pr_comp FROM comp_rem_types WHERE pr_comp IS NOT NULL";
   Qry.Execute();
   while ( !Qry.Eof ) {

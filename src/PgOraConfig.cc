@@ -281,6 +281,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_REM", {
                 "COMP_REM", // COMP_BASELAYERS, TRIP_COMP_RATES, TRIP_COMP_RFISC, TRIP_COMP_REM, TRIP_COMP_BASELAYERS, TRIP_COMP_ELEMS, TRIP_COMP_LAYERS, COMP_ELEMS, COMP_RFISC, COMP_RATES
         }},
+        { "SP_PG_GROUP_COMP_REM_TYPES", {
+                "COMP_REM_TYPES", // PAX_REM
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
