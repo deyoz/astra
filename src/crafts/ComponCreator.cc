@@ -1256,7 +1256,7 @@ int ComponFinder::GetCompId( const std::string& craft, const std::string& bort, 
 
 void ComponSetter::Init( int point_id ) {
   TSetsCraftPoints();
-  DB::TQuery Qry(PgOra::getRWSession({"POINTS, TRIP_SETS"}), STDLOG);
+  DB::TQuery Qry(PgOra::getRWSession({"POINTS", "TRIP_SETS"}), STDLOG);
   Qry.SQLText =
      "SELECT points.point_id, point_num, first_point, pr_tranzit, bort, flt_no, suffix, airline, craft, scd_out, airp, comp_id "
      "FROM points "
@@ -1427,17 +1427,17 @@ void InitVIP(const TTripInfo &fltInfo) {
 
   DB::TQuery QryVIP(PgOra::getRWSession({"TRIP_COMP_REM", "TRIP_COMP_ELEMS", "COMP_ELEM_TYPES", "TRIP_COMP_RANGES"}), STDLOG);
   QryVIP.SQLText =
-    "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
+    std::string("INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " SELECT :point_id,num,x,y,'VIP', 0 FROM "
     " ( SELECT :point_id,num,x,y FROM trip_comp_elems "
     "  WHERE point_id = :point_id AND num = :num AND "
     "        elem_type IN ( SELECT code FROM comp_elem_types WHERE pr_seat <> 0 ) AND "
-    "        trip_comp_elems.y = :y "
-    "   MINUS "
+    "        trip_comp_elems.y = :y ") 
+    + (PgOra::supportsPg({"TRIP_COMP_REM", "TRIP_COMP_ELEMS", "COMP_ELEM_TYPES", "TRIP_COMP_RANGES"}) ? " EXCEPT" : " MINUS ") +
     "  SELECT :point_id,num,x,y FROM trip_comp_ranges "
     "   WHERE point_id=:point_id AND layer_type IN (:block_cent_layer, :checkin_layer) "
     " ) "
-    " MINUS "
+    + (PgOra::supportsPg({"TRIP_COMP_REM", "TRIP_COMP_ELEMS", "COMP_ELEM_TYPES", "TRIP_COMP_RANGES"}) ? " EXCEPT" : " MINUS ") +
     " SELECT :point_id,num,x,y,rem, 0 FROM trip_comp_rem "
     "  WHERE point_id = :point_id AND num = :num AND "
     "        trip_comp_rem.y = :y "; //??? если есть ремарка назначенная пользователем, то не трогаем место
@@ -2079,43 +2079,65 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   QryTripSets.DeclareVariable( "crc_comp", otInteger );
   QryTripSets.DeclareVariable( "crc_base_comp", otInteger );
 
-  DB::TQuery Qry(PgOra::getRWSession({
-              "TRIP_COMP_RATES",
-              "TRIP_COMP_RFISC",
-              "TRIP_COMP_REM",
-              "TRIP_COMP_BASELAYERS",
-              "TRIP_COMP_ELEMS",
-              "TRIP_COMP_LAYERS",
-              "COMP_ELEMS",
-              "COMP_REM",
-              "COMP_RFISC",
-              "COMP_RATES"}), STDLOG);
-  Qry.SQLText =
-    "BEGIN "
-    "DELETE trip_comp_rates WHERE point_id = :point_id;"
-    "DELETE trip_comp_rfisc WHERE point_id = :point_id;"
-    "DELETE trip_comp_rem WHERE point_id = :point_id; "
-    "DELETE trip_comp_baselayers WHERE point_id = :point_id; "
-    "DELETE trip_comp_elems WHERE point_id = :point_id; "
-    "DELETE trip_comp_layers "
-    " WHERE point_id=:point_id AND layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
+  DB::TQuery QryDel_TRIP_COMP_RATES(PgOra::getRWSession("TRIP_COMP_RATES"),STDLOG);
+  QryDel_TRIP_COMP_RATES.SQLText = "DELETE FROM trip_comp_rates WHERE point_id = :point_id";
+  QryDel_TRIP_COMP_RATES.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryDel_TRIP_COMP_RFISC(PgOra::getRWSession("TRIP_COMP_RFISC"),STDLOG);
+  QryDel_TRIP_COMP_RFISC.SQLText = "DELETE FROM trip_comp_rfisc WHERE point_id = :point_id";
+  QryDel_TRIP_COMP_RFISC.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryDel_TRIP_COMP_REM(PgOra::getRWSession("TRIP_COMP_REM"),STDLOG);
+  QryDel_TRIP_COMP_REM.SQLText = "DELETE FROM trip_comp_rem WHERE point_id = :point_id";
+  QryDel_TRIP_COMP_REM.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryDel_TRIP_COMP_BASELAYERS(PgOra::getRWSession("TRIP_COMP_BASELAYERS"),STDLOG);
+  QryDel_TRIP_COMP_BASELAYERS.SQLText = "DELETE FROM trip_comp_baselayers WHERE point_id = :point_id";
+  QryDel_TRIP_COMP_BASELAYERS.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryDel_TRIP_COMP_ELEMS(PgOra::getRWSession("TRIP_COMP_ELEMS"),STDLOG);
+  QryDel_TRIP_COMP_ELEMS.SQLText = "DELETE FROM trip_comp_elems WHERE point_id = :point_id";
+  QryDel_TRIP_COMP_ELEMS.DeclareVariable( "point_id", otInteger );
+
+  #warning cannot add "COMP_LAYER_TYPES" to getSession because it is already converted
+  DB::TQuery QryDel_TRIP_COMP_LAYERS(PgOra::getRWSession({"TRIP_COMP_LAYERS"/*,"COMP_LAYER_TYPES"*/}),STDLOG); 
+  QryDel_TRIP_COMP_LAYERS.SQLText = "DELETE FROM TRIP_COMP_LAYERS WHERE point_id=:point_id AND "
+    "layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 )";
+  QryDel_TRIP_COMP_LAYERS.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryIns_TRIP_COMP_ELEMS(PgOra::getRWSession({"TRIP_COMP_ELEMS","COMP_ELEMS"}),STDLOG);
+  QryIns_TRIP_COMP_ELEMS.SQLText = 
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
     " SELECT :point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname "
     "  FROM comp_elems "
-    " WHERE comp_id = :comp_id; "
+    " WHERE comp_id = :comp_id";
+  QryIns_TRIP_COMP_ELEMS.CreateVariable( "comp_id", otInteger, comp_id );
+  QryIns_TRIP_COMP_ELEMS.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryIns_TRIP_COMP_REM(PgOra::getRWSession({"TRIP_COMP_REM","COMP_REM"}),STDLOG);
+  QryIns_TRIP_COMP_REM.SQLText = 
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " SELECT :point_id,num,x,y,rem,pr_denial "
     "  FROM comp_rem "
-    " WHERE comp_id = :comp_id; "
+    " WHERE comp_id = :comp_id";
+  QryIns_TRIP_COMP_REM.CreateVariable( "comp_id", otInteger, comp_id );
+  QryIns_TRIP_COMP_REM.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryIns_TRIP_COMP_RFISC(PgOra::getRWSession({"TRIP_COMP_RFISC","COMP_RFISC"}),STDLOG);
+  QryIns_TRIP_COMP_RFISC.SQLText = 
     "INSERT INTO trip_comp_rfisc(point_id,num,x,y,color) "
     " SELECT :point_id,num,x,y,color FROM comp_rfisc "
-    " WHERE comp_id = :comp_id; "
+    " WHERE comp_id = :comp_id";
+  QryIns_TRIP_COMP_RFISC.CreateVariable( "comp_id", otInteger, comp_id );
+  QryIns_TRIP_COMP_RFISC.DeclareVariable( "point_id", otInteger );
+
+  DB::TQuery QryIns_TRIP_COMP_RATES(PgOra::getRWSession({"TRIP_COMP_RATES","COMP_RATES"}),STDLOG);
+  QryIns_TRIP_COMP_RATES.SQLText = 
     "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
     " SELECT :point_id,num,x,y,color,rate,rate_cur FROM comp_rates "
-    " WHERE comp_id = :comp_id; "
-    "END;";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.DeclareVariable( "point_id", otInteger );
+    " WHERE comp_id = :comp_id";
+  QryIns_TRIP_COMP_RATES.CreateVariable( "comp_id", otInteger, comp_id );
+  QryIns_TRIP_COMP_RATES.DeclareVariable( "point_id", otInteger );
 
   DB::TQuery QryBaseLayers(PgOra::getRWSession({"COMP_BASELAYERS", "TRIP_COMP_BASELAYERS"}), STDLOG);
   QryBaseLayers.SQLText =
@@ -2149,8 +2171,29 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
   std::vector<int> points_tranzit_check_wait_alarm;
   for ( const auto& i : routes ) {
     if ( i.inRoutes && i.auto_comp_chg && i.pr_reg ) {
-      Qry.SetVariable( "point_id", i.point_id );
-      Qry.Execute();
+
+      QryDel_TRIP_COMP_RATES.SetVariable( "point_id", i.point_id );
+      QryDel_TRIP_COMP_RFISC.SetVariable( "point_id", i.point_id );
+      QryDel_TRIP_COMP_REM.SetVariable( "point_id", i.point_id );
+      QryDel_TRIP_COMP_BASELAYERS.SetVariable( "point_id", i.point_id );
+      QryDel_TRIP_COMP_ELEMS.SetVariable( "point_id", i.point_id );
+      QryDel_TRIP_COMP_LAYERS.SetVariable( "point_id", i.point_id );
+      QryIns_TRIP_COMP_ELEMS.SetVariable( "point_id", i.point_id );
+      QryIns_TRIP_COMP_REM.SetVariable( "point_id", i.point_id );
+      QryIns_TRIP_COMP_RFISC.SetVariable( "point_id", i.point_id );
+      QryIns_TRIP_COMP_RATES.SetVariable( "point_id", i.point_id );
+
+      QryDel_TRIP_COMP_RATES.Execute();
+      QryDel_TRIP_COMP_RFISC.Execute();
+      QryDel_TRIP_COMP_REM.Execute();
+      QryDel_TRIP_COMP_BASELAYERS.Execute();
+      QryDel_TRIP_COMP_ELEMS.Execute();
+      QryDel_TRIP_COMP_LAYERS.Execute();
+      QryIns_TRIP_COMP_ELEMS.Execute();
+      QryIns_TRIP_COMP_REM.Execute();
+      QryIns_TRIP_COMP_RFISC.Execute();
+      QryIns_TRIP_COMP_RATES.Execute();
+
       for ( int ilayer=0; ilayer<ASTRA::cltTypeNum; ilayer++ ) {
         if ( SALONS2::isBaseLayer( (ASTRA::TCompLayerType)ilayer, true ) ) { // выбираем все базовые слои для базовых компоновок
           if ( SALONS2::isBaseLayer( (ASTRA::TCompLayerType)ilayer, false ) ) { // базовый слой для компоновки рейса
@@ -2185,10 +2228,12 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id )
         points_tranzit_check_wait_alarm.push_back( i.point_id );
       }
     }
-  }
+
   TCompsRoutes r(routes);
   r.check_diffcomp_alarm();
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __func__ );
+
+  }
 }
 
 bool ComponSetter::isLibraMode() {

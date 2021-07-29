@@ -22,10 +22,15 @@ using namespace ASTRA::date_time;
 namespace SEATPAX
 {
 
-const std::string paxSeats::PAX_LAYERS_ON_ELEMTYPE_SQL =
-    "SELECT e.num, e.x, e.y, l.layer_type, l.time_create, "
-    "       l.point_id, l.point_dep, l.point_arv, "
-    "       l.first_xname, l.first_yname, l.last_xname, l.last_yname "
+
+bool paxSeats::paxLayersOnElemType( int point_id, int pax_id, const std::string &elem_type )
+{
+  DB::TQuery Qry(PgOra::getROSession({"TRIP_COMP_RANGES","TRIP_COMP_LAYERS","TRIP_COMP_ELEMS"}),STDLOG);
+
+  Qry.SQLText =
+    "SELECT 1 " //"e.num, e.x, e.y, l.layer_type, l.time_create, "
+    //"       l.point_id, l.point_dep, l.point_arv, "
+    //"       l.first_xname, l.first_yname, l.last_xname, l.last_yname "
     " FROM trip_comp_ranges r, trip_comp_layers l, trip_comp_elems e "
     " WHERE l.point_id = :point_id AND "
     "       l.range_id = r.range_id AND "
@@ -34,19 +39,15 @@ const std::string paxSeats::PAX_LAYERS_ON_ELEMTYPE_SQL =
     "       e.x = r.x AND "
     "       e.y = r.y AND "
     "       (crs_pax_id = :pax_id OR pax_id = :pax_id) AND "
-    "       e.elem_type = :elem_type AND "
-    "       rownum < 2";
+    "       e.elem_type = :elem_type "
+    " FETCH FIRST 1 ROWS ONLY";
 
-bool paxSeats::paxLayersOnElemType( int point_id, int pax_id, const std::string &elem_type )
-{
-   TQuery Qry(&OraSession);
-   Qry.SQLText = PAX_LAYERS_ON_ELEMTYPE_SQL;
-   Qry.CreateVariable( "point_id", otInteger, point_id );
-   Qry.CreateVariable( "pax_id", otInteger, pax_id );
-   Qry.CreateVariable( "elem_type", otString, elem_type );
-   Qry.Execute();
-   LogTrace(TRACE5) << "point_id=" << point_id << ",pax_id=" << pax_id << ",elem_type=" << elem_type << ",Qry.Eof=" << Qry.Eof;
-   return !Qry.Eof;
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.CreateVariable( "elem_type", otString, elem_type );
+  Qry.Execute();
+  LogTrace(TRACE5) << "point_id=" << point_id << ",pax_id=" << pax_id << ",elem_type=" << elem_type << ",Qry.Eof=" << Qry.Eof;
+  return !Qry.Eof;
 }
 
 void paxSeats::SalonListFromDB( int point_id )

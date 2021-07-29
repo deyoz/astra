@@ -229,5 +229,8 @@ std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,
                                      const Alarm::Enum alarmType,
                                      const PaxOrigin origin);
 
-#endif
+bool getPrSalon(const int point_id); // checks existence
+
+
+#endif // _ALARMS_H_
 

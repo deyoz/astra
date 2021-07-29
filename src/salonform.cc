@@ -621,7 +621,6 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   if ( SALONS2::isFreeSeating( trip_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
@@ -654,15 +653,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   readParams.read_all_notPax_layers = true;
   salonList.Parse( info, info.airline, NodeAsNode( "salons", reqNode ) );
   //была ли до этого момента компоновка
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
+  bool tripCompElemsExist = getPrSalon(trip_id); // alarms.cc
+
 
   bool pr_base_change = false;
   bool saveContructivePlaces = false;
-  if ( !Qry.Eof ) { // была старая компоновка
+  if ( tripCompElemsExist ) { // была старая компоновка
     priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), readParams );
     pr_base_change = salonList._seats.basechecksum() != priorsalonList._seats.basechecksum();
     if ( (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION )) &&
@@ -1318,7 +1314,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
         for ( const auto & s : _seats ) {
           std::vector<TSeatRemark> vremarks;
           s->GetRemarks( point_id, vremarks );
-          for ( const auto r : vremarks ) {
+          for ( const auto &r : vremarks ) {
             if (  !r.pr_denial &&
                   std::find( specRemarks.begin(), specRemarks.end(), r.value ) != specRemarks.end() ) {
               show_msg = false;

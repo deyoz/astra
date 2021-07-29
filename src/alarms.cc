@@ -71,25 +71,21 @@ void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
 bool getPrSalon(const int point_id)
 {
     DbCpp::CursCtl cur = make_db_curs(
-        PgOra::supportsPg("TRIP_COMP_ELEMS")
-         ? "SELECT EXISTS "
-             "(SELECT 1 FROM trip_comp_elems "
-              "WHERE point_id = :point_id)"
-         : "SELECT COUNT(*) "
+           "SELECT 1 "
            "FROM trip_comp_elems "
            "WHERE point_id = :point_id "
-             "AND ROWNUM = 1",
+           "FETCH FIRST 1 ROWS ONLY",
         PgOra::getROSession("TRIP_COMP_ELEMS")
     );
 
-    bool pr_salon;
+    int pr_salon=0;
 
     cur.stb()
        .def(pr_salon)
        .bind(":point_id", point_id)
-       .exfet();
+       .EXfet();
 
-    return pr_salon;
+    return pr_salon!=0;
 }
 
 void getPrEtStatusAct(const int point_id, int& pr_etstatus, Dates::DateTime_t& act)

@@ -12,7 +12,6 @@ namespace SEATPAX
 
 class paxSeats { //класс реализует вычисление свойств мест
   private:
-   static const std::string PAX_LAYERS_ON_ELEMTYPE_SQL;
    std::map<int, SALONS2::TSalonList > salonLists;
    void SalonListFromDB( int point_id );
    bool isElemTypePaxSeat( int point_dep, int pax_id, const std::string &elem_type );
