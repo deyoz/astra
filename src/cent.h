@@ -143,11 +143,11 @@ const std::string qryBalancePad =
     "       crs_pax.pr_del=0 AND "
     "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
 const std::string qryBalanceCargo =
-    "SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, "
-    "       cargo, mail "
-    "FROM trip_load "
-    " WHERE point_arv=:point_arv ";
+   "SELECT point_dep, "
+          "CASE point_dep WHEN :point_dep THEN 0 ELSE 1 END as pr_tranzit, "
+          "cargo, mail "
+     "FROM trip_load "
+    "WHERE point_arv = :point_arv";
 
 
 enum TBalanceDataFlag { tdPass, tdBag, tdExcess, tdPad, tdCargo };
@@ -272,7 +272,7 @@ class TBalanceData
   TQuery *qBagTQry;
   TQuery *qExcessBagQry;
   TQuery *qExcessBagTQry;
-  TQuery *qCargoQry;
+  DB::TQuery *qCargoQry;
   TQuery *qPADQry;
   void init();
   void getPassBalance( bool pr_tranzit_pass, int point_id, const TTripRoute &routesB, const TTripRoute &routesA, bool isLimitDest4 );

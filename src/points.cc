@@ -2465,20 +2465,21 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
 /////////////////////Cargos/////////////////////////////////////////////////////
 void TFlightCargos::Load( int point_id, bool pr_tranzit, int first_point, int point_num, int pr_cancel )
 {
-#ifdef ENABLE_ORACLE
-  // … €‡Ž€‹‘Ÿ ›‘’Ž ‘ ‡€Ž‘ŽŒ - ˆƒŽˆ“ž „‹Ÿ „…ŒŽ
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_LOAD"}), STDLOG);
   Qry.SQLText =
-    "SELECT cargo,mail,a.airp airp_arv,a.airp_fmt airp_arv_fmt, a.point_id point_arv, a.point_num "
-    " FROM trip_load, "
-    "( SELECT point_id, point_num, airp, airp_fmt FROM points "
-    "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=:pr_cancel ) a, "
-    "( SELECT MIN(point_num) as point_num FROM points "
-    "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=:pr_cancel "
-    "  GROUP BY airp ) b "
-    "WHERE a.point_num=b.point_num AND trip_load.point_dep(+)=:point_id AND "
-    "      trip_load.point_arv(+)=a.point_id "
-    "ORDER BY a.point_num ";
+   "WITH cte AS "
+   "(SELECT point_id, point_num, airp, airp_fmt FROM points "
+     "WHERE first_point = :first_point AND point_num > :point_num AND pr_del = :pr_cancel) "
+   "SELECT cargo, mail, "
+          "airp AS airp_arv, airp_fmt AS airp_arv_fmt, point_id AS point_arv, "
+          "point_num, point_dep "
+     "FROM cte "
+     "LEFT OUTER JOIN trip_load "
+       "ON trip_load.point_dep = :point_id "
+      "AND trip_load.point_arv = cte.point_id "
+    "WHERE point_num IN (SELECT MIN(point_num) FROM cte GROUP BY airp) "
+    "ORDER BY point_num";
+
   Qry.CreateVariable( "point_id", otInteger, point_id );
   if ( !pr_tranzit )
     Qry.CreateVariable( "first_point", otInteger, point_id );
@@ -2498,7 +2499,6 @@ void TFlightCargos::Load( int point_id, bool pr_tranzit, int first_point, int po
     Add( cargo );
     Qry.Next();
   }
-#endif//ENABLE_ORACLE
 }
 
 void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
@@ -2537,22 +2537,28 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
   TFlightCargos oldcargos;
   oldcargos.Load( point_id, owndest->pr_tranzit, owndest->first_point, owndest->point_num, owndest->pr_del );
   tst();
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "BEGIN "
-    " UPDATE trip_load SET cargo=:cargo,mail=:mail"
-    "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
-    " IF SQL%NOTFOUND THEN "
-    "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
-    "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
-    "    WHERE point_id=:point_id; "
-    " END IF;"
-    "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "point_arv", otInteger );
-  Qry.DeclareVariable( "airp_arv", otString );
-  Qry.DeclareVariable( "cargo", otInteger );
-  Qry.DeclareVariable( "mail", otInteger );
+  DB::TQuery InsQry(PgOra::getRWSession({"TRIP_LOAD", "POINTS"}), STDLOG);
+  InsQry.SQLText = PgOra::supportsPg({"TRIP_LOAD", "POINTS"})
+   ? "BEGIN "
+     " UPDATE trip_load SET cargo = :cargo, mail = :mail"
+     "  WHERE point_dep = :point_id AND point_arv = :point_arv; "
+     " IF SQL%NOTFOUND THEN "
+     "  INSERT INTO trip_load(point_dep, airp_dep, point_arv, airp_arv, cargo,mail)  "
+     "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
+     "    WHERE point_id = :point_id; "
+     " END IF;"
+     "END;"
+   : "INSERT INTO trip_load(point_dep, airp_dep, point_arv, airp_arv, cargo, mail) "
+                    "SELECT point_id,  airp,    :point_arv,:airp_arv,:cargo,:mail "
+                      "FROM points "
+                     "WHERE point_id = :point_id "
+     "ON CONFLICT(point_dep, point_arv) DO UPDATE "
+        "SET cargo = :cargo, mail = :mail";
+  InsQry.CreateVariable( "point_id", otInteger, point_id );
+  InsQry.DeclareVariable( "point_arv", otInteger );
+  InsQry.DeclareVariable( "airp_arv", otString );
+  InsQry.DeclareVariable( "cargo", otInteger );
+  InsQry.DeclareVariable( "mail", otInteger );
   ProgTrace( TRACE5, "oldcargos.cargos.size()=%zu", oldcargos.cargos.size() );
   for ( vector<TPointsDestCargo>::iterator icargo=cargos.begin(); icargo!=cargos.end(); icargo++ ) {
     vector<TPointsDestCargo>::iterator jcargo=oldcargos.cargos.begin();
@@ -2567,11 +2573,11 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
     ProgTrace( TRACE5, "icargo->point_arv=%d, icargo->airp_arv=%s, icargo->cargo=%d, icargo->mail=%d",
                icargo->point_arv, icargo->airp_arv.c_str(), icargo->cargo, icargo->mail );
     if ( jcargo == oldcargos.cargos.end() || !icargo->equal( *jcargo ) ) {
-      Qry.SetVariable( "point_arv", icargo->point_arv );
-      Qry.SetVariable( "airp_arv", icargo->airp_arv );
-      Qry.SetVariable( "cargo", icargo->cargo );
-      Qry.SetVariable( "mail", icargo->mail );
-      Qry.Execute();
+      InsQry.SetVariable( "point_arv", icargo->point_arv );
+      InsQry.SetVariable( "airp_arv", icargo->airp_arv );
+      InsQry.SetVariable( "cargo", icargo->cargo );
+      InsQry.SetVariable( "mail", icargo->mail );
+      InsQry.Execute();
       TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
                                      << PrmElem<std::string>("airp", etAirp, icargo->airp_arv)
                                      << PrmSmpl<int>("cargo_weight", icargo->cargo)
@@ -2582,15 +2588,15 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
       oldcargos.cargos.erase( jcargo );
   }
   tst();
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery DelQry(PgOra::getRWSession("TRIP_LOAD"), STDLOG);
+  DelQry.SQLText =
     "DELETE trip_load WHERE point_dep=:point_dep AND point_arv=:point_arv";
-  Qry.CreateVariable( "point_dep", otInteger, point_id );
-  Qry.DeclareVariable( "point_arv", otInteger );
+  DelQry.CreateVariable( "point_dep", otInteger, point_id );
+  DelQry.DeclareVariable( "point_arv", otInteger );
   //ã¤ «¥­¨¥
   for ( vector<TPointsDestCargo>::iterator jcargo=oldcargos.cargos.begin(); jcargo!=oldcargos.cargos.end(); jcargo++ ) {
-    Qry.SetVariable( "point_arv", jcargo->point_arv );
-    Qry.Execute();
+    DelQry.SetVariable( "point_arv", jcargo->point_arv );
+    DelQry.Execute();
     TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
                                    << PrmElem<std::string>("airp", etAirp, jcargo->airp_arv)
                                    << PrmSmpl<int>("cargo_weight", 0)

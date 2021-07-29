@@ -574,8 +574,8 @@ void TBalanceData::init() {
     qPADQry->DeclareVariable( "point_arv", otInteger );
   }
   if ( dataFlags.isFlag( tdCargo ) ) {
-    qCargoQry = new TQuery( &OraSession );
-    qCargoQry->SQLText = qryBalanceCargo.c_str();
+    qCargoQry = new DB::TQuery(PgOra::getROSession("TRIP_LOAD"), STDLOG);
+    qCargoQry->SQLText = qryBalanceCargo;
     qCargoQry->DeclareVariable( "point_dep", otInteger );
     qCargoQry->DeclareVariable( "point_arv", otInteger );
   }

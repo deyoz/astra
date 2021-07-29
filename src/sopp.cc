@@ -3437,7 +3437,7 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
 
-void CargoMailWeight(
+void CargoMailWeightOra(
         const string &suffix,
         int point_id,
         int point_arv,
@@ -3470,6 +3470,54 @@ void CargoMailWeight(
             << PrmSmpl<int>("cargo_weight", cargo)
             << PrmSmpl<int>("mail_weight", mail),
             evtFlt, point_id);
+}
+
+void CargoMailWeight(
+    const string& suffix,
+    const int point_id,
+    const int point_arv,
+    const int cargo,
+    const int mail)
+{
+    DbCpp::Session& session = PgOra::getRWSession({"POINTS", "TRIP_LOAD"});
+
+    if (session.isOracle()) {
+        CargoMailWeightOra(suffix, point_id, point_arv, cargo, mail);
+        return;
+    }
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "INSERT INTO trip_load(point_dep, airp_dep, point_arv, airp_arv, cargo, mail) "
+       "SELECT point_id, airp, :point_arv, "
+              "(select airp FROM points WHERE point_id = :point_arv), "
+              ":cargo, :mail "
+         "FROM points WHERE point_id = :point_id "
+       "ON CONFLICT(point_dep, point_arv) DO UPDATE "
+          "SET cargo = :cargo, mail = :mail "
+       "RETURNING airp_arv",
+        session
+    );
+
+    std::string airp_arv;
+
+    cur.stb()
+       .bind(":point_id", point_id)
+       .bind(":point_arv", point_arv)
+       .bind(":cargo", cargo)
+       .bind(":mail", mail)
+       .defNull(airp_arv, airp_arv)
+       .EXfet();
+
+    TReqInfo::Instance()->LocaleToLog(
+       "EVT.CARGO_MAIL_WEIGHT",
+        LEvntPrms()
+         << PrmSmpl<string>("suffix", suffix)
+         << PrmElem<std::string>("airp", etAirp, airp_arv)
+         << PrmSmpl<int>("cargo_weight", cargo)
+         << PrmSmpl<int>("mail_weight", mail),
+        evtFlt,
+        point_id
+    );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

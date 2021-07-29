@@ -5504,17 +5504,18 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
         baggage = Qry.FieldAsInteger("weight");
     }
 
-    DB::TQuery QryTripLoad(PgOra::getROSession("TRIP_LOAD"),STDLOG);
-    QryTripLoad.CreateVariable("point_arv", otInteger, point_arv);
-    QryTripLoad.CreateVariable("point_id", otInteger, info.point_id);
-    QryTripLoad.SQLText =
-        "SELECT cargo,mail "
-        "FROM trip_load "
-        "WHERE point_dep=:point_id AND point_arv=:point_arv ";
-    QryTripLoad.Execute();
-    if(!QryTripLoad.Eof) {
-        cargo = QryTripLoad.FieldAsInteger("cargo");
-        mail = QryTripLoad.FieldAsInteger("mail");
+    DB::TQuery LoadQry(PgOra::getROSession("TRIP_LOAD"), STDLOG);
+    LoadQry.SQLText =
+       "SELECT cargo, mail "
+         "FROM trip_load "
+        "WHERE point_dep = :point_id "
+          "AND point_arv = :point_arv";
+    LoadQry.CreateVariable("point_arv", otInteger, point_arv);
+    LoadQry.CreateVariable("point_id", otInteger, info.point_id);
+    LoadQry.Execute();
+    if (!LoadQry.Eof) {
+        cargo = LoadQry.FieldAsInteger("cargo");
+        mail = LoadQry.FieldAsInteger("mail");
     }
 }
 
