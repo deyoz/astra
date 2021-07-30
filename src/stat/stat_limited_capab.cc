@@ -370,21 +370,26 @@ int nosir_lim_capab_stat(int argc,char **argv)
 
 void get_limited_capability_stat(int point_id)
 {
-    TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+                PgOra::getRWSession("LIMITED_CAPABILITY_STAT"),
+                "delete from limited_capability_stat where point_id = :point_id",
+                QParams() << QParam("point_id", otInteger, point_id),
+                STDLOG);
     delQry.get().Execute();
 
     TRemGrp rem_grp;
     rem_grp.Load(retLIMITED_CAPAB_STAT, point_id);
     if(rem_grp.empty()) return;
 
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(
+            PgOra::getROSession({"PAX_GRP", "PAX", "PAX_REM"}),
             "select pax.grp_id, pax_grp.airp_arv, rem_code "
             "from pax_grp, pax, pax_rem where "
             "   pax_grp.point_dep = :point_id and "
             "   pax.grp_id = pax_grp.grp_id and "
             "   pax_rem.pax_id = pax.pax_id ",
-            QParams() << QParam("point_id", otInteger, point_id)
-            );
+            QParams() << QParam("point_id", otInteger, point_id),
+            STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
 
@@ -398,7 +403,8 @@ void get_limited_capability_stat(int point_id)
         }
 
         if(not rems.empty()) {
-            TCachedQuery insQry(
+            DB::TCachedQuery insQry(
+                    PgOra::getRWSession("LIMITED_CAPABILITY_STAT"),
                     "insert into limited_capability_stat ( "
                     "   point_id, "
                     "   airp_arv, "
@@ -411,11 +417,11 @@ void get_limited_capability_stat(int point_id)
                     "   :pax_amount "
                     ") ",
                     QParams()
-                    << QParam("point_id", otInteger, point_id)
-                    << QParam("airp_arv", otString)
-                    << QParam("rem_code", otString)
-                    << QParam("pax_amount", otInteger)
-                    );
+                        << QParam("point_id", otInteger, point_id)
+                        << QParam("airp_arv", otString)
+                        << QParam("rem_code", otString)
+                        << QParam("pax_amount", otInteger),
+                    STDLOG);
             for(const auto &airp_arv: rems)
                 for(const auto &rem: airp_arv.second) {
                     insQry.get().SetVariable("airp_arv", airp_arv.first);
