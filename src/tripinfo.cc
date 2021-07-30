@@ -2717,7 +2717,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   paxLoad.sort(paxLoadOrder);
   //////////////////////HEADER////////////////////////////////////////////////
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
 
   Qry.SQLText =
     "SELECT " + TTripInfo::selectedFields() + "litera, bort, trip_type "

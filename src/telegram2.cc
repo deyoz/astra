@@ -5405,8 +5405,6 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
   } else {
       TST();
       // ‚ DEMO … ‚›‡›‚€…Œ …Š’›… ”“Š–ˆˆ €Š…’‚ „ ……‚„€ ˆ• € c++
-      sql +=
-          "  AND 1=1, ";
   }
   sql +=
       "GROUP BY pax_grp.airp_arv, "
