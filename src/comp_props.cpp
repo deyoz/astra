@@ -20,6 +20,7 @@
 #include "term_version.h"
 #include "alarms.h"
 #include "flt_settings.h"
+#include "db_tquery.h"
 
 #include "serverlib/str_utils.h"
 
@@ -65,7 +66,7 @@ namespace SALONS2
 
 simpleProps& simpleProps::read( int comp_id ) {
   clear();
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("COMP_SECTIONS"), STDLOG);
   Qry.SQLText =
     "SELECT name, first_rownum, last_rownum FROM comp_sections "
     " WHERE comp_id=:comp_id AND code=:code "
@@ -83,23 +84,24 @@ simpleProps& simpleProps::read( int comp_id ) {
 }
 
 simpleProps& simpleProps::write( int comp_id ) {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "DELETE comp_sections WHERE comp_id=:comp_id AND code=:code";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.CreateVariable( "code", otString, code );
-  Qry.Execute();
-  LogTrace(TRACE5) << "RowCount=" << Qry.RowCount();
-  bool pr_exists = Qry.RowCount();
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryDel(PgOra::getROSession("COMP_SECTIONS"), STDLOG);
+  QryDel.SQLText =
+    "DELETE FROM comp_sections WHERE comp_id=:comp_id AND code=:code";
+  QryDel.CreateVariable( "comp_id", otInteger, comp_id );
+  QryDel.CreateVariable( "code", otString, code );
+  QryDel.Execute();
+  LogTrace(TRACE5) << "RowCount=" << QryDel.RowCount();
+  bool pr_exists = QryDel.RowCount();
+
+  DB::TQuery QryIns(PgOra::getROSession("COMP_SECTIONS"), STDLOG);
+  QryIns.SQLText =
     "INSERT INTO comp_sections(comp_id,code,name,first_rownum,last_rownum) "
     " VALUES(:comp_id,:code,:name,:first_rownum,:last_rownum)";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.CreateVariable( "code", otString, code );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "first_rownum", otInteger );
-  Qry.DeclareVariable( "last_rownum", otInteger );
+  QryIns.CreateVariable( "comp_id", otInteger, comp_id );
+  QryIns.CreateVariable( "code", otString, code );
+  QryIns.DeclareVariable( "name", otString );
+  QryIns.DeclareVariable( "first_rownum", otInteger );
+  QryIns.DeclareVariable( "last_rownum", otInteger );
   PrmLexema lexema(componPropCodes::Instance()->getWrapIsSectDelLexema( code ), "");
   if ( empty() && pr_exists ) {
     lexema.ChangeLexemaId( componPropCodes::Instance()->getDeleteLexema( code ) );
@@ -111,10 +113,10 @@ simpleProps& simpleProps::write( int comp_id ) {
     new_lexema.prms << PrmSmpl<std::string>("name", i->getName()) << PrmSmpl<int>("FirstRow", i->getFirstRow()+1)
                     << PrmSmpl<int>("LastRow", i->getLastRow()+1);//!!!ANNA ряды выводятся неправильно - это индекс ряда, т.к. названия номера ряда может меняться
     prmenum.prms << new_lexema;
-    Qry.SetVariable( "name", i->getName() );
-    Qry.SetVariable( "first_rownum", i->getFirstRow() );
-    Qry.SetVariable( "last_rownum", i->getLastRow() );
-    Qry.Execute();
+    QryIns.SetVariable( "name", i->getName() );
+    QryIns.SetVariable( "first_rownum", i->getFirstRow() );
+    QryIns.SetVariable( "last_rownum", i->getLastRow() );
+    QryIns.Execute();
     pr_empty = false;
   }
   if (empty() && pr_exists && pr_empty)

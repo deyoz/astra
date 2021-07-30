@@ -288,6 +288,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_RFISC", {
                 "COMP_RFISC", // TRIP_COMP_RFISC
         }},
+        { "SP_PG_GROUP_COMP_SECTIONS", {
+                "COMP_SECTIONS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
