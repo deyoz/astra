@@ -1,0 +1,47 @@
+LOAD DATA
+INFILE *
+INTO TABLE bag_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,descr
+,name_lat
+,descr_lat
+,id
+,rem_code_lci
+,rem_code_ldm
+)
+BEGINDATA
+40|"B15"|"оплаченный вес 15 кг"|"B15"||1||
+41|"B20"|"оплаченный вес 20кг"|"B20"||2||
+42|"KG05"|"оплата 5 кг"|"KG05"||3||
+44|"test"||||492055||
+1|"Негабарит по размерам"|"Вещи пассажира, независимо от их наименования и назначения, габариты которых в упакованном виде превышают установленные размеры"|"Oversize"|"Passengers properties irrespective of their naming and purpose, packed dimensions of which exceed allowances"|4|"BULK"|
+2|"Негабарит по весу"|"Вещи пассажира, независимо от их наименования и назначения массой одного места более установленного веса"|"Overweight"|"Passengers properties irrespective of their naming and purpose, exceeding weight allowance per piece"|515357|"BULK"|
+3|"Аппаратура"|"Теле-, радио-, видео-, аудио-, кино-, фотоаппаратура, электробытовая техника, компьютеры, массой одного места свыше установленного веса"|"Equipment"|"Tele-, radio, video, audio, cinema, photo equipment, consumer electronics, computers, exceeding weight allowance per piece"|515358||
+4|"Живность"|"Животные (домашние и дикие), птицы, рыбы, пчелы и другая живность (за исключением собак-поводырей, сопровождающих слепых)."|"Living creatures"|"Animals (domestic and wild), birds, fish, bees and other living creatures (except for guide-dogs accompanying blind persons)."|515372|"AVIH"|
+5|"Цветы, саженцы, зелень"|"ddddddddddddddd"|"asdfasdf"|"Flowers, plant saplings, edible greens (spring onion, parsley, sorrel, dill, celery etc.) exceeding weight allowance"|515368||
+6|"Суш. растения, ветви"|"Сушеные растения, ветви деревьев и кустарника массой свыше установленного веса"|"Dried plants, branches"|"Dried plants, tree and bush branches exceeding weight allowance"|9||
+7|"Овощи, ягода"|"Овощи, ягода массой свыше установленного веса"|"Vegetables, berries"|"Vegetables, berries exceeding weight allowance"|10||
+8|"Служебная почта"|"Фельдъегерская корреспонденция и корреспонденция спецсвязи."|"Official mail"|"Courier service and special communication correspondence"|11||
+9|"Меховые изделия"|"Меховые изделия."|"Furs"|"Furs"|12||
+10|"Муз. инструменты"|"Музыкальные инструменты массой одного места свыше установленного веса"|"Mus. instruments"|"Musical instruments exceeding weight allowance per piece"|13||
+20|"Лыжное снаряжение"|"Лыжное снаряжение"|"Skiing equipment"|"Skiing equipment"|14|"SPEQ"|
+21|"Снаряжение для гольфа"|"Снаряжение для гольфа"|"Golf equipment"|"Golf equipment"|15||
+22|"Коляска детская"|"Детская коляска"|"Baby Carriage"|"Baby Carriage"|16||
+12|"тест"|"тест"|||17||
+99|"Трансферный багаж"||"Transfer baggage"||18||
+36|"Огнестрельное оружие"|"Провоз огнестрельного оружия"|"Firearms"|"Firearms transportation"|19|"WEAP"|
+33|"торт"|"кондитерское изделие свыше 5кг"|||20||
+30|"Досылаемый багаж"||"Rush baggage"|"Lost baggage forwarding"|21||
+38|"Ручная кладь"||||22||
+13|"тест 2"||||534535|"0GB"|
+55|"инвол. коляска"||||515649|"WCHC"|
+56|"инв. коляска"||||515650|"WCBW"|
+57|"инв.коляска"||||515651|"WCBD"|
+0|"Смертельное оружие"||"Lethal weapon"||515632|"WEAP"|
+45|"Den"||"Den"||534527||
+23|"багаж авиакомпании"||||518436||

@@ -519,29 +519,23 @@ void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_
   StagesQry.SQLText = stagesSQL;
   StagesQry.CreateVariable( "point_id", otInteger, point_id );
   StagesQry.Execute();
-  int col_stage_id = StagesQry.FieldIndex( "stage_id" );
-  int col_scd = StagesQry.FieldIndex( "scd" );
-  int col_est = StagesQry.FieldIndex( "est" );
-  int col_act = StagesQry.FieldIndex( "act" );
-  int col_pr_manual = StagesQry.FieldIndex( "pr_manual" );
-  int col_pr_auto = StagesQry.FieldIndex( "pr_auto" );
   while ( !StagesQry.Eof ) {
     TSoppStage stage;
-    stage.stage_id = StagesQry.FieldAsInteger( col_stage_id );
-    if ( StagesQry.FieldIsNULL( col_scd ) )
+    stage.stage_id = StagesQry.FieldAsInteger( "stage_id" );
+    if ( StagesQry.FieldIsNULL( "scd" ) )
       stage.scd = NoExists;
     else
-      stage.scd = StagesQry.FieldAsDateTime( col_scd );
-    if ( StagesQry.FieldIsNULL( col_est ) )
+      stage.scd = StagesQry.FieldAsDateTime( "scd" );
+    if ( StagesQry.FieldIsNULL( "est" ) )
       stage.est = NoExists;
     else
-      stage.est = StagesQry.FieldAsDateTime( col_est );
-    if ( StagesQry.FieldIsNULL( col_act ) )
+      stage.est = StagesQry.FieldAsDateTime( "est" );
+    if ( StagesQry.FieldIsNULL( "act" ) )
       stage.act = NoExists;
     else
-      stage.act = StagesQry.FieldAsDateTime( col_act );
-    stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
-    stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
+      stage.act = StagesQry.FieldAsDateTime( "act" );
+    stage.pr_manual = StagesQry.FieldAsInteger( "pr_manual" );
+    stage.pr_auto = StagesQry.FieldAsInteger( "pr_auto" );
     stage.pr_permit = !TStagesRules::Instance()->isClientStage( stage.stage_id ) ||
                         TStagesRules::Instance()->canClientStage( ckin_clients, stage.stage_id );
     stages.push_back( stage );
