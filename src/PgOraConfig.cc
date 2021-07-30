@@ -274,18 +274,20 @@ namespace PgOra
                 "BAG2",
         }},
         { "SP_PG_GROUP_COMP_ELEMS", {
-                "COMP_ELEMS", // COMP_BASELAYERS, TRIP_COMP_RATES, TRIP_COMP_RFISC, TRIP_COMP_REM, TRIP_COMP_BASELAYERS, , TRIP_COMP_LAYERS, COMP_REM, COMP_RFISC, COMP_RATES + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
+                "COMP_ELEMS", // TRIP_COMP_ELEMS + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
         }},
         { "SP_PG_GROUP_COMP_RATES", {
-                "COMP_RATES", // COMP_BASELAYERS, TRIP_COMP_RATES, TRIP_COMP_RFISC, TRIP_COMP_REM, TRIP_COMP_BASELAYERS, TRIP_COMP_ELEMS, TRIP_COMP_LAYERS, COMP_ELEMS, COMP_REM, COMP_RFISC
+                "COMP_RATES", // TRIP_COMP_RATES
         }},
         { "SP_PG_GROUP_COMP_REM", {
-                "COMP_REM", // COMP_BASELAYERS, TRIP_COMP_RATES, TRIP_COMP_RFISC, TRIP_COMP_REM, TRIP_COMP_BASELAYERS, TRIP_COMP_ELEMS, TRIP_COMP_LAYERS, COMP_ELEMS, COMP_RFISC, COMP_RATES
+                "COMP_REM", // TRIP_COMP_REM
         }},
         { "SP_PG_GROUP_COMP_REM_TYPES", {
                 "COMP_REM_TYPES", // PAX_REM
         }},
-        
+        { "SP_PG_GROUP_COMP_RFISC", {
+                "COMP_RFISC", // TRIP_COMP_RFISC
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
