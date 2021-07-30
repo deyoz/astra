@@ -1787,9 +1787,13 @@ static void getBagLoadByCabinClasses( int point_id, PaxLoadTotalRowStruct &total
         ") "
           "ON PAX_GRP.GRP_ID = BAG2.GRP_ID "
       "WHERE "
-        "POINT_DEP = :point_id "
-        "AND STATUS NOT IN ('E') "
-        "AND CKIN.BAG_POOL_REFUSED(BAG2.GRP_ID, BAG2.BAG_POOL_NUM, PAX_GRP.CLASS, PAX_GRP.BAG_REFUSE) = 0 "
+        "PAX_GRP.POINT_DEP = :point_id "
+        "AND PAX_GRP.STATUS NOT IN ('E') "
+      "AND PAX_GRP.BAG_REFUSE = 0 "
+      "AND (PAX_GRP.CLASS IS NULL OR "
+      "     EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+      "                                  AND p.bag_pool_num = bag2.bag_pool_num "
+      "                                  AND p.refuse IS NULL)) " // "AND CKIN.BAG_POOL_REFUSED(BAG2.GRP_ID, BAG2.BAG_POOL_NUM, PAX_GRP.CLASS, PAX_GRP.BAG_REFUSE) = 0 "
       "GROUP BY coalesce(PAX.CABIN_CLASS, PAX_GRP.CLASS)";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();

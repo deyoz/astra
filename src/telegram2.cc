@@ -5398,15 +5398,12 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "WHERE "
       "  pax_grp.point_dep = :point_id "
       "  AND pax_grp.status NOT IN ('E') "
-      "  AND bag2.pr_cabin = 0 ";
-  if(!DEMO_MODE()) {
-      sql +=
-          "  AND ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) = 0 ";
-  } else {
-      TST();
-      // ‚ DEMO … ‚›‡›‚€…Œ …Š’›… ”“Š–ˆˆ €Š…’‚ „ ……‚„€ ˆ• € c++
-  }
-  sql +=
+      "  AND bag2.pr_cabin = 0 "
+      "AND pax_grp.bag_refuse = 0 "
+      "AND (pax_grp.class IS NULL OR "
+      "     EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+      "                                  AND p.bag_pool_num = bag2.bag_pool_num "
+      "                                  AND p.refuse IS NULL)) " // "  AND ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) = 0 "
       "GROUP BY pax_grp.airp_arv, "
       "         bag2.list_id, "
       "         bag2.rfisc, "
