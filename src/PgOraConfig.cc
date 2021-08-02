@@ -291,6 +291,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_SECTIONS", {
                 "COMP_SECTIONS",
         }},
+        { "SP_PG_GROUP_COMP_COMPS", {
+                "COMPS", // POINTS, LIBRA_COMPS, COMP_CLASSES, TRIP_SETS
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

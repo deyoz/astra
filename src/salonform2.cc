@@ -12,6 +12,7 @@
 #include "seats_utils.h"
 #include "astra_elems.h"
 #include "term_version.h"
+#include "db_tquery.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -56,7 +57,7 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       r->user.access.airps().totally_not_permitted())
     throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getRWSession({"COMPS"}), STDLOG);
   if ( r->user.user_type == utAirport )
     Qry.SQLText = "SELECT airline,airp,comp_id,craft,bort,descr,classes FROM comps "\
                   " ORDER BY airp,airline,craft,comp_id";
@@ -88,9 +89,3 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void SalonsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 }
-
-
-
-
-
-
