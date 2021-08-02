@@ -171,10 +171,6 @@ PROCEDURE check_apis_sets(vairline      IN apis_sets.airline%TYPE,
                           vedi_own_addr IN OUT apis_sets.edi_own_addr%TYPE,
                           vlang         IN lang_types.code%TYPE);
 
-
-FUNCTION check_validator_access(vvalidator IN validator_types.code%TYPE,
-                                vuser_id  IN users2.user_id%TYPE) RETURN NUMBER;
-
 FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,
                                vuser_id IN users2.user_id%TYPE) RETURN NUMBER;
 FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,

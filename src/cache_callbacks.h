@@ -124,6 +124,8 @@ class Row
     Row& setFromBoolean(const std::string& name, const std::optional<bool>& value);
 
     std::string getAsString(const std::string& name) const;
+    std::string getAsString(const std::string& name, const std::string& defaultValue) const;
+    std::string getAsString_ThrowOnEmpty(const std::string& name) const;
 
     std::optional<int> getAsInteger(const std::string& name) const;
     int getAsInteger(const std::string& name, int defaultValue) const;
@@ -136,6 +138,10 @@ class Row
     std::optional<TDateTime> getAsDateTime(const std::string& name) const;
     TDateTime getAsDateTime(const std::string& name, TDateTime defaultValue) const;
     TDateTime getAsDateTime_ThrowOnEmpty(const std::string& name) const;
+
+    std::optional<double> getAsDouble(const std::string& name) const;
+    double getAsDouble(const std::string& name, double defaultValue) const;
+    double getAsDouble_ThrowOnEmpty(const std::string& name) const;
 };
 
 void setRowId(const std::string& fieldName,

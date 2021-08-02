@@ -1,0 +1,31 @@
+LOAD DATA
+INFILE *
+INTO TABLE validator_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+,code_lat
+)
+BEGINDATA
+"НН"|"НН"|"NN"|"NN"
+"У6"|"У6"||"U6"
+"ТКП"|"Валидатор ТКП"||"TCH"
+"ИАТА"|"Валидатор IATA"||"IATA"
+"ЮТ"|"Валидатор а/к ЮТ"||"UT"
+"ЮХ"|"Валидатор а/к ЮХ"||"N2"
+"ЛА"|"Валидатор а/к ЯМАЛ"||"YC"
+"ОП"|"ОП"||"4G"
+"5Н"|"5Н"||"5N"
+"РГ"|"РГ"||"7R"
+"Р2"|"Р2"||"R2"
+"ЮР"|"ЮР"||"UR"
+"РЛ"|"РЛ"||"RK"
+"7К"|"7К"||"7K"
+"ЯМ"|"ЯМ"||"6R"
+"СП"|"СП"||"TOF"
+"ЯЛ"|"ЯМАЛ"||
+"ПЛ"|"ПЛ"|"FV"|"FV"

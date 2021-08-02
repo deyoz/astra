@@ -1282,6 +1282,251 @@ SELECT table_id, row_ident, open_user, open_desk, close_user, close_desk FROM hi
 ------------------- END history_events DUMP COUNT=2 -------------------
 $()
 
+%%
+
+### test 7
+### VALIDATOR_TYPES, FORM_PACKS
+#########################################################################################
+
+$(init_term)
+
+!! capture=on err=ignore
+$(cache PIKE EN VALIDATOR_TYPES "" "")
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>5Н</col>
+          <col>5N</col>
+          <col>5Н</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>7К</col>
+          <col>7K</col>
+          <col>7К</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ИАТА</col>
+          <col>IATA</col>
+          <col>Валидатор IATA</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЛА</col>
+          <col>YC</col>
+          <col>Валидатор а/к ЯМАЛ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>НН</col>
+          <col>NN</col>
+          <col>НН</col>
+          <col>NN</col>
+        </row>
+        <row pr_del='0'>
+          <col>ОП</col>
+          <col>4G</col>
+          <col>ОП</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ПЛ</col>
+          <col>FV</col>
+          <col>ПЛ</col>
+          <col>FV</col>
+        </row>
+        <row pr_del='0'>
+          <col>Р2</col>
+          <col>R2</col>
+          <col>Р2</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>РГ</col>
+          <col>7R</col>
+          <col>РГ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>РЛ</col>
+          <col>RK</col>
+          <col>РЛ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>СП</col>
+          <col>TOF</col>
+          <col>СП</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ТКП</col>
+          <col>TCH</col>
+          <col>Валидатор ТКП</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>У6</col>
+          <col>U6</col>
+          <col>У6</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЮР</col>
+          <col>UR</col>
+          <col>ЮР</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЮТ</col>
+          <col>UT</col>
+          <col>Валидатор а/к ЮТ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЮХ</col>
+          <col>N2</col>
+          <col>Валидатор а/к ЮХ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЯЛ</col>
+          <col/>
+          <col>ЯМАЛ</col>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>ЯМ</col>
+          <col>6R</col>
+          <col>ЯМ</col>
+          <col/>
+        </row>
+      </rows>
+
+
+!! capture=on err=ignore
+$(cache PIKE RU FORM_PACKS "" "")
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>35</col>
+          <col>35</col>
+          <col/>
+          <col>0</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>M61</col>
+          <col>M61</col>
+          <col/>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>Z61</col>
+          <col>Z61</col>
+          <col/>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN FORM_PACKS $(cache_iface_ver FORM_PACKS) ""
+  update curr_no:3512345683          OLD_curr_no:
+         type:35                     OLD_type:35
+         user_id:$(get_user_id PIKE) OLD_user_id:$(get_user_id PIKE)
+  update curr_no:3493857             OLD_curr_no:
+         type:Z61                    OLD_type:Z61
+         user_id:$(get_user_id PIKE) OLD_user_id:$(get_user_id PIKE))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>35</col>
+          <col>35</col>
+          <col>3512345683</col>
+          <col>0</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>M61</col>
+          <col>M61</col>
+          <col/>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>Z61</col>
+          <col>Z61</col>
+          <col>0003493857</col>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN FORM_PACKS $(cache_iface_ver FORM_PACKS) ""
+  update curr_no:                    OLD_curr_no:3512345683
+         type:35                     OLD_type:35
+         user_id:$(get_user_id PIKE) OLD_user_id:$(get_user_id PIKE)
+  update curr_no:66123493857         OLD_curr_no:3493857
+         type:Z61                    OLD_type:Z61
+         user_id:$(get_user_id PIKE) OLD_user_id:$(get_user_id PIKE))
+
+>> lines=auto
+    <data>
+      <code>FORM_PACKS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>35</col>
+          <col>35</col>
+          <col/>
+          <col>0</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>M61</col>
+          <col>M61</col>
+          <col/>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+        <row pr_del='0'>
+          <col>$(get_user_id PIKE)</col>
+          <col>Z61</col>
+          <col>Z61</col>
+          <col>66123493857</col>
+          <col>1</col>
+          <col>10</col>
+          <col>1</col>
+        </row>
+      </rows>
+    </data>
 
 
 

@@ -1,0 +1,32 @@
+LOAD DATA
+INFILE *
+INTO TABLE operators
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+login
+,private_num
+,agency
+,descr
+,pr_denial
+,validator
+,id
+)
+BEGINDATA
+"DJEK"|7|"99ƒ‘"|"Ž•ŽŽ‚ ….…."|0|"’Š"|1
+"DNA"|1550|"99ƒ‘"|"TEXT"|0|"’Š"|2
+"€„ˆ€"|6|"01‘“"|"€„ˆ€ ƒ€‹ˆ€"|0|"’Š"|3
+"NATALIA"|511|"99ƒ‘"|"‘…ƒˆ…ŠŽ ."|0|"’Š"|4
+"VOLAND"|1413|"01‘“"|"‚Ž‹€„"|0|"’Š"|5
+"VOLAND"|1413|"01‘“"|"‚Ž‹€„"|0|"ž’"|6
+"DEN"|8|"02’žŒ"|"ZAKHAROFF"|0|"ž’"|7
+"VLAD"|240|"99ƒ‘"|"—ˆ—…Ž‚ ‚.‚."|0|"’Š"|8
+"DEN"|5|"01Œ"|"‡€•€Ž‚ „."|0|"’Š"|9
+"DEN"|5|"99ƒ‘"|"DEY"|0|"ž•"|10
+"€„ˆ€"|6|"02’žŒ"|"€„ˆ€ ƒ€‹ˆ€"|0|"ž’"|11
+"€„ˆ€"|6|"99ƒ‘"|"€„ˆ€ ƒ€‹ˆ€"|0|"ž•"|12
+"0501"|501|"01‘“"|"’…‘’ˆŠ"|0|"’Š"|13
+"DEN"|3|"01“ƒ"|"LLL"|0|"‹€"|14
+"DEN"|9|"99ƒ‘"|"‚“’"|0|"‹"|515412
+"PIKE"|1234|"99ƒ‘"|"ŠŽ‚€‹…‚ ."|0|"’Š"|537188

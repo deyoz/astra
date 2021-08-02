@@ -229,6 +229,20 @@ void checkNotNullStageAccess(const std::string& stageIdFieldName,
 } //namespace CacheTable
 
 template<>
+void Access<DeskGrpId_t>::init()
+{
+  totally_permitted=TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+                    TReqInfo::Instance()->user.access.airps().totally_permitted();
+}
+
+template<>
+void Access<DeskCode_t>::init()
+{
+  totally_permitted=TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+                    TReqInfo::Instance()->user.access.airps().totally_permitted();
+}
+
+template<>
 void Access<DeskGrpId_t>::downloadPermissions()
 {
   permitted.emplace();
@@ -330,6 +344,40 @@ void ViewAccess<DeskCode_t>::downloadPermissions()
      .exec();
 
   while (!cur.fen()) permitted.value().emplace(desk);
+}
+
+template<>
+void Access<ValidatorCode_t>::init()
+{
+  totally_permitted=false;
+}
+
+template<>
+void Access<ValidatorCode_t>::downloadPermissions()
+{
+  permitted.emplace();
+
+  ostringstream sql;
+  sql << "SELECT validator FROM operators WHERE login=:login AND pr_denial=0";
+
+  if (id_) sql << " AND validator=:validator";
+
+  auto cur = make_db_curs(sql.str(), PgOra::getROSession("OPERATORS"));
+
+  if (id_) cur.bind(":validator", id_.value().get());
+
+  std::string validator;
+  cur.bind(":login", TReqInfo::Instance()->user.login)
+     .def(validator)
+     .exec();
+
+  while (!cur.fen()) permitted.value().emplace(validator);
+}
+
+template<>
+void ViewAccess<ValidatorCode_t>::downloadPermissions()
+{
+  permitted.emplace();
 }
 
 namespace CacheTable

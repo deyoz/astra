@@ -1456,23 +1456,6 @@ BEGIN
   END IF;
 END check_apis_sets;
 
-FUNCTION check_validator_access(vvalidator IN validator_types.code%TYPE,
-                                vuser_id  IN users2.user_id%TYPE) RETURN NUMBER
-IS
-res             NUMBER(1);
-BEGIN
-  res:=0;
-  SELECT 1 INTO res FROM users2,operators
-  WHERE users2.login=operators.login AND
-        users2.user_id=vuser_id AND
-        users2.pr_denial=0 AND
-        operators.pr_denial=0 AND
-        operators.validator=vvalidator;
-  RETURN res;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN 0;
-END check_validator_access;
-
 FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,
                                vuser_id IN users2.user_id%TYPE) RETURN NUMBER
 IS

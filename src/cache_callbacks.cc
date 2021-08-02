@@ -438,9 +438,27 @@ Row& Row::setFromBoolean(const std::string& name, const std::optional<bool>& val
   return *this;
 }
 
-std::string Row::getAsString(const std::string& name) const
+string Row::getAsString(const string& name) const
 {
   return fieldValue(name, __func__);
+}
+
+string Row::getAsString(const string& name, const string& defaultValue) const
+{
+  const string value = getAsString(name);
+  if (value.empty()) {
+    return defaultValue;
+  }
+  return value;
+}
+
+string Row::getAsString_ThrowOnEmpty(const string& name) const
+{
+  const string value = getAsString(name);
+  if (value.empty()) {
+    throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
+  }
+  return value;
 }
 
 std::optional<int> Row::getAsInteger(const std::string& name) const
@@ -527,6 +545,36 @@ TDateTime Row::getAsDateTime(const string& name, TDateTime defaultValue) const
 TDateTime Row::getAsDateTime_ThrowOnEmpty(const string& name) const
 {
   const std::optional<TDateTime> value = getAsDateTime(name);
+  if (!value) {
+    throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
+  }
+  return *value;
+}
+
+std::optional<double> Row::getAsDouble(const std::string& name) const
+{
+  string value=fieldValue(name, __func__);
+  if (value.empty()) return std::nullopt;
+
+  double d;
+  if (StrToFloat( value.c_str(), d ) == EOF)
+    throw EConvertError("%s: cannot convert field '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return d;
+}
+
+double Row::getAsDouble(const string& name, double defaultValue) const
+{
+  const std::optional<double> value = getAsDouble(name);
+  if (!value) {
+    return defaultValue;
+  }
+  return *value;
+}
+
+double Row::getAsDouble_ThrowOnEmpty(const string& name) const
+{
+  const std::optional<double> value = getAsDouble(name);
   if (!value) {
     throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
   }

@@ -58,6 +58,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="AIRLINE_PROFILES")    return new CacheTable::AirlineProfiles;
   if (cacheCode=="EXTRA_ROLE_ACCESS")   return new CacheTable::ExtraRoleAccess;
   if (cacheCode=="EXTRA_USER_ACCESS")   return new CacheTable::ExtraUserAccess;
+  if (cacheCode=="VALIDATOR_TYPES")     return new CacheTable::ValidatorTypes;
+  if (cacheCode=="FORM_TYPES")          return new CacheTable::FormTypes;
+  if (cacheCode=="FORM_PACKS")          return new CacheTable::FormPacks;
+  if (cacheCode=="OPERATORS")           return new CacheTable::Operators;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -2098,6 +2102,199 @@ void ExtraUserAccess::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                               const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("extra_user_access").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//ValidatorTypes
+
+bool ValidatorTypes::userDependence() const {
+  return false;
+}
+std::string ValidatorTypes::selectSql() const {
+  return "SELECT code, code_lat, name, name_lat FROM validator_types ORDER BY code";
+}
+std::list<std::string> ValidatorTypes::dbSessionObjectNames() const {
+  return {"VALIDATOR_TYPES"};
+}
+
+//FormTypes
+
+bool FormTypes::userDependence() const {
+  return false;
+}
+std::string FormTypes::selectSql() const {
+  return
+   "SELECT code, basic_type, name, name_lat, series_len, no_len, pr_check_bit, validator, id "
+   "FROM form_types "
+   "ORDER BY code";
+}
+std::string FormTypes::insertSql() const {
+  return "insert into form_types(code, name, name_lat, series_len, no_len, pr_check_bit, validator, basic_type, id) "
+         "values(:code, :name, :name_lat, :series_len, :no_len, :pr_check_bit, :validator, :basic_type, :id)";
+}
+std::string FormTypes::updateSql() const {
+  return "";
+}
+std::string FormTypes::deleteSql() const {
+  return "delete from form_types where code = :OLD_code";
+}
+std::list<std::string> FormTypes::dbSessionObjectNames() const {
+  return {"FORM_TYPES"};
+}
+
+void FormTypes::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  setRowId("id", status, newRow);
+}
+
+void FormTypes::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("form_types").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//FormPacks
+
+bool FormPacks::userDependence() const {
+  return true;
+}
+bool FormPacks::updateImplemented() const {
+  return true;
+}
+
+void FormPacks::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery Qry(PgOra::getROSession({"FORM_TYPES", "FORM_PACKS"}), STDLOG);
+
+  Qry.SQLText=
+    "SELECT form_types.code AS type, "
+    "       form_types.basic_type, "
+    "       form_types.series_len, "
+    "       form_types.no_len, "
+    "       form_types.pr_check_bit, "
+    "       form_types.validator, "
+    "       form_packs.curr_no "
+    "FROM form_types LEFT OUTER JOIN form_packs "
+    "ON form_types.code=form_packs.type AND form_packs.user_id=:user_id "
+    "ORDER BY type";
+  Qry.CreateVariable("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  int idxType=Qry.FieldIndex("type");
+  int idxBasicType=Qry.FieldIndex("basic_type");
+  int idxSeriesLen=Qry.FieldIndex("series_len");
+  int idxNoLen=Qry.FieldIndex("no_len");
+  int idxPrCheckBit=Qry.FieldIndex("pr_check_bit");
+  int idxValidator=Qry.FieldIndex("validator");
+  int idxCurrNo=Qry.FieldIndex("curr_no");
+
+  ViewAccess<ValidatorCode_t> validatorViewAccess;
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    ValidatorCode_t validatorCode(Qry.FieldAsString(idxValidator));
+
+    if (!validatorViewAccess.check(validatorCode)) continue;
+
+    string currNoStr;
+    if (!Qry.FieldIsNULL(idxCurrNo))
+      currNoStr = StrUtils::LPad(FloatToString(Qry.FieldAsFloat(idxCurrNo), 0),
+                                 Qry.FieldAsInteger(idxNoLen),
+                                 '0');
+
+    rows.setFromInteger(TReqInfo::Instance()->user.user_id)
+        .setFromString(Qry, idxType)
+        .setFromString(Qry, idxBasicType)
+        .setFromString(currNoStr)
+        .setFromInteger(Qry, idxSeriesLen)
+        .setFromInteger(Qry, idxNoLen)
+        .setFromBoolean(Qry, idxPrCheckBit)
+        .addRow();
+  }
+}
+
+void FormPacks::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                     const std::optional<CacheTable::Row>& oldRow,
+                                     const std::optional<CacheTable::Row>& newRow) const
+{
+  if (status==usModified)
+  {
+    std::optional<double> currNo=newRow.value().getAsDouble("curr_no");
+    int userId=oldRow.value().getAsInteger_ThrowOnEmpty("user_id");
+    string type=oldRow.value().getAsString_ThrowOnEmpty("type");
+    if (!currNo)
+    {
+      auto cur=make_db_curs("DELETE FROM form_packs WHERE user_id=:user_id AND type=:type",
+                            PgOra::getRWSession("FORM_PACKS"));
+
+      cur.bind(":user_id", userId)
+         .bind(":type", type)
+         .exec();
+    }
+    else
+    {
+      auto cur=make_db_curs("UPDATE form_packs SET curr_no=:curr_no WHERE user_id=:user_id AND type=:type",
+                            PgOra::getRWSession("FORM_PACKS"));
+
+      cur.bind(":user_id", userId)
+         .bind(":type", type)
+         .bind(":curr_no", currNo.value())
+         .exec();
+
+      if (cur.rowcount()==0)
+      {
+        auto cur=make_db_curs("INSERT INTO form_packs(user_id, type, curr_no) VALUES(:user_id, :type, :curr_no)",
+                              PgOra::getRWSession("FORM_PACKS"));
+
+        cur.bind(":user_id", userId)
+           .bind(":type", type)
+           .bind(":curr_no", currNo.value())
+           .exec();
+      }
+    }
+  }
+}
+
+//Operators
+
+bool Operators::userDependence() const {
+  return false;
+}
+std::string Operators::selectSql() const {
+  return "SELECT login, private_num, agency, validator, descr, pr_denial, id FROM operators ORDER BY login";
+}
+std::string Operators::insertSql() const {
+  return "INSERT INTO operators(login, private_num, agency, validator, descr, pr_denial, id) "
+         "VALUES(:login, :private_num, :agency, :validator, :descr, :pr_denial, :id)";
+}
+std::string Operators::updateSql() const {
+  return "UPDATE operators "
+         "SET login=:login, private_num=:private_num, agency=:agency, validator=:validator, descr=:descr, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id";
+}
+std::string Operators::deleteSql() const {
+  return "DELETE FROM operators WHERE id=:OLD_id";
+}
+std::list<std::string> Operators::dbSessionObjectNames() const {
+  return {"OPERATORS"};
+}
+
+void Operators::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  setRowId("id", status, newRow);
+}
+
+void Operators::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("operators").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables

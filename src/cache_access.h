@@ -20,6 +20,8 @@ bool isPermitted(const std::optional<AirportCode_t>& airportOpt);
 bool isPermitted(const std::optional<AirlineCode_t>& airlineOpt);
 bool isPermitted(const std::optional<CityCode_t>& cityOpt);
 
+DECL_RIP_LENGTH(ValidatorCode_t, std::string, 1, 4);
+
 namespace CacheTable
 {
 
@@ -52,7 +54,7 @@ class Access
     void init();
     void downloadPermissions();
   protected:
-    bool totally_permitted;
+    bool totally_permitted=false;
   public:
     Access() { init(); }
     Access(const T& id) : id_(id) { init(); }
@@ -72,13 +74,6 @@ class ViewAccess : public Access<T>
       Access<T>(id), id_(id) {};
     bool check(const T& id);
 };
-
-template<class T>
-void Access<T>::init()
-{
-  totally_permitted=TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
-                    TReqInfo::Instance()->user.access.airps().totally_permitted();
-}
 
 template<class T>
 bool Access<T>::check(const T& id)
