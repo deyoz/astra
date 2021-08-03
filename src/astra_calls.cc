@@ -59,10 +59,10 @@ using namespace BASIC::date_time;
         try {\
             return func(reqNode, detailsNode);\
         } catch(std::exception& e) {\
-            LogError(STDLOG) << "Exception cathed during call '" << func_name << "'. " << e.what();\
+            LogError(STDLOG) << "Exception caught during call '" << func_name << "'. " << e.what();\
             NewTextChild(resNode, "error", "Internal error occured during call '" + func_name + "'");\
         } catch(...) {\
-            LogWarning(STDLOG) << "Unknown exception catched during call '" << func_name << "'";\
+            LogWarning(STDLOG) << "Unknown exception caught during call '" << func_name << "'";\
             NewTextChild(resNode, "error", "Internal error occured during call '" + func_name + "'");\
         }\
         RemoveNode(detailsNode);\

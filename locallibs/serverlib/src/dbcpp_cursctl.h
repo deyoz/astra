@@ -61,6 +61,8 @@ namespace DbCpp
 
     class CursCtl
     {
+        template<typename... T, size_t... I> CursCtl& _into_impl(std::tuple<T...>& t, std::index_sequence<I...>) { (..., def<T>(std::get<I>(t), nullptr)); return *this; };
+
     public:
         CursCtl(Session& sess, const char* n, const char* f, int l, const char* sql,
                 bool cacheit = true);
@@ -125,6 +127,8 @@ namespace DbCpp
         {
             return bindArray(n, t.data(), N, ind);
         }
+        template<typename... T> CursCtl& into(T&... t) { (... , def<T>(t, nullptr)); return *this; }
+        template<typename... T> CursCtl& into(std::tuple<T...>& t) { return _into_impl(t, std::index_sequence_for<T...>{}); };
 
         template <typename T> CursCtl& def(T& t, short* ind = 0) { return def_(t, ind); }
         template <typename T, typename U> CursCtl& defNull(T& t, const U& defVal)
@@ -169,6 +173,7 @@ namespace DbCpp
         defineType(float);
         defineType(double);
         defineType(std::string);
+        defineType(std::string_view);
         defineType(boost::gregorian::date);
         defineType(boost::posix_time::ptime);
 

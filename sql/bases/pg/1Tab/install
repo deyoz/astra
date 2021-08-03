@@ -1,8 +1,8 @@
 #!/bin/bash -e
-
+set -euo pipefail
 PASS=${1?NO_PASSWORD}
 
-CMD="psql --no-psqlrc ${PASS}"
+CMD="psql --no-psqlrc -v ON_ERROR_STOP=ON ${PASS}"
 
 rm -f ok oldlog2 now.run
 if  [ -f oldlog1 ] ; then

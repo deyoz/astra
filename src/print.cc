@@ -1788,12 +1788,22 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     Print=mso_form;
 }
 
-
-string get_validator(const TBagReceipt &rcpt, bool pr_lat)
+static auto read_operator_regalia(std::string const& login, std::string const& validator_type, std::string const& form_type)
 {
-    ostringstream validator;
-    string agency, sale_point_city, sale_point;
-    int private_num;
+    auto c = make_db_curs("SELECT private_num, agency FROM operators "
+                          "WHERE login=:login AND validator=:validator AND pr_denial=0",
+                          PgOra::getROSession("OPERATORS"));
+    std::tuple<int,std::string> row;
+    c.bind(":login",login).bind(":validator",validator_type).into(row).EXfet();
+    if(c.err() == DbCpp::ResultCode::NoDataFound)
+        throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_USER", LParams() << LParam("form", form_type));
+    return row;
+}
+
+std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
+{
+    std::ostringstream validator;
+    std::string agency, sale_point_city, sale_point;
 
     TTagLang tag_lang;
     tag_lang.Init(rcpt, pr_lat);
@@ -1833,17 +1843,9 @@ string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     agency = Qry.FieldAsString("agency");
     sale_point_city = Qry.FieldAsString("city");
 
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT private_num, agency FROM operators "
-        "WHERE login=:login AND validator=:validator AND pr_denial=0";
-    Qry.CreateVariable("login",otString,reqInfo->user.login);
-    Qry.CreateVariable("validator", otString, validator_type);
-    Qry.Execute();
-    if(Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_USER", LParams() << LParam("form", rcpt.form_type));
-    private_num = Qry.FieldAsInteger("private_num");
-    ProgTrace(TRACE5, "AGENCIES: %s %s", agency.c_str(), Qry.FieldAsString("agency"));
-    if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
+    auto const [private_num, opr_agency] = read_operator_regalia(reqInfo->user.login, validator_type, rcpt.form_type);
+    LogTrace(TRACE5) << "AGENCIES: " << agency << ' ' << opr_agency;
+    if(agency != opr_agency) // Агентство пульта не совпадает с агентством кассира
         throw AstraLocale::UserException("MSG.DESK_AGENCY_NOT_MATCH_THE_USER_ONE");
 
     const TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);

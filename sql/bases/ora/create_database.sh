@@ -1,11 +1,11 @@
-#!/bin/sh -e
-
+#!/bin/bash
+set -euo pipefail
 if [ -z "$CONNECT_STRING" ];
 then
     export CONNECT_STRING=$1
 fi
-
-if [ -z "$CONNECT_STRING" -a -n "$TOP_SRCDIR" ];
+set -x
+if [ -z "$CONNECT_STRING" -a -n ${TOP_SRCDIR:+isset} ];
 then
     . $TOP_SRCDIR/connection.mk
     export CONNECT_STRING
@@ -18,6 +18,8 @@ then
 fi
 
 export PATH=$PATH:$ORACLE_HOME/bin
+
+[[ $CONNECT_STRING = *@* && -z ${SYSPAROL:+isset} ]] && SYSPAROL=system/manager@${CONNECT_STRING#*@}
 SYSPAROL=${SYSPAROL:-system/manager}
 if sqlplus /nolog </dev/null 2>&1 | grep     'Release 9' ; then
     SYSCMD="connect $SYSPAROL as sysdba"
@@ -48,14 +50,13 @@ EOF
 
 baseDir=`pwd`
 for dir in `ls | LC_ALL="C" grep '^[0-9][A-Za-z].*' | sort`; do
-    echo "entering $dir"
+    (echo "entering $dir"
+    set -e
     cd $dir
     if [ -f ./install ]; then
         ./install $CONNECT_STRING
     else
         $baseDir/definstall $CONNECT_STRING
     fi
-    touch ok
-    cd ..
+    touch ok)
 done
-

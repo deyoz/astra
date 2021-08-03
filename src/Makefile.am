@@ -17,6 +17,8 @@ astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@ @LIBTYPEB_LDFLAGS@
 install-edimessages:
 	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
 
+print-%:
+	@echo $*=$($*)
 
 clean-xp-tests:
 	@if [ ! -d ./Cores ]; then \

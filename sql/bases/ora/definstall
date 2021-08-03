@@ -1,15 +1,25 @@
 #!/bin/bash
+set -euo pipefail
 rm -f ok
+
+proc_file() {
+    # set -euo pipefail
+    echo "running $@"
+    [[ ${QUIET:-0} == 1 ]] && silent="-S" || silent=
+    { echo whenever sqlerror exit 3\;; cat $1; } | sqlplus $silent $2
+}
+# export -f proc_file
 
 function rundir {
 for f in `ls *.sql` ; do
     rm -f log
-    echo "running $f" && sqlplus $1 @$f </dev/null 2>&1 | tee -a log
-    grep "[A-Z0-9]\+-[0-9]\+" log > /dev/null && echo "error in $f" && exit 1
+    proc_file $f $1 2>&1 | tee -a log
+    if grep "[A-Z0-9]\+-[0-9]\+" log > /dev/null ; then
+        echo "error in $f"
+        exit 1
+    fi
 done
 }
 
 rundir $1
-[ -d ets ] && (cd ets && rundir $1)
-
-exit 0
+if [ -d ets ] ; then (cd ets && rundir $1) ; fi

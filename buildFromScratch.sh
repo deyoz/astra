@@ -237,7 +237,7 @@ if [ `expr match "$CONNECT_STRING" "^-.*\$"` -ne 0 ]; then
     exit 1
 fi
 
-if [ "$quiet" = "1" ]; then db_out_stream="/dev/null"; else db_out_stream="/dev/stdout"; fi
+# if [ "$quiet" = "1" ]; then db_out_stream="/dev/null"; else db_out_stream="/dev/stdout"; fi
 if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 
 if [ "$build_external_libs" = "1" ]; then
@@ -294,6 +294,7 @@ if [ "$createtcl" = "1" ]; then
     checkresult createtcl $?
 fi
 if [ "$createdb" = "1" ]; then
+    QUIET=${quiet:-0} \
     PG_CONNECT_STRING=$PG_CONNECT_STRING \
     PG_CONNECT_STRING_ARX=$PG_CONNECT_STRING_ARX \
     bin/createdb.sh ${TEST_J:-1}

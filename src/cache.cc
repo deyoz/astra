@@ -683,7 +683,7 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     FieldsForLogging fieldsForLogging; //заполняется, но не используется
     ASSERT(PgOra::areROSessionsEqual(dbSessionObjectNames));
     DB::TQuery Qry(PgOra::getROSession(dbSessionObjectNames.front()), STDLOG);
-    vector<string>::iterator f;
+
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry.SQLText = SelectSQL;
       query_type = cqtSelect;
@@ -1670,7 +1670,6 @@ TCacheConvertType TCacheField2::cacheConvertType() const
 
 void TCacheTable::DeclareVariables(const std::set<string> &vars, DB::TQuery& Qry)
 {
-  vector<string>::const_iterator f;
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
     string VarName;
     for( int i = 0; i < 2; i++ ) {
