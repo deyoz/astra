@@ -1924,7 +1924,55 @@ static void handleIatciCkuPax(const PointId_t& pointDep,
     paxSeg.passengers.push_back(newPax);
 }
 
-static void updateBaggageQuery(XmlSegment& seg, std::list<XmlSegment>& trferSegs,
+//---------------------------------------------------------------------------------------
+
+static std::vector<int> getBagPoolNums(const XmlSegment& paxSeg)
+{
+    std::vector<int> poolNums;
+    for(auto pax: paxSeg.passengers) {
+        LogTrace(TRACE3) << "involved bag_pool_num=" << pax.bag_pool_num
+                         << "(" << pax.surname << "/" << pax.name << ")";
+        if(pax.bag_pool_num != ASTRA::NoExists) {
+            poolNums.push_back(pax.bag_pool_num);
+        }
+    }
+
+    return poolNums;
+}
+
+static std::vector<int> getBagPoolNums(const PointId_t& pointDep,
+                                       const GrpId_t& grpId)
+{
+    LoadPaxXmlResult oldLoadGrpXmlRes = AstraEngine::singletone().LoadGrp(pointDep, grpId);
+    ASSERT(!oldLoadGrpXmlRes.lSeg.empty());
+    return getBagPoolNums(oldLoadGrpXmlRes.lSeg.front());
+}
+
+static std::vector<int> getPaxIds(const XmlSegment& paxSeg)
+{
+    std::vector<int> paxIds;
+    for(auto pax: paxSeg.passengers) {
+        LogTrace(TRACE3) << "involved pax_id=" << pax.pax_id
+                         << "(" << pax.surname << "/" << pax.name << ")";
+
+        paxIds.push_back(pax.pax_id);
+    }
+
+    return paxIds;
+}
+
+//---------------------------------------------------------------------------------------
+
+static int getFirstFreeBagPoolNum(int curBagPoolNum, const std::vector<int>& poolNums)
+{
+    for(++curBagPoolNum; algo::contains(poolNums, curBagPoolNum); curBagPoolNum++);
+    return curBagPoolNum;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void updateBaggageQuery(const std::vector<int>& existingPoolNums,
+                               XmlSegment& seg, std::list<XmlSegment>& trferSegs,
                                XmlBags& bags, XmlBagTags& bagTags)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -1947,22 +1995,40 @@ static void updateBaggageQuery(XmlSegment& seg, std::list<XmlSegment>& trferSegs
         LogTrace(TRACE3) << "associate pax " << bagTag.pax_id << " with " << bagTag;
     }
 
+    int curBagPoolNum = 0;
+    std::map<int, int> paxBagPoolNums;
+    for(auto& pax: seg.passengers)
+    {
+        if(!algo::contains(bagPaxIds, pax.pax_id)) continue;
 
-    int curBagNum = 0, curBagPoolNum = 0;
+        int bagPoolNum = 0;
+        if(pax.bag_pool_num != ASTRA::NoExists) {
+            bagPoolNum = pax.bag_pool_num;
+        } else {
+            bagPoolNum = getFirstFreeBagPoolNum(curBagPoolNum, existingPoolNums);
+        }
+        curBagPoolNum = bagPoolNum;
+
+        paxBagPoolNums.emplace(pax.pax_id, bagPoolNum);
+        LogTrace(TRACE3) << "associate pax " << pax.pax_id << " with bag_pool_num=" << bagPoolNum;
+    }
+
+
+    int curBagNum = 0;
     for(int paxId: bagPaxIds)
     {
         auto range = paxBags.equal_range(paxId);
-        ++curBagPoolNum;
+        int bagPoolNum = paxBagPoolNums.at(paxId);
         for(auto it = range.first; it != range.second; ++it)
         {
             it->second->num          = ++curBagNum;
             it->second->airline      = seg.mark_flight.airline;
-            it->second->bag_pool_num = curBagPoolNum;
+            it->second->bag_pool_num = bagPoolNum;
         }
 
         for(auto& pax: seg.passengers) {
             if(pax.pax_id == paxId) {
-                pax.bag_pool_num = curBagPoolNum;
+                pax.bag_pool_num = bagPoolNum;
             }
         }
     }
@@ -2069,35 +2135,6 @@ static const BaseTables::Company awkByAccode(const std::string& accode)
 
 //---------------------------------------------------------------------------------------
 
-static std::vector<int> getBagPoolNums(const XmlSegment& paxSeg)
-{
-    std::vector<int> poolNums;
-    for(auto pax: paxSeg.passengers) {
-        LogTrace(TRACE3) << "involved bag_pool_num=" << pax.bag_pool_num
-                         << "(" << pax.surname << "/" << pax.name << ")";
-        if(pax.bag_pool_num != ASTRA::NoExists) {
-            poolNums.push_back(pax.bag_pool_num);
-        }
-    }
-
-    return poolNums;
-}
-
-static std::vector<int> getPaxIds(const XmlSegment& paxSeg)
-{
-    std::vector<int> paxIds;
-    for(auto pax: paxSeg.passengers) {
-        LogTrace(TRACE3) << "involved pax_id=" << pax.pax_id
-                         << "(" << pax.surname << "/" << pax.name << ")";
-
-        paxIds.push_back(pax.pax_id);
-    }
-
-    return paxIds;
-}
-
-//---------------------------------------------------------------------------------------
-
 iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -2176,6 +2213,7 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
         paxSeg.host_details = makeHostDetails(ckuParams);
 
         LoadPaxXmlResult oldLoadPaxXmlRes = LoadPax__(pointDep, paxGroups.front().pax());
+        ASSERT(!oldLoadPaxXmlRes.lSeg.empty());
 
         auto involvedBagPoolNums = getBagPoolNums(paxSeg);
         auto involvedPaxIds      = getPaxIds(paxSeg);
@@ -2193,7 +2231,8 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
                                   involvedPaxIds);
             ASSERT(bagTags);
             ASSERT(bags->totalAmount() == bagTags->bagTags.size());
-            updateBaggageQuery(paxSeg, trferSegs, bags.get(), bagTags.get());
+            auto existingPoolNums = getBagPoolNums(pointDep, GrpId_t(oldLoadPaxXmlRes.lSeg.front().seg_info.grp_id));
+            updateBaggageQuery(existingPoolNums, paxSeg, trferSegs, bags.get(), bagTags.get());
             copyBagPoolNums(paxSeg, trferSegs);
         }
 
