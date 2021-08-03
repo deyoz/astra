@@ -84,7 +84,8 @@ void TPaxList::fromDB()
     string SQLText =
         "select  pax_grp.excess_wt, pax_grp.bag_refuse, "
         "   nvl2(pax.grp_id, NULL, pax_grp.grp_id) empty_pax_grp_id, "
-        "   pax.* ";
+        "   pax.*, "
+        "   0 AS excess_pc ";
     SQLText +=
         "from pax_grp, pax where "
         "   pax_grp.point_dep = :point_id and "
