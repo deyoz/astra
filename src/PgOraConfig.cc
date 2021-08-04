@@ -130,6 +130,7 @@ namespace PgOra
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
                                       "DEV_SESS_TYPES",   "DEV_FMT_TYPES","DEV_MODELS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
+                                      "FORM_TYPES",       "FORM_PACKS"
         } },
         { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_BP", "TRIP_SETS", "TRIP_STATIONS"
                                     "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_BT", "TRIP_HALL",

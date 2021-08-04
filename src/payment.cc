@@ -1329,14 +1329,13 @@ void PaymentInterface::PutReceiptToXML(const TBagReceipt &rcpt, int rcpt_id, boo
 
 double PaymentInterface::GetCurrNo(int user_id, const string &form_type)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"FORM_TYPES", "FORM_PACKS"}), STDLOG);
   Qry.SQLText=
     "SELECT curr_no "
-    "FROM form_types,form_packs "
-    "WHERE form_types.code=form_packs.type(+) AND "
-    "      form_types.code=:form_type AND "
-    "      form_packs.user_id(+)=:user_id";
+    "FROM form_types "
+    "LEFT OUTER JOIN form_packs "
+    "ON (form_types.code=form_packs.type AND form_packs.user_id=:user_id) "
+    "WHERE form_types.code=:form_type";
   Qry.CreateVariable("form_type",otString,form_type);
   Qry.CreateVariable("user_id",otInteger,user_id);
   Qry.Execute();
@@ -1985,8 +1984,6 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    TQuery Qry(&OraSession);
-
     TPrnParams prnParams(reqNode);
 
     TBagReceipt rcpt;
@@ -2068,26 +2065,22 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
         double next_no=GetNextNo(rcpt.form_type, rcpt.no);
         //изменяем номер бланка в пачке
-        Qry.Clear();
-        Qry.SQLText=
-            "BEGIN "
-            "  IF :next_no IS NOT NULL THEN "
-            "    UPDATE form_packs SET curr_no=:next_no "
-            "    WHERE user_id=:user_id AND type=:type; "
-            "    IF SQL%NOTFOUND THEN "
-            "      INSERT INTO form_packs(user_id,curr_no,type) "
-            "      VALUES(:user_id,:next_no,:type); "
-            "    END IF; "
-            "  ELSE "
-            "    DELETE FROM form_packs WHERE user_id=:user_id AND type=:type; "
-            "  END IF; "
-            "END;";
+        DB::TQuery Qry(PgOra::getRWSession("FORM_PACKS"), STDLOG);
         Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         Qry.CreateVariable("type",otString,rcpt.form_type);
         if (next_no!=-1.0)
-          Qry.CreateVariable("next_no",otFloat,next_no);
+        {
+            Qry.CreateVariable("next_no",otFloat,next_no);
+            Qry.SQLText = "INSERT INTO form_packs(user_id,curr_no,type) "
+                          "VALUES(:user_id,:next_no,:type) "
+                          "ON CONFLICT (user_id,type) DO UPDATE "
+                          "SET curr_no=:next_no";
+        }
         else
-          Qry.CreateVariable("next_no",otFloat,FNull);
+        {
+            Qry.CreateVariable("next_no",otFloat,FNull);
+            Qry.SQLText = "DELETE FROM form_packs WHERE user_id=:user_id AND type=:type";
+        }
         Qry.Execute();
     }
     else

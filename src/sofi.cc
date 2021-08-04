@@ -95,7 +95,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
   const std::string issue_desk = QryReceipts.FieldAsString("issue_desk");
   const int grp_id = QryReceipts.FieldAsInteger("grp_id");
 
-  DB::TQuery QryFormTypes(PgOra::getRWSession("FORM_TYPES"), STDLOG);
+  DB::TQuery QryFormTypes(PgOra::getROSession("FORM_TYPES"), STDLOG);
   QryFormTypes.SQLText=
     "SELECT form_types.basic_type AS basic_form_type,form_types.validator "
     "FROM form_types "

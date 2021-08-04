@@ -1810,8 +1810,7 @@ std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     TTagLang tag_lang;
     tag_lang.Init(rcpt, pr_lat);
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"FORM_TYPES", "SALE_DESKS", "SALE_POINTS", "OPERATORS"}), STDLOG);
     Qry.SQLText="SELECT validator FROM form_types WHERE code=:code";
     Qry.CreateVariable("code", otString, rcpt.form_type);
     Qry.Execute();
@@ -1819,7 +1818,6 @@ std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     string validator_type=Qry.FieldAsString("validator");
 
     TReqInfo *reqInfo = TReqInfo::Instance();
-    Qry.Clear();
     Qry.SQLText="SELECT sale_point FROM sale_desks "
         "WHERE code=:code AND validator=:validator AND pr_denial=0";
     Qry.CreateVariable("code", otString, reqInfo->desk.code);
@@ -1828,7 +1826,6 @@ std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     if (Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_DESK", LParams() << LParam("form", rcpt.form_type));
     sale_point=Qry.FieldAsString("sale_point");
 
-    Qry.Clear();
     Qry.SQLText=
         "SELECT "
         "   agency, "
