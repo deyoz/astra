@@ -76,7 +76,7 @@ std::optional<HistoryEventId> HistoryTable::addRow(const RowId_t& rowId)
 
   LogTrace(TRACE6) << __func__ << ": " << sql.str();
 
-  auto cur = make_db_curs(sql.str(), PgOra::getRWSession(tableName_));
+  auto cur = make_db_curs(sql.str(), PgOra::getRWSession({tableName_,"HIST_"+tableName_}));
 
   cur.stb()
      .bind(":row_ident", rowId.get())
