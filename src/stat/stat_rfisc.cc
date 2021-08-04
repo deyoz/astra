@@ -4,6 +4,7 @@
 #include "points.h"
 #include "report_common.h"
 #include "stat_utils.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -159,12 +160,11 @@ void get_rfisc_stat(int point_id)
             "    pax_grp.point_dep = points.point_id and "
             "    pax_grp.point_arv = arv_point.point_id and "
             "    pax_grp.grp_id = bag2.grp_id and "
-            "    pax_grp.status NOT IN ('E') and "
-            "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
+            "    pax_grp.status NOT IN ('E') and " +
+            CKIN::bag_pool_not_refused_query() +
 //            "    bag2.pr_cabin = 0 and "
-            "    bag2.is_trfer = 0 and "
+            "    and bag2.is_trfer = 0 and "
             "    bag2.rfisc is not null and "
-            "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+)  and "
             "    pax_grp.grp_id=transfer.grp_id(+) and "
             "    transfer.pr_final(+) <> 0 and "
             "    transfer.point_id_trfer = trfer_trips.point_id(+) and "

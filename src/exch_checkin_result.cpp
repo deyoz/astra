@@ -23,6 +23,8 @@
 #include "payment_base.h"
 #include "rfisc.h"
 #include "baggage_tags.h"
+#include "baggage_ckin.h"
+
 #include <serverlib/xml_stuff.h>
 
 #define NICKNAME "DJEK"
@@ -254,12 +256,8 @@ namespace EXCH_CHECKIN_RESULT
     int col_airp_arv;
     int col_seat_no;
     int col_seats;
-    int col_excess_wt;
+    int col_excess_wt_raw;
     int col_bag_pool_num;
-    int col_rkamount;
-    int col_rkweight;
-    int col_bagamount;
-    int col_bagweight;
     int col_pr_brd;
     int col_client_type;
     int col_time;
@@ -288,12 +286,8 @@ namespace EXCH_CHECKIN_RESULT
       col_airp_arv = ASTRA::NoExists;
       col_seat_no = ASTRA::NoExists;
       col_seats = ASTRA::NoExists;
-      col_excess_wt = ASTRA::NoExists;
+      col_excess_wt_raw = ASTRA::NoExists;
       col_bag_pool_num = ASTRA::NoExists;
-      col_rkamount = ASTRA::NoExists;
-      col_rkweight = ASTRA::NoExists;
-      col_bagamount = ASTRA::NoExists;
-      col_bagweight = ASTRA::NoExists;
       col_pr_brd = ASTRA::NoExists;
       col_client_type = ASTRA::NoExists;
       col_time = ASTRA::NoExists;
@@ -311,17 +305,12 @@ namespace EXCH_CHECKIN_RESULT
           "       pax.subclass, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
           "       pax.seats seats, "
-          "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-          "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
-          "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
-          "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
-          "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
-          "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
           "       pax.bag_pool_num, "
           "       pax.pr_brd, "
           "       pax_grp.status, "
           "       pax_grp.client_type, "
-          "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
+          "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid, "
+          "       pax_grp.excess_wt, pax_grp.bag_refuse "
           " FROM pax_grp, pax"
           " WHERE pax_grp.grp_id=pax.grp_id AND "
           "       pax.pax_id=:pax_id AND "
@@ -331,7 +320,7 @@ namespace EXCH_CHECKIN_RESULT
     int getFltNo( int point_id );
     bool getFlightInfo( int point_id, DB::TQuery &FltQry );
     void getPaxTids( TQuery &PaxQry, PaxData &paxData );
-    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData );
+    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData, const CKIN::BagReader& bag_reader );
     bool virtual is_sync( const TTripInfo &flight ) {
       return true;
     }
@@ -374,12 +363,8 @@ namespace EXCH_CHECKIN_RESULT
     col_airp_arv = (col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" )) >= 0 ?col_airp_arv:ASTRA::NoExists;
     col_seat_no = (col_seat_no = PaxQry.GetFieldIndex( "seat_no" )) >= 0 ?col_seat_no:ASTRA::NoExists;
     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
-    col_excess_wt = (col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt:ASTRA::NoExists;
+    col_excess_wt_raw = (col_excess_wt_raw = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt_raw:ASTRA::NoExists;
     col_bag_pool_num = ( col_bag_pool_num = PaxQry.GetFieldIndex( "bag_pool_num" )) >= 0 ?col_bag_pool_num:ASTRA::NoExists;
-    col_rkamount = (col_rkamount = PaxQry.GetFieldIndex( "rkamount" )) >= 0 ?col_rkamount:ASTRA::NoExists;
-    col_rkweight = (col_rkweight = PaxQry.GetFieldIndex( "rkweight" )) >= 0 ?col_rkweight:ASTRA::NoExists;
-    col_bagamount = (col_bagamount = PaxQry.GetFieldIndex( "bagamount" )) >= 0 ?col_bagamount:ASTRA::NoExists;
-    col_bagweight = (col_bagweight = PaxQry.GetFieldIndex( "bagweight" )) >= 0 ?col_bagweight:ASTRA::NoExists;
     col_pr_brd = (col_pr_brd = PaxQry.GetFieldIndex( "pr_brd" )) >= 0 ?col_pr_brd:ASTRA::NoExists;
     col_client_type = (col_client_type = PaxQry.GetFieldIndex( "client_type" )) >= 0 ?col_client_type:ASTRA::NoExists;
     col_point_id = (col_point_id = PaxQry.GetFieldIndex( "point_id" )) >= 0 ?col_point_id:ASTRA::NoExists;
@@ -508,7 +493,7 @@ namespace EXCH_CHECKIN_RESULT
     ProgTrace( TRACE5, "pax_tid=%d, grp_tid=%d", paxData.tids.pax_tid, paxData.tids.grp_tid );
   }
 
-  void PaxDBData::getPaxData( const Request &request, TQuery &PaxQry, PaxData &paxData )
+   void PaxDBData::getPaxData(const Request &request, TQuery &PaxQry, PaxData &paxData , const CKIN::BagReader &bag_reader)
   {
     paxData.pr_del = PaxQry.Eof;
     if ( paxData.pr_del ) {
@@ -530,13 +515,22 @@ namespace EXCH_CHECKIN_RESULT
     paxData.airp_arv = PaxQry.FieldAsString( col_airp_arv );
     paxData.seat_no = PaxQry.FieldAsString( col_seat_no );
     paxData.seats = PaxQry.FieldAsInteger( col_seats );
-    paxData.excess_wt = PaxQry.FieldAsInteger( col_excess_wt );
+
+    int excess_wt_raw = PaxQry.FieldAsInteger(col_excess_wt_raw);
+    int bag_refuse = PaxQry.FieldAsInteger("bag_refuse");
+    paxData.excess_wt = TBagKilos(CKIN::get_excess_wt(GrpId_t(paxData.grp_id), PaxId_t(paxData.pax_id),
+                            excess_wt_raw, bag_refuse).value_or(NoExists));
+
     paxData.excess_pc = countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger(col_pax_id)));
     paxData.bag_pool_num = PaxQry.FieldAsInteger( col_bag_pool_num );
-    paxData.rkamount = PaxQry.FieldAsInteger( col_rkamount );
-    paxData.rkweight = PaxQry.FieldAsInteger( col_rkweight );
-    paxData.bagamount = PaxQry.FieldAsInteger( col_bagamount );
-    paxData.bagweight = PaxQry.FieldAsInteger( col_bagweight );
+
+    std::optional<int> opt_bag_pool_num;
+    if(!PaxQry.FieldIsNULL(col_bag_pool_num)) { opt_bag_pool_num = paxData.bag_pool_num;}
+
+    paxData.rkamount = bag_reader.rkAmount(GrpId_t(paxData.grp_id), opt_bag_pool_num);
+    paxData.rkweight =  bag_reader.rkWeight(GrpId_t(paxData.grp_id), opt_bag_pool_num);
+    paxData.bagamount = bag_reader.bagAmount(GrpId_t(paxData.grp_id), opt_bag_pool_num);
+    paxData.bagweight = bag_reader.bagWeight(GrpId_t(paxData.grp_id), opt_bag_pool_num);
 
     if ( PaxQry.FieldIsNULL( col_pr_brd ) )
       paxData.status = "uncheckin";
@@ -842,6 +836,8 @@ namespace EXCH_CHECKIN_RESULT
       "FROM points "
       "WHERE point_id=:point_id";
     FltQry.DeclareVariable( "point_id", otInteger );
+    using namespace CKIN;
+    std::map<PointId_t, BagReader> bag_readers;
     for ( ;!changePaxIdsQry.Eof && pax_count<=MQRABBIT_TRANSPORT::MAX_SEND_PAXS; changePaxIdsQry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
       count_row++;
       int pax_id = changePaxIdsQry.FieldAsInteger( changePaxIdsDBData.col_pax_id );
@@ -849,6 +845,9 @@ namespace EXCH_CHECKIN_RESULT
         continue; // предыдущий пассажир он же и текущий
       prior_pax_id = pax_id;
       int point_id = changePaxIdsQry.FieldAsInteger( changePaxIdsDBData.col_point_id );
+      if(!algo::contains(bag_readers, PointId_t(point_id))) {
+        bag_readers[PointId_t(point_id)] = BagReader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
+      }
       if ( !paxDBData.getFlightInfo( point_id, FltQry ) ) {
         continue;
       }
@@ -883,7 +882,7 @@ namespace EXCH_CHECKIN_RESULT
       if ( !ret.second ) {
         ret.first->second = paxData.tids;
       }
-      paxDBData.getPaxData( request, PaxQry, paxData );
+      paxDBData.getPaxData( request, PaxQry, paxData, bag_readers[PointId_t(point_id)]);
       pax_count++;
       paxData.toXML( NewTextChild( node, "pax" ) );
     } //end for

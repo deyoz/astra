@@ -17,6 +17,7 @@
 #include "serverlib/oci_err.h"
 #include "franchise.h"
 #include "flt_settings.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -94,7 +95,7 @@ struct TRow {
       point_id=NoExists;
     };
     TRow& fltFromDB(DB::TQuery &Qry);
-    TRow& paxFromDB(TQuery &Qry);
+    TRow& paxFromDB(TQuery &Qry, std::optional<CKIN::BagReader> bag_reader);
     TRow& setPnr(const TPnrAddrs &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &_visa);
@@ -151,7 +152,7 @@ TRow& TRow::fltFromDB(DB::TQuery &Qry)
   return *this;
 };
 
-TRow& TRow::paxFromDB(TQuery &Qry)
+TRow& TRow::paxFromDB(TQuery &Qry, std::optional<CKIN::BagReader> bag_reader)
 {
   airp_arv=Qry.FieldAsString("airp_arv");
   TDateTime landing=Qry.FieldIsNULL("landing")?NoExists:Qry.FieldAsDateTime("landing");
@@ -176,9 +177,20 @@ TRow& TRow::paxFromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   seat_no=Qry.FieldAsString("seat_no");
-  bag_weight=Qry.FieldIsNULL("bag_weight")?NoExists:Qry.FieldAsInteger("bag_weight");
-  rk_weight=Qry.FieldIsNULL("rk_weight")?NoExists:Qry.FieldAsInteger("rk_weight");
-  tags=Qry.FieldAsString("tags");
+  if(bag_reader) {
+      GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+      std::optional<int> opt_bag_pool_num;
+      if(!Qry.FieldIsNULL("bag_pool_num")) {
+          opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+      }
+
+      bag_weight= bag_reader->bagWeight(grp_id, opt_bag_pool_num);
+      rk_weight = bag_reader->rkWeight(grp_id, opt_bag_pool_num);;
+      tags =  bag_reader->tags(grp_id, opt_bag_pool_num, "RU");
+  } else {
+      bag_weight = NoExists;
+      rk_weight = NoExists;
+  }
   operation=Qry.FieldAsString("operation");
   reg_no=Qry.FieldIsNULL("reg_no")?NoExists:Qry.FieldAsInteger("reg_no");
   pax_id=Qry.FieldIsNULL("pax_id")?NoExists:Qry.FieldAsInteger("pax_id");
@@ -448,11 +460,8 @@ void get_transfer_route(int grp_id, TRow &r)
 const char* pax_sql=
   "SELECT "
   "  pax_grp.point_dep AS point_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.grp_id, "
-  "  pax.pax_id, pax.surname, pax.name, pax.reg_no, "
+  "  pax.pax_id, pax.surname, pax.name, pax.reg_no, pax.bag_pool_num, "
   "  salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
-  "  NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
-  "  NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
-  "  ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num) AS tags, "
   "  DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,DECODE(pax.pr_exam,0,'K1','K2'),'K3'),'K0') AS operation, "
   "  NVL(scd_in,NVL(est_in,act_in)) AS landing, 1 AS is_utc "
   "FROM pax_grp, pax, points "
@@ -463,8 +472,6 @@ const char* crs_pax_sql=
   "  crs_pnr.point_id, crs_pnr.airp_arv, crs_pnr.pnr_id, "
   "  crs_pax.pax_id, crs_pax.surname, crs_pax.name, NULL AS reg_no, "
   "  salons.get_crs_seat_no(seat_xname,seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-  "  NULL AS bag_weight, NULL AS rk_weight, "
-  "  NULL AS tags, "
   "  'K0' AS operation, "
   "  NULL AS landing, 0 AS is_utc "
   "FROM crs_pnr,crs_pax,pax "
@@ -510,7 +517,7 @@ void sync_pax_internal(int id,
   //рейс
   int point_id=Qry.FieldAsInteger("point_id");
   get_flight(point_id, row);
-
+  CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
   if (!Qry.Eof)
   {
     get_route_not_rus(point_id, Qry.FieldAsInteger("point_arv"), row);
@@ -520,7 +527,7 @@ void sync_pax_internal(int id,
       int pax_id=Qry.FieldAsInteger("pax_id");
       //пассажир
       check_pax(Qry, pax_id);
-      row.paxFromDB(Qry);
+      row.paxFromDB(Qry, bag_reader);
       //pnr
       row.setPnr(TPnrAddrs().getByPaxIdFast(pax_id));
       //документ
@@ -612,7 +619,7 @@ void sync_crs_pax_internal(int id,
     int pax_id=Qry.FieldAsInteger("pax_id");
     //пассажир
     check_pax(Qry, pax_id);
-    row.paxFromDB(Qry);
+    row.paxFromDB(Qry, std::nullopt);
     //документ
     CheckIn::TPaxDocItem doc;
     LoadCrsPaxDoc(pax_id, doc);

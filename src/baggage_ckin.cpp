@@ -246,7 +246,7 @@ std::optional<PaxId_t> get_main_pax_id2(GrpId_t grp_id, int include_refused, std
 }
 
 std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id,
-                                 std::optional<int> excess_wt, int bag_refuse)
+                                 std::optional<int> excess_wt, std::optional<int> bag_refuse)
 {
 //    LogTrace(TRACE6) << __func__ << " part_key: " << part_key.value_or(not_a_date_time)
 //              << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
@@ -269,7 +269,7 @@ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id,
             return std::nullopt;
         }
     } else {
-        if(bag_refuse == 0) {
+        if(*bag_refuse == 0) {
             if(excess_wt) return excess_wt;
             return std::nullopt;
         } else excess=0;
@@ -804,6 +804,28 @@ void MainPax::saveMainPax(GrpId_t grp_id, PaxId_t pax_id, bool bag_refuse)
     if(!algo::contains(first_paxes, GrpId_t(grp_id))) {
         first_paxes.insert(std::make_pair(GrpId_t{grp_id}, PaxInfo{pax_id, bag_refuse}));
     }
+}
+
+string bag_pool_boarded_query()
+{
+    return  "   pax_grp.bag_refuse = 0 AND "
+            "   (pax_grp.class IS NULL OR EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id  "
+            "                                   AND p.bag_pool_num = bag2.bag_pool_num AND "
+            "                                   p.pr_brd IS NOT NULL AND p.pr_brd <> 0)) ";
+}
+
+string excess_boarded_query()
+{
+    return  "   pax_grp.bag_refuse = 0 AND "
+            "   (pax_grp.class IS NULL OR EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id  "
+            "                                   AND p.pr_brd IS NOT NULL AND p.pr_brd <> 0)) ";
+}
+
+string bag_pool_not_refused_query()
+{
+    return  "  pax_grp.bag_refuse = 0 AND "
+            "  (pax_grp.class IS NULL OR EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+            "                  AND p.bag_pool_num = bag2.bag_pool_num AND p.refuse IS NULL)) ";
 }
 
 }

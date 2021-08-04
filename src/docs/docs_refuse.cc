@@ -31,7 +31,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "       pax.pers_type, "
             "       ticket_no, "
             "       refusal_types.code refuse, "
-            "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+            "       pax.grp_id, pax.bag_pool_num "
             "FROM   pax_grp,pax,refusal_types "
             "WHERE  pax_grp.grp_id=pax.grp_id AND "
             "       pax.refuse = refusal_types.code AND "
@@ -51,8 +51,9 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-        Qry.CreateVariable("lang", otString, rpt_params.GetLang());
         Qry.Execute();
+        using namespace CKIN;
+        BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
@@ -62,7 +63,13 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "refuse", rpt_params.ElemIdToReportElem(etRefusalType, Qry.FieldAsString("refuse"), efmtNameLong));
-            NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
+            GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+            std::optional<int> opt_bag_pool_num;
+            if(!Qry.FieldIsNULL("bag_pool_num"))
+                opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+
+            NewTextChild(rowNode, "tags", bag_reader.tags(grp_id, opt_bag_pool_num, rpt_params.GetLang()));
 
             Qry.Next();
         }

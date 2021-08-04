@@ -4,6 +4,7 @@
 #include "passenger.h"
 #include "report_common.h"
 #include "stat/stat_utils.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -464,11 +465,9 @@ void get_stat_ad(int point_id)
             PgOra::getROSession({"POINTS","PAX_GRP","PAX"}), // salons.get_seat_no
             "SELECT "
             "   pax_grp.*, "
-            "   COALESCE(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
-            "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,0) AS seat_no, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,1) AS seat_no_lat, "
-            "   pax.pax_id, "
+            "   pax.pax_id, pax.bag_pool_num, "
             "   points.scd_out "
             "FROM "
             "   points, "
@@ -528,6 +527,8 @@ void get_stat_ad(int point_id)
           insQryParams,
           STDLOG);
     Qry.get().Execute();
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
     for(; not Qry.get().Eof; Qry.get().Next()) {
         int pax_id = Qry.get().FieldAsInteger("pax_id");
         TPaxEvent pe;
@@ -542,23 +543,19 @@ void get_stat_ad(int point_id)
             insQry.get().SetVariable("pnr", pnr);
             insQry.get().SetVariable("class", grp.cl);
             insQry.get().SetVariable("client_type", EncodeClientType(grp.client_type));
-            if(Qry.get().FieldIsNULL("bag_amount"))
-                insQry.get().SetVariable("bag_amount", FNull);
-            else
-                insQry.get().SetVariable("bag_amount", Qry.get().FieldAsInteger("bag_amount"));
 
-            int bag_weight = Qry.get().FieldAsInteger("bag_weight");
-            if(bag_weight)
-                insQry.get().SetVariable("bag_weight", bag_weight);
-            else
+            GrpId_t grp_id(Qry.get().FieldAsInteger("grp_id"));
+            std::optional<int> opt_bag_pool_num;
+            if(!Qry.get().FieldIsNULL("bag_pool_num")) {
+                opt_bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+            }
+            if(opt_bag_pool_num) {
+                insQry.get().SetVariable("bag_amount", bag_reader.bagAmount(grp_id, opt_bag_pool_num));
+                insQry.get().SetVariable("bag_weight", bag_reader.bagWeight(grp_id, opt_bag_pool_num));
+            } else {
+                insQry.get().SetVariable("bag_amount", FNull);
                 insQry.get().SetVariable("bag_weight", FNull);
-
-            int bag_amount = Qry.get().FieldAsInteger("bag_amount");
-            if(bag_amount)
-                insQry.get().SetVariable("bag_amount", bag_amount);
-            else
-                insQry.get().SetVariable("bag_amount", FNull);
-
+            }
             insQry.get().SetVariable("seat_no", Qry.get().FieldAsString("seat_no"));
             insQry.get().SetVariable("seat_no_lat", Qry.get().FieldAsString("seat_no_lat"));
             insQry.get().SetVariable("desk", pe.desk);

@@ -403,10 +403,6 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     SQLText +=
         "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) class_grp, "
         "   CASE WHEN pax_grp.status = 'T' THEN pax_grp.status ELSE 'N' END AS status, "
-        "   COALESCE(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, "
-        "   COALESCE(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
-        "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, "
-        "   COALESCE(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, "
         "   0 AS excess_pc, "
         "   pax_grp.grp_id "
         "FROM pax_grp "
@@ -424,6 +420,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
                    "ON pax_grp.grp_id = tckin_pax_grp.grp_id "
                    "AND tckin_pax_grp.transit_num <> 0 ";
     }
+
     SQLText +=
         "WHERE "
         "   points.pr_del>=0 AND "

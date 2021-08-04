@@ -2198,36 +2198,22 @@ void TWItem::get(int pax_id)
 void TWItem::get(int grp_id, int bag_pool_num)
 {
     if(bag_pool_num == NoExists) return;
-    QParams QryParams;
-    QryParams
-        << QParam("grp_id", otInteger, grp_id)
-        << QParam("bag_pool_num", otInteger, bag_pool_num)
-        << QParam("bagAmount", otInteger)
-        << QParam("bagWeight", otInteger)
-        << QParam("rkAmount", otInteger)
-        << QParam("rkWeight", otInteger)
-        << QParam("excess_wt", otInteger)
-        << QParam("pax_id", otInteger);
-    TCachedQuery Qry(
-            "declare "
-            "   bag_pool_pax_id pax.pax_id%type; "
-            "begin "
-            "   bag_pool_pax_id := ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num); "
-            "   :bagAmount := ckin.get_bagAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :excess_wt := ckin.get_excess_wt(:grp_id, bag_pool_pax_id); "
-            "   :pax_id := bag_pool_pax_id; "
-            "end;",
-            QryParams);
-    Qry.get().Execute();
-    bagAmount = Qry.get().GetVariableAsInteger("bagAmount");
-    bagWeight = Qry.get().GetVariableAsInteger("bagWeight");
-    rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
-    rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
-    excess_wt = Qry.get().GetVariableAsInteger("excess_wt");
-    excess_pc = countPaidExcessPC(PaxId_t(Qry.get().GetVariableAsInteger("pax_id")));
+
+    GrpId_t grp_id_t(grp_id);
+    using namespace CKIN;
+    BagReader bag_reader(GrpId_t(grp_id), std::nullopt, READ::BAGS);
+
+    std::optional<PaxId_t> bag_pool_pax_id = get_bag_pool_pax_id(grp_id_t, bag_pool_num, std::nullopt);
+    bagAmount = bag_reader.bagAmount(grp_id_t, bag_pool_num);
+    bagWeight = bag_reader.bagWeight(grp_id_t, bag_pool_num);
+    rkAmount  = bag_reader.rkAmount(grp_id_t, bag_pool_num);
+    rkWeight  = bag_reader.rkWeight(grp_id_t, bag_pool_num);
+    excess_wt = get_excess_wt(grp_id_t, bag_pool_pax_id, std::nullopt, std::nullopt).value_or(0);
+    if(!bag_pool_pax_id) {
+        LogTrace(TRACE6) << __func__ << " Not correct bag_pool_pax_id.";
+        return;
+    }
+    excess_pc = countPaidExcessPC(*bag_pool_pax_id);
 }
 
 struct TBTMGrpList;
@@ -2835,7 +2821,7 @@ void TBTMGrpList::get(TypeB::TDetailCreateInfo &info, TFItem &FItem)
             "when PAX.GRP_ID is not null then PAX.BAG_POOL_NUM "
             "else 1 "
           "end as BAG_POOL_NUM, "
-          "CKIN.GET_BAG_POOL_PAX_ID(TRANSFER.GRP_ID, PAX.BAG_POOL_NUM) as BAG_POOL_PAX_ID "
+          "PAX.PAX_ID as BAG_POOL_PAX_ID "
         "from TRANSFER "
           "join ( "
             "PAX_GRP "
@@ -5376,12 +5362,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "WHERE "
       "  pax_grp.point_dep = :point_id "
       "  AND pax_grp.status NOT IN ('E') "
-      "  AND bag2.pr_cabin = 0 "
-      "AND pax_grp.bag_refuse = 0 "
-      "AND (pax_grp.class IS NULL OR "
-      "     EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
-      "                                  AND p.bag_pool_num = bag2.bag_pool_num "
-      "                                  AND p.refuse IS NULL)) " // "  AND ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) = 0 "
+      "  AND bag2.pr_cabin = 0 AND " + CKIN::bag_pool_not_refused_query() +
       "GROUP BY pax_grp.airp_arv, "
       "         bag2.list_id, "
       "         bag2.rfisc, "
@@ -5422,7 +5403,7 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
     QryParams << QParam("point_id", otInteger, point_id);
     if(not airp_arv.empty())
         QryParams << QParam("airp_arv", otString, airp_arv);
-    DB::TCachedQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2"}),
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2","PAX"}),
             std::string(
             "select "
             "   pax_grp.airp_arv, "
@@ -5436,11 +5417,7 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
             "   pax_grp.point_dep = :point_id and "
             "   pax_grp.status NOT IN ('E') AND "
             "   bag2.pr_cabin=0 AND ") +
-            (st == rbBrd ?
-            "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
-            :
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
-            ) +
+            (st == rbBrd ? CKIN::bag_pool_boarded_query() : CKIN::bag_pool_not_refused_query()) + " and " +
             (airp_arv.empty() ? "" : " pax_grp.airp_arv = :airp_arv and " ) +
             "   bag2.to_ramp <> 0 "
             "group by "
@@ -5458,7 +5435,7 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
 
 void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
-    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2"}),STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG2","PAX"}),STDLOG);
     Qry.SQLText =
         "SELECT COALESCE(SUM(weight),0) AS weight, "
         "       COALESCE(SUM(amount),0) AS amount "
@@ -5467,8 +5444,7 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.point_arv=:point_arv AND "
         "      pax_grp.status NOT IN ('E') AND "
-        "      bag2.pr_cabin=0 AND "
-        "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0";
+        "      bag2.pr_cabin=0 AND " + CKIN::bag_pool_boarded_query();
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
@@ -5507,14 +5483,14 @@ struct TExcess {
 
 void TExcess::get(int point_id, string airp_arv)
 {
-    DB::TQuery Qry(PgOra::getROSession("PAX_GRP"),STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}),STDLOG);
     string SQLText =
         "SELECT COALESCE(SUM(excess_wt),0) excess_wt "
         "FROM pax_grp "
         "WHERE "
         "   point_dep=:point_id AND "
-        "   pax_grp.status NOT IN ('E') AND "
-        "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 "; //для excess_pc надо определять boarded по каждому пассажиру
+        "   pax_grp.status NOT IN ('E') AND " +
+        CKIN::excess_boarded_query(); //для excess_pc надо определять boarded по каждому пассажиру
     if(not airp_arv.empty()) {
         SQLText += " and airp_arv = :airp_arv ";
         Qry.CreateVariable("airp_arv", otString, airp_arv);
@@ -6871,30 +6847,48 @@ void TEmptyClsBag::dump(TRACE_SIGNATURE)
     LogTrace(TRACE_PARAMS) << "---------------------";
 }
 
+struct unac_weights
+{
+    int bag_amount;
+    int bag_weight;
+};
+
 void TEmptyClsBag::get(int point_id)
 {
     clear();
     DB::TCachedQuery Qry(PgOra::getROSession("PAX_GRP"),
             "select "
-            "   (CASE WHEN status='E' THEN 'E' ELSE '' END) status, "
-            "   airp_arv, "
-            "   sum (COALESCE(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL), 0))  bag_amount, "
-            "   sum (COALESCE(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL), 0)) bag_weight "
+            "   status, airp_arv, grp_id "
             "from pax_grp where "
             "   point_dep = :point_id and "
-            "   pax_grp.class IS NULL "
-            "group by "
-            "   (CASE WHEN status='E' THEN 'E' ELSE '' END), "
-            "   airp_arv ",
+            "   pax_grp.class IS NULL ",
             QParams() << QParam("point_id", otInteger, point_id),
             STDLOG);
     Qry.get().Execute();
+    using namespace CKIN;
+    BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
+
+    std::map<std::string, unac_weights> airp_crew_weights;
+    std::map<std::string, unac_weights> airp_unac_weights;
+
     for(; not Qry.get().Eof; Qry.get().Next()) {
-        map<string, pair<int, int> > &items_ref =
-            ((string)Qry.get().FieldAsString("status") == "E" ? crew_items: unacc_items);
-        items_ref[Qry.get().FieldAsString("airp_arv")] = make_pair(
-                Qry.get().FieldAsInteger("bag_amount"),
-                Qry.get().FieldAsInteger("bag_weight"));
+        GrpId_t grp_id(Qry.get().FieldAsInteger("grp_id"));
+        std::string airp = Qry.get().FieldAsString("airp_arv");
+        std::string status = Qry.get().FieldAsString("status");
+        if(status == "E") {
+            airp_crew_weights[airp].bag_amount += bag_reader.bagAmountUnaccomp(grp_id);
+            airp_crew_weights[airp].bag_weight += bag_reader.bagWeightUnaccomp(grp_id);
+        } else {
+            airp_unac_weights[airp].bag_amount += bag_reader.bagAmountUnaccomp(grp_id);
+            airp_unac_weights[airp].bag_weight += bag_reader.bagWeightUnaccomp(grp_id);
+        }
+    }
+
+    for(auto &&[airp, weights] : airp_crew_weights) {
+        crew_items[airp] = make_pair(weights.bag_amount, weights.bag_weight);
+    }
+    for(auto &&[airp, weights] : airp_unac_weights) {
+        unacc_items[airp] = make_pair(weights.bag_amount, weights.bag_weight);
     }
 }
 
@@ -6988,14 +6982,8 @@ void TLCIPaxTotals::get_bag_info(map<string, pair<int, int> > &bag_info, int &ba
     if(bag_pool_num == NoExists) return;
 
     // pool_pax_id
-    int pool_pax_id = NoExists;
-    TCachedQuery poolPaxIdQry("select ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) from dual",
-            QParams()
-            << QParam("grp_id", otInteger, grp_id)
-            << QParam("bag_pool_num", otInteger, bag_pool_num));
-    poolPaxIdQry.get().Execute();
-    if(not poolPaxIdQry.get().FieldIsNULL(0))
-        pool_pax_id = poolPaxIdQry.get().FieldAsInteger(0);
+    std::optional<PaxId_t> bp_pax_id = CKIN::get_bag_pool_pax_id(GrpId_t(grp_id), bag_pool_num, std::nullopt);
+    int pool_pax_id = bp_pax_id ? bp_pax_id->get() : NoExists;
 
     // bag_info itself
     if(pool_pax_id != NoExists and pool_pax_id == pax_id) {
@@ -10310,17 +10298,8 @@ namespace CKIN_REPORT {
 
     string get_bag_tags(const TSalonPax &pax, int bag_pool_num)
     {
-        TCachedQuery Qry(
-                "select ckin.get_birks2(:grp_id,:pax_id,:bag_pool_num,1) from dual",
-                QParams()
-                << QParam("grp_id", otInteger, pax.grp_id)
-                << QParam("pax_id", otInteger, pax.pax_id)
-                << QParam("bag_pool_num", otInteger, bag_pool_num));
-        Qry.get().Execute();
-        string result;
-        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
-            result = Qry.get().FieldAsString(0);
-        return result;
+        CKIN::BagReader bag_reader(GrpId_t(pax.grp_id),std::nullopt, CKIN::READ::BAGS_AND_TAGS);
+        return bag_reader.tags(GrpId_t(pax.grp_id), bag_pool_num, "");
     }
 
     string RouteItemToStr(const boost::optional<TCkinRouteItem>& route_item)

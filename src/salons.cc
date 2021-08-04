@@ -29,6 +29,7 @@
 #include "seat_descript.h"
 #include "seat_number.h"
 #include "astra_elems.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -8401,17 +8402,14 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT pax.ticket_no, pax.wl_type, pax.tid, "
-    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_weight, "
-    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_amount, "
-    "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "SELECT pax.ticket_no, pax.wl_type, pax.tid,  pax.bag_pool_num, "
+    "       pax_grp.excess_wt, pax_grp.bag_refuse "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
     "FROM pax, tckin_pax_grp, pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax.pax_id=:pax_id AND "
     "      pax.grp_id=tckin_pax_grp.grp_id(+)";
   Qry.DeclareVariable( "pax_id", otInteger );
-  Qry.DeclareVariable( "rnum", otInteger );
   int rownum = 0;
   xmlNodePtr passengersNode = NULL;
   xmlNodePtr layerNode;
@@ -8434,7 +8432,9 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
 
   TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess,
                                                           TComplexBagExcessNodeList::DeprecatedIntegerOutput});
-
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_dep), std::nullopt, READ::BAGS);
+  MainPax view_pax;
   //grp_status
   for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=salonGrpStatusPaxs.begin();
         igrp_layer!=salonGrpStatusPaxs.end(); igrp_layer++ ) {
@@ -8457,7 +8457,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
       rownum++;
       createDefaults = true;
       Qry.SetVariable( "pax_id", ipass->pax_id );
-      Qry.SetVariable( "rnum", rownum );
+
       Qry.Execute();
       NewTextChild( passNode, "grp_id", ipass->grp_id );
       NewTextChild( passNode, "pax_id", ipass->pax_id );
@@ -8514,10 +8514,20 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
       NewTextChild( passNode, "document",
                     CheckIn::GetPaxDocStr(std::nullopt, ipass->pax_id, true),
                     def.document );
-      NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
-      NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
+
+      GrpId_t grp_id(ipass->grp_id);
+      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+      std::optional<int> opt_bag_pool_num;
+      if(!Qry.FieldIsNULL("bag_pool_num")) {
+          opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+          view_pax.saveMainPax(grp_id, PaxId_t(ipass->pax_id), bag_refuse);
+      }
+
+      NewTextChild( passNode, "bag_weight", bag_reader.bagWeight(grp_id, opt_bag_pool_num), def.bag_weight );
+      NewTextChild( passNode, "bag_amount", bag_reader.bagAmount(grp_id, opt_bag_pool_num), def.bag_amount );
+
       excessNodeList.add(passNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(ipass->pax_id))),
-                                             TBagKilos(Qry.FieldAsInteger( "excess_wt" )));
+                                             TBagKilos(view_pax.excessWt(grp_id, PaxId_t(ipass->pax_id), Qry.FieldAsInteger("excess_wt"))));
       ostringstream trip;
       if ( !Qry.FieldIsNULL("tckin_id") ) {
         auto inboundGrp=TCkinRoute::getPriorGrp(Qry.FieldAsInteger("tckin_id"),

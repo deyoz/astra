@@ -51,6 +51,7 @@
 #include "check_grp_unification.h"
 #include "gtimer.h"
 #include "PgOraConfig.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -3613,9 +3614,9 @@ std::string GetTagsOfNotBoardedPax(int point_id)
     "      bag2.grp_id=bag_tags.grp_id AND "
     "      bag2.num=bag_tags.bag_num AND "
     "      bag_tags.tag_type=tag_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
-    "      ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 AND "
-    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 ";
+    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND " +
+    CKIN::bag_pool_not_refused_query() + " AND NOT " + CKIN::bag_pool_boarded_query();
+
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   multiset<TBagTagNumber> tags;

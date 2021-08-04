@@ -1574,12 +1574,9 @@ void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem
   DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_INF"}),STDLOG); // ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_rkWeight2
   Qry.ClearParams();
   ostringstream sql;
-  sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, "
+  sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, pax.bag_pool_num, "
          "       COALESCE(pax.is_female, 0) AS is_female, "
-         "       crs_inf.pax_id AS parent_pax_id, "
-         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-         "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-         "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight "
+         "       crs_inf.pax_id AS parent_pax_id "
          "FROM pax_grp "
          "  JOIN (pax "
          "        LEFT OUTER JOIN crs_inf ON pax.pax_id = crs_inf.inf_id) "
@@ -1592,20 +1589,27 @@ void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem
   Qry.Execute();
   vector<TZonePaxItem> zonePaxs;
   //читаем пассажиров на рейсе
+  using namespace CKIN;
+  BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS);
   for(;!Qry.Eof;Qry.Next())
   {
     TZonePaxItem pax;
     pax.pax_id=Qry.FieldAsInteger("pax_id");
     pax.grp_id=Qry.FieldAsInteger("grp_id");
+    GrpId_t grp_id(pax.grp_id);
+    std::optional<int> opt_bag_pool_num;
+    if(!Qry.FieldIsNULL("bag_pool_num"))
+        opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+
     pax.seats=Qry.FieldAsInteger("seats");
     pax.reg_no=Qry.FieldAsInteger("reg_no");
     pax.surname=Qry.FieldAsString("surname");
     pax.pers_type=Qry.FieldAsString("pers_type");
     pax.is_female=Qry.FieldAsInteger("is_female")!=0;
     pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
-    pax.rk_weight=Qry.FieldAsInteger("rk_weight");
-    pax.bag_amount=Qry.FieldAsInteger("bag_amount");
-    pax.bag_weight=Qry.FieldAsInteger("bag_weight");
+    pax.rk_weight  = bag_reader.rkWeight(grp_id, opt_bag_pool_num);
+    pax.bag_amount = bag_reader.bagAmount(grp_id, opt_bag_pool_num);
+    pax.bag_weight = bag_reader.bagWeight(grp_id, opt_bag_pool_num);
     if ( !paxRemCounters.empty() ) {
       CheckIn::LoadPaxRem( pax.pax_id, rems );
       for ( auto& ir : rems ) {
@@ -1789,12 +1793,8 @@ static void getBagLoadByCabinClasses( int point_id, PaxLoadTotalRowStruct &total
           "ON PAX_GRP.GRP_ID = BAG2.GRP_ID "
       "WHERE "
         "PAX_GRP.POINT_DEP = :point_id "
-        "AND PAX_GRP.STATUS NOT IN ('E') "
-      "AND PAX_GRP.BAG_REFUSE = 0 "
-      "AND (PAX_GRP.CLASS IS NULL OR "
-      "     EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
-      "                                  AND p.bag_pool_num = bag2.bag_pool_num "
-      "                                  AND p.refuse IS NULL)) " // "AND CKIN.BAG_POOL_REFUSED(BAG2.GRP_ID, BAG2.BAG_POOL_NUM, PAX_GRP.CLASS, PAX_GRP.BAG_REFUSE) = 0 "
+        "AND PAX_GRP.STATUS NOT IN ('E') AND " +
+          CKIN::bag_pool_not_refused_query() +
       "GROUP BY coalesce(PAX.CABIN_CLASS, PAX_GRP.CLASS)";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();

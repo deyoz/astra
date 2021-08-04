@@ -27,9 +27,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         string SQLText =
             "SELECT point_dep AS point_id, "
             "       pax.*, "
-            "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
-            "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
-            "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+            "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
             "FROM   pax_grp,pax "
             "WHERE  pax_grp.grp_id=pax.grp_id AND "
             "       pax.pr_brd=0 and "
@@ -50,9 +48,10 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-        Qry.CreateVariable("lang", otString, rpt_params.GetLang());
         Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
         Qry.Execute();
+        using namespace CKIN;
+        BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
         while(!Qry.Eof) {
             CheckIn::TSimplePaxItem pax;
             pax.fromDB(Qry);
@@ -65,8 +64,14 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", pax.seat_no);
-            NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
-            NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
+            GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
+            std::optional<int> opt_bag_pool_num;
+            if(!Qry.FieldIsNULL("bag_pool_num"))
+                opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+
+            NewTextChild(rowNode, "bagamount", bag_reader.bagAmount(grp_id, opt_bag_pool_num));
+            NewTextChild(rowNode, "tags", bag_reader.tags(grp_id, opt_bag_pool_num, rpt_params.GetLang()));
 
             Qry.Next();
         }

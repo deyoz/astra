@@ -9,6 +9,7 @@
 #include "qrys.h"
 #include "passenger.h"
 #include "docs/docs_common.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -204,8 +205,7 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     DB::TCachedQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}),
             "select "
             "   pax.*, "
-            "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,:pr_lat) AS seat_no, "
-            "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,:pr_lat) AS seat_no "
             "from "
             "   pax_grp, "
             "   pax "
@@ -241,7 +241,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
         int TransferDepartPass = 0;
         int DestinationPass = 0;
         int TransferDestinationPass = 0;
-
+        using namespace CKIN;
+        BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
         for(; not Qry.get().Eof; Qry.get().Next()) {
             xmlNodePtr PassengerInfoNode = NewTextChild(PassengerManifestNode, "PassengerInfo");
             CheckIn::TPaxItem pax;
@@ -281,7 +282,13 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 
             NewTextChild(PassengerNode, "PassClass", ElemIdToCodeNative(etClass, grp_info->second.cls));
             // Вес багажа брутто
-            NewTextChild(PassengerNode, "GrossWeightQuantity", Qry.get().FieldAsInteger("bag_weight"));
+            GrpId_t grp_id(Qry.get().FieldAsInteger("grp_id"));
+            std::optional<int> opt_bag_pool_num;
+            if(!Qry.get().FieldIsNULL("bag_pool_num")) {
+                opt_bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+            }
+
+            NewTextChild(PassengerNode, "GrossWeightQuantity", bag_reader.bagWeight(grp_id, opt_bag_pool_num));
             // Код измерения веса багажа (килограммы или фунты, K/F)
             NewTextChild(PassengerNode, "WeightUnitQualifierCode", "K");
             NewTextChild(PassengerNode, "DestinationAirportIATACode", ElemIdToCodeNative(etAirp, trfer_info.airp_arv));

@@ -2,6 +2,7 @@
 #include "docs_utils.h"
 #include "franchise.h"
 #include "stat/stat_utils.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -208,15 +209,12 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if (rpt_params.pr_brd)
-      SQLText +=
-          "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and ";
+      SQLText += CKIN::bag_pool_boarded_query();
     else
-      SQLText +=
-          "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and ";
+      SQLText += CKIN::bag_pool_not_refused_query();
     SQLText +=
-        "    bag2.pr_cabin = 0 and "
-        "    bag2.hall = halls2.id(+) and "
-        "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+) ";
+        "    and bag2.pr_cabin = 0 and "
+        "    bag2.hall = halls2.id(+) ";
 
     DB::TQuery Qry(PgOra::getROSession(involvedTables),STDLOG);
     if(!rpt_params.airp_arv.empty()) {
@@ -476,8 +474,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "Tot", vs_number(TotAmount, rpt_params.IsInter()));
 
     auto &dbSession = rpt_params.ckin_zone != ALL_CKIN_ZONES
-                        ? PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER"})
-                        : PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER","HALLS2"});
+                        ? PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER","PAX"})
+                        : PgOra::getROSession({"PAX_GRP","BAG2","TRANSFER","HALLS2","PAX"});
     DB::TQuery Qry2(dbSession,STDLOG);
     SQLText =
         "select "
@@ -503,9 +501,9 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
         "  pax_grp.grp_id = transfer.grp_id and "
-        "  pax_grp.status NOT IN ('E') and "
-        "  ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
-        "  bag2.pr_cabin = 0 and "
+        "  pax_grp.status NOT IN ('E') and " +
+        CKIN::bag_pool_not_refused_query() +
+        "  and bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=

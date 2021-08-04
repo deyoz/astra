@@ -8,6 +8,8 @@
 #include "baggage_wt.h"
 #include "obrnosir.h"
 #include "cache_impl.h"
+#include "baggage_ckin.h"
+
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -2100,21 +2102,9 @@ void PaidBagViewToXML(const TPaidBagViewMap &paid_view,
   };
 };
 
-string GetBagRcptStr(int grp_id, int pax_id)
+string GetBagRcptStr(int grp_id, int pax_id, const CKIN::MainPax & viewPax)
 {
-  int main_pax_id=NoExists;
-  if (pax_id!=NoExists)
-  {
-    TQuery Qry(&OraSession);
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.SQLText=
-      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_p1ax_id FROM dual";
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
-  };
-  if (pax_id==NoExists ||
-      (main_pax_id!=NoExists && main_pax_id==pax_id))
-  {
+    if(viewPax.isUnnacomp() || viewPax.isMainPax(GrpId_t(grp_id), PaxId_t(pax_id))) {
     vector<string> rcpts;
     CheckIn::TServicePaymentListWithAuto payment;
     payment.fromDB(grp_id);
@@ -2175,13 +2165,14 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
   TQuery Qry(&OraSession);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.SQLText=
-    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
+    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur, "
+    " bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse, bag2.grp_id as bag_grp_id "
     "FROM pax_grp, value_bag, bag2 "
     "WHERE pax_grp.grp_id=value_bag.grp_id AND "
     "      value_bag.grp_id=bag2.grp_id(+) AND "
     "      value_bag.num=bag2.value_bag_num(+) AND "
-    "      (bag2.grp_id IS NULL OR "
-    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) AND "
+    "      (bag2.grp_id IS NULL OR " +
+    CKIN::bag_pool_not_refused_query() + ") AND " +
     "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())

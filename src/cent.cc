@@ -12,6 +12,7 @@
 #include "develop_dbf.h"
 #include "oralib.h"
 #include "alarms.h"
+#include "baggage_ckin.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -917,9 +918,13 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
             bal = dest_bal.tranzit;
             classbal = dest_bal.tranzit_classbal;
           }
-          bal.paybag_weight += ExcessBagQry->FieldAsInteger( "paybag_weight" );
-          dest_bal.total_classbal[ ExcessBagQry->FieldAsString( "class" ) ].paybag_weight += ExcessBagQry->FieldAsInteger( "paybag_weight" );
-          classbal[ ExcessBagQry->FieldAsString( "class" ) ].paybag_weight += ExcessBagQry->FieldAsInteger( "paybag_weight" );
+          int excess_wt_raw = ExcessBagQry->FieldAsInteger("excess_wt");
+          int bag_refuse = ExcessBagQry->FieldAsInteger("bag_refuse");
+          GrpId_t grp_id(ExcessBagQry->FieldAsInteger("grp_id"));
+          int excess_wt = CKIN::get_excess_wt(grp_id, std::nullopt, excess_wt_raw, bag_refuse).value_or(0);
+          bal.paybag_weight += excess_wt;
+          dest_bal.total_classbal[ ExcessBagQry->FieldAsString( "class" ) ].paybag_weight += excess_wt;
+          classbal[ ExcessBagQry->FieldAsString( "class" ) ].paybag_weight += excess_wt;
           if ( ExcessBagQry->FieldAsInteger( "pr_tranzit" ) == 0 ) {
             dest_bal.goshow = bal;
             dest_bal.goshow_classbal = classbal;
@@ -931,7 +936,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
           ProgTrace( TRACE5, "class=%s, point_arv=%d, paybag_weight=%d",
                      ExcessBagQry->FieldAsString( "class" ).c_str(),
                      routesA[ num - 1 ].point_id,
-                     ExcessBagQry->FieldAsInteger( "paybag_weight" ) );
+                     excess_wt );
         }
       }
       if ( dataFlags.isFlag( tdCargo ) ) {

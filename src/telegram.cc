@@ -1906,8 +1906,7 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,0) AS seat_no, "      //is_jmp ¤.¡. NULL!
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,1) AS seat_no_lat "   //is_jmp ¤.¡. NULL!
       "FROM pax "
-      "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL AND "
-      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0)";
+      "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL ";
     QryPax.SQLText=SQLText;
     QryPax.CreateVariable("id", otInteger, id);
     QryPax.CreateVariable("grp_status", otString, grp_status);

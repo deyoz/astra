@@ -2727,7 +2727,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (with_rcpt_info)
       {
         string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, pax_id):
-                                      WeightConcept::GetBagRcptStr(grp_id, pax_id);
+                                      WeightConcept::GetBagRcptStr(grp_id, pax_id, viewEx);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
 
         pair<int, int> rcpt_complete_key=piece_concept?make_pair(grp_id, pax_id):make_pair(grp_id, NoExists);
@@ -2885,7 +2885,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (with_rcpt_info)
       {
         string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id.get(), NoExists):
-                                      WeightConcept::GetBagRcptStr(grp_id.get(), NoExists);
+                                      WeightConcept::GetBagRcptStr(grp_id.get(), NoExists, viewExUnac);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
         // все ли квитанции распечатаны
         //0 - частично напечатаны

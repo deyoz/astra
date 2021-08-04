@@ -12,6 +12,8 @@
 #include "astra_misc.h"
 #include "flt_settings.h"
 #include "etick.h"
+#include "baggage_ckin.h"
+
 
 class BagAllowance
 {
@@ -244,7 +246,7 @@ void RecalcPaidBag(const TTripInfo& flt,
                    TPaidBagList& prior_paid,
                    TPaidBagList& result_paid);
 
-std::string GetBagRcptStr(int grp_id, int pax_id);
+std::string GetBagRcptStr(int grp_id, int pax_id, const CKIN::MainPax & viewPax);
 bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 
 std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);

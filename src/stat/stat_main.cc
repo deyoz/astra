@@ -987,7 +987,6 @@ void get_stat(const PointId_t& point_id)
       "   WHERE "
       "      bag2.grp_id = pax.grp_id "
       "      AND pax.bag_pool_num IS NOT NULL "
-      "      AND ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id "
       "      AND (bag2.is_trfer = 0 OR coalesce(bag2.handmade, 0) <> 0) "
       "      AND bag2.hall IS NOT NULL "
       "   FETCH FIRST 1 ROWS ONLY "
@@ -1094,7 +1093,7 @@ void get_stat(const PointId_t& point_id)
     QryIns.Execute();
   }
 
-  DB::TQuery cur1(PgOra::getROSession({"PAX_GRP,BAG2"}), STDLOG);
+  DB::TQuery cur1(PgOra::getROSession({"PAX_GRP,BAG2,PAX"}), STDLOG);
   cur1.SQLText =
       "SELECT "
       "  airp_arv, "
@@ -1107,8 +1106,8 @@ void get_stat(const PointId_t& point_id)
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id "
       "AND pax_grp.point_dep=:point_id "
-      "AND pax_grp.status NOT IN ('E') "
-      "AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+      "AND pax_grp.status NOT IN ('E') and " +
+      CKIN::bag_pool_not_refused_query() +
       "GROUP BY airp_arv,bag2.hall,(CASE WHEN status='T' THEN 'T' ELSE 'N' END),client_type ";
   cur1.CreateVariable("point_id", otInteger, point_id.get());
   cur1.Execute();
@@ -1161,7 +1160,7 @@ void get_stat(const PointId_t& point_id)
     }
   }
 
-  DB::TQuery cur2(PgOra::getROSession({"PAX_GRP","BAG2"}), STDLOG);
+  DB::TQuery cur2(PgOra::getROSession({"PAX_GRP","BAG2","PAX"}), STDLOG);
   cur2.SQLText =
       "SELECT "
       "  airp_arv, "
@@ -1176,8 +1175,8 @@ void get_stat(const PointId_t& point_id)
       "           (SELECT bag2.grp_id,MAX(bag2.num) AS num "
       "            FROM pax_grp,bag2 "
       "            WHERE pax_grp.grp_id=bag2.grp_id "
-      "            AND pax_grp.point_dep=:point_id "
-      "            AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+      "            AND pax_grp.point_dep=:point_id AND " +
+      CKIN::bag_pool_not_refused_query() +
       "            GROUP BY bag2.grp_id) last_bag "
       "      WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=:point_id AND pax_grp.status NOT IN ('E') "
@@ -1451,7 +1450,6 @@ void get_self_ckin_stat(const PointId_t& point_id)
       "    WHERE "
       "      bag2.grp_id = pax.grp_id "
       "      AND pax.bag_pool_num IS NOT NULL "
-      "      AND ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id "
       "      AND (bag2.is_trfer = 0 OR COALESCE(bag2.handmade, 0) <> 0) "
       "      AND bag2.hall IS NOT NULL "
       "    FETCH FIRST 1 ROWS ONLY "
