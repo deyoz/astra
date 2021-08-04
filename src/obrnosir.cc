@@ -102,6 +102,7 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+    {"-dump_typeb_out",         nosirDumpTypeBOut,      nosirDumpTypeBOutUsage,     NULL},
   };
 
 int nosir_test(int argc,char **argv)
