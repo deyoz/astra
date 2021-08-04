@@ -1595,6 +1595,37 @@ struct TAPISFormat_EDI_SA : public TEdiAPISFormat
     string mesRelNum() const { return "05B"; }
 };
 
+// изначально основано на TAPISFormat_EDI_AE
+// -------------------------------------------------------------------------------------------------
+struct TAPISFormat_EDI_IL : public TEdiAPISFormat
+{
+    TAPISFormat_EDI_IL()
+    {
+      add_rule(r_setSeats);
+      add_rule(r_setBagCount);
+      add_rule(r_bagTagSerials);
+      add_rule(r_setPaxReference);
+      add_rule(r_convertPaxNames);
+      add_rule(r_processDocNumber);
+      add_rule(r_notOmitCrew);
+      file_rule = r_file_rule_1;
+    }
+    long int required_fields(TPaxType pax, TAPIType api) const
+    {
+      if (pax == pass && api == apiDoc) return DOC_EDI_IL_FIELDS;
+      if (pax == crew && api == apiDoc) return DOC_EDI_IL_FIELDS;
+      return NO_FIELDS;
+    }
+    void convert_pax_names(string& first_name, string& second_name) const
+    {
+      ConvertPaxNamesConcat(first_name, second_name);
+    }
+    string unknown_gender() const { return "U"; }
+    string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+    string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+    string mesRelNum() const { return "05B"; }
+};
+
 //---------------------------------------------------------------------------------------
 
 struct TAPPSVersion21 : public TAppsSitaFormat
@@ -1709,6 +1740,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt, bool throwIfUnhandled=tru
   if (fmt=="EDI_VN")      p = new TAPISFormat_EDI_VN; else
   if (fmt=="EDI_AE")      p = new TAPISFormat_EDI_AE; else
   if (fmt=="EDI_SA")      p = new TAPISFormat_EDI_SA; else
+  if (fmt=="EDI_IL")      p = new TAPISFormat_EDI_IL; else
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else
