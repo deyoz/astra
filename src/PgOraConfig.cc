@@ -458,25 +458,26 @@ namespace PgOra
 
         return true;
     }
-
+#define ASSERT_OBJECT_LIST(check, list) \
+    if(not check(list)) comtech::assertionFailed0Impl(STDLOG, (#check "{"+StrUtils::join(",",list)+"}").c_str());
     DbCpp::Session& getROSession(const std::list<std::string>& objectList)
     {
-        ASSERT(areROSessionsEqual(objectList));
+        ASSERT_OBJECT_LIST(areROSessionsEqual, objectList);
         return getROSession(objectList.front());
     }
 
     DbCpp::Session& getRWSession(const std::list<std::string>& objectList)
     {
-        ASSERT(areRWSessionsEqual(objectList));
+        ASSERT_OBJECT_LIST(areRWSessionsEqual, objectList);
         return getRWSession(objectList.front());
     }
 
     DbCpp::Session& getAutoSession(const std::list<std::string>& objectList)
     {
-        ASSERT(areAutoSessionsEqual(objectList));
+        ASSERT_OBJECT_LIST(areAutoSessionsEqual, objectList);
         return getAutoSession(objectList.front());
     }
-
+#undef ASSERT_OBJECT_LIST
     DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects)
     {
         return getROSession(std::list<std::string>(objects));
