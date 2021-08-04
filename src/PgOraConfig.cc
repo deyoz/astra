@@ -315,6 +315,7 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_SUBCLS_SETS", {
                 "COMP_SUBCLS_SETS",
         }},
+        { "SP_PG_GROUP_SALE_POINTS", {"SALE_DESKS","SALE_POINTS","HIST_SALE_DESKS","HIST_SALE_POINTS"} },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

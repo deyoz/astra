@@ -1790,6 +1790,30 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     Print=mso_form;
 }
 
+static std::string get_sale_point(std::string const& desk_code, std::string const& validator_type, std::string const& form_type)
+{
+    auto c = make_db_curs("SELECT sale_point FROM sale_desks "
+                          "WHERE code=:code AND validator=:validator AND pr_denial=0",
+                          PgOra::getROSession("SALE_DESKS"));
+    std::string sale_point;
+    c.bind(":code",desk_code).bind(":validator",validator_type).into(sale_point).EXfet();
+    if(c.err() == DbCpp::ResultCode::NoDataFound)
+        throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_DESK", LParams() << LParam("form", form_type));
+    return sale_point;
+}
+
+static auto read_sale_point_regalia(std::string const& sale_point, std::string const& validator_type)
+{
+    auto c = make_db_curs("SELECT agency, city from sale_points "
+                          "where code=:code and validator = :validator",
+                          PgOra::getROSession("SALE_POINTS"));
+    std::tuple<std::string,std::string> row;
+    c.bind(":code",sale_point).bind(":validator",validator_type).into(row).EXfet();
+    if(c.err() == DbCpp::ResultCode::NoDataFound)
+        throw Exception("sale point '%s' not found for validator '%s'", sale_point.c_str(), validator_type.c_str());
+    return row;
+}
+
 static auto read_operator_regalia(std::string const& login, std::string const& validator_type, std::string const& form_type)
 {
     auto c = make_db_curs("SELECT private_num, agency FROM operators "
@@ -1805,43 +1829,20 @@ static auto read_operator_regalia(std::string const& login, std::string const& v
 std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
 {
     std::ostringstream validator;
-    std::string agency, sale_point_city, sale_point;
 
     TTagLang tag_lang;
     tag_lang.Init(rcpt, pr_lat);
 
-    DB::TQuery Qry(PgOra::getROSession({"FORM_TYPES", "SALE_DESKS", "SALE_POINTS", "OPERATORS"}), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"FORM_TYPES"}), STDLOG);
     Qry.SQLText="SELECT validator FROM form_types WHERE code=:code";
     Qry.CreateVariable("code", otString, rcpt.form_type);
     Qry.Execute();
     if (Qry.Eof) throw Exception("get_validator: unknown form_type %s",rcpt.form_type.c_str());
     string validator_type=Qry.FieldAsString("validator");
 
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    Qry.SQLText="SELECT sale_point FROM sale_desks "
-        "WHERE code=:code AND validator=:validator AND pr_denial=0";
-    Qry.CreateVariable("code", otString, reqInfo->desk.code);
-    Qry.CreateVariable("validator", otString, validator_type);
-    Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_DESK", LParams() << LParam("form", rcpt.form_type));
-    sale_point=Qry.FieldAsString("sale_point");
-
-    Qry.SQLText=
-        "SELECT "
-        "   agency, "
-        "   city "
-        "from "
-        "   sale_points "
-        "where "
-        "   code = :code and "
-        "   validator = :validator ";
-    Qry.CreateVariable("code", otString, sale_point);
-    Qry.CreateVariable("validator", otString, validator_type);
-    Qry.Execute();
-    if (Qry.Eof) throw Exception("sale point '%s' not found for validator '%s'", sale_point.c_str(), validator_type.c_str());
-    agency = Qry.FieldAsString("agency");
-    sale_point_city = Qry.FieldAsString("city");
-
+    TReqInfo const *reqInfo = TReqInfo::Instance();
+    auto const sale_point = get_sale_point(reqInfo->desk.code, validator_type, rcpt.form_type);
+    auto const [agency, sale_point_city] = read_sale_point_regalia(sale_point, validator_type);
     auto const [private_num, opr_agency] = read_operator_regalia(reqInfo->user.login, validator_type, rcpt.form_type);
     LogTrace(TRACE5) << "AGENCIES: " << agency << ' ' << opr_agency;
     if(agency != opr_agency) // Агентство пульта не совпадает с агентством кассира
