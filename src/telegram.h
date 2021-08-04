@@ -279,9 +279,12 @@ class TTlgContent
     std::string OutCls;
     std::vector< std::list<std::string/*class*/> > OnwardCls;
 
+    CheckIn::TPaxGrpCategory::Enum grpCategory = CheckIn::TPaxGrpCategory::Unknown;
+
     std::map<TTagKey, CheckIn::TTagItem> tags;
     std::map<int/*bag_num*/, CheckIn::TBagItem> bags;
     std::map<int/*bag_pool_num*/, TPaxItem> pax;
+
     TTlgContent()
     {
       indicator=TypeB::None;

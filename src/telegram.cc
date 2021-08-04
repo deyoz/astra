@@ -1839,42 +1839,19 @@ bool TTlgContent::addBag(const CheckIn::TBagItem &bag)
 
 void LoadContent(int id, bool pr_grp, TTlgContent& con)
 {
-  ostringstream sql;
+  CheckIn::TSimplePaxGrpItem grp;
+  if (!(pr_grp?grp.getByGrpId(id):grp.getByPaxId(id))) return;
 
-  sql << "SELECT pax_grp.grp_id, pax_grp.point_dep, pax_grp.class, pax_grp.status "
-         "FROM pax_grp ";
-  if(not pr_grp)
-    sql << ", pax ";
-  sql << "WHERE pax_grp.bag_refuse=0 ";
-  if(pr_grp)
-    sql << " AND pax_grp.grp_id = :id ";
-  else
-    sql << " AND pax_grp.grp_id=pax.grp_id and pax.pax_id = :id ";
-
-  auto &dbSession=(not pr_grp)
-                    ? PgOra::getROSession({"PAX_GRP","PAX"})
-                    : PgOra::getROSession("PAX_GRP");
-
-  DB::TQuery Qry(dbSession,STDLOG);
-  Qry.SQLText=sql.str();
-  Qry.CreateVariable("id",otInteger,id);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  con.OutCls=Qry.FieldAsString("class");
-
-  int point_id=Qry.FieldAsInteger("point_dep");
-  int grp_id=Qry.FieldAsInteger("grp_id");
-  string grp_status=Qry.FieldAsString("status");
-
-  bool pr_unaccomp=con.OutCls.empty();
+  con.OutCls=grp.cl;
+  con.grpCategory=grp.grpCategory();
 
   //читаем OutFlt и OnwardFlt
-  if (!con.OnwardFlt.GetRoute(grp_id, trtWithFirstSeg)) return;
+  if (!con.OnwardFlt.GetRoute(grp.id, trtWithFirstSeg)) return;
   if (con.OnwardFlt.empty()) return;
   con.OutFlt=*con.OnwardFlt.begin();
   con.OnwardFlt.erase(con.OnwardFlt.begin());
 
-  if (!pr_unaccomp)
+  if (!grp.is_unaccomp())
   {
     DB::TQuery QryTr(PgOra::getROSession({"PAX","TRANSFER_SUBCLS","SUBCLS","CLASSES"}),STDLOG);
     string SQLText=(string)
@@ -1902,15 +1879,15 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
     DB::TQuery QryPax(PgOra::getROSession("PAX"),STDLOG);
     SQLText=(string)
       "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
-      "       DECODE(CASE WHEN pr_brd IS NULL THEN 'N' WHEN pr_brd=0 THEN 'C' ELSE 'B' END) AS status, "
+      "       (CASE WHEN pr_brd IS NULL THEN 'N' WHEN pr_brd=0 THEN 'C' ELSE 'B' END) AS status, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,0) AS seat_no, "      //is_jmp д.б. NULL!
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,1) AS seat_no_lat "   //is_jmp д.б. NULL!
       "FROM pax "
       "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL ";
     QryPax.SQLText=SQLText;
     QryPax.CreateVariable("id", otInteger, id);
-    QryPax.CreateVariable("grp_status", otString, grp_status);
-    QryPax.CreateVariable("point_id", otInteger, point_id);
+    QryPax.CreateVariable("grp_status", otString, EncodePaxStatus(grp.status));
+    QryPax.CreateVariable("point_id", otInteger, grp.point_dep);
     QryPax.Execute();
     for(;!QryPax.Eof;QryPax.Next())
     {
@@ -1935,21 +1912,13 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
     con.pax[pax.bag_pool_num]=pax;
   };
 
-  DB::TQuery QryBags2(PgOra::getROSession("BAG2"),STDLOG);
-  QryBags2.SQLText=
-    "SELECT * FROM bag2 WHERE grp_id=:grp_id";
-  QryBags2.CreateVariable("grp_id",otInteger,grp_id);
-  QryBags2.Execute();
-  for(;!QryBags2.Eof;QryBags2.Next())
-    con.addBag(CheckIn::TBagItem().fromDB(QryBags2));
+  CheckIn::TBagMap bags;
+  bags.fromDB(grp.id);
+  for(const auto& i : bags) con.addBag(i.second);
 
-  DB::TQuery QryTags(PgOra::getROSession("BAG_TAGS"), STDLOG);
-  QryTags.SQLText=
-    "SELECT * FROM bag_tags WHERE grp_id=:grp_id";
-  QryTags.CreateVariable("grp_id",otInteger,grp_id);
-  QryTags.Execute();
-  for(;!QryTags.Eof;QryTags.Next())
-    con.addTag(CheckIn::TTagItem().fromDB(QryTags));
+  CheckIn::TTagMap tags;
+  tags.fromDB(grp.id);
+  for(const auto& i : tags) con.addTag(i.second);
 };
 
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTlgContent>& bsms)
@@ -1962,18 +1931,21 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
   conADD.OnwardFlt=con2.OnwardFlt;
   conADD.OutCls=con2.OutCls;
   conADD.OnwardCls=con2.OnwardCls;
+  conADD.grpCategory=con2.grpCategory;
 
   conCHG.indicator=TypeB::CHG;
   conCHG.OutFlt=con2.OutFlt;
   conCHG.OnwardFlt=con2.OnwardFlt;
   conCHG.OutCls=con2.OutCls;
   conCHG.OnwardCls=con2.OnwardCls;
+  conCHG.grpCategory=con2.grpCategory;
 
   conDEL.indicator=TypeB::DEL;
   conDEL.OutFlt=con1.OutFlt;
   conDEL.OnwardFlt=con1.OnwardFlt;
   conDEL.OutCls=con1.OutCls;
   conDEL.OnwardCls=con1.OnwardCls;
+  conDEL.grpCategory=con1.grpCategory;
 
   if(dynamic_cast<const TTlgContentCHG*>(&con1)) {
     conCHG.tags=con2.tags;
@@ -2236,11 +2208,15 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     };
     body << ".S/"
          << (con.indicator==TypeB::DEL?'N':'Y');
-    if (p->second.first.reg_no!=ASTRA::NoExists)
-      body << '/'
-           << (options.is_lat?p->second.first.seat_no_lat:p->second.first.seat_no) << '/'
-           << p->second.first.status << '/'
-           << setw(3) << setfill('0') << p->second.first.reg_no;
+
+    if (con.grpCategory==CheckIn::TPaxGrpCategory::Passenges)
+    {
+      body << '/' << (options.is_lat?p->second.first.seat_no_lat:p->second.first.seat_no)
+           << '/' << p->second.first.status;
+      if (p->second.first.reg_no!=ASTRA::NoExists)
+        body << '/' << setw(3) << setfill('0') << p->second.first.reg_no;
+    }
+
     body << ENDL;
 
     body << ".W/K/" << p->second.first.bag_amount << '/' << p->second.first.bag_weight; //всегда пишем
@@ -2263,6 +2239,9 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     const TPaxKey& paxKey=p->first;
     if (!paxKey.printer_id.empty())
       body << ".T/" << paxKey.printer_id << ENDL;
+
+    if (con.grpCategory==CheckIn::TPaxGrpCategory::Crew)
+      body << ".E/CREW" << ENDL;
   };
   partInfo.body = body.str();
 
