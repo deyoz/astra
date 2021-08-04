@@ -48,7 +48,7 @@ namespace PgOra
         { "SP_PG_GROUP_PAX_ALARMS",{ "PAX_ALARMS", "CRS_PAX_ALARMS" } },
         { "SP_PG_GROUP_CRS_PAX_1", { "CRS_PAX_FQT", "CRS_PAX_REFUSE", "CRS_PAX_CONTEXT" } },
         { "SP_PG_GROUP_CRS_DATA", { "CRS_DATA", "CRS_DATA_STAT", "CRS_COUNTERS", "TRIP_DATA" } },
-        { "SP_PG_GROUP_CRS_SET", { "CRS_SET" } },
+        { "SP_PG_GROUP_CRS_SET", { "CRS_SET", "HIST_CRS_SET" } },
         { "SP_PG_GROUP_DCS_BAG", { "DCS_BAG", "DCS_TAGS" } },
         { "SP_PG_GROUP_CRS_TRANSFER", { "CRS_TRANSFER" } },
         { "SP_PG_GROUP_TLG_TRANSFER", { "TLG_TRANSFER", "TLG_TRFER_EXCEPTS", "TLG_TRFER_ONWARDS", "TRFER_GRP", "TRFER_PAX", "TRFER_TAGS" } },
@@ -449,12 +449,25 @@ namespace PgOra
         return true;
     }
 
+    std::string traceObjects(const std::list<std::string>& objects)
+    {
+        std::string result;
+        for(auto obj: objects) {
+            if (!result.empty()) {
+                result += ",";
+            }
+            result += obj;
+        }
+        return result;
+    }
+
     bool areRWSessionsEqual(const std::list<std::string>& objects)
     {
         ASSERT(!objects.empty());
         auto dbType = getRWSession(objects.front()).getType();
         for(auto obj: objects) {
             if(getRWSession(obj).getType() != dbType) {
+                LogError(STDLOG) << "Different session for " << obj << " in list: " <<  traceObjects(objects);
                 return false;
             }
         }
