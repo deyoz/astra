@@ -82,73 +82,42 @@ void TPaxList::fromDB()
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
     string SQLText =
-        "select  pax_grp.excess_wt, pax_grp.bag_refuse, "
-        "   nvl2(pax.grp_id, NULL, pax_grp.grp_id) empty_pax_grp_id, "
+        "SELECT pax_grp.excess_wt, pax_grp.bag_refuse, "
+        "   CASE WHEN pax.grp_id IS NOT NULL THEN NULL ELSE pax_grp.grp_id END AS empty_pax_grp_id, "
         "   pax.*, "
         "   0 AS excess_pc ";
     SQLText +=
-        "from pax_grp, pax where "
-        "   pax_grp.point_dep = :point_id and "
-        "   pax_grp.grp_id = pax.grp_id(+) and "
-        "   pax_grp.status not in ('E') ";
+        "FROM pax_grp "
+        "LEFT OUTER JOIN pax ON pax_grp.grp_id = pax.grp_id "
+        "WHERE "
+        "   pax_grp.point_dep = :point_id "
+        "   AND pax_grp.status not in ('E') ";
     if(options.not_refused)
         SQLText += " and pax.refuse IS NULL ";
 
     if(options.pr_brd) {
         switch(options.pr_brd.get().val) {
             case TBrdVal::bvNULL:
-                SQLText += "and pax.pr_brd is null ";
+                SQLText += "AND pax.pr_brd is null ";
                 break;
             case TBrdVal::bvNOT_NULL:
-                SQLText += "and pax.pr_brd is not null ";
+                SQLText += "AND pax.pr_brd is not null ";
                 break;
             case TBrdVal::bvTRUE:
             case TBrdVal::bvFALSE:
-                SQLText += "and pax.pr_brd = :pr_brd ";
+                SQLText += "AND pax.pr_brd = :pr_brd ";
                 QryParams << QParam("pr_brd", otInteger, options.pr_brd.get().val != TBrdVal::bvFALSE);
                 break;
         }
     }
-    if(options.wait_list)
-        SQLText += (string)"and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)"  + (options.wait_list.get() ? "<>" : "=") + "0 ";
-    TCachedQuery Qry(SQLText, QryParams);
+    if (options.wait_list) {
+        SQLText += (string)"AND salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)"  + (options.wait_list.get() ? "<>" : "=") + "0 ";
+    }
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX_GRP", "PAX"}), // salons.is_waitlist
+          SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     fromDB(Qry.get(), true /*calcExcessPc*/);
-}
-
-void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
-{
-    CKIN::BagReader bag_reader(PointId_t(point_id), std::nullopt, CKIN::READ::BAGS_AND_TAGS);
-    CKIN::MainPax view_pax;
-    for(; !Qry.Eof; Qry.Next()) {
-        TPaxPtr pax = getPaxPtr();
-        pax->fromDB(Qry);
-
-        int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-        if(pax->simple.bag_pool_num != NoExists) {
-            view_pax.saveMainPax(GrpId_t(pax->simple.grp_id), PaxId_t(pax->simple.paxId()), bag_refuse !=0);  // Установка главного пакса в группе
-        }
-        pax->baggage.fromBagReader(pax->simple, bag_reader, view_pax, options,
-                                   Qry.FieldAsInteger("excess_pc"), Qry.FieldAsInteger("excess_wt"));
-
-        if (countExcessPC) {
-          pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
-        }
-
-        if(options.mkt_flt and not options.mkt_flt.get().empty()) {
-            TMktFlight db_mkt_flt;
-            db_mkt_flt.getByPaxId(pax->simple.id);
-            if(not(db_mkt_flt == options.mkt_flt.get()))
-                return;
-        }
-
-        if(pax->simple.isCBBG()) {
-            unbound_cbbg_list.add_cbbg(pax);
-        } else {
-            push_back(pax);
-            unbound_cbbg_list.bind_cbbg(back());
-        }
-    }
 }
 
 void TPaxList::fromDB(DB::TQuery &Qry, bool countExcessPC)
@@ -230,45 +199,6 @@ void TPax::trace(TRACE_SIGNATURE)
             LogTrace(TRACE_PARAMS) << "  surname: " << cbbg.pax_info->simple.surname;
         }
     }
-}
-
-void TPax::fromDB(TQuery &Qry)
-{
-    int empty_pax_grp_id = FieldAsInteger(Qry, "empty_pax_grp_id");
-    if(empty_pax_grp_id > 0)
-        simple.grp_id = empty_pax_grp_id;
-    else
-        simple.fromDB(Qry);
-    if(not simple.isCBBG())
-        cbbg_list.fromDB(simple.id);
-
-    if(pax_list.options.flags.isFlag(oeSeatNo) and not pax_list.complayers) {
-        pax_list.complayers = TTlgCompLayerList{};
-        TAdvTripInfo flt_info;
-        flt_info.getByPointId(pax_list.point_id);
-        if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
-            getSalonLayers( flt_info.point_id, flt_info.point_num, flt_info.first_point, flt_info.pr_tranzit, pax_list.complayers.get(), false );
-    }
-
-    if(pax_list.complayers) {
-        seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
-        simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(
-                    pax_list.complayers.get().pr_craft_lat or
-                    pax_list.options.lang != AstraLocale::LANG_RU));
-        ostringstream s;
-        s << setw(4) << right << simple.seat_no;
-        _seat_no = s.str();
-    }
-
-    if(not pax_list.rem_grp and pax_list.options.rem_event_type) {
-        pax_list.rem_grp = TRemGrp{};
-        pax_list.rem_grp->Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
-    }
-
-    user_descr = FieldAsString(Qry, "user_descr");
-
-    if(pax_list.rem_grp)
-        GetRemarks(simple.id, pax_list.options.lang, _rems);
 }
 
 void TPax::fromDB(DB::TQuery &Qry)

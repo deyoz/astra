@@ -12,144 +12,6 @@
 #include "oralib.h"
 #include "astra_misc.h"
 
-const std::string qryBalancePassWOCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       pax.grp_id, pax.pax_id, pax.pers_type, NVL(pax.is_female,0) AS is_female, "
-    "       pax.surname, crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
-    " FROM pax_grp, pax, crs_inf "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=crs_inf.inf_id(+) AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL";
-
-    /*"SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
-    "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS chd, "
-    "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS inf, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,seats,NULL,seats,0),0)),0) AS male_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,seats,0),0)),0) AS female_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:chd,seats,0)),0) AS chd_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:inf,seats,0)),0) AS inf_seats "
-    " FROM pax_grp, pax, pax_doc "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=pax_doc.pax_id(+) AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL "
-    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class"; */
-const std::string qryBalancePassWithCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       pax.grp_id, pax.pax_id, pax.pers_type, NVL(pax.is_female,0) AS is_female, "
-    "       pax.surname, crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
-    " FROM pax_grp, pax, crs_inf "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=crs_inf.inf_id(+) AND "
-    "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL ";
-/*    "SELECT point_dep, "
-    "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
-    "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS chd, "
-    "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS inf, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,seats,NULL,seats,0),0)),0) AS male_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,seats,0),0)),0) AS female_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:chd,seats,0)),0) AS chd_seats, "
-    "       NVL(SUM(DECODE(pax.pers_type,:inf,seats,0)),0) AS inf_seats "
-    " FROM pax_grp, pax, pax_doc "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=pax_doc.pax_id(+) AND "
-    "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL "
-    "GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class"; */
-const std::string qryBalanceBagWOCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, amount)) rk_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight "
-    "FROM pax_grp, bag2 "
-    " WHERE pax_grp.grp_id = bag2.grp_id AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-    " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
-const std::string qryBalanceBagWithCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, amount)) rk_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight "
-    "FROM pax_grp, bag2 "
-    " WHERE pax_grp.grp_id = bag2.grp_id AND "
-    "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-    " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
-const std::string qryBalanceExcessBagWOCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       SUM(NVL(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse),0)) paybag_weight "
-    "FROM pax_grp "
-    " WHERE point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') "
-    " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
-const std::string qryBalanceExcessBagWithCheckinTranzit =
-    "SELECT point_dep, "
-    "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       SUM(NVL(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse),0)) paybag_weight "
-    "FROM pax_grp "
-    " WHERE point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') "
-    " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
-/*const std::string qryBalancePad =
-    "SELECT point_dep, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, pax_grp.class, "
-    "       SUM(pax.seats) as count "
-    " FROM pax_grp, pax, crs_pax, crs_pnr "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL AND "
-    "       pax.pax_id=crs_pax.pax_id AND "
-    "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') "
-    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), pax_grp.class";*/
-const std::string qryBalancePad =
-    "SELECT pax.pax_id, point_dep, point_arv, "
-    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, pax_grp.class, "
-    "       pax.seats "
-    " FROM pax_grp, pax, crs_pax, crs_pnr "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL AND "
-    "       pax.pax_id=crs_pax.pax_id AND "
-    "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
-const std::string qryBalanceCargo =
-   "SELECT point_dep, "
-          "CASE point_dep WHEN :point_dep THEN 0 ELSE 1 END as pr_tranzit, "
-          "cargo, mail "
-     "FROM trip_load "
-    "WHERE point_arv = :point_arv";
-
-
 enum TBalanceDataFlag { tdPass, tdBag, tdExcess, tdPad, tdCargo };
 
 
@@ -266,14 +128,14 @@ class TBalanceData
 {
   BitSet<TBalanceDataFlag> dataFlags;
   DB::TQuery *qTripSetsQry;
-  TQuery *qPassQry;
-  TQuery *qPassTQry;
-  TQuery *qBagQry;
-  TQuery *qBagTQry;
-  TQuery *qExcessBagQry;
-  TQuery *qExcessBagTQry;
+  DB::TQuery *qPassQry;
+  DB::TQuery *qPassTQry;
+  DB::TQuery *qBagQry;
+  DB::TQuery *qBagTQry;
+  DB::TQuery *qExcessBagQry;
+  DB::TQuery *qExcessBagTQry;
   DB::TQuery *qCargoQry;
-  TQuery *qPADQry;
+  DB::TQuery *qPADQry;
   void init();
   void getPassBalance( bool pr_tranzit_pass, int point_id, const TTripRoute &routesB, const TTripRoute &routesA, bool isLimitDest4 );
   public:

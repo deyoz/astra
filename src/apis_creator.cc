@@ -58,20 +58,21 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     if (!routeAfterWithoutCurrent.empty() && routeAfterWithoutCurrent.begin()->point_id == point_id)
       routeAfterWithoutCurrent.erase(routeAfterWithoutCurrent.begin());
 
-    TQuery PaxQry(&OraSession);
+    DB::TQuery PaxQry(PgOra::getROSession({"PAX_GRP","PAX","TCKIN_SEGMENTS"}), STDLOG);
     PaxQry.SQLText=
     "SELECT pax.*, "
     "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
-    "FROM pax_grp,pax,tckin_segments "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
-    "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND pr_brd IS NOT NULL AND "
+    "FROM pax_grp "
+    "JOIN pax ON pax_grp.grp_id = pax.grp_id "
+    "LEFT OUTER JOIN tckin_segments "
+    "ON pax_grp.grp_id = tckin_segments.grp_id AND tckin_segments.pr_final <> 0 "
+    "WHERE pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND pr_brd IS NOT NULL AND "
     "      (pax.name IS NULL OR pax.name<>'CBBG') "
     "ORDER BY pax.reg_no, pax.pax_id";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
-    TQuery SeatsQry(&OraSession);
+    DB::TQuery SeatsQry(PgOra::getROSession("PAX_SEATS"), STDLOG);
     SeatsQry.SQLText=
       "SELECT yname AS seat_row, xname AS seat_column "
       "FROM pax_seats "

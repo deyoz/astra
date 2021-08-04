@@ -380,16 +380,10 @@ class SegsPaxs
 class PaxsNames
 {
   private:
-    TQuery Qry;
+    DB::TQuery Qry;
     std::map<int,std::string> items;
   public:
-    PaxsNames():Qry(&OraSession) {
-      Qry.SQLText =
-        "SELECT pax.* "
-        "FROM pax "
-        "WHERE pax_id=:pax_id ";
-      Qry.DeclareVariable( "pax_id", otInteger );
-    }
+    PaxsNames();
     std::string getPaxName( int pax_id );
 };
 

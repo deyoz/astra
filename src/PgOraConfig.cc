@@ -221,9 +221,25 @@ namespace PgOra
                 "COUNTERS2",
                 "COUNTERS_BY_SUBCLS"
         }},
+        { "SP_PG_GROUP_CRS_PAX", {
+                "CRS_PAX",
+                "CRS_PNR",
+                "CRS_INF",         // "PAX_GRP", "PAX", "CRS_INF_DELETED", "CRS_PNR", "CRS_PAX", "CRS_PAX_CHKD", ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_rkWeight2, salons.get_crs_seat_no
+                "CRS_INF_DELETED", // "CRS_PAX", "CRS_PNR", "CRS_INF"
+                "CRS_RBD",         // "CRS_PAX", "CRS_PNR", "SUBCLS", "CLASSES", "TLG_BINDING"
+                "CRS_PAX_CHKD",    // "CRS_PAX", "CRS_PNR", "PAX", "CRS_INF", salons.get_crs_seat_no
+        }},
         { "SP_PG_GROUP_PAX", {
                 "PAX",
                 "PAX_GRP",
+                "PAX_EMD",  // "PAX", "PAX_GRP", "PAX_ASVC"
+                "PAX_ASVC", // "PAX", "PAX_GRP", "PAX_EMD", "TCKIN_PAX_GRP", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
+                "PAX_REM",  // "PAX", "PAX_GRP", "PAX_ASVC", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "COMP_REM_TYPES", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
+                "PAX_REM_ORIGIN", // "PAX", "PAX_GRP", "POINTS"
+                "PAX_CALC_DATA",  // "PAX", "PAX_GRP", "CRS_PAX", "CRS_PNR", "TCKIN_PAX_GRP", "PAX_CALC_DATA", "USERS2", "TLG_BINDING"
+                "PAX_DOC",  // "PAX", "PAX_GRP", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "POINTS", "AIRPS", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2", ckin.get_excess_wt, ckin.get_rkAmount2, ckin.get_rkWeight2, ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_bag_pool_pax_id, salons.get_seat_no
+                "PAX_DOCA", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCO", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
+                "PAX_DOCO", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
         }},
         { "SP_PG_GROUP_TRIP_TASK", {
                 "TRIP_CLASSES",
@@ -243,7 +259,7 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_TRANSFER", {
                 "TRANSFER",
-                "TRANSFER_SUBCLS",
+                "TRANSFER_SUBCLS", // "PAX","PAX_GRP","SUBCLS","CLASSES","TRANSFER","TRFER_TRIPS", system.transliter, ckin.get_bag_pool_pax_id
         }},
         { "SP_PG_GROUP_TRIP_CALC", {
                 "TRIP_CALC_DATA",

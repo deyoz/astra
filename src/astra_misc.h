@@ -1085,9 +1085,9 @@ struct TInfantAdults {
   int parent_pax_id;
   int temp_parent_id;
   void clear();
-  void fromDB(TQuery &Qry);
-  TInfantAdults(TQuery &Qry);
-  TInfantAdults() { clear(); };
+  void fromDB(DB::TQuery &Qry);
+  TInfantAdults(DB::TQuery &Qry);
+  TInfantAdults() { clear(); }
 };
 
 template <class T1>

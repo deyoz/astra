@@ -15,6 +15,31 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace std;
 using namespace EXCEPTIONS;
+namespace {
+
+struct PaxData4Exam
+{
+  CheckIn::TSimplePaxItem pax;
+  int grp_id;
+  std::string user_descr;
+  int bag_refuse;
+  std::optional<int> opt_bag_pool_num;
+  int excess_wt;
+  int excess_pc;
+};
+
+bool compareBySeatNo(const PaxData4Exam& p1, const PaxData4Exam& p2)
+{
+  if (p1.pax.seat_no != p2.pax.seat_no) {
+    return p1.pax.seat_no < p2.pax.seat_no;
+  }
+  if (p1.pax.reg_no != p2.pax.reg_no) {
+    return p1.pax.reg_no < p2.pax.reg_no;
+  }
+  return p1.pax.seats > p2.pax.seats;
+}
+
+} // namespace
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -53,6 +78,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             using namespace CKIN;
             BagReader bag_reader(PointId_t(rpt_params.point_id), std::nullopt, READ::BAGS_AND_TAGS);
             MainPax viewPax;
+
+            std::vector<PaxData4Exam> paxDataItems;
             for( ; !Qry.Eof; Qry.Next()) {
                 rownum++;
                 CheckIn::TSimplePaxItem pax;
@@ -64,42 +91,58 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                       Qry.FieldAsString("status"),
                       PointId_t(Qry.FieldAsInteger("point_dep")),
                       rownum);
-
-                xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 int grp_id = Qry.FieldAsInteger("grp_id");
-                NewTextChild(paxNode, "reg_no", pax.reg_no);
-                NewTextChild(paxNode, "surname", transliter(pax.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                NewTextChild(paxNode, "name", transliter(pax.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                if(pr_web)
-                    NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
-                NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
-                NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
-                NewTextChild(paxNode, "seat_no", pax.seat_no);
-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax.id, false, rpt_params.GetLang()));
-                NewTextChild(paxNode, "ticket_no", pax.tkn.no);
-                NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
-
                 const int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+                const std::string user_descr = Qry.FieldAsString("user_descr");
                 std::optional<int> opt_bag_pool_num;
                 if(!Qry.FieldIsNULL("bag_pool_num")) {
                     opt_bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
-                    viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax.paxId()), bag_refuse!=0);
                 }
+                const int excess_wt = Qry.FieldAsInteger("excess_wt");
+                const int excess_pc = Qry.FieldAsInteger("excess_pc");
+                const PaxData4Exam pax_data = { pax, grp_id, user_descr, bag_refuse, opt_bag_pool_num, excess_wt, excess_pc };
+                paxDataItems.push_back(pax_data);
+            }
+            if (rpt_params.sort == stSeatNo) {
+              std::sort(paxDataItems.begin(), paxDataItems.end(), compareBySeatNo);
+            }
+            for (const PaxData4Exam& pax_data: paxDataItems) {
+              const CheckIn::TSimplePaxItem& pax = pax_data.pax;
+              int grp_id = pax_data.grp_id;
+              const int bag_refuse = pax_data.bag_refuse;
+              std::optional<int> opt_bag_pool_num = pax_data.opt_bag_pool_num;
+              const int excess_wt_raw = pax_data.excess_wt;
+              const int excess_pc = pax_data.excess_pc;
 
-                const int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
+              xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+              NewTextChild(paxNode, "reg_no", pax.reg_no);
+              NewTextChild(paxNode, "surname", transliter(pax.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+              NewTextChild(paxNode, "name", transliter(pax.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+              if(pr_web)
+                  NewTextChild(paxNode, "user_descr", transliter(pax_data.user_descr, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+              NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
+              NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
+              NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
+              NewTextChild(paxNode, "seat_no", pax.seat_no);
+              NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(std::nullopt, pax.id, false, rpt_params.GetLang()));
+              NewTextChild(paxNode, "ticket_no", pax.tkn.no);
+              NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
 
-                NewTextChild(paxNode, "bag_amount", bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num));
-                NewTextChild(paxNode, "bag_weight", bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num));
-                NewTextChild(paxNode, "rk_amount", bag_reader.rkAmount(GrpId_t(grp_id), opt_bag_pool_num));
-                NewTextChild(paxNode, "rk_weight", bag_reader.rkWeight(GrpId_t(grp_id), opt_bag_pool_num));
-                excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                        TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax.paxId()), excess_wt_raw)));
-                bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
-                    WeightConcept::BagPaymentCompleted(grp_id);
-                NewTextChild(paxNode, "pr_payment", (int)pr_payment);
-                NewTextChild(paxNode, "tags", bag_reader.tags(GrpId_t(grp_id), opt_bag_pool_num, rpt_params.GetLang()));
-                NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
+              if(opt_bag_pool_num) {
+                  viewPax.saveMainPax(GrpId_t(grp_id), PaxId_t(pax.paxId()), bag_refuse!=0);
+              }
+
+              NewTextChild(paxNode, "bag_amount", bag_reader.bagAmount(GrpId_t(grp_id), opt_bag_pool_num));
+              NewTextChild(paxNode, "bag_weight", bag_reader.bagWeight(GrpId_t(grp_id), opt_bag_pool_num));
+              NewTextChild(paxNode, "rk_amount", bag_reader.rkAmount(GrpId_t(grp_id), opt_bag_pool_num));
+              NewTextChild(paxNode, "rk_weight", bag_reader.rkWeight(GrpId_t(grp_id), opt_bag_pool_num));
+              excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc),
+                      TBagKilos(viewPax.excessWt(GrpId_t(grp_id), PaxId_t(pax.paxId()), excess_wt_raw)));
+              bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
+                  WeightConcept::BagPaymentCompleted(grp_id);
+              NewTextChild(paxNode, "pr_payment", (int)pr_payment);
+              NewTextChild(paxNode, "tags", bag_reader.tags(GrpId_t(grp_id), opt_bag_pool_num, rpt_params.GetLang()));
+              NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
             }
         }
     } else {

@@ -403,7 +403,7 @@ void RunTrferPaxStat(
             if (!pax.getByPaxId(pax_id)) {
                 continue;
             }
-            DB::TQuery QryBricks2(PgOra::getROSession("ORACLE"), STDLOG);
+            DB::TQuery QryBricks2(PgOra::getROSession("PAX"), STDLOG);
             QryBricks2.SQLText =
                 "SELECT grp_id, bag_pool_num "
                 "FROM pax "

@@ -300,9 +300,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     }
     const TPaxTknItem& toXML(xmlNodePtr node) const;
     TPaxTknItem& fromXML(xmlNodePtr node);
-    const TPaxTknItem& toDB(TQuery &Qry) const;
     const TPaxTknItem& toDB(DB::TQuery &Qry) const;
-    TPaxTknItem& fromDB(TQuery &Qry);
     TPaxTknItem& fromDB(DB::TQuery &Qry);
 
     static std::vector<TPaxTknItem> loadTKNE(const PaxId_t& pax_id);
@@ -374,7 +372,7 @@ class TPaxDocCompoundType
   TPaxDocCompoundType& fromXML(xmlNodePtr node);
   TPaxDocCompoundType& fromWebXML(xmlNodePtr node);
   TPaxDocCompoundType& fromMeridianXML(xmlNodePtr node);
-  const TPaxDocCompoundType& toDB(TQuery &Qry) const;
+  const TPaxDocCompoundType& toDB(DB::TQuery &Qry) const;
   TPaxDocCompoundType& fromDB(DB::TQuery &Qry);
 };
 
@@ -461,7 +459,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     TPaxDocItem& fromXML(xmlNodePtr node);
     TPaxDocItem& fromWebXML(xmlNodePtr node);
     TPaxDocItem& fromMeridianXML(xmlNodePtr node);
-    const TPaxDocItem& toDB(TQuery &Qry) const;
+    const TPaxDocItem& toDB(DB::TQuery &Qry) const;
     TPaxDocItem& fromDB(DB::TQuery &Qry);
 
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
@@ -579,7 +577,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
     TPaxDocoItem& fromXML(xmlNodePtr node);
     TPaxDocoItem& fromWebXML(xmlNodePtr node);
     TPaxDocoItem& fromMeridianXML(xmlNodePtr node);
-    const TPaxDocoItem& toDB(TQuery &Qry) const;
+    const TPaxDocoItem& toDB(DB::TQuery &Qry) const;
     TPaxDocoItem& fromDB(DB::TQuery &Qry);
 
     bool needPseudoType() const;
@@ -682,7 +680,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     const TPaxDocaItem& toXML(xmlNodePtr node) const;
     TPaxDocaItem& fromXML(xmlNodePtr node);
     TPaxDocaItem& fromMeridianXML(xmlNodePtr node);
-    const TPaxDocaItem& toDB(TQuery &Qry) const;
+    const TPaxDocaItem& toDB(DB::TQuery &Qry) const;
     TPaxDocaItem& fromDB(DB::TQuery &Qry);
 
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
@@ -713,9 +711,7 @@ class TComplexClass
       cl_grp=ASTRA::NoExists;
     }
 
-    const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
     const TComplexClass& toDB(DB::TQuery &Qry, const std::string& fieldPrefix) const;
-    TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
     TComplexClass& fromDB(DB::TQuery &Qry, const std::string& fieldPrefix);
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
@@ -752,10 +748,6 @@ class TSimplePaxItem
     {
       clear();
     }
-    TSimplePaxItem(TQuery &Qry)
-    {
-      fromDB(Qry);
-    }
     TSimplePaxItem(DB::TQuery &Qry)
     {
       fromDB(Qry);
@@ -787,7 +779,6 @@ class TSimplePaxItem
       gender=ASTRA::TGender::Unknown;
     }
 
-    static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
     static ASTRA::TGender::Enum genderFromDB(DB::TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
     static const std::string& origClassFromCrsSQL();
@@ -798,9 +789,7 @@ class TSimplePaxItem
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromPax(const dbo::PAX &pax);
     TSimplePaxItem& fromPax(const dbo::ARX_PAX &arx_pax);
-    TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDB(DB::TQuery &Qry);
-    TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     TSimplePaxItem& fromDBCrs(DB::TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
     bool getCrsByPaxId(PaxId_t pax_id, bool skip_deleted = false);
@@ -926,9 +915,7 @@ class TPaxItem : public TSimplePaxItem
 
     const TPaxItem& toXML(xmlNodePtr node) const;
     TPaxItem& fromXML(xmlNodePtr node);
-    const TPaxItem& toDB(TQuery &Qry) const;
     const TPaxItem& toDB(DB::TQuery &Qry) const;
-    TPaxItem& fromDB(TQuery &Qry);
     TPaxItem& fromDB(DB::TQuery &Qry);
     int is_female() const;
 };
@@ -1034,7 +1021,7 @@ class TSimplePnrItem
       point_id_tlg=ASTRA::NoExists;
     }
 
-    TSimplePnrItem& fromDB(TQuery &Qry);
+    TSimplePnrItem& fromDB(DB::TQuery &Qry);
     bool getByPaxId(int pax_id);
     bool getByPnrId(const PnrId_t& pnr_id, const std::string& system);
 
@@ -1089,7 +1076,6 @@ class TSimplePaxGrpItem
     {
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
-    TSimplePaxGrpItem& fromDB(TQuery &Qry);
     TSimplePaxGrpItem& fromDB(DB::TQuery &Qry);
     const TSimplePaxGrpItem& toXML(xmlNodePtr node) const;
     const TSimplePaxGrpItem& toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const;
@@ -1113,7 +1099,7 @@ std::set<PaxId_t> loadSeatIdSet(PaxId_t pax_id, bool lock);
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
   private:
-    TSimplePaxGrpItem& fromDB(TQuery &Qry);
+    TSimplePaxGrpItem& fromDB(DB::TQuery &Qry);
   public:
     bool pc, wt;
     bool rfisc_used;
@@ -1146,9 +1132,8 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
     bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
-    const TPaxGrpItem& toDB(TQuery &Qry) const;
     const TPaxGrpItem& toDB(DB::TQuery &Qry) const;
-    TPaxGrpItem& fromDBWithBagConcepts(TQuery &Qry);
+    TPaxGrpItem& fromDBWithBagConcepts(DB::TQuery &Qry);
     bool getByGrpIdWithBagConcepts(int grp_id);
     void SyncServiceAuto(const TTripInfo &flt);
     void checkInfantsCount(const CheckIn::TSimplePaxList &prior_paxs,
@@ -1263,13 +1248,6 @@ class TCkinPaxTknItem : public TPaxTknItem
     PaxId_t paxId_;
 
   public:
-    TCkinPaxTknItem(TQuery &Qry) :
-      grpId_(Qry.FieldAsInteger("grp_id")),
-      paxId_(Qry.FieldAsInteger("pax_id"))
-    {
-      TPaxTknItem::fromDB(Qry);
-    }
-
     TCkinPaxTknItem(DB::TQuery &Qry) :
       grpId_(Qry.FieldAsInteger("grp_id")),
       paxId_(Qry.FieldAsInteger("pax_id"))

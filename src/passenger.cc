@@ -287,19 +287,7 @@ TPaxTknItem& TPaxTknItem::fromXML(xmlNodePtr node)
   rem=NodeAsStringFast("ticket_rem",node2);
   confirm=NodeAsIntegerFast("ticket_confirm",node2)!=0;
   return *this;
-};
-
-const TPaxTknItem& TPaxTknItem::toDB(TQuery &Qry) const
-{
-  Qry.SetVariable("ticket_no", no);
-  if (coupon!=ASTRA::NoExists)
-    Qry.SetVariable("coupon_no", coupon);
-  else
-    Qry.SetVariable("coupon_no", FNull);
-  Qry.SetVariable("ticket_rem", rem);
-  Qry.SetVariable("ticket_confirm", (int)confirm);
-  return *this;
-};
+}
 
 const TPaxTknItem& TPaxTknItem::toDB(DB::TQuery &Qry) const
 {
@@ -312,19 +300,6 @@ const TPaxTknItem& TPaxTknItem::toDB(DB::TQuery &Qry) const
   Qry.SetVariable("ticket_confirm", (int)confirm);
   return *this;
 }
-
-TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
-{
-  clear();
-  no=Qry.FieldAsString("ticket_no");
-  if (!Qry.FieldIsNULL("coupon_no"))
-    coupon=Qry.FieldAsInteger("coupon_no");
-  else
-    coupon=ASTRA::NoExists;
-  rem=Qry.FieldAsString("ticket_rem");
-  confirm=Qry.FieldAsInteger("ticket_confirm")!=0;
-  return *this;
-};
 
 TPaxTknItem& TPaxTknItem::fromDB(DB::TQuery &Qry)
 {
@@ -428,17 +403,19 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
     tkn.clear();
-
-    const char* sql=
-        "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm "
-        "FROM pax WHERE pax_id=:pax_id";
-    QParams QryParams;
-    QryParams << QParam("pax_id", otInteger, pax_id);
-    TCachedQuery PaxTknQry(sql, QryParams);
+    DB::TCachedQuery PaxTknQry(
+          PgOra::getROSession("PAX"),
+          "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm "
+          "FROM pax "
+          "WHERE pax_id=:pax_id",
+          QParams() << QParam("pax_id", otInteger, pax_id),
+          STDLOG);
     PaxTknQry.get().Execute();
-    if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
+    if (!PaxTknQry.get().Eof) {
+      tkn.fromDB(PaxTknQry.get());
+    }
     return !tkn.empty();
-};
+}
 
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
@@ -462,7 +439,7 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
     tkn.fromDB(PaxTknQry.get());
   }
   return !tkn.empty();
-};
+}
 
 string PaxDocGenderNormalize(const string &pax_doc_gender)
 {
@@ -699,14 +676,14 @@ TPaxDocItem& TPaxDocItem::fromMeridianXML(xmlNodePtr node)
   return *this;
 }
 
-const TPaxDocCompoundType& TPaxDocCompoundType::toDB(TQuery &Qry) const
+const TPaxDocCompoundType& TPaxDocCompoundType::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("type", type);
   Qry.SetVariable("subtype", subtype);
   return *this;
 }
 
-const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
+const TPaxDocItem& TPaxDocItem::toDB(DB::TQuery &Qry) const
 {
   TPaxDocCompoundType::toDB(Qry);
   Qry.SetVariable("issue_country", issue_country);
@@ -981,7 +958,7 @@ TPaxDocoItem& TPaxDocoItem::fromMeridianXML(const xmlNodePtr node)
 }
 
 
-const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
+const TPaxDocoItem& TPaxDocoItem::toDB(DB::TQuery &Qry) const
 {
   TPaxDocCompoundType::toDB(Qry);
   Qry.SetVariable("birth_place", birth_place);
@@ -1136,7 +1113,7 @@ TPaxDocaItem& TPaxDocaItem::fromMeridianXML(xmlNodePtr node)
   return *this;
 }
 
-const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
+const TPaxDocaItem& TPaxDocaItem::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("type", type);
   Qry.SetVariable("country", country);
@@ -1145,7 +1122,7 @@ const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
   Qry.SetVariable("region", region);
   Qry.SetVariable("postal_code", postal_code);
   return *this;
-};
+}
 
 TPaxDocaItem& TPaxDocaItem::fromDB(DB::TQuery &Qry)
 {
@@ -1157,7 +1134,7 @@ TPaxDocaItem& TPaxDocaItem::fromDB(DB::TQuery &Qry)
   region=Qry.FieldAsString("region");
   postal_code=Qry.FieldAsString("postal_code");
   return *this;
-};
+}
 
 long int TPaxDocaItem::getNotEmptyFieldsMask() const
 {
@@ -1316,7 +1293,7 @@ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
     PaxDocQry.get().Execute();
     if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
     return !doc.empty();
-};
+}
 
 
 std::string GetPaxDocStr(std::optional<Dates::DateTime_t> part_key,
@@ -1363,7 +1340,7 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
-};
+}
 
 boost::optional<TPaxDocoItem> TPaxDocoItem::get(const PaxOrigin& origin, const PaxId_t& paxId)
 {
@@ -1438,16 +1415,20 @@ bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
     doc.clear();
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TCachedQuery PaxQry("SELECT doco_confirm FROM pax WHERE pax_id=:pax_id", QryParams);
+    DB::TCachedQuery PaxQry(
+          PgOra::getROSession("PAX"),
+          "SELECT doco_confirm FROM pax WHERE pax_id=:pax_id",
+          QryParams, STDLOG);
     doc.doco_confirm=false;
     PaxQry.get().Execute();
     if (!PaxQry.get().Eof)
     doc.doco_confirm=PaxQry.get().FieldIsNULL("doco_confirm") ||
                  PaxQry.get().FieldAsInteger("doco_confirm")!=0;
 
-    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCO"),
-                               "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
-                               QryParams, STDLOG);
+    DB::TCachedQuery PaxDocQry(
+          PgOra::getROSession("PAX_DOCO"),
+          "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
+          QryParams, STDLOG);
     PaxDocQry.get().Execute();
     if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
     return !doc.empty();
@@ -1771,43 +1752,47 @@ void SavePaxDoco(const PaxIdWithSegmentPair& paxId,
   if ((deleteOld || insertNew) &&
       !doc.equal(priorDoc))
   {
-    TCachedQuery Qry("BEGIN "
-                     "  IF :delete_old<>0 THEN "
-                     "    DELETE FROM pax_doco WHERE pax_id=:pax_id; "
-                     "  END IF; "
-                     "  IF :insert_new<>0 THEN "
-                     "    INSERT INTO pax_doco "
-                     "      (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
-                     "    VALUES "
-                     "      (:pax_id,:birth_place,:type,:subtype,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
-                     "  END IF; "
-                     "END;",
-                     QParams()
-                     << QParam("pax_id",otInteger)
-                     << QParam("birth_place",otString)
-                     << QParam("type",otString)
-                     << QParam("subtype",otString)
-                     << QParam("no",otString)
-                     << QParam("issue_place",otString)
-                     << QParam("issue_date",otDate)
-                     << QParam("expiry_date",otDate)
-                     << QParam("applic_country",otString)
-                     << QParam("scanned_attrs",otInteger)
-                     << QParam("delete_old",otInteger)
-                     << QParam("insert_new",otInteger));
-
-    doc.toDB(Qry.get());
-    Qry.get().SetVariable("pax_id",paxId().get());
-    Qry.get().SetVariable("delete_old",(int)deleteOld);
-    Qry.get().SetVariable("insert_new",(int)insertNew);
-    Qry.get().Execute();
+    if (deleteOld != 0) {
+      DB::TCachedQuery QryDel(
+            PgOra::getRWSession("PAX_DOCO"),
+            "DELETE FROM pax_doco WHERE pax_id=:pax_id",
+            QParams() << QParam("pax_id",otInteger,paxId().get()),
+            STDLOG);
+      QryDel.get().Execute();
+    }
+    if (insertNew != 0) {
+      DB::TCachedQuery QryIns(
+            PgOra::getRWSession("PAX_DOCO"),
+            "INSERT INTO pax_doco "
+            "  (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
+            "VALUES "
+            "  (:pax_id,:birth_place,:type,:subtype,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs) ",
+            QParams() << QParam("pax_id",otInteger, paxId().get())
+                      << QParam("birth_place",otString)
+                      << QParam("type",otString)
+                      << QParam("subtype",otString)
+                      << QParam("no",otString)
+                      << QParam("issue_place",otString)
+                      << QParam("issue_date",otDate)
+                      << QParam("expiry_date",otDate)
+                      << QParam("applic_country",otString)
+                      << QParam("scanned_attrs",otInteger),
+            STDLOG);
+      doc.toDB(QryIns.get());
+      QryIns.get().Execute();
+    }
 
     modifiedPaxRem.add(remDOCO, paxId);
   }
 
-  TCachedQuery PaxQry("UPDATE pax SET doco_confirm=:doco_confirm WHERE pax_id=:pax_id",
-                      QParams() << QParam("pax_id", otInteger, paxId().get())
-                                << QParam("doco_confirm", otInteger, (int)doc.doco_confirm));
+  DB::TCachedQuery PaxQry(
+        PgOra::getRWSession("PAX"),
+        "UPDATE pax SET "
+        "doco_confirm=:doco_confirm "
+        "WHERE pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, paxId().get())
+                  << QParam("doco_confirm", otInteger, (int)doc.doco_confirm),
+        STDLOG);
   PaxQry.get().Execute();
 }
 
@@ -1837,23 +1822,29 @@ void SavePaxDoca(const PaxIdWithSegmentPair& paxId,
   {
     if (deleteOld)
     {
-      TCachedQuery Qry("DELETE FROM pax_doca WHERE pax_id=:pax_id",
-                        QParams() << QParam("pax_id", otInteger, paxId().get()));
+      DB::TCachedQuery Qry(
+            PgOra::getRWSession("PAX_DOCA"),
+            "DELETE FROM pax_doca WHERE pax_id=:pax_id",
+            QParams() << QParam("pax_id", otInteger, paxId().get()),
+            STDLOG);
       Qry.get().Execute();
     }
     if (insertNew)
     {
-      TCachedQuery Qry( "INSERT INTO pax_doca "
-                        "  (pax_id,type,country,address,city,region,postal_code) "
-                        "VALUES "
-                        "  (:pax_id,:type,:country,:address,:city,:region,:postal_code)",
-                        QParams() << QParam("pax_id", otInteger, paxId().get())
-                                  << QParam("type", otString)
-                                  << QParam("country", otString)
-                                  << QParam("address", otString)
-                                  << QParam("city", otString)
-                                  << QParam("region", otString)
-                                  << QParam("postal_code", otString) );
+      DB::TCachedQuery Qry(
+            PgOra::getRWSession("PAX_DOCA"),
+            "INSERT INTO pax_doca "
+            "  (pax_id,type,country,address,city,region,postal_code) "
+            "VALUES "
+            "  (:pax_id,:type,:country,:address,:city,:region,:postal_code)",
+            QParams() << QParam("pax_id", otInteger, paxId().get())
+                      << QParam("type", otString)
+                      << QParam("country", otString)
+                      << QParam("address", otString)
+                      << QParam("city", otString)
+                      << QParam("region", otString)
+                      << QParam("postal_code", otString),
+            STDLOG);
       for(const auto& i : newDoca)
       {
         i.second.toDB(Qry.get());
@@ -1936,7 +1927,7 @@ void SavePaxRem(const PaxIdWithSegmentPair& paxId,
   if ((deleteOld || insertNew) &&
        prior!=remsToDB)
   {
-    TQuery RemQry(&OraSession);
+    DB::TQuery RemQry(PgOra::getRWSession("PAX_REM"), STDLOG);
     RemQry.CreateVariable("pax_id",otInteger,paxId().get());
     if (deleteOld)
     {
@@ -2083,18 +2074,6 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
 
   subcl=NodeAsStringFast("subclass",node2,"");
   return *this;
-};
-
-const TComplexClass& TComplexClass::toDB(TQuery &Qry, const std::string& fieldPrefix) const
-{
-  if (Qry.GetVariableIndex(fieldPrefix+"subclass")>=0)
-    Qry.SetVariable(fieldPrefix+"subclass", subcl);
-  if (Qry.GetVariableIndex(fieldPrefix+"class")>=0)
-    Qry.SetVariable(fieldPrefix+"class", cl);
-  if (Qry.GetVariableIndex(fieldPrefix+"class_grp")>=0)
-    cl_grp!=ASTRA::NoExists?Qry.SetVariable(fieldPrefix+"class_grp", cl_grp):
-                            Qry.SetVariable(fieldPrefix+"class_grp", FNull);
-  return *this;
 }
 
 const TComplexClass& TComplexClass::toDB(DB::TQuery &Qry, const std::string& fieldPrefix) const
@@ -2118,47 +2097,6 @@ const TComplexClass& TComplexClass::toXML(xmlNodePtr node, const std::string& fi
 
   return *this;
 }
-
-const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
-{
-  id!=ASTRA::NoExists?Qry.SetVariable("pax_id", id):
-                      Qry.SetVariable("pax_id", FNull);
-  if (Qry.GetVariableIndex("surname")>=0)
-    Qry.SetVariable("surname", surname);
-  if (Qry.GetVariableIndex("name")>=0)
-    Qry.SetVariable("name", name);
-  if (Qry.GetVariableIndex("pers_type")>=0)
-    Qry.SetVariable("pers_type", EncodePerson(pers_type));
-  if (Qry.GetVariableIndex("crew_type")>=0)
-    Qry.SetVariable("crew_type", CrewTypes().encode(crew_type));
-  if (Qry.GetVariableIndex("is_jmp")>=0)
-    Qry.SetVariable("is_jmp", (int)is_jmp);
-  if (Qry.GetVariableIndex("seat_type")>=0)
-    Qry.SetVariable("seat_type", seat_type);
-  if (Qry.GetVariableIndex("seats")>=0)
-    Qry.SetVariable("seats", seats);
-  if (Qry.GetVariableIndex("refuse")>=0)
-    Qry.SetVariable("refuse", refuse);
-  if (Qry.GetVariableIndex("pr_brd")>=0)
-    Qry.SetVariable("pr_brd", (int)pr_brd);
-  if (Qry.GetVariableIndex("pr_exam")>=0)
-    Qry.SetVariable("pr_exam", (int)pr_exam);
-  if (Qry.GetVariableIndex("wl_type")>=0)
-    Qry.SetVariable("wl_type", wl_type);
-  if (Qry.GetVariableIndex("reg_no")>=0)
-    Qry.SetVariable("reg_no", reg_no);
-  if (Qry.GetVariableIndex("subclass")>=0)
-    Qry.SetVariable("subclass", subcl);
-  cabin.toDB(Qry, "cabin_");
-  if (Qry.GetVariableIndex("bag_pool_num")>=0)
-    bag_pool_num!=ASTRA::NoExists?Qry.SetVariable("bag_pool_num", bag_pool_num):
-                                  Qry.SetVariable("bag_pool_num", FNull);
-  if (Qry.GetVariableIndex("tid")>=0)
-    Qry.SetVariable("tid", tid);
-  if (Qry.GetVariableIndex("ticket_no")>=0)
-    tkn.toDB(Qry);
-  return *this;
-};
 
 const TPaxItem& TPaxItem::toDB(DB::TQuery &Qry) const
 {
@@ -2199,16 +2137,6 @@ const TPaxItem& TPaxItem::toDB(DB::TQuery &Qry) const
   if (Qry.GetVariableIndex("ticket_no")>=0)
     tkn.toDB(Qry);
   return *this;
-}
-
-ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(TQuery &Qry)
-{
-  if (Qry.FieldIsNULL("is_female"))
-    return ASTRA::TGender::Unknown;
-  else if (Qry.FieldAsInteger("is_female")!=0)
-    return ASTRA::TGender::Female;
-  else
-    return ASTRA::TGender::Male;
 }
 
 ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(DB::TQuery &Qry)
@@ -2267,50 +2195,12 @@ const std::string& TSimplePaxItem::cabinSubclassFromCrsSQL()
   return result;
 }
 
-TComplexClass& TComplexClass::fromDB(TQuery &Qry, const std::string& fieldPrefix)
-{
-  clear();
-  subcl=Qry.FieldAsString(fieldPrefix+"subclass");
-  cl=Qry.FieldAsString(fieldPrefix+"class");
-  cl_grp=Qry.FieldIsNULL(fieldPrefix+"class_grp")?ASTRA::NoExists:Qry.FieldAsInteger(fieldPrefix+"class_grp");
-  return *this;
-}
-
 TComplexClass& TComplexClass::fromDB(DB::TQuery &Qry, const std::string& fieldPrefix)
 {
   clear();
   subcl=Qry.FieldAsString(fieldPrefix+"subclass");
   cl=Qry.FieldAsString(fieldPrefix+"class");
   cl_grp=Qry.FieldIsNULL(fieldPrefix+"class_grp")?ASTRA::NoExists:Qry.FieldAsInteger(fieldPrefix+"class_grp");
-  return *this;
-}
-
-TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
-{
-  clear();
-  id=Qry.FieldAsInteger("pax_id");
-  grp_id=Qry.FieldAsInteger("grp_id");
-  surname=Qry.FieldAsString("surname");
-  name=Qry.FieldAsString("name");
-  pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  if(Qry.GetFieldIndex("crew_type") >= 0)
-      crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
-  is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
-  if (Qry.GetFieldIndex("seat_no") >= 0)
-    seat_no=Qry.FieldAsString("seat_no");
-  seat_type=Qry.FieldAsString("seat_type");
-  seats=Qry.FieldAsInteger("seats");
-  refuse=Qry.FieldAsString("refuse");
-  pr_brd=Qry.FieldAsInteger("pr_brd")!=0;
-  pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
-  reg_no=Qry.FieldAsInteger("reg_no");
-  subcl=Qry.FieldAsString("subclass");
-  cabin.fromDB(Qry, "cabin_");
-  bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
-  tid=Qry.FieldAsInteger("tid");
-  tkn.fromDB(Qry);
-  TknExists=true;
-  gender=genderFromDB(Qry);
   return *this;
 }
 
@@ -2340,49 +2230,6 @@ TSimplePaxItem& TSimplePaxItem::fromDB(DB::TQuery &Qry)
   tkn.fromDB(Qry);
   TknExists=true;
   gender=genderFromDB(Qry);
-  return *this;
-}
-
-TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
-{
-  clear();
-  id=Qry.FieldAsInteger("pax_id");
-  pnr_id=Qry.FieldAsInteger("pnr_id");
-  surname=Qry.FieldAsString("surname");
-  name=Qry.FieldAsString("name");
-  if (isTest())
-  {
-    pers_type=ASTRA::adult;
-    seats=1;
-  }
-  else
-  {
-    pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-    seat_type=Qry.FieldAsString("seat_type");
-    seats=Qry.FieldAsInteger("seats");
-  }
-  if (Qry.GetFieldIndex("seat_no")>=0)
-    seat_no = Qry.FieldAsString("seat_no");
-  if (Qry.GetFieldIndex("reg_no")>=0)
-    reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
-
-  subcl = Qry.FieldAsString("subclass");
-  cabin.fromDB(Qry, "cabin_");
-
-  if (withTkn)
-  {
-    if (isTest())
-    {
-      tkn.no=Qry.FieldAsString("tkn_no");
-      if (!tkn.no.empty())
-      {
-        tkn.coupon=1;
-        tkn.rem="TKNE";
-      };
-    }
-    else LoadCrsPaxTkn(id, tkn);
-  }
-  TknExists=withTkn;
   return *this;
 }
 
@@ -2495,9 +2342,11 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
       fromPax(*arx_pax);
 
   } else {
-      QParams QryParams;
-      QryParams << QParam("pax_id", otInteger, pax_id);
-      TCachedQuery PaxQry("SELECT * FROM pax WHERE pax_id=:pax_id", QryParams);
+      DB::TCachedQuery PaxQry(
+            PgOra::getROSession("PAX"),
+            "SELECT * FROM pax WHERE pax_id=:pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id),
+            STDLOG);
       PaxQry.get().Execute();
       if (PaxQry.get().Eof) return false;
       fromDB(PaxQry.get());
@@ -2511,7 +2360,7 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id.get());
   DB::TCachedQuery PaxQry(
-        PgOra::getROSession("CRS_PAX-CRS_PNR"),
+        PgOra::getROSession({"CRS_PAX","CRS_PNR"}),
         "SELECT crs_pax.*, "
         + CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() + " AS subclass, "
         + CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, "
@@ -2549,8 +2398,9 @@ std::list<TSimplePaxItem> TSimplePaxItem::getByDepPointId(const PointId_t& point
 {
   std::list<TSimplePaxItem> result;
   DB::TCachedQuery Qry(
-        PgOra::getROSession("PAX-PAX_GRP"),
-        "SELECT pax.* FROM pax, pax_grp "
+        PgOra::getROSession({"PAX","PAX_GRP"}),
+        "SELECT pax.* "
+        "FROM pax, pax_grp "
         "WHERE pax_grp.point_dep=:point_id "
         "AND pax.grp_id = pax_grp.grp_id ",
         QParams() << QParam("point_id", otInteger, point_id.get()),
@@ -2564,16 +2414,6 @@ std::list<TSimplePaxItem> TSimplePaxItem::getByDepPointId(const PointId_t& point
   return result;
 }
 
-TPaxItem& TPaxItem::fromDB(TQuery &Qry)
-{
-  clear();
-  TSimplePaxItem::fromDB(Qry);
-  DocExists=CheckIn::LoadPaxDoc(id, doc);
-  DocoExists=CheckIn::LoadPaxDoco(id, doco);
-  DocaExists=CheckIn::LoadPaxDoca(id, doca_map);
-  return *this;
-};
-
 TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry)
 {
   clear();
@@ -2582,7 +2422,7 @@ TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry)
   DocoExists=CheckIn::LoadPaxDoco(id, doco);
   DocaExists=CheckIn::LoadPaxDoca(id, doca_map);
   return *this;
-};
+}
 
 int TPaxItem::is_female() const
 {
@@ -2643,8 +2483,14 @@ bool TSimplePaxItem::upward_within_bag_pool(const TSimplePaxItem& pax) const
 
 void TSimplePaxItem::UpdTid(int pax_id)
 {
-  TCachedQuery Qry("UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX"),
+        "UPDATE pax SET "
+        "tid=:tid "
+        "WHERE pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, pax_id)
+                  << QParam("tid", otInteger, PgOra::getSeqNextVal_int("CYCLE_TID__SEQ")),
+        STDLOG);
   Qry.get().Execute();
 }
 
@@ -2705,7 +2551,7 @@ std::string TSimplePaxItem::getCabinSubclass() const
 std::string TSimplePaxItem::getSeatNo(const std::string& fmt) const
 {
   if (id==ASTRA::NoExists) return "";
-  DB::TCachedQuery Qry(PgOra::getROSession("PAX_GRP"),
+  DB::TCachedQuery Qry(PgOra::getROSession("PAX_GRP"), // get_seat_no
     "SELECT salons.get_seat_no(:pax_id, :seats, :is_jmp, pax_grp.status, pax_grp.point_dep, :fmt, rownum) seat_no " /// ROWNUM
     "FROM pax_grp WHERE grp_id=:grp_id",
     QParams() << QParam("pax_id", otInteger, id)
@@ -3166,33 +3012,7 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSeg
   ServicePaymentFromXML(firstSegNode, id, is_unaccomp, baggage_pc, payment);
 
   return *this;
-};
-
-const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
-{
-  id!=ASTRA::NoExists?Qry.SetVariable("grp_id", id):
-                      Qry.SetVariable("grp_id", FNull);
-  if (Qry.GetVariableIndex("point_dep")>=0)
-    Qry.SetVariable("point_dep", point_dep);
-  if (Qry.GetVariableIndex("point_arv")>=0)
-    Qry.SetVariable("point_arv", point_arv);
-  if (Qry.GetVariableIndex("airp_dep")>=0)
-    Qry.SetVariable("airp_dep", airp_dep);
-  if (Qry.GetVariableIndex("airp_arv")>=0)
-    Qry.SetVariable("airp_arv", airp_arv);
-  if (Qry.GetVariableIndex("class")>=0)
-    Qry.SetVariable("class", cl);
-  if (Qry.GetVariableIndex("status")>=0)
-    Qry.SetVariable("status", EncodePaxStatus(status));
-  if (Qry.GetVariableIndex("hall")>=0)
-    hall!=ASTRA::NoExists?Qry.SetVariable("hall", hall):
-                          Qry.SetVariable("hall", FNull);
-  if (Qry.GetVariableIndex("bag_refuse")>=0)
-    Qry.SetVariable("bag_refuse",(int)(!bag_refuse.empty()));
-  if (Qry.GetVariableIndex("tid")>=0)
-    Qry.SetVariable("tid", tid);
-  return *this;
-};
+}
 
 const TPaxGrpItem& TPaxGrpItem::toDB(DB::TQuery &Qry) const
 {
@@ -3220,7 +3040,7 @@ const TPaxGrpItem& TPaxGrpItem::toDB(DB::TQuery &Qry) const
   return *this;
 }
 
-TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
+TSimplePnrItem& TSimplePnrItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("pnr_id");
@@ -3231,34 +3051,6 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   if(Qry.GetFieldIndex("point_id") >= 0) {
     point_id_tlg=Qry.FieldAsInteger("point_id");
   }
-  return *this;
-}
-
-TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
-{
-  clear();
-  id=Qry.FieldAsInteger("grp_id");
-  point_dep=Qry.FieldAsInteger("point_dep");
-  point_arv=Qry.FieldAsInteger("point_arv");
-  airp_dep=Qry.FieldAsString("airp_dep");
-  airp_arv=Qry.FieldAsString("airp_arv");
-  cl=Qry.FieldAsString("class");
-  status=DecodePaxStatus(Qry.FieldAsString("status"));
-  if (!Qry.FieldIsNULL("hall"))
-    hall=Qry.FieldAsInteger("hall");
-  if (Qry.FieldAsInteger("bag_refuse")!=0)
-    bag_refuse=ASTRA::refuseAgentError;
-  trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
-  is_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
-  if (Qry.GetFieldIndex("client_type")>=0)
-    client_type = DecodeClientType(Qry.FieldAsString("client_type"));
-  tid=Qry.FieldAsInteger("tid");
-  if (Qry.GetFieldIndex("excess_pc")>=0)
-    excess_pc = Qry.FieldAsInteger("excess_pc");
-  if (Qry.GetFieldIndex("excess_wt")>=0)
-    excess_wt = Qry.FieldAsInteger("excess_wt");
-
-  baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
   return *this;
 }
 
@@ -3293,8 +3085,12 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(DB::TQuery &Qry)
 bool TSimplePaxGrpItem::getByGrpId(int grp_id)
 {
   clear();
-  TCachedQuery Qry("SELECT * FROM pax_grp WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_GRP"),
+        "SELECT * FROM pax_grp "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   fromDB(Qry.get());
@@ -3304,8 +3100,13 @@ bool TSimplePaxGrpItem::getByGrpId(int grp_id)
 bool TSimplePaxGrpItem::getByPaxId(int pax_id)
 {
   clear();
-  TCachedQuery Qry("SELECT pax_grp.* FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX_GRP","PAX"}),
+        "SELECT pax_grp.* "
+        "FROM pax_grp, pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, pax_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   fromDB(Qry.get());
@@ -3338,15 +3139,18 @@ ASTRA::TCompLayerType TSimplePaxGrpItem::getCheckInLayerType() const
 bool TSimplePnrItem::getByPaxId(int pax_id)
 {
   clear();
-  TCachedQuery Qry("SELECT crs_pnr.pnr_id, "
-                   "       crs_pnr.airp_arv, "+
-                   TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
-                   TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
-                   "       crs_pnr.status, "
-                   "       crs_pnr.point_id "
-                   "FROM crs_pnr, crs_pax "
-                   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"CRS_PNR", "CRS_PAX"}),
+        "SELECT crs_pnr.pnr_id, "
+        "       crs_pnr.airp_arv, " +
+        TSimplePaxItem::origClassFromCrsSQL()+" AS class, " +
+        TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
+        "       crs_pnr.status, "
+        "       crs_pnr.point_id "
+        "FROM crs_pnr, crs_pax "
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, pax_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   fromDB(Qry.get());
@@ -3361,24 +3165,26 @@ bool TSimplePnrItem::getByPnrId(const PnrId_t& pnr_id, const std::string& system
   if (!system.empty()) {
     params << QParam("system", otString, system);
   }
-  TCachedQuery Qry("SELECT pnr_id, airp_arv, class, cabin_class, status, point_id "
-                   "FROM crs_pnr "
-                   "WHERE pnr_id=:pnr_id "
-                   + (system.empty() ? std::string("") : "AND system=:system "),
-                   params);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_PNR"),
+        "SELECT pnr_id, airp_arv, class, cabin_class, status, point_id "
+        "FROM crs_pnr "
+        "WHERE pnr_id=:pnr_id "
+        + (system.empty() ? std::string("") : "AND system=:system "),
+        params, STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   fromDB(Qry.get());
   return true;
 }
 
-TPaxGrpItem& TPaxGrpItem::fromDBWithBagConcepts(TQuery &Qry)
+TPaxGrpItem& TPaxGrpItem::fromDBWithBagConcepts(DB::TQuery &Qry)
 {
   clear();
   TSimplePaxGrpItem::fromDB(Qry);
   GetBagConcepts(id, pc, wt, rfisc_used);
   return *this;
-};
+}
 
 bool TPaxGrpItem::getByGrpIdWithBagConcepts(int grp_id)
 {
@@ -3390,12 +3196,13 @@ bool TPaxGrpItem::getByGrpIdWithBagConcepts(int grp_id)
 
 TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
 {
-  if (status==ASTRA::psCrew)
+  if (status==ASTRA::psCrew) {
     return TPaxGrpCategory::Crew;
-  else if (cl.empty())
+  }
+  if (cl.empty()) {
     return TPaxGrpCategory::UnnacompBag;
-  else
-    return TPaxGrpCategory::Passenges;
+  }
+  return TPaxGrpCategory::Passenges;
 }
 
 std::set<PaxId_t> loadInfIdSet(PaxId_t pax_id, bool lock)
@@ -3552,13 +3359,16 @@ void TPaxGrpItem::checkInfantsCount(const TSimplePaxList &prior_paxs,
 
   if (!needCheck) return;
 
-  TCachedQuery Qry("SELECT SUM(CASE WHEN pers_type=:adult THEN 1 ELSE 0 END) AS adults, "
-                   "       SUM(CASE WHEN pers_type=:infant AND seats=0 THEN 1 ELSE 0 END) AS infants "
-                   "FROM pax "
-                   "WHERE grp_id=:grp_id AND refuse IS NULL ",
-                   QParams() << QParam("grp_id", otInteger, id)
-                             << QParam("adult", otString, EncodePerson(ASTRA::adult))
-                             << QParam("infant", otString, EncodePerson(ASTRA::baby)));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX"),
+        "SELECT SUM(CASE WHEN pers_type=:adult THEN 1 ELSE 0 END) AS adults, "
+        "       SUM(CASE WHEN pers_type=:infant AND seats=0 THEN 1 ELSE 0 END) AS infants "
+        "FROM pax "
+        "WHERE grp_id=:grp_id AND refuse IS NULL ",
+        QParams() << QParam("grp_id", otInteger, id)
+                  << QParam("adult", otString, EncodePerson(ASTRA::adult))
+                  << QParam("infant", otString, EncodePerson(ASTRA::baby)),
+        STDLOG);
 
   Qry.get().Execute();
   if (Qry.get().Eof ||
@@ -3577,23 +3387,37 @@ void TPaxGrpItem::checkInfantsCount(const TSimplePaxList &prior_paxs,
 
 void TPaxGrpItem::UpdTid(int grp_id)
 {
-  TCachedQuery Qry("UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_GRP"),
+        "UPDATE pax_grp SET tid=:tid "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id)
+                  << QParam("tid", otInteger, PgOra::getSeqNextVal_int("CYCLE_TID__SEQ")),
+        STDLOG);
   Qry.get().Execute();
 }
 
 void TPaxGrpItem::setRollbackGuaranteedTo(int grp_id, bool value)
 {
-  TCachedQuery Qry("UPDATE pax_grp SET rollback_guaranteed=:value WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id)
-                             << QParam("value", otInteger, (int)value));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_GRP"),
+        "UPDATE pax_grp SET rollback_guaranteed=:value "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id)
+                  << QParam("value", otInteger, (int)value),
+        STDLOG);
   Qry.get().Execute();
 }
 
 bool TPaxGrpItem::allPassengersRefused(int grp_id)
 {
-  TCachedQuery Qry("SELECT 1 FROM pax WHERE grp_id=:grp_id AND refuse IS NULL AND rownum<2",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX"),
+        "SELECT 1 FROM pax "
+        "WHERE grp_id=:grp_id AND refuse IS NULL "
+        "FETCH FIRST 1 ROWS ONLY",
+        QParams() << QParam("grp_id", otInteger, grp_id),
+        STDLOG);
   Qry.get().Execute();
   return Qry.get().Eof;
 }
@@ -4169,7 +3993,7 @@ std::set<PnrId_t> loadPnrIdSetByPnrAddrs(const std::string& addr)
 std::set<PaxId_t> loadCrsPnrPaxIdSet(const PnrId_t& pnr_id)
 {
   std::set<PaxId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PAX","CRS_PNR"}), STDLOG);
   Qry.SQLText="SELECT pax_id "
               "FROM crs_pax, crs_pnr "
               "WHERE crs_pax.pnr_id=crs_pnr.pnr_id "
@@ -4341,16 +4165,17 @@ std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
 
-  TCachedQuery CachedQry(
-    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0",
-    QryParams);
-  TQuery &Qry=CachedQry.get();
-  Qry.Execute();
-  if (!Qry.Eof)
-    return getByPnrId(Qry.FieldAsInteger("pnr_id"), airline);
-  else
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_PAX"),
+        "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0",
+        QryParams, STDLOG);
+  Qry.get().Execute();
+  if (!Qry.get().Eof) {
+    return getByPnrId(Qry.get().FieldAsInteger("pnr_id"), airline);
+  } else {
     return "";
-};
+  }
+}
 
 namespace ASTRA
 {

@@ -1273,8 +1273,7 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
 
   const CheckIn::TTransferItem &firstSeg=*segs.begin();
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","CRS_PAX","CRS_PNR"}), STDLOG);
   PaxQry.SQLText=
    "SELECT crs_pnr.pnr_id, crs_pnr.point_id, crs_pax.pax_id "
    "FROM pax,crs_pax,crs_pnr "
@@ -2066,15 +2065,22 @@ std::vector<SearchGroupResult> fetchSearchGroupResult(DB::TQuery& Qry)
 std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int seats,
                                               const TPaxStatus& pax_status)
 {
-  DB::TQuery Qry(PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX"}), STDLOG);
+  DbCpp::Session& session = PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX"});
+  DB::TQuery Qry(session, STDLOG);
   string sql;
-  sql=  "SELECT crs_pnr.pnr_id, \n"
-        "       MIN(crs_pnr.grp_name) AS grp_name, \n"
-        "       MIN(DECODE(crs_pax.pers_type,'ВЗ', \n"
-        "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, \n"
-        "       COUNT(*) AS seats_all, \n"
-        "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats \n"
-        "FROM crs_pnr,crs_pax,pax,( \n";
+  sql=
+      "SELECT "
+      "  crs_pnr.pnr_id, "
+      "  MIN(crs_pnr.grp_name) AS grp_name, "
+      "  MIN(CASE WHEN crs_pax.pers_type = 'ВЗ' "
+      "    THEN RTRIM(COALESCE(crs_pax.surname,'')||' '||COALESCE(crs_pax.name,'')) "
+      "    ELSE '' END) AS pax_name, "
+      "  COUNT(*) AS seats_all, "
+      "  SUM(CASE WHEN pax.pax_id IS NULL THEN 1 ELSE 0 END) AS seats "
+      "FROM crs_pnr "
+      "  JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+      "    ON crs_pnr.pnr_id = crs_pax.pnr_id "
+      "  JOIN ( ";
 
   sql+= getSearchPaxSubquery(pax_status,
                              true,
@@ -2082,16 +2088,15 @@ std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int se
                              false,
                              true,
                              "",
-                             true);
+                             session.isOracle());
 
-  sql+= "  ) ids  \n"
-        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
-        "      crs_pax.pax_id=pax.pax_id(+) AND \n"
-        "      ids.pnr_id=crs_pnr.pnr_id AND \n"
-        "      crs_pax.pr_del=0 AND \n"
-        "      crs_pax.seats>0 \n"
-        "GROUP BY crs_pnr.pnr_id \n"
-        "HAVING COUNT(*)>= :seats \n";
+  sql+=
+      ") ids ON ids.pnr_id = crs_pnr.pnr_id "
+      "WHERE "
+      "  crs_pax.pr_del = 0 "
+      "  AND crs_pax.seats > 0 "
+      "GROUP BY crs_pnr.pnr_id "
+      "HAVING COUNT(*) >= :seats ";
 
   ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): status=%s",EncodePaxStatus(pax_status));
   ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): sql=\n%s",sql.c_str());
@@ -3091,28 +3096,6 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
   return false;
 }
 
-/*
-bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
-{
-  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
-  {
-    // За один раз можем отправить только один запрос для пассажира
-    if ( r->code == "RSIA" )
-      is_forced = true;
-    else if ( ( ( r->code == "ATH" || r->code == "GTH" ) && override.find("TH") == std::string::npos ) ||
-              ( ( r->code == "AAE" || r->code == "GAE" ) && override.find("AE") == std::string::npos ) ) {
-      override += r->code;
-      is_forced = true;
-    }
-    else if ( r->code == "GTH" )
-      boost::replace_all(override, "ATH", "GTH");
-    else if ( r->code == "GAE" )
-      boost::replace_all(override, "AAE", "GAE");
-  };
-  return is_forced;
-}
-*/
-
 string CountryCodeFromRemText(string text)
 {
   string result;
@@ -3188,22 +3171,21 @@ boost::optional<std::string> CheckRefusability(const TAdvTripInfo& fltInfo, int 
         reqInfo->client_type==ctMobile)
     {
       //отмена регистрации с сайта, киоска или мобильного
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText=
+      DB::TQuery QryPax(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
+      QryPax.SQLText=
           "SELECT pax_grp.grp_id, pax_grp.client_type, pax.* "
           "FROM pax_grp, pax "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
-      Qry.CreateVariable("pax_id", otInteger, pax_id);
-      Qry.Execute();
-      if (Qry.Eof) throw UnregDenial();
+      QryPax.CreateVariable("pax_id", otInteger, pax_id);
+      QryPax.Execute();
+      if (QryPax.Eof) throw UnregDenial();
 
       CheckIn::TSimplePaxItem pax;
-      pax.fromDB(Qry);
+      pax.fromDB(QryPax);
       if (!pax.refuse.empty() || //отмена регистрации
           pax.pr_brd) throw UnregDenial();
-      int grp_id=Qry.FieldAsInteger("grp_id");
-      TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
+      int grp_id=QryPax.FieldAsInteger("grp_id");
+      TClientType ckinClientType=DecodeClientType(QryPax.FieldAsString("client_type").c_str());
       if (!(ckinClientType==ctWeb ||
             ckinClientType==ctKiosk ||
             ckinClientType==ctMobile)) throw UnregDenial(); //регистрации не с сайта, киоска или мобильного
@@ -3212,21 +3194,24 @@ boost::optional<std::string> CheckRefusability(const TAdvTripInfo& fltInfo, int 
 
       if (GetSelfCkinSets(tsAllowCancelSelfCkin, fltInfo, reqInfo->client_type)) throw UnregAllowed();
 
-      Qry.Clear();
-      Qry.SQLText=
+      DB::TQuery QryEvent(PgOra::getROSession({"EVENTS_BILINGUAL", "WEB_CLIENTS"}), STDLOG);
+      QryEvent.SQLText=
           "SELECT events_bilingual.station "
           "FROM "
-          "  (SELECT station FROM events_bilingual "
-          "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events_bilingual, "
-          "  web_clients "
-          "WHERE events_bilingual.station=web_clients.desk(+) AND "
-          "      web_clients.desk IS NULL AND rownum<2";
-      Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
-      Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
-      Qry.CreateVariable("point_dep", otInteger, fltInfo.point_id);
-      Qry.CreateVariable("grp_id", otInteger, grp_id);
-      Qry.Execute();
-      if (!Qry.Eof) throw UnregDenial();
+          "  ( "
+          "   SELECT station "
+          "   FROM events_bilingual "
+          "   WHERE lang=:lang AND type=:evt_pax AND id1=:point_dep AND id3=:grp_id "
+          "  ) events_bilingual "
+          "  LEFT OUTER JOIN web_clients ON events_bilingual.station = web_clients.desk "
+          "WHERE web_clients.desk IS NULL "
+          "FETCH FIRST 1 ROW ONLY ";
+      QryEvent.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+      QryEvent.CreateVariable("evt_pax", otString, EncodeEventType(ASTRA::evtPax));
+      QryEvent.CreateVariable("point_dep", otInteger, fltInfo.point_id);
+      QryEvent.CreateVariable("grp_id", otInteger, grp_id);
+      QryEvent.Execute();
+      if (!QryEvent.Eof) throw UnregDenial();
     }
     if (reqInfo->client_type==ctTerm)
     {
@@ -3747,7 +3732,11 @@ void GetInboundTransferForTerm(const CheckIn::TTransferList &trfer,
         //это после неподтвержденной веб-регистрации
         QParams QryParams;
         QryParams << QParam("pax_id", otInteger, p->pax.id);
-        TCachedQuery Qry("SELECT pers_type, seats FROM pax WHERE pax_id=:pax_id", QryParams);
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PAX"),
+              "SELECT pers_type, seats FROM pax WHERE pax_id=:pax_id",
+              QryParams,
+              STDLOG);
         Qry.get().Execute();
         if (!Qry.get().Eof)
         {
@@ -3830,8 +3819,7 @@ void GetInboundTransferForWeb(const TSegList &segList,
     inbound_trfer_grp_out.trfer.insert(make_pair(seg_no-1, trfer));
   }
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX"), STDLOG);
   Qry.SQLText="SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0";
   Qry.DeclareVariable("pax_id", otInteger);
 
@@ -6380,7 +6368,6 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int grp_id=NoExists;
   int term_point_id=NodeAsInteger("point_id",reqNode);
   bool EMDRefresh=NodeAsBoolean("emd_refresh",reqNode,true);
-  TQuery Qry(&OraSession);
   node = GetNode("grp_id",reqNode);
   if (node==NULL||NodeIsNULL(node))
   {
@@ -6408,9 +6395,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else
     {
       int reg_no=NodeAsInteger(node);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
       Qry.SQLText=
-        "SELECT pax_grp.grp_id, pax.seats FROM pax_grp,pax "
+        "SELECT pax_grp.grp_id, pax.seats "
+        "FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      point_dep=:point_id AND reg_no=:reg_no ";
       Qry.CreateVariable("point_id",otInteger,term_point_id);
@@ -6450,15 +6438,28 @@ void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
   if (pax.pers_type==baby && pax.seats==0) cats.insert("INA");
 }
 
+std::string get_seat_no_one(const PaxId_t& pax_id, int seats, bool is_jmp, int rownum)
+{
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  Qry.SQLText =
+      "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,NULL,NULL,'one',:num) AS seat_no FROM dual ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.CreateVariable("seats", otInteger, seats);
+  Qry.CreateVariable("is_jmp", otInteger, is_jmp ? 1 : 0);
+  Qry.CreateVariable("num", otInteger, rownum);
+  Qry.Execute();
+  return Qry.FieldAsString("seat_no");
+}
+
 const char* pax_sql=
     "SELECT pax.*, "
-    "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',rownum) AS seat_no, "
     "       crs_pax.pax_id AS crs_pax_id, "
     "       crs_pax.bag_norm AS crs_bag_norm, "
     "       crs_pax.bag_norm_unit AS crs_bag_norm_unit "
-    "FROM pax,crs_pax "
-    "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
-    "      pax.grp_id=:grp_id "
+    "FROM pax "
+    "  LEFT OUTER JOIN crs_pax "
+    "    ON (pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0) "
+    "WHERE pax.grp_id = :grp_id "
     "ORDER BY ABS(pax.reg_no), pax.seats DESC";
 
 namespace SirenaExchange
@@ -6538,17 +6539,22 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
         TGrpMktFlight mktFlight;
         mktFlight.getByGrpId(grp.id);
 
-        TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
+        DB::TCachedQuery PaxQry(
+              PgOra::getROSession({"PAX","CRS_PAX"}),
+              pax_sql, QParams() << QParam("grp_id", otInteger, grp.id), STDLOG);
         PaxQry.get().Execute();
 
 
         if (paxSection)
         {
+          int rownum = 0;
           list<TPaxItem>::iterator iReqPax=paxs.begin();
           for(;!PaxQry.get().Eof; PaxQry.get().Next())
           {
+            rownum++;
             CheckIn::TPaxItem pax;
             pax.fromDB(PaxQry.get());
+            pax.seat_no = get_seat_no_one(PaxId_t(pax.id), pax.seats, pax.is_jmp, rownum);
             if (!pax.refuse.empty() && !req_grps.include_refused) continue;
 
             if (svcSection && req_grps.include_unbound_svcs)
@@ -6648,10 +6654,13 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 
   ProgTrace(TRACE5, "%s started with actionSvcAvailability (first_grp_id=%d)", __FUNCTION__, data.grpId);
 
-  TCachedQuery Qry("SELECT point_dep, piece_concept, NVL(rollback_guaranteed,0) AS rollback_guaranteed "
-                   "FROM pax_grp "
-                   "WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, data.grpId));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_GRP"),
+        "SELECT point_dep, piece_concept, COALESCE(rollback_guaranteed,0) AS rollback_guaranteed "
+        "FROM pax_grp "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, data.grpId),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) {
       LogTrace(TRACE1) << "pax_grp not found";
@@ -6819,22 +6828,31 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
       unaccBagTypesToDB(data.grpId);
     }
 
-    TCachedQuery GrpQry("BEGIN "
-                        "  UPDATE pax_grp "
-                        "  SET piece_concept=:piece_concept "
-                        "  WHERE grp_id=:grp_id "
-                        "  RETURNING point_dep INTO :point_id; "
-                        "END;",
-                        QParams() << QParam("grp_id", otInteger)
-                        << QParam("piece_concept", otInteger)
-                        << QParam("point_id", otInteger));
+    DB::TCachedQuery GrpQryLock(
+          PgOra::getRWSession("PAX_GRP"),
+          "SELECT point_dep FROM pax_grp "
+          "WHERE grp_id=:grp_id "
+          "FOR UPDATE ",
+          QParams() << QParam("grp_id", otInteger),
+          STDLOG);
 
-    DB::TCachedQuery TrferQry(PgOra::getRWSession("TRANSFER"),
-                              "UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
-                              QParams() << QParam("grp_id", otInteger)
-                              << QParam("transfer_num", otInteger)
-                              << QParam("piece_concept", otInteger),
-                              STDLOG);
+    DB::TCachedQuery GrpQry(
+          PgOra::getRWSession("PAX_GRP"),
+          "UPDATE pax_grp "
+          "SET piece_concept=:piece_concept "
+          "WHERE grp_id=:grp_id ",
+          QParams() << QParam("grp_id", otInteger)
+                    << QParam("piece_concept", otInteger),
+          STDLOG);
+
+    DB::TCachedQuery TrferQry(
+          PgOra::getRWSession("TRANSFER"),
+          "UPDATE transfer SET piece_concept=:piece_concept "
+          "WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
+          QParams() << QParam("grp_id", otInteger)
+                    << QParam("transfer_num", otInteger)
+                    << QParam("piece_concept", otInteger),
+          STDLOG);
 
     TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin();
     if (bag_concept_by_seg.empty())
@@ -6842,18 +6860,20 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
       for(; iGrpId!=tckinGrpIds.end(); ++iGrpId)
       {
         const GrpId_t& grpId=*iGrpId;
-        GrpQry.get().SetVariable("grp_id", grpId.get());
-        GrpQry.get().SetVariable("piece_concept", (int)false);
-        GrpQry.get().SetVariable("point_id", FNull);
-        GrpQry.get().Execute();
+        GrpQryLock.get().SetVariable("grp_id", grpId.get());;
+        GrpQryLock.get().Execute();
+        if (!GrpQryLock.get().Eof) {
+          GrpQry.get().SetVariable("grp_id", grpId.get());
+          GrpQry.get().SetVariable("piece_concept", (int)false);
+          GrpQry.get().Execute();
+          if (!event.lexema_id.empty() && GrpQry.get().RowsProcessed() > 0)
+          {
+            event.id1=GrpQryLock.get().FieldAsInteger("point_dep");
+            event.id3=grpId.get();
+            reqInfo->LocaleToLog(event);
+          }
+        }
 
-        if (!event.lexema_id.empty() &&
-            !GrpQry.get().VariableIsNULL("point_id"))
-        {
-          event.id1=GrpQry.get().GetVariableAsInteger("point_id");
-          event.id3=grpId.get();
-          reqInfo->LocaleToLog(event);
-        };
       }
     }
     else
@@ -6866,10 +6886,13 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           throw EXCEPTIONS::Exception("%s: strange situation: i==bag_concept_by_seg.end()!", __FUNCTION__);
         if (i->first!=seg_no)
           throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
-        GrpQry.get().SetVariable("grp_id", grpId.get());
-        GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
-        GrpQry.get().SetVariable("point_id", FNull);
-        GrpQry.get().Execute();
+        GrpQryLock.get().SetVariable("grp_id", grpId.get());;
+        GrpQryLock.get().Execute();
+        if (!GrpQryLock.get().Eof) {
+          GrpQry.get().SetVariable("grp_id", grpId.get());
+          GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
+          GrpQry.get().Execute();
+        }
         ++i;
 
         for(map<int/*seg_no*/,TBagConcept::Enum>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
@@ -6883,14 +6906,13 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           TrferQry.get().Execute();
         };
 
-        if (!event.lexema_id.empty() &&
-            !GrpQry.get().VariableIsNULL("point_id"))
+        if (!event.lexema_id.empty() && GrpQry.get().RowsProcessed() > 0)
         {
-          event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+          event.id1=GrpQryLock.get().FieldAsInteger("point_dep");
           event.id3=grpId.get();
           reqInfo->LocaleToLog(event);
-        };
-      };
+        }
+      }
     }
     if (!isDoomedToWait() && rollbackGuaranteed)
     {
@@ -7081,11 +7103,9 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
           used_norms_airline_mark=mktFlight.airline;
       }
 
-      TQuery PaxQry(&OraSession);
-      PaxQry.Clear();
+      DB::TQuery PaxQry(PgOra::getROSession({"PAX","CRS_PAX"}), STDLOG);
       PaxQry.SQLText=pax_sql;
       PaxQry.CreateVariable("grp_id",otInteger,grp.id);
-
       PaxQry.Execute();
 
       if (iGrpId==tckinGrpIds.begin())
@@ -7098,10 +7118,13 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
 
       TPrPrint prPrint;
       node=NewTextChild(segNode,"passengers");
+      int rownum = 0;
       for(;!PaxQry.Eof;PaxQry.Next())
       {
+        rownum++;
         CheckIn::TPaxItem pax;
         pax.fromDB(PaxQry);
+        pax.seat_no = get_seat_no_one(PaxId_t(pax.id), pax.seats, pax.is_jmp, rownum);
 
         CheckIn::TPaxTransferItem paxTrferItem;
         paxTrferItem.pax_id=pax.id;
@@ -7119,7 +7142,7 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
 
         std::string bagNormAndBrand;
 
-        boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm<TQuery, string>(PaxQry, "crs_bag_norm", "crs_bag_norm_unit");
+        boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm<DB::TQuery, string>(PaxQry, "crs_bag_norm", "crs_bag_norm_unit");
 
         TETickItem etick;
         if (pax.tkn.validET())
@@ -7881,11 +7904,11 @@ void CheckInInterface::readTripData(int point_id, xmlNodePtr dataNode)
 void CheckInInterface::readTripSets( int point_id,
                                      xmlNodePtr dataNode)
 {
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out "
-    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    "FROM points "
+    "WHERE point_id = :point_id AND pr_del = 0 AND pr_reg <> 0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
@@ -8255,7 +8278,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       {
         //нашли в СПП один рейс, соответствующий трансферному сегменту
 
-        TQuery Qry(&OraSession);
+        DB::TQuery QryTlgBind(PgOra::getROSession({"TLG_BINDING","CRS_PNR"}), STDLOG);
         const CheckIn::Segment &currSeg=*(s->first.segs.begin());
 
         NewTextChild(segNode,"flight",flightStr);
@@ -8370,8 +8393,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           else
           {
             //узнаем какому классу принадлежит подкласс из телеграмм
-            Qry.Clear();
-            Qry.SQLText=
+            QryTlgBind.SQLText=
               "SELECT DISTINCT class "
               "FROM tlg_binding,crs_pnr "
               "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
@@ -8379,16 +8401,16 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               "      crs_pnr.system='CRS' AND "
               "      crs_pnr.subclass=:subclass "
               "ORDER BY class";
-            Qry.CreateVariable("point_id",otInteger,currSeg.flt.point_id);
-            Qry.CreateVariable("subclass",otString,iPax->subclass);
-            Qry.Execute();
-            if (!Qry.Eof)
+            QryTlgBind.CreateVariable("point_id",otInteger,currSeg.flt.point_id);
+            QryTlgBind.CreateVariable("subclass",otString,iPax->subclass);
+            QryTlgBind.Execute();
+            if (!QryTlgBind.Eof)
             {
-              cabinClassForAvailability=Qry.FieldAsString("class");
-              for(;!Qry.Eof;Qry.Next())
+              cabinClassForAvailability=QryTlgBind.FieldAsString("class");
+              for(;!QryTlgBind.Eof;QryTlgBind.Next())
               {
-                origCls.add(Qry.FieldAsString("class"));
-                cabinCls.add(Qry.FieldAsString("class"));
+                origCls.add(QryTlgBind.FieldAsString("class"));
+                cabinCls.add(QryTlgBind.FieldAsString("class"));
               }
             }
             else

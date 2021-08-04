@@ -3930,8 +3930,10 @@ std::set<PaxId_t> TPaxItem::getAndLockInfantIds(const PaxId_t &paxId)
 {
   std::set<PaxId_t> result;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE";
+  DB::TQuery Qry(PgOra::getRWSession("CRS_INF"), STDLOG);
+  Qry.SQLText = "SELECT inf_id FROM crs_inf "
+                "WHERE pax_id=:pax_id "
+                "FOR UPDATE";
   Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -6668,8 +6670,8 @@ class SuitablePax
     TDateTime last_op;
     bool classChanged;
 
-    explicit SuitablePax(boost::none_t) : paxId(1), deleted(false), classChanged(false) {};
-    SuitablePax(TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
+    explicit SuitablePax(boost::none_t) : paxId(1), deleted(false), classChanged(false) {}
+    SuitablePax(DB::TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
     {
       if (!Qry.get().FieldIsNULL("parent_pax_id"))
         parentPaxId=PaxId_t{Qry.get().FieldAsInteger("parent_pax_id")};
@@ -6678,9 +6680,9 @@ class SuitablePax
       classChanged=false;
     }
 
-    SuitablePax(TCachedQuery &Qry, TClass cl) : SuitablePax(Qry)
+    SuitablePax(DB::TCachedQuery &Qry, TClass cl) : SuitablePax(Qry)
     {
-      classChanged=(cl!=DecodeClass(Qry.get().FieldAsString("class")));
+      classChanged=(cl!=DecodeClass(Qry.get().FieldAsString("class").c_str()));
     }
 };
 
@@ -6719,19 +6721,27 @@ void SuitablePaxList::get(const int& pnr_id,
 {
   clear();
 
-  TCachedQuery Qry("SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
-                   "       crs_inf_deleted.pax_id AS parent_pax_id "
-                   "FROM crs_pax, crs_inf_deleted "
-                   "WHERE crs_pax.pax_id=crs_inf_deleted.inf_id(+) AND "
-                   "      crs_pax.pnr_id= :pnr_id AND "
-                   "      crs_pax.surname= :surname AND "
-                   "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
-                   "      DECODE(crs_pax.seats,0,0,1)=:seats "
-                   "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC",
-                   QParams() << QParam("pnr_id", otInteger, pnr_id)
-                             << QParam("surname", otString, surname)
-                             << QParam("name", otString, name)
-                             << QParam("seats", otInteger, isInfant?0:1));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"CRS_PAX", "CRS_INF_DELETED"}),
+        "SELECT "
+        "  crs_pax.pax_id, "
+        "  crs_pax.pr_del, "
+        "  crs_pax.last_op, "
+        "  crs_inf_deleted.pax_id AS parent_pax_id "
+        "FROM crs_pax "
+        "  LEFT OUTER JOIN crs_inf_deleted "
+        "    ON crs_pax.pax_id = crs_inf_deleted.inf_id "
+        "WHERE "
+        "  crs_pax.pnr_id = :pnr_id "
+        "  AND crs_pax.surname = :surname "
+        "  AND (crs_pax.name = :name OR (:name IS NULL AND crs_pax.name IS NULL)) "
+        "  AND CASE WHEN crs_pax.seats = 0 THEN 0 ELSE 1 END = :seats "
+        "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC ",
+        QParams() << QParam("pnr_id", otInteger, pnr_id)
+        << QParam("surname", otString, surname)
+        << QParam("name", otString, name)
+        << QParam("seats", otInteger, isInfant ? 0 : 1),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next()) {
     if (existsCrsSeatsBlocking(PaxId_t(Qry.get().FieldAsInteger("pax_id")))) {
@@ -6753,29 +6763,38 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
   clear();
   if (tkn.empty()) return;
 
-  TCachedQuery Qry("SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
-                   "       crs_pnr.class, "
-                   "       crs_inf_deleted.pax_id AS parent_pax_id "
-                   "FROM crs_pnr, crs_pax, crs_inf_deleted "
-                   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-                   "      crs_pax.pax_id=:pax_id AND "
-                   "      crs_pax.pax_id=crs_inf_deleted.inf_id(+) AND "
-                   "      crs_pnr.point_id=:point_id AND "
-                   "      crs_pnr.system=:system AND "
-                   "      crs_pnr.sender=:sender AND "
-                   "      crs_pnr.airp_arv=:airp_arv AND "
-                   "      crs_pax.surname= :surname AND "
-                   "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
-                   "      DECODE(crs_pax.seats,0,0,1)=:seats "
-                   "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC",
-                   QParams() << QParam("point_id", otInteger, point_id)
-                             << QParam("system", otString, system)
-                             << QParam("sender", otString, sender)
-                             << QParam("airp_arv", otString, totalsByDest.dest)
-                             << QParam("pax_id", otInteger)
-                             << QParam("surname", otString, surname)
-                             << QParam("name", otString, name)
-                             << QParam("seats", otInteger, isInfant?0:1));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"CRS_PNR", "CRS_PAX", "CRS_INF_DELETED"}),
+        "SELECT "
+        "  crs_pax.pax_id, "
+        "  crs_pax.pr_del, "
+        "  crs_pax.last_op, "
+        "  crs_pnr.class, "
+        "  crs_inf_deleted.pax_id AS parent_pax_id "
+        "FROM crs_pnr "
+        "  JOIN (crs_pax "
+        "        LEFT OUTER JOIN crs_inf_deleted "
+        "        ON crs_pax.pax_id = crs_inf_deleted.inf_id) "
+        "  ON crs_pnr.pnr_id = crs_pax.pnr_id "
+        "WHERE "
+        "  crs_pax.pax_id = :pax_id "
+        "  AND crs_pnr.point_id = :point_id "
+        "  AND crs_pnr.system = :system "
+        "  AND crs_pnr.sender = :sender "
+        "  AND crs_pnr.airp_arv = :airp_arv "
+        "  AND crs_pax.surname = :surname "
+        "  AND (crs_pax.name = :name OR (:name IS NULL AND crs_pax.name IS NULL)) "
+        "  AND CASE WHEN crs_pax.seats = 0 THEN 0 ELSE 1 END = :seats "
+        "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC ",
+        QParams() << QParam("point_id", otInteger, point_id)
+                  << QParam("system", otString, system)
+                  << QParam("sender", otString, sender)
+                  << QParam("airp_arv", otString, totalsByDest.dest)
+                  << QParam("pax_id", otInteger)
+                  << QParam("surname", otString, surname)
+                  << QParam("name", otString, name)
+                  << QParam("seats", otInteger, isInfant ? 0 : 1),
+        STDLOG);
 
   for(const TTKNItem& t : tkn)
   {
@@ -6932,7 +6951,8 @@ std::set<PaxId_t> loadCrsInfIdSet(const PaxId_t& pax_id, bool lock)
   std::set<PaxId_t> result;
   DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_INF")
                       : PgOra::getROSession("CRS_INF"), STDLOG);
-  Qry.SQLText="SELECT inf_id FROM crs_inf "
+  Qry.SQLText="SELECT inf_id "
+              "FROM crs_inf "
               "WHERE pax_id=:pax_id "
               + std::string(lock ? "FOR UPDATE" : "");
   Qry.CreateVariable("pax_id", otInteger, pax_id.get());
@@ -6945,10 +6965,12 @@ std::set<PaxId_t> loadCrsInfIdSet(const PaxId_t& pax_id, bool lock)
 
 void insertCrsInfDeleted(const PaxId_t& inf_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_INF-CRS_INF_DELETED"), STDLOG);
+  DB::TQuery Qry(PgOra::getRWSession({"CRS_INF","CRS_INF_DELETED"}), STDLOG);
   Qry.SQLText=
       "INSERT INTO crs_inf_deleted(inf_id, pax_id) "
-      "SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=:inf_id ";
+      "SELECT inf_id, pax_id "
+      "FROM crs_inf "
+      "WHERE inf_id=:inf_id ";
   Qry.CreateVariable("inf_id",otInteger,inf_id.get());
   Qry.Execute();
 }
@@ -6981,7 +7003,8 @@ std::set<PaxId_t> loadCrsBlockingSeatIdSet(const PaxId_t& pax_id, bool lock)
   std::set<PaxId_t> result;
   DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_SEATS_BLOCKING")
                       : PgOra::getROSession("CRS_SEATS_BLOCKING"), STDLOG);
-  Qry.SQLText="SELECT seat_id FROM crs_seats_blocking "
+  Qry.SQLText="SELECT seat_id "
+              "FROM crs_seats_blocking "
               "WHERE pax_id=:pax_id "
               "AND pr_del=0 "
               + std::string(lock ? "FOR UPDATE" : "");
@@ -7099,6 +7122,63 @@ void savePnrAddrs(const PnrId_t& pnr_id, const std::string& airline, const std::
   }
 }
 
+int SaveCrsPax(QParams &CrsPaxParams, int pax_id, const std::string& surname,
+               const std::string& name)
+{
+  const std::string CrsPaxInsQrySql =
+      "INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem, "
+      "  seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,unique_reference,orig_subclass,orig_class) "
+      "SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type, "
+      "  :seats,:bag_pool,0,:pr_del,:last_op,:tid,:unique_reference,subclass,class "
+      "FROM crs_pnr "
+      "WHERE pnr_id=:pnr_id ";
+  if (pax_id == ASTRA::NoExists) {
+    pax_id = PgOra::getSeqNextVal_int("pax_id");
+    CrsPaxParams << QParam("pax_id",otInteger,pax_id)
+                 << QParam("surname",otString,surname)
+                 << QParam("name",otString,name);
+    DB::TCachedQuery CrsPaxInsQry(
+          PgOra::getRWSession({"CRS_PAX","CRS_PNR"}),
+          CrsPaxInsQrySql,
+          CrsPaxParams,
+          STDLOG);
+    CrsPaxInsQry.get().Execute();
+    return pax_id;
+  }
+
+  CrsPaxParams << QParam("pax_id",otInteger,pax_id);
+  DB::TCachedQuery CrsPaxUpdQry(
+        PgOra::getRWSession("CRS_PAX"),
+        "UPDATE crs_pax "
+        "SET pnr_id=:pnr_id, "
+        "    pers_type= :pers_type, "
+        "    seat_xname= :seat_xname, "
+        "    seat_yname= :seat_yname, "
+        "    seat_rem= :seat_rem, "
+        "    seat_type= :seat_type, "
+        "    seats=:seats, "
+        "    bag_pool= :bag_pool, "
+        "    pr_del= :pr_del, "
+        "    last_op= :last_op, "
+        "    tid=:tid, "
+        "    unique_reference=:unique_reference "
+        "WHERE pax_id=:pax_id ",
+        CrsPaxParams,
+        STDLOG);
+  CrsPaxUpdQry.get().Execute();
+  if (CrsPaxUpdQry.get().RowsProcessed() == 0) {
+    CrsPaxParams << QParam("surname",otString,surname)
+                 << QParam("name",otString,name);
+    DB::TCachedQuery CrsPaxInsQry(
+          PgOra::getRWSession({"CRS_PAX","CRS_PNR"}),
+          CrsPaxInsQrySql,
+          CrsPaxParams,
+          STDLOG);
+    CrsPaxInsQry.get().Execute();
+  }
+  return pax_id;
+}
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TTotalsByDest>::iterator iTotals;
@@ -7107,8 +7187,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   vector<TPaxItem>::iterator iPaxItem;
   vector<TTransferItem>::iterator iTransfer;
   vector<TPnrAddrItem>::iterator iPnrAddr;
-
-  TQuery Qry(&OraSession);
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
@@ -7120,7 +7198,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   string system=isPRL?"DCS":"CRS";
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TYPEB_SENDERS"), STDLOG);
   Qry.SQLText="INSERT INTO typeb_senders(code,name) VALUES(:code,:code)";
   Qry.CreateVariable("code",otString,info.sender);
   try
@@ -7132,13 +7210,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     if (E.Code!=1) throw;
   };
 
-  Qry.Clear();
-  Qry.SQLText="INSERT INTO typeb_sender_systems(sender,system) VALUES(:sender,:system)";
-  Qry.CreateVariable("sender",otString,info.sender);
-  Qry.CreateVariable("system",otString,system);
+  DB::TQuery QryPnr(PgOra::getROSession("TYPEB_SENDER_SYSTEMS"), STDLOG);
+  QryPnr.SQLText="INSERT INTO typeb_sender_systems(sender,system) VALUES(:sender,:system)";
+  QryPnr.CreateVariable("sender",otString,info.sender);
+  QryPnr.CreateVariable("system",otString,system);
   try
   {
-    Qry.Execute();
+    QryPnr.Execute();
   }
   catch(const EOracleError &E)
   {
@@ -7227,26 +7305,26 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.rbd.empty()&&(last_rbd==NoExists||last_rbd<=info.time_create))
   {
     UpdateCrsDataStat(ClassCodes, PointIdTlg_t(point_id), system, info);
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery QryRbd(PgOra::getROSession("CRS_RBD"), STDLOG);
+    QryRbd.SQLText=
       "INSERT INTO crs_rbd(point_id, sender, system, fare_class, compartment, view_order) "
       "VALUES(:point_id, :sender, :system, :fare_class, :compartment, :view_order) ";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("system",otString,system);
-    Qry.DeclareVariable("fare_class",otString);
-    Qry.DeclareVariable("compartment",otString);
-    Qry.DeclareVariable("view_order",otInteger);
+    QryRbd.CreateVariable("point_id",otInteger,point_id);
+    QryRbd.CreateVariable("sender",otString,info.sender);
+    QryRbd.CreateVariable("system",otString,system);
+    QryRbd.DeclareVariable("fare_class",otString);
+    QryRbd.DeclareVariable("compartment",otString);
+    QryRbd.DeclareVariable("view_order",otInteger);
 
     int view_order=1;
     for(vector<TRbdItem>::const_iterator i=con.rbd.begin(); i!=con.rbd.end(); ++i)
     {
       for(string::const_iterator j=i->rbds.begin(); j!=i->rbds.end(); ++j)
       {
-        Qry.SetVariable("fare_class", string(1,*j));
-        Qry.SetVariable("compartment", i->subcl);
-        Qry.SetVariable("view_order", view_order++);
-        Qry.Execute();
+        QryRbd.SetVariable("fare_class", string(1,*j));
+        QryRbd.SetVariable("compartment", i->subcl);
+        QryRbd.SetVariable("view_order", view_order++);
+        QryRbd.Execute();
       };
     };
   };
@@ -7276,82 +7354,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       if (pr_ne)
       {
         //получим идентификатор транзакции
-        Qry.Clear();
-        Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
-        Qry.Execute();
-        int tid=Qry.FieldAsInteger("tid");
-
-        TQuery CrsPnrInsQry(&OraSession);
-        CrsPnrInsQry.Clear();
-        CrsPnrInsQry.SQLText=
-          "BEGIN "
-          "  IF :pnr_id IS NULL THEN "
-          "    SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; "
-          "    INSERT INTO crs_pnr(pnr_id,point_id,system,sender,airp_arv,subclass,class,grp_name,status,priority,tid) "
-          "    VALUES(:pnr_id,:point_id,:system,:sender,:airp_arv,:subclass,:class,:grp_name,:status,:priority,cycle_tid__seq.currval); "
-          "  ELSE "
-          "    UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), "
-          "                       status=:status, priority=:priority, "
-          "                       tid=cycle_tid__seq.currval "
-          "    WHERE pnr_id= :pnr_id; "
-          "  END IF; "
-          "END;";
-        CrsPnrInsQry.CreateVariable("point_id",otInteger,point_id);
-        CrsPnrInsQry.CreateVariable("sender",otString,info.sender);
-        CrsPnrInsQry.CreateVariable("system",otString,system);
-        CrsPnrInsQry.DeclareVariable("airp_arv",otString);
-        CrsPnrInsQry.DeclareVariable("subclass",otString);
-        CrsPnrInsQry.DeclareVariable("class",otString);
-        CrsPnrInsQry.DeclareVariable("grp_name",otString);
-        CrsPnrInsQry.DeclareVariable("status",otString);
-        CrsPnrInsQry.DeclareVariable("priority",otString);
-        CrsPnrInsQry.DeclareVariable("pnr_id",otInteger);
-
-        TQuery CrsPaxInsQry(&OraSession);
-        CrsPaxInsQry.Clear();
-        CrsPaxInsQry.SQLText=
-          "BEGIN "
-          "  IF :pax_id IS NULL THEN "
-          "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "  ELSE "
-          "    UPDATE crs_pax "
-          "    SET pnr_id=:pnr_id, pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval, "
-          "        unique_reference=:unique_reference "
-          "    WHERE pax_id=:pax_id; "
-          "    IF SQL%FOUND THEN RETURN; END IF; "
-          "  END IF; "
-          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem, "
-          "    seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,unique_reference,orig_subclass,orig_class) "
-          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type, "
-          "    :seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:unique_reference,subclass,class "
-          "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
-          "END;";
-        CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
-        CrsPaxInsQry.DeclareVariable("pnr_id",otInteger);
-        CrsPaxInsQry.DeclareVariable("surname",otString);
-        CrsPaxInsQry.DeclareVariable("name",otString);
-        CrsPaxInsQry.DeclareVariable("pers_type",otString);
-        CrsPaxInsQry.DeclareVariable("seat_xname",otString);
-        CrsPaxInsQry.DeclareVariable("seat_yname",otString);
-        CrsPaxInsQry.DeclareVariable("seat_rem",otString);
-        CrsPaxInsQry.DeclareVariable("seat_type",otString);
-        CrsPaxInsQry.DeclareVariable("seats",otInteger);
-        CrsPaxInsQry.DeclareVariable("bag_pool",otString);
-        CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
-        CrsPaxInsQry.DeclareVariable("last_op",otDate);
-        CrsPaxInsQry.DeclareVariable("unique_reference",otString);
-
-        TQuery CrsInfInsQry(&OraSession);
-        CrsInfInsQry.Clear();
-        CrsInfInsQry.SQLText=
-          "BEGIN"
-          "  INSERT INTO crs_inf(inf_id, pax_id) VALUES(:inf_id, :pax_id); "
-          "  UPDATE crs_pax SET inf_id=:inf_id WHERE pax_id=:pax_id; "
-          "  DELETE FROM crs_inf_deleted WHERE inf_id=:inf_id; "
-          "END;";
-        CrsInfInsQry.DeclareVariable("pax_id",otInteger);
-        CrsInfInsQry.DeclareVariable("inf_id",otInteger);
+        int tid=PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
 
         DB::TQuery CrsTransferQry(PgOra::getRWSession("CRS_TRANSFER"), STDLOG);
         CrsTransferQry.SQLText=
@@ -7403,10 +7406,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             auto segmentPair = boost::make_optional<TPaxSegmentPair>
                 (point_id_spp != ASTRA::NoExists, TPaxSegmentPair(point_id_spp, iTotals->dest));
 
-          CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
-          CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
-          CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
-
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
@@ -7446,8 +7445,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               list<int> ids;
               list<int>::iterator i;
               bool pr_chg_del=false;
-              Qry.Clear();
-              Qry.SQLText=
+              DB::TQuery QryPaxes(PgOra::getROSession({"CRS_PNR","CRS_PAX"}), STDLOG);
+              QryPaxes.SQLText=
                 "SELECT DISTINCT crs_pnr.pnr_id "
                 "FROM crs_pnr,crs_pax "
                 "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -7456,13 +7455,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 "      surname=:surname AND (name= :name OR :name IS NULL AND name IS NULL) AND "
                 "      seats>0 "
                 "ORDER BY crs_pnr.pnr_id";
-              Qry.CreateVariable("point_id",otInteger,point_id);
-              Qry.CreateVariable("sender",otString,info.sender);
-              Qry.CreateVariable("system",otString,system);
-              Qry.CreateVariable("airp_arv",otString,iTotals->dest);
-              Qry.CreateVariable("subclass",otString,iTotals->subcl);
-              Qry.DeclareVariable("surname",otString);
-              Qry.DeclareVariable("name",otString);
+              QryPaxes.CreateVariable("point_id",otInteger,point_id);
+              QryPaxes.CreateVariable("sender",otString,info.sender);
+              QryPaxes.CreateVariable("system",otString,system);
+              QryPaxes.CreateVariable("airp_arv",otString,iTotals->dest);
+              QryPaxes.CreateVariable("subclass",otString,iTotals->subcl);
+              QryPaxes.DeclareVariable("surname",otString);
+              QryPaxes.DeclareVariable("name",otString);
               //поиск группы по всем пассажирам данной группы
               if (!forcibly)
               {
@@ -7472,24 +7471,24 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (ne.indicator==CHG||ne.indicator==DEL)
                   {
                     pr_chg_del=true;
-                    Qry.SetVariable("surname",ne.surname);
+                    QryPaxes.SetVariable("surname",ne.surname);
                     for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
                     {
-                      Qry.SetVariable("name",iPaxItem->name);
-                      Qry.Execute();
+                      QryPaxes.SetVariable("name",iPaxItem->name);
+                      QryPaxes.Execute();
                       if (ids.empty())
                       {
-                        for(;!Qry.Eof;Qry.Next()) ids.push_back(Qry.FieldAsInteger("pnr_id"));
+                        for(;!QryPaxes.Eof;QryPaxes.Next()) ids.push_back(QryPaxes.FieldAsInteger("pnr_id"));
                       }
                       else
                       {
-                        for(i=ids.begin();i!=ids.end()&&!Qry.Eof;)
+                        for(i=ids.begin();i!=ids.end()&&!QryPaxes.Eof;)
                         {
-                          if (*i<Qry.FieldAsInteger("pnr_id")) i=ids.erase(i);
+                          if (*i<QryPaxes.FieldAsInteger("pnr_id")) i=ids.erase(i);
                           else
                           {
-                            if (*i==Qry.FieldAsInteger("pnr_id")) i++;
-                            Qry.Next();
+                            if (*i==QryPaxes.FieldAsInteger("pnr_id")) i++;
+                            QryPaxes.Next();
                           };
                         };
                       };
@@ -7513,24 +7512,24 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (ne.indicator==CHG||ne.indicator==DEL)
                   {
                     pr_chg_del=true;
-                    Qry.SetVariable("surname",ne.surname);
+                    QryPaxes.SetVariable("surname",ne.surname);
                     for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
                     {
-                      Qry.SetVariable("name",iPaxItem->name);
-                      Qry.Execute();
+                      QryPaxes.SetVariable("name",iPaxItem->name);
+                      QryPaxes.Execute();
                       if (ids.empty())
                       {
-                        for(;!Qry.Eof;Qry.Next()) ids.push_back(Qry.FieldAsInteger("pnr_id"));
+                        for(;!QryPaxes.Eof;QryPaxes.Next()) ids.push_back(QryPaxes.FieldAsInteger("pnr_id"));
                       }
                       else
                       {
-                        for(i=ids.begin();i!=ids.end()&&!Qry.Eof;)
+                        for(i=ids.begin();i!=ids.end()&&!QryPaxes.Eof;)
                         {
-                          if (*i<Qry.FieldAsInteger("pnr_id")) i=ids.erase(i);
+                          if (*i<QryPaxes.FieldAsInteger("pnr_id")) i=ids.erase(i);
                           else
                           {
-                            if (*i==Qry.FieldAsInteger("pnr_id")) i++;
-                            Qry.Next();
+                            if (*i==QryPaxes.FieldAsInteger("pnr_id")) i++;
+                            QryPaxes.Next();
                           };
                         };
                         if (ids.empty()) break; //пассажиры в разных группах
@@ -7544,16 +7543,41 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
 
             //создать новую группу или проапдейтить старую
-            CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name.substr(0,64));
-            CrsPnrInsQry.SetVariable("status",pnr.status);
-            CrsPnrInsQry.SetVariable("priority",pnr.priority);
-            if (pnr_id==0)
-              CrsPnrInsQry.SetVariable("pnr_id",FNull);
-            else
-              CrsPnrInsQry.SetVariable("pnr_id",pnr_id);
-            CrsPnrInsQry.Execute();
-            pnr_id=CrsPnrInsQry.GetVariableAsInteger("pnr_id");
-            CrsPaxInsQry.SetVariable("pnr_id",pnr_id);
+            if (pnr_id == 0) {
+              pnr_id = PgOra::getSeqNextVal_int("CRS_PNR__SEQ");
+
+              DB::TCachedQuery CrsPnrInsQry(
+                    PgOra::getRWSession("CRS_PNR"),
+                    "INSERT INTO crs_pnr(pnr_id,point_id,system,sender,airp_arv,subclass,class,grp_name,status,priority,tid) "
+                    "VALUES(:pnr_id,:point_id,:system,:sender,:airp_arv,:subclass,:class,:grp_name,:status,:priority,:tid) ",
+                    QParams() << QParam("point_id",otInteger,point_id)
+                              << QParam("sender",otString,info.sender)
+                              << QParam("system",otString,system)
+                              << QParam("airp_arv",otString,iTotals->dest)
+                              << QParam("subclass",otString,iTotals->subcl)
+                              << QParam("class",otString,EncodeClass(iTotals->cl))
+                              << QParam("grp_name",otString,pnr.grp_name.substr(0,64))
+                              << QParam("status",otString,pnr.status)
+                              << QParam("priority",otString,pnr.priority)
+                              << QParam("tid",otInteger, tid)
+                              << QParam("pnr_id",otInteger, pnr_id),
+                    STDLOG);
+              CrsPnrInsQry.get().Execute();
+            } else {
+              DB::TCachedQuery CrsPnrUpdQry(
+                    PgOra::getRWSession("CRS_PNR"),
+                    "UPDATE crs_pnr SET grp_name=COALESCE(:grp_name,grp_name), "
+                    "                   status=:status, priority=:priority, "
+                    "                   tid=:tid "
+                    "WHERE pnr_id= :pnr_id ",
+                    QParams() << QParam("tid",otInteger,tid)
+                              << QParam("grp_name",otString,pnr.grp_name.substr(0,64))
+                              << QParam("status",otString,pnr.status)
+                              << QParam("priority",otString,pnr.priority)
+                              << QParam("pnr_id",otInteger,pnr_id),
+                    STDLOG);
+              CrsPnrUpdQry.get().Execute();
+            }
 
             for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
@@ -7643,50 +7667,55 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     if (suitablePax) suitablePaxIdOrSeatId=suitablePax->paxId;
                   }
 
-                  if (!suitablePaxIdOrSeatId)
-                    CrsPaxInsQry.SetVariable("pax_id",FNull);
-                  else
-                    CrsPaxInsQry.SetVariable("pax_id",suitablePaxIdOrSeatId.get().get());
-                  CrsPaxInsQry.SetVariable("surname",ne.surname);
-                  CrsPaxInsQry.SetVariable("name",paxItem.name);
-                  CrsPaxInsQry.SetVariable("pers_type",EncodePerson(seatsBlockingPass?adult:paxItem.pers_type));
+                  QParams CrsPaxParams;
+                  CrsPaxParams << QParam("pnr_id",otInteger,pnr_id)
+                               << QParam("tid",otInteger,tid)
+                               << QParam("pers_type",otString,EncodePerson(seatsBlockingPass?adult:paxItem.pers_type));
+
                   if (ne.indicator!=DEL && !paxItem.seat.Empty())
                   {
-                    CrsPaxInsQry.SetVariable("seat_xname",paxItem.seat.line);
-                    CrsPaxInsQry.SetVariable("seat_yname",paxItem.seat.row);
-                    CrsPaxInsQry.SetVariable("seat_rem",paxItem.seat_rem);
+                    CrsPaxParams << QParam("seat_xname",otString,paxItem.seat.line)
+                                 << QParam("seat_yname",otString,paxItem.seat.row)
+                                 << QParam("seat_rem",otString,paxItem.seat_rem);
                     if (strcmp(paxItem.seat_rem,"NSST")==0||
                         strcmp(paxItem.seat_rem,"NSSA")==0||
                         strcmp(paxItem.seat_rem,"NSSW")==0||
                         strcmp(paxItem.seat_rem,"SMST")==0||
                         strcmp(paxItem.seat_rem,"SMSA")==0||
                         strcmp(paxItem.seat_rem,"SMSW")==0)
-                      CrsPaxInsQry.SetVariable("seat_type",paxItem.seat_rem);
+                      CrsPaxParams << QParam("seat_type",otString,paxItem.seat_rem);
                     else
-                      CrsPaxInsQry.SetVariable("seat_type",FNull);
+                      CrsPaxParams << QParam("seat_type",otString,FNull);
                   }
                   else
                   {
-                    CrsPaxInsQry.SetVariable("seat_xname",FNull);
-                    CrsPaxInsQry.SetVariable("seat_yname",FNull);
-                    CrsPaxInsQry.SetVariable("seat_rem",FNull);
-                    CrsPaxInsQry.SetVariable("seat_type",FNull);
-                  };
+                    CrsPaxParams << QParam("seat_xname",otString,FNull)
+                                 << QParam("seat_yname",otString,FNull)
+                                 << QParam("seat_rem",otString,FNull)
+                                 << QParam("seat_type",otString,FNull);
+                  }
 
-                  CrsPaxInsQry.SetVariable("seats",(int)paxItem.seats);
-                  if (isPRL && ne.bag_pool!=NoExists)
-                    CrsPaxInsQry.SetVariable("bag_pool", ne.bag_pool);
-                  else
-                    CrsPaxInsQry.SetVariable("bag_pool", FNull);
-                  if (ne.indicator==DEL)
-                    CrsPaxInsQry.SetVariable("pr_del",1);
-                  else
-                    CrsPaxInsQry.SetVariable("pr_del",0);
-                  CrsPaxInsQry.SetVariable("last_op",info.time_create);
-                  CrsPaxInsQry.SetVariable("unique_reference", paxItem.uniqueReference());
-                  CrsPaxInsQry.Execute();
+                  CrsPaxParams << QParam("seats",otInteger,(int)paxItem.seats);
+                  if (isPRL && ne.bag_pool!=NoExists) {
+                    CrsPaxParams << QParam("bag_pool", otString, ne.bag_pool);
+                  } else {
+                    CrsPaxParams << QParam("bag_pool", otString, FNull);
+                  }
+                  if (ne.indicator==DEL) {
+                    CrsPaxParams << QParam("pr_del",otInteger, 1);
+                  } else {
+                    CrsPaxParams << QParam("pr_del",otInteger, 0);
+                  }
+                  CrsPaxParams << QParam("last_op",otDate,info.time_create)
+                               << QParam("unique_reference",otString, paxItem.uniqueReference());
 
-                  PaxIdWithSegmentPair paxId(PaxId_t(CrsPaxInsQry.GetVariableAsInteger("pax_id")), segmentPair);
+                  int pax_id = ASTRA::NoExists;
+                  if (suitablePaxIdOrSeatId) {
+                    pax_id = suitablePaxIdOrSeatId.get().get();
+                  }
+                  pax_id = SaveCrsPax(CrsPaxParams, pax_id, ne.surname, paxItem.name);
+
+                  PaxIdWithSegmentPair paxId(PaxId_t(pax_id), segmentPair);
 
                   addPaxEvent(paxId,
                               seatsBlockingPass?true:(!suitablePax || suitablePax.get().deleted),
@@ -7745,14 +7774,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (ne.indicator!=DEL)
                   {
                     //обработка младенцев
-                    CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
-                    CrsPaxInsQry.SetVariable("seat_xname",FNull);
-                    CrsPaxInsQry.SetVariable("seat_yname",FNull);
-                    CrsPaxInsQry.SetVariable("seats",0);
-                    CrsPaxInsQry.SetVariable("pr_del",0);
-                    CrsPaxInsQry.SetVariable("last_op",info.time_create);
                     //младенцы пассажира
-                    CrsInfInsQry.SetVariable("pax_id",paxId().get());
                     for(TInfList::const_iterator iInfItem=paxItem.inf.begin();iInfItem!=paxItem.inf.end();++iInfItem)
                     {
                       auto suitableInf = boost::make_optional<SuitablePax>(false, SuitablePax{boost::none});
@@ -7782,24 +7804,77 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         }
                       }
 
-                      if (!suitableInf)
-                        CrsPaxInsQry.SetVariable("pax_id",FNull);
-                      else
-                        CrsPaxInsQry.SetVariable("pax_id",suitableInf.get().paxId.get());
-                      CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
-                      CrsPaxInsQry.SetVariable("name",iInfItem->name);
-                      CrsPaxInsQry.SetVariable("unique_reference", iInfItem->uniqueReference());
-                      CrsPaxInsQry.Execute();
+                      QParams CrsPaxInfParams;
+                      if (ne.indicator!=DEL && !paxItem.seat.Empty())
+                      {
+                        CrsPaxInfParams << QParam("seat_rem",otString,paxItem.seat_rem);
+                        if (strcmp(paxItem.seat_rem,"NSST")==0||
+                            strcmp(paxItem.seat_rem,"NSSA")==0||
+                            strcmp(paxItem.seat_rem,"NSSW")==0||
+                            strcmp(paxItem.seat_rem,"SMST")==0||
+                            strcmp(paxItem.seat_rem,"SMSA")==0||
+                            strcmp(paxItem.seat_rem,"SMSW")==0)
+                        {
+                          CrsPaxInfParams << QParam("seat_type",otString,paxItem.seat_rem);
+                        } else {
+                          CrsPaxInfParams << QParam("seat_type",otString,FNull);
+                        }
+                      } else {
+                        CrsPaxInfParams << QParam("seat_rem",otString,FNull)
+                                     << QParam("seat_type",otString,FNull);
+                      }
 
-                      PaxIdWithSegmentPair infId(PaxId_t(CrsPaxInsQry.GetVariableAsInteger("pax_id")), segmentPair);
+                      if (isPRL && ne.bag_pool!=NoExists) {
+                        CrsPaxInfParams << QParam("bag_pool", otString, ne.bag_pool);
+                      } else {
+                        CrsPaxInfParams << QParam("bag_pool", otString, FNull);
+                      }
+
+                      CrsPaxInfParams
+                          << QParam("pnr_id",otInteger,pnr_id)
+                          << QParam("tid",otInteger,tid)
+                          << QParam("pers_type",otString,EncodePerson(baby))
+                          << QParam("seat_xname",otString,FNull)
+                          << QParam("seat_yname",otString,FNull)
+                          << QParam("seats",otInteger,0)
+                          << QParam("pr_del",otInteger,0)
+                          << QParam("last_op",otDate,info.time_create)
+                          << QParam("unique_reference", otString, iInfItem->uniqueReference());
+
+                      int inf_id = ASTRA::NoExists;
+                      if (suitableInf) {
+                        inf_id = suitableInf.get().paxId.get();
+                      }
+                      inf_id = SaveCrsPax(CrsPaxInfParams, inf_id, iInfItem->surname, iInfItem->name);
+
+                      PaxIdWithSegmentPair infId(PaxId_t(inf_id), segmentPair);
 
                       addPaxEvent(infId,
                                   !suitableInf || suitableInf.get().deleted,
                                   false,
                                   newOrCancelledPax);
 
-                      CrsInfInsQry.SetVariable("inf_id",infId().get());
-                      CrsInfInsQry.Execute();
+                      QParams CrsInfParams;
+                      CrsInfParams << QParam("pax_id",otInteger,paxId().get())
+                                   << QParam("inf_id",otInteger,infId().get());
+                      DB::TCachedQuery CrsInfInsQry(
+                            PgOra::getRWSession("CRS_INF"),
+                            "INSERT INTO crs_inf(inf_id, pax_id) VALUES(:inf_id, :pax_id)",
+                            CrsInfParams,
+                            STDLOG);
+                      CrsInfInsQry.get().Execute();
+                      DB::TCachedQuery CrsPaxUpdQry(
+                            PgOra::getRWSession("CRS_PAX"),
+                            "UPDATE crs_pax SET inf_id=:inf_id WHERE pax_id=:pax_id ",
+                            CrsInfParams,
+                            STDLOG);
+                      CrsPaxUpdQry.get().Execute();
+                      DB::TCachedQuery CrsInfDelQry(
+                            PgOra::getRWSession("CRS_INF_DELETED"),
+                            "DELETE FROM crs_inf_deleted WHERE inf_id=:inf_id",
+                            QParams() << QParam("inf_id",otInteger, infId().get()),
+                            STDLOG);
+                      CrsInfDelQry.get().Execute();
                       SavePNLADLRemarks(infId,iInfItem->rem);
                       SaveDOCSRem(infId,suitableInf,iInfItem->doc,paxItem.doc_extra, modifiedPaxRem);
                       SaveDOCORem(infId,suitableInf,iInfItem->doco, modifiedPaxRem);
@@ -7893,11 +7968,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             {
               TypeB::deleteCrsTransfer(PnrId_t(pnr_id));
               //удаляем нафиг все стыковки
-              Qry.Clear();
-              Qry.SQLText=
-                "UPDATE crs_pnr SET tid=cycle_tid__seq.currval WHERE pnr_id= :pnr_id ";
-              Qry.CreateVariable("pnr_id",otInteger,pnr_id);
-              Qry.Execute();
+              DB::TQuery QryPnr(PgOra::getRWSession("CRS_PNR"), STDLOG);
+              QryPnr.SQLText=
+                "UPDATE crs_pnr SET tid=:tid WHERE pnr_id= :pnr_id ";
+              QryPnr.CreateVariable("tid",otInteger,tid);
+              QryPnr.CreateVariable("pnr_id",otInteger,pnr_id);
+              QryPnr.Execute();
               CrsTransferQry.SetVariable("pnr_id",pnr_id);
               for(iTransfer=pnr.transfer.begin();iTransfer!=pnr.transfer.end();iTransfer++)
               {
@@ -7912,13 +7988,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 CrsTransferQry.Execute();
               };
               const std::string airp_arv_final = getCrsTransfer_airp_arv_final(PnrId_t(pnr_id));
-              Qry.Clear();
-              Qry.SQLText=
+              DB::TQuery QryPnrFinal(PgOra::getRWSession("CRS_PNR"), STDLOG);
+              QryPnrFinal.SQLText=
                 "UPDATE crs_pnr SET airp_arv_final=:airp_arv_final "
                 "WHERE pnr_id=:pnr_id";
-              Qry.CreateVariable("airp_arv_final",otString,airp_arv_final);
-              Qry.CreateVariable("pnr_id",otInteger,pnr_id);
-              Qry.Execute();
+              QryPnrFinal.CreateVariable("airp_arv_final",otString,airp_arv_final);
+              QryPnrFinal.CreateVariable("pnr_id",otInteger,pnr_id);
+              QryPnrFinal.Execute();
             };
             //запишем коммерческий рейс
             if (!pnr.ne.empty() && indicatorsPresence!=TPnrItem::OnlyDEL)
@@ -7930,7 +8006,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               QryDelete.CreateVariable("pnr_id",otInteger,pnr_id);
               QryDelete.Execute();
 
-              const int tid = PgOra::getSeqCurrVal("cycle_tid__seq");
               DB::TQuery QryUpdate(PgOra::getRWSession("CRS_PNR"), STDLOG);
               QryUpdate.SQLText=
                 "UPDATE crs_pnr SET tid=:tid WHERE pnr_id= :pnr_id ";

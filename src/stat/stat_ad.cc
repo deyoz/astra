@@ -460,27 +460,28 @@ void get_stat_ad(int point_id)
           STDLOG);
     delQry.get().Execute();
 
-    TCachedQuery Qry(
-            "select "
+    DB::TCachedQuery Qry(
+            PgOra::getROSession({"POINTS","PAX_GRP","PAX"}), // salons.get_seat_no
+            "SELECT "
             "   pax_grp.*, "
-            "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
-            "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, "
+            "   COALESCE(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
+            "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,0) AS seat_no, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,null,rownum,1) AS seat_no_lat, "
             "   pax.pax_id, "
             "   points.scd_out "
-            "from "
+            "FROM "
             "   points, "
             "   pax_grp, "
             "   pax "
-            "where "
+            "WHERE "
             "   points.point_id = :point_id and "
             "   points.point_id = pax_grp.point_dep and "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id and "
             "   pax.pr_brd = 1 ",
-            QParams()
-            << QParam("point_id", otInteger, point_id));
+            QParams() << QParam("point_id", otInteger, point_id),
+            STDLOG);
     QParams insQryParams;
     insQryParams
         << QParam("scd_out", otDate)

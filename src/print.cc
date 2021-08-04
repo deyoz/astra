@@ -1344,19 +1344,21 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 bool PrintInterface::BPPax::fromDB(int vpax_id, int test_point_dep)
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  if (test_point_dep==NoExists)
+  DB::TQuery Qry(test_point_dep==NoExists ? PgOra::getROSession({"PAX_GRP", "PAX"})
+                                          : PgOra::getROSession("TEST_PAX"), STDLOG);
+  if (test_point_dep==NoExists) {
     Qry.SQLText =
         "SELECT pax_grp.grp_id, pax_grp.point_dep, "
-        "       pax.reg_no, pax.surname||' '||pax.name full_name "
+        "       pax.reg_no, RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) full_name "
         "FROM pax_grp, pax "
         "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
         "      pax_grp.status NOT IN ('E')";
-  else
+  } else {
     Qry.SQLText =
-        "SELECT reg_no, surname||' '||name full_name "
-        "FROM test_pax WHERE id=:pax_id";
+        "SELECT reg_no, RTRIM(COALESCE(surname,'')||' '||COALESCE(name,'')) full_name "
+        "FROM test_pax "
+        "WHERE id=:pax_id";
+  }
 
   Qry.CreateVariable( "pax_id", otInteger, vpax_id );
   Qry.Execute();
@@ -1366,15 +1368,15 @@ bool PrintInterface::BPPax::fromDB(int vpax_id, int test_point_dep)
   full_name = Qry.FieldAsString( "full_name" );
   if (test_point_dep!=NoExists)
   {
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+    QryPoint.SQLText =
         "SELECT :grp_id AS grp_id, point_id AS point_dep "
         "FROM points "
         "WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable( "grp_id", otInteger, test_point_dep + TEST_ID_BASE );
-    Qry.CreateVariable( "point_id", otInteger, test_point_dep );
-    Qry.Execute();
-    if ( Qry.Eof ) return false;
+    QryPoint.CreateVariable( "grp_id", otInteger, test_point_dep + TEST_ID_BASE );
+    QryPoint.CreateVariable( "point_id", otInteger, test_point_dep );
+    QryPoint.Execute();
+    if ( QryPoint.Eof ) return false;
   };
   point_dep = Qry.FieldAsInteger( "point_dep" );
   grp_id = Qry.FieldAsInteger( "grp_id" );

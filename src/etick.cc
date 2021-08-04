@@ -202,13 +202,13 @@ std::string GetSQL(const TListType ltype)
 
   if (ltype==allCheckedByTickNoAndCouponNo)
   {
-    sql << "SELECT pax_grp.point_dep AS point_id, \n"
-           "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, \n"
-           "       pax.* \n"
-           "FROM pax_grp,pax \n"
-           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND \n"
-           "      pax.ticket_no=:ticket_no AND \n"
-           "      pax.coupon_no=:coupon_no \n";
+    sql << "SELECT pax_grp.point_dep AS point_id, "
+           "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
+           "       pax.* "
+           "FROM pax_grp,pax "
+           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
+           "      pax.ticket_no=:ticket_no AND "
+           "      pax.coupon_no=:coupon_no ";
   }
   //ProgTrace(TRACE5, "%s: SQL=\n%s", __FUNCTION__, sql.str().c_str());
   return sql.str();
@@ -449,7 +449,7 @@ void GetCheckedByCouponNo(const std::string& tick_no, int coupon_no, std::list<T
                    << ": tick_no=" << tick_no
                    << ", coupon_no=" << coupon_no;
   items.clear();
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
   Qry.SQLText=GetSQL(allCheckedByTickNoAndCouponNo);
   Qry.CreateVariable("ticket_no", otString, tick_no);
   Qry.CreateVariable("coupon_no", otInteger, coupon_no);
@@ -1465,7 +1465,7 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
         "      classes.code=subcls.class AND "
         "      crs_pax.pax_id=:pax_id "
         "ORDER BY view_order, class_priority, etick_subclass ",
-        *get_main_ora_sess(STDLOG));
+        PgOra::getROSession({"CRS_PAX", "CRS_PNR", "CRS_RBD", "SUBCLS", "CLASSES"}));
   cur.stb()
       .def(item.view_order)
       .def(pnr_id)
@@ -2716,7 +2716,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
     {
       if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
-        DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
         Qry.SQLText=PaxETList::GetSQL(PaxETList::allCheckedByTickNoAndCouponNo);
         Qry.DeclareVariable("ticket_no",otString);
         Qry.DeclareVariable("coupon_no",otInteger);
@@ -3088,7 +3088,7 @@ void ETStatusInterface::ETCheckStatus(int id,
   //mtick.clear(); добавляем уже к заполненному
   if (TReqInfo::Instance()->duplicate) return;
   int point_id=NoExists;
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
   switch (area)
   {
     case csaFlt:

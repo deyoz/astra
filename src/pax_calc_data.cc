@@ -321,10 +321,11 @@ class PaxEvents: public PaxEventCallbacks<Changes>
                   const PaxIdWithSegmentPair& paxId,
                   const std::set<Changes>& changes);
 
-    static boost::optional<std::string> updatePLSQL(const std::vector<APIAttrs>& api,
-                                                    const boost::optional<bool>& crsDeleted,
-                                                    const boost::optional<string>& crsDocNo,
-                                                    const boost::optional<std::string>& crsFqtTierLevel);
+    static bool savePaxCalcData(const std::vector<APIAttrs>& api,
+                                int paxId,
+                                const boost::optional<bool>& crsDeleted,
+                                const boost::optional<string>& crsDocNo,
+                                const boost::optional<std::string>& crsFqtTierLevel);
 };
 
 void PaxEvents::onChange(TRACE_SIGNATURE,
@@ -394,39 +395,18 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
     crsFqtTierLevel=item?item.get().tier_level:"";
   }
 
-  boost::optional<std::string> sql=updatePLSQL(attrs, crsDeleted, crsDocNo, crsFqtTierLevel);
-  if (!sql) return; //ничего не меняем
-
-  auto cur = make_db_curs(sql.get(), PgOra::getRWSession("PAX_CALC_DATA"));
-  cur
-      .stb()
-      .bind(":pax_calc_data_id", paxId().get());
-  if (crsDeleted)
-    cur.bind(":crs_deleted", crsDeleted.get());
-  if (crsDocNo)
-    cur.bind(":crs_doc_no", crsDocNo.get());
-  if (crsFqtTierLevel)
-    cur.bind(":crs_fqt_tier_level", crsFqtTierLevel.get());
-
-  short null = -1, nnull = 0;
-  APIAttrs::BindParamContainer bindParams;
-  for(const APIAttrs& i : attrs)
-    algo::append(bindParams, i.getBindParams());
-
-  for(const auto& param : bindParams)
-    cur.bind(param.name, param.value, param.notNull?&nnull:&null);
-
-  //обязательно значения всех параметров запроса в контейнерах и переменных должены быть актуальны к моменту exec()
-  cur.exec();
+  const bool saved = savePaxCalcData(attrs, paxId().get(), crsDeleted, crsDocNo, crsFqtTierLevel);
+  if (!saved) return; //ничего не меняем
 
   if (paxOrigin==paxCheckIn && paxId.getSegmentPair())
     TTripAlarmHook::set(Alarm::APISControl, paxId.getSegmentPair().get().point_dep);
 }
 
-boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>& attrs,
-                                                    const boost::optional<bool>& crsDeleted,
-                                                    const boost::optional<std::string>& crsDocNo,
-                                                    const boost::optional<std::string>& crsFqtTierLevel)
+bool PaxEvents::savePaxCalcData(const std::vector<APIAttrs>& attrs,
+                                int paxId,
+                                const boost::optional<bool>& crsDeleted,
+                                const boost::optional<std::string>& crsDocNo,
+                                const boost::optional<std::string>& crsFqtTierLevel)
 {
   std::string insertIntoSQL;
   std::string insertValuesSQL;
@@ -445,9 +425,9 @@ boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>&
   {
     if (!firstIteration)
     {
-      insertIntoSQL+=", \n";
-      insertValuesSQL+=", \n";
-      updateValuesSQL+=", \n";
+      insertIntoSQL+=", ";
+      insertValuesSQL+=", ";
+      updateValuesSQL+=", ";
     }
     insertIntoSQL+=i.insertIntoSQL();
     insertValuesSQL+=i.insertValuesSQL();
@@ -458,9 +438,9 @@ boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>&
   if (crsDocNo) {
     if (!firstIteration)
     {
-      insertIntoSQL+=", \n";
-      insertValuesSQL+=", \n";
-      updateValuesSQL+=", \n";
+      insertIntoSQL+=", ";
+      insertValuesSQL+=", ";
+      updateValuesSQL+=", ";
     }
     insertIntoSQL+="crs_doc_no";
     insertValuesSQL+=":crs_doc_no";
@@ -472,9 +452,9 @@ boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>&
   {
     if (!firstIteration)
     {
-      insertIntoSQL+=", \n";
-      insertValuesSQL+=", \n";
-      updateValuesSQL+=", \n";
+      insertIntoSQL+=", ";
+      insertValuesSQL+=", ";
+      updateValuesSQL+=", ";
     }
     insertIntoSQL+="crs_fqt_tier_level";
     insertValuesSQL+=":crs_fqt_tier_level";
@@ -482,29 +462,48 @@ boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>&
     firstIteration=false;
   }
 
-  if (firstIteration) return boost::none; //ничего не меняется в pax_calc_data
+  if (firstIteration) return false; //ничего не меняется в pax_calc_data
 
-  ostringstream sql;
-  sql << "DECLARE \n"
-         "  pass BINARY_INTEGER; \n"
-         "BEGIN \n"
-         "  FOR pass IN 1..2 LOOP \n"
-         "    UPDATE pax_calc_data \n"
-         "    SET " << updateValuesSQL << " \n"
-         "    WHERE pax_calc_data_id=:pax_calc_data_id; \n"
-         "    IF SQL%FOUND THEN EXIT; END IF; \n"
-         "    BEGIN \n"
-         "      INSERT INTO pax_calc_data(pax_calc_data_id, " << insertIntoSQL << ") \n"
-         "      VALUES (:pax_calc_data_id, " << insertValuesSQL << "); \n"
-         "      EXIT; \n"
-         "    EXCEPTION \n"
-         "      WHEN DUP_VAL_ON_INDEX THEN \n"
-         "        IF pass=1 THEN NULL; ELSE RAISE; END IF; \n"
-         "    END; \n"
-         "  END LOOP; \n"
-         "END; \n";
+ QParams QryParams;
+ QryParams << QParam("pax_calc_data_id", otInteger, paxId);
+  if (crsDeleted) {
+    QryParams << QParam("crs_deleted", otInteger, crsDeleted.get() ? 1 : 0);
+  }
+  if (crsDocNo) {
+    QryParams << QParam("crs_doc_no", otString, crsDocNo.get());
+  }
+  if (crsFqtTierLevel) {
+    QryParams << QParam("crs_fqt_tier_level", otString, crsFqtTierLevel.get());
+  }
 
-  return sql.str();
+  APIAttrs::BindParamContainer bindParams;
+  for(const APIAttrs& i : attrs)
+    algo::append(bindParams, i.getBindParams());
+
+  for(const auto& param : bindParams) {
+    if (param.notNull) {
+      QryParams << QParam(param.name, otInteger, int(param.value));
+    } else {
+      QryParams << QParam(param.name, otInteger, FNull);
+    }
+  }
+
+  DB::TCachedQuery QryIns(
+        PgOra::getRWSession("PAX_CALC_DATA"),
+        "INSERT INTO pax_calc_data(pax_calc_data_id, " + insertIntoSQL + ") "
+        "VALUES (:pax_calc_data_id, " + insertValuesSQL + ") ",
+        QryParams,
+        STDLOG);
+
+  DB::TCachedQuery QryUpd(
+        PgOra::getRWSession("PAX_CALC_DATA"),
+        "UPDATE pax_calc_data "
+        "SET " + updateValuesSQL + " "
+        "WHERE pax_calc_data_id = :pax_calc_data_id ",
+        QryParams,
+        STDLOG);
+
+  return DB::concurrentSave(QryUpd.get(), QryIns.get());
 }
 
 void init_callbacks()

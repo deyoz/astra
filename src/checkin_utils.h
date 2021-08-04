@@ -171,7 +171,7 @@ class TWebTids
       passengerAlreadyChecked = false;
     }
 
-    TWebTids& fromDB(TQuery &Qry);
+    TWebTids& fromDB(DB::TQuery &Qry);
     TWebTids& fromXML(xmlNodePtr node);
     const TWebTids& toXML(xmlNodePtr node) const;
 
@@ -244,7 +244,7 @@ class TWebPaxFromReq : public TWebTids
       refuse = false;
     }
 
-    TWebPaxFromReq& fromDB(TQuery &Qry);
+    TWebPaxFromReq& fromDB(DB::TQuery &Qry);
     TWebPaxFromReq& fromXML(xmlNodePtr node);
 
     static bool isRemProcessingAllowed(const CheckIn::TPaxFQTItem& fqt);
@@ -330,7 +330,7 @@ class TWebPaxForChng : public CheckIn::TSimplePaxGrpItem, public CheckIn::TSimpl
       apis.clear();
     }
 
-    TWebPaxForChng& fromDB(TQuery &Qry);
+    TWebPaxForChng& fromDB(DB::TQuery &Qry);
 
     TWebPaxForChng& addFromReq(const TWebPaxFromReq& pax)
     {
@@ -338,23 +338,7 @@ class TWebPaxForChng : public CheckIn::TSimplePaxGrpItem, public CheckIn::TSimpl
       return *this;
     }
 
-    static const std::string& sql()
-    {
-      static const std::string result=
-          "SELECT pax_grp.*, pax.*, "
-          "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
-          "       crs_pax.tid AS crs_pax_tid, "
-          "       pax_grp.tid AS pax_grp_tid, "
-          "       pax.tid AS pax_tid, "
-          "       crs_pax.pnr_id "
-          "FROM pax_grp,pax,crs_pax "
-          "WHERE pax_grp.grp_id=pax.grp_id AND "
-          "      pax.pax_id=crs_pax.pax_id(+) AND "
-          "      crs_pax.pr_del(+)=0 AND "
-          "      pax.pax_id=:pax_id";
-
-      return result;
-    }
+    static const std::string& sql();
 };
 
 class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePaxItem, public TWebTids
@@ -396,7 +380,7 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
       return s.str();
     }
 
-    TWebPaxForCkin& fromDB(TQuery &Qry);
+    TWebPaxForCkin& fromDB(DB::TQuery &Qry);
 
     TWebPaxForCkin& addFromReq(const TWebPaxFromReq& pax)
     {
@@ -443,10 +427,10 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
           "       crs_pnr.tid AS crs_pnr_tid, "
           "       crs_pax.tid AS crs_pax_tid, "
           "       pax.tid AS pax_tid "
-          "FROM crs_pnr,crs_pax,pax "
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "      crs_pax.pax_id=pax.pax_id(+) AND "
-          "      crs_pax.pax_id=:pax_id AND "
+          "FROM crs_pnr"
+          "JOIN crs_pax ON crs_pnr.pnr_id = crs_pax.pnr_id "
+          "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id "
+          "WHERE crs_pax.pax_id=:pax_id AND "
           "      crs_pax.pr_del=0 ";
 
       static const std::string result2=

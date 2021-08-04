@@ -361,41 +361,6 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
     }
 };
 
-
-/*
-void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
-{
-    while(true) {
-        vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
-        for(; iv != createInfo.end(); iv++)
-            if(iv->get_tlg_type() != tlg_type)
-                break;
-        if(iv != createInfo.end())
-            createInfo.erase(iv);
-        else
-            break;
-    }
-}
-*/
-/*
-CREATE OR REPLACE
-FUNCTION pax_is_female(vpax_id pax.pax_id%TYPE) RETURN NUMBER
-IS
-result NUMBER(1);
-BEGIN
-  SELECT DECODE(gender,'F',1,'FI',1,'M',0,'MI',0,NULL)
-  INTO result
-  FROM pax_doc
-  WHERE pax_id=vpax_id;
-  RETURN result;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN NULL;
-END pax_is_female;
-/
-show error
-
-DROP FUNCTION pax_is_female;
-*/
 int test_typeb_utils(int argc,char **argv)
 {
     string interval = "SYSTEM.UTCSYSDATE-24/24 AND SYSTEM.UTCSYSDATE";

@@ -315,14 +315,16 @@ string GetRemarkStr(const TRemGrp &rem_grp, const multiset<CheckIn::TPaxRemItem>
 string GetRemarkMSGText(int pax_id, const string &rem_msg)
 {
    string res;
-   const char *sql =
-       "SELECT TRIM(rem) rem FROM pax_rem "
-       "WHERE pax_id=:pax_id AND rem_code=:rem_msg "
-       "ORDER BY rem";
    QParams QryParams;
    QryParams << QParam("pax_id", otInteger, pax_id);
    QryParams << QParam("rem_msg", otString, rem_msg);
-   TCachedQuery Qry(sql, QryParams);
+   DB::TCachedQuery Qry(
+         PgOra::getROSession("PAX_REM"),
+         "SELECT TRIM(rem) rem "
+         "FROM pax_rem "
+         "WHERE pax_id=:pax_id AND rem_code=:rem_msg "
+         "ORDER BY rem",
+         QryParams, STDLOG);
    Qry.get().Execute();
    for(;!Qry.get().Eof;Qry.get().Next()) {
      string value = Qry.get().FieldAsString( "rem" );
@@ -357,7 +359,9 @@ void GetRemarks(int pax_id, const string &lang, std::multiset<CheckIn::TPaxRemIt
 
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TCachedQuery Qry(sql, QryParams);
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC", "PAX_REM"}),
+          sql, QryParams, STDLOG);
     Qry.get().Execute();
 
     for(;!Qry.get().Eof;Qry.get().Next())
@@ -500,14 +504,14 @@ TPaxRemItem& TPaxRemItem::fromWebXML(xmlNodePtr node)
   return *this;
 }
 
-const TPaxRemItem& TPaxRemItem::toDB(TQuery &Qry) const
+const TPaxRemItem& TPaxRemItem::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("rem_code", code);
   Qry.SetVariable("rem", text);
   return *this;
-};
+}
 
-TPaxRemItem& TPaxRemItem::fromDB(TQuery &Qry)
+TPaxRemItem& TPaxRemItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   code=Qry.FieldAsString("rem_code");
@@ -772,12 +776,12 @@ void TServiceBasic::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_typ
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems)
 {
   rems.clear();
-  const char* sql=
-    "SELECT * FROM pax_rem WHERE pax_id=:pax_id";
-
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxRemQry(sql, QryParams);
+  DB::TCachedQuery PaxRemQry(
+        PgOra::getRWSession("PAX_REM"),
+        "SELECT * FROM pax_rem WHERE pax_id=:pax_id",
+        QryParams, STDLOG);
   PaxRemQry.get().Execute();
   for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
   {
@@ -902,16 +906,22 @@ boost::optional<TPaxFQTItem> TPaxFQTItem::getNotEmptyTierLevel(const PaxOrigin& 
 
 bool DeletePaxASVC(int pax_id)
 {
-  TCachedQuery Qry("DELETE FROM pax_asvc WHERE pax_id=:id",
-                   QParams() << QParam("id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_ASVC"),
+        "DELETE FROM pax_asvc WHERE pax_id=:id",
+        QParams() << QParam("id", otInteger, pax_id),
+        STDLOG);
   Qry.get().Execute();
   return (Qry.get().RowsProcessed()>0);
 }
 
 bool DeletePaxPD(int pax_id)
 {
-  TCachedQuery Qry("DELETE FROM pax_rem WHERE pax_id=:id AND rem_code LIKE 'PD__'",
-                   QParams() << QParam("id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_REM"),
+        "DELETE FROM pax_rem WHERE pax_id=:id AND rem_code LIKE 'PD__'",
+        QParams() << QParam("id", otInteger, pax_id),
+        STDLOG);
   Qry.get().Execute();
   return (Qry.get().RowsProcessed()>0);
 }
@@ -1095,7 +1105,7 @@ bool PaxASVCFromDB(PaxId_t pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     RemQryParams << QParam("pax_id", otInteger, pax_id.get())
                  << QParam("rem_code", otString);
     DB::TCachedQuery PaxRemQry(
-          PgOra::getROSession("PAX_ASVC"),
+          PgOra::getROSession("PAX_REM"),
           "SELECT rem FROM pax_rem "
           "WHERE pax_id=:pax_id "
           "AND rem_code=:rem_code",
@@ -1199,20 +1209,20 @@ class TPaxRemOriginItem
       desk.clear();
       time_create=ASTRA::NoExists;
     }
-    const TPaxRemOriginItem& toDB(TQuery &Qry) const;
-    TPaxRemOriginItem& fromDB(TQuery &Qry);
+    const TPaxRemOriginItem& toDB(DB::TQuery &Qry) const;
+    TPaxRemOriginItem& fromDB(DB::TQuery &Qry);
 };
 
-const TPaxRemOriginItem& TPaxRemOriginItem::toDB(TQuery &Qry) const
+const TPaxRemOriginItem& TPaxRemOriginItem::toDB(DB::TQuery &Qry) const
 {
   rem.toDB(Qry);
   Qry.SetVariable("user_id", user_id);
   Qry.SetVariable("desk", desk);
   Qry.SetVariable("time_create", time_create);
   return *this;
-};
+}
 
-TPaxRemOriginItem& TPaxRemOriginItem::fromDB(TQuery &Qry)
+TPaxRemOriginItem& TPaxRemOriginItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   rem.fromDB(Qry);
@@ -1220,7 +1230,7 @@ TPaxRemOriginItem& TPaxRemOriginItem::fromDB(TQuery &Qry)
   desk=Qry.FieldAsString("desk");
   time_create=Qry.FieldAsDateTime("time_create");
   return *this;
-};
+}
 
 class TPaxRemOriginList : public std::vector<TPaxRemOriginItem>
 {
@@ -1242,12 +1252,13 @@ class TPaxRemOriginList : public std::vector<TPaxRemOriginItem>
 void TPaxRemOriginList::load(int pax_id)
 {
   clear();
-  const char* sql=
-    "SELECT * FROM pax_rem_origin WHERE pax_id=:pax_id";
-
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxRemQry(sql, QryParams);
+  DB::TCachedQuery PaxRemQry(
+        PgOra::getROSession("PAX_REM_ORIGIN"),
+        "SELECT * FROM pax_rem_origin "
+        "WHERE pax_id=:pax_id",
+        QryParams, STDLOG);
   PaxRemQry.get().Execute();
   for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
     push_back(TPaxRemOriginItem().fromDB(PaxRemQry.get()));
@@ -1257,24 +1268,25 @@ void TPaxRemOriginList::save(int pax_id) const
 {
   if (!modified) return;
 
-  TQuery RemQry(&OraSession);
-  RemQry.Clear();
-  RemQry.SQLText="DELETE FROM pax_rem_origin WHERE pax_id=:pax_id";
-  RemQry.CreateVariable("pax_id", otInteger, pax_id);
-  RemQry.Execute();
+  DB::TQuery RemQryDel(PgOra::getRWSession("PAX_REM_ORIGIN"), STDLOG);
+  RemQryDel.SQLText="DELETE FROM pax_rem_origin WHERE pax_id=:pax_id";
+  RemQryDel.CreateVariable("pax_id", otInteger, pax_id);
+  RemQryDel.Execute();
 
-  RemQry.SQLText=
+  DB::TQuery RemQryIns(PgOra::getRWSession("PAX_REM_ORIGIN"), STDLOG);
+  RemQryIns.SQLText=
     "INSERT INTO pax_rem_origin(pax_id, rem, rem_code, user_id, desk, time_create) "
     "VALUES(:pax_id, :rem, :rem_code, :user_id, :desk, :time_create)";
-  RemQry.DeclareVariable("rem", otString);
-  RemQry.DeclareVariable("rem_code", otString);
-  RemQry.DeclareVariable("user_id", otInteger);
-  RemQry.DeclareVariable("desk", otString);
-  RemQry.DeclareVariable("time_create", otDate);
+  RemQryIns.CreateVariable("pax_id", otInteger, pax_id);
+  RemQryIns.DeclareVariable("rem", otString);
+  RemQryIns.DeclareVariable("rem_code", otString);
+  RemQryIns.DeclareVariable("user_id", otInteger);
+  RemQryIns.DeclareVariable("desk", otString);
+  RemQryIns.DeclareVariable("time_create", otDate);
   for(TPaxRemOriginList::const_iterator r=begin(); r!=end(); ++r)
   {
-    r->toDB(RemQry);
-    RemQry.Execute();
+    r->toDB(RemQryIns);
+    RemQryIns.Execute();
   };
 }
 

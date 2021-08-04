@@ -34,8 +34,10 @@ void PaxTransferFromDB(int pax_id, list<TPaxTransferItem> &trfer)
 {
   trfer.clear();
   DB::TCachedQuery Qry(PgOra::getROSession("TRANSFER_SUBCLS"),
-                   "SELECT transfer_num,subclass,subclass_fmt FROM transfer_subcls "
-                   "WHERE pax_id=:pax_id ORDER BY transfer_num",
+                   "SELECT transfer_num,subclass,subclass_fmt "
+                   "FROM transfer_subcls "
+                   "WHERE pax_id=:pax_id "
+                   "ORDER BY transfer_num",
                    QParams() << QParam("pax_id", otInteger, pax_id),
                    STDLOG);
   Qry.get().Execute();
@@ -77,7 +79,8 @@ void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer
   for(;firstTrfer!=trfer.end()&&seg_no_tmp>1;firstTrfer++,seg_no_tmp--);
 
   DB::TQuery TrferDelQry(PgOra::getRWSession("TRANSFER_SUBCLS"),STDLOG);
-  TrferDelQry.SQLText="DELETE FROM transfer_subcls WHERE pax_id=:pax_id";
+  TrferDelQry.SQLText="DELETE FROM transfer_subcls "
+                      "WHERE pax_id=:pax_id";
   TrferDelQry.CreateVariable("pax_id",otInteger,pax_id);
   TrferDelQry.Execute();
 
@@ -433,11 +436,13 @@ TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry, bool fromTlg)
     if (seats>1)
     {
       DB::TQuery RemQry(PgOra::getROSession("PAX_REM"), STDLOG);
-      RemQry.SQLText="SELECT rem_code FROM pax_rem "
-                     "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
-                     "ORDER BY CASE WHEN rem_code='STCR' THEN 0 "
-                     "              WHEN rem_code='EXST' THEN 1 "
-                     "              ELSE 2 END ";
+      RemQry.SQLText =
+          "SELECT rem_code "
+          "FROM pax_rem "
+          "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
+          "ORDER BY CASE WHEN rem_code='STCR' THEN 0 "
+          "              WHEN rem_code='EXST' THEN 1 "
+          "              ELSE 2 END ";
       RemQry.DeclareVariable("pax_id", otInteger);
       RemQry.SetVariable("pax_id", Qry.FieldAsInteger("pax_id"));
       RemQry.Execute();

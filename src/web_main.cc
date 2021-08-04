@@ -832,22 +832,32 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
   {
     if (!isTestPaxId(pnr_id))
     {
-      TQuery SeatQry(&OraSession);
-      SeatQry.SQLText=
+      TQuery CrsSeatQry(&OraSession);
+      CrsSeatQry.SQLText=
           "BEGIN "
           "  :crs_seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'one',:crs_row); "
           "  :crs_row:=:crs_row+1; "
           "END;";
-      SeatQry.DeclareVariable("pax_id", otInteger);
-      SeatQry.DeclareVariable("xname", otString);
-      SeatQry.DeclareVariable("yname", otString);
-      SeatQry.DeclareVariable("seats", otInteger);
-      SeatQry.DeclareVariable("point_id", otInteger);
-      SeatQry.DeclareVariable("layer_type", otString);
-      SeatQry.DeclareVariable("crs_row", otInteger);
-      SeatQry.DeclareVariable("crs_seat_no", otString);
+      CrsSeatQry.DeclareVariable("pax_id", otInteger);
+      CrsSeatQry.DeclareVariable("xname", otString);
+      CrsSeatQry.DeclareVariable("yname", otString);
+      CrsSeatQry.DeclareVariable("seats", otInteger);
+      CrsSeatQry.DeclareVariable("point_id", otInteger);
+      CrsSeatQry.DeclareVariable("layer_type", otString);
+      CrsSeatQry.DeclareVariable("crs_row", otInteger);
+      CrsSeatQry.DeclareVariable("crs_seat_no", otString);
 
-      TQuery Qry(&OraSession);
+
+      TQuery SeatQry(&OraSession);
+      SeatQry.SQLText=
+          "SELECT salons.get_seat_no(:pax_id,:seats,NULL,:status,:point_dep,'one',:num) AS seat_no FROM dual ";
+      SeatQry.DeclareVariable("pax_id", otInteger);
+      SeatQry.DeclareVariable("seats", otInteger);
+      SeatQry.DeclareVariable("status", otString);
+      SeatQry.DeclareVariable("point_dep", otInteger);
+      SeatQry.DeclareVariable("num", otInteger);
+
+      DB::TQuery Qry(PgOra::getROSession({"CRS_PNR","CRS_PAX","PAX","PAX_GRP","CRS_INF"}), STDLOG);
       Qry.SQLText =
           "SELECT crs_pax.pax_id AS crs_pax_id, "
           "       crs_inf.pax_id AS crs_pax_id_parent, "
@@ -855,7 +865,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.name ELSE pax.name END) AS name, "
           "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.pers_type ELSE pax.pers_type END) AS pers_type, "
           "       crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats AS crs_seats, crs_pnr.point_id AS point_id_tlg, "
-          "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+          "       pax.seats AS pax_seats, pax_grp.status AS pax_status, pax_grp.point_dep, "
           "       (CASE WHEN pax.pax_id IS NULL THEN crs_pax.seats ELSE pax.seats END) AS seats, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" ELSE pax_grp.class END AS class, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" ELSE pax.subclass END AS subclass, "
@@ -873,16 +883,20 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           "       pax.refuse, "
           "       pax.ticket_rem, pax.ticket_no, pax.coupon_no, pax.ticket_confirm, "
           "       pax.reg_no "
-          "FROM crs_pnr,crs_pax,pax,pax_grp,crs_inf "
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "      crs_pax.pax_id=pax.pax_id(+) AND "
-          "      pax.grp_id=pax_grp.grp_id(+) AND "
-          "      crs_pax.pax_id=crs_inf.inf_id(+) AND "
-          "      crs_pnr.pnr_id=:pnr_id AND "
-          "      crs_pax.pr_del=0";
+          "FROM crs_pnr "
+          "  JOIN ( "
+          "    crs_pax "
+          "    LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id "
+          "    LEFT OUTER JOIN pax_grp ON pax.grp_id = pax_grp.grp_id "
+          "    LEFT OUTER JOIN crs_inf ON crs_pax.pax_id = crs_inf.inf_id "
+          "  ) "
+          "  ON crs_pnr.pnr_id = crs_pax.pnr_id "
+          "WHERE "
+          "  crs_pnr.pnr_id = :pnr_id "
+          "  AND crs_pax.pr_del = 0 ";
       Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
       Qry.Execute();
-      SeatQry.SetVariable("crs_row", 1);
+      CrsSeatQry.SetVariable("crs_row", 1);
       if (!Qry.Eof)
       {
         fromDBadditional(AirportCode_t(Qry.FieldAsString("airp_arv")));
@@ -891,8 +905,10 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
         pnr_addrs.getByPnrIdFast(pnr_id);
         TBrands brands; //здесь, чтобы кэшировались запросы
         boost::optional<TRemGrp> forbiddenRemGrp; //здесь чтобы кэшировалась TRemGrp.Load
+        int rownum = 0;
         for(;!Qry.Eof;Qry.Next())
         {
+          rownum++;
           TWebPax pax;
           pax.pnr_addrs=pnr_addrs;
           pax.crs_pnr_id = pnr_id;
@@ -904,17 +920,23 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           pax.surname = Qry.FieldAsString( "surname" );
           pax.name = Qry.FieldAsString( "name" );
           pax.pers_type_extended = Qry.FieldAsString( "pers_type" );
-          pax.seat_no = Qry.FieldAsString( "seat_no" );
           SeatQry.SetVariable("pax_id", Qry.FieldAsInteger("crs_pax_id"));
-          SeatQry.SetVariable("xname", Qry.FieldAsString("seat_xname"));
-          SeatQry.SetVariable("yname", Qry.FieldAsString("seat_yname"));
-          SeatQry.SetVariable("seats", Qry.FieldAsInteger("crs_seats"));
-          SeatQry.SetVariable("point_id", Qry.FieldAsInteger("point_id_tlg"));
-          SeatQry.SetVariable("layer_type", FNull);
-          SeatQry.SetVariable("crs_seat_no", FNull);
+          SeatQry.SetVariable("seats", Qry.FieldAsInteger("pax_seats"));
+          SeatQry.SetVariable("point_dep", Qry.FieldAsInteger("point_dep"));
+          SeatQry.SetVariable("status", Qry.FieldAsString("pax_status"));
+          SeatQry.SetVariable("num", rownum);
           SeatQry.Execute();
-          pax.seat_status=seat_status(flt.oper, DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type")));
-          pax.crs_seat_no=SeatQry.GetVariableAsString("crs_seat_no");
+          pax.seat_no = SeatQry.FieldAsString( "seat_no" );
+          CrsSeatQry.SetVariable("pax_id", Qry.FieldAsInteger("crs_pax_id"));
+          CrsSeatQry.SetVariable("xname", Qry.FieldAsString("seat_xname"));
+          CrsSeatQry.SetVariable("yname", Qry.FieldAsString("seat_yname"));
+          CrsSeatQry.SetVariable("seats", Qry.FieldAsInteger("crs_seats"));
+          CrsSeatQry.SetVariable("point_id", Qry.FieldAsInteger("point_id_tlg"));
+          CrsSeatQry.SetVariable("layer_type", FNull);
+          CrsSeatQry.SetVariable("crs_seat_no", FNull);
+          CrsSeatQry.Execute();
+          pax.seat_status=seat_status(flt.oper, DecodeCompLayerType(CrsSeatQry.GetVariableAsString("layer_type")));
+          pax.crs_seat_no=CrsSeatQry.GetVariableAsString("crs_seat_no");
           pax.seats = Qry.FieldAsInteger( "seats" );
           pax.orig_class = Qry.FieldAsString( "class" );
           pax.orig_subclass = Qry.FieldAsString( "subclass" );
@@ -930,7 +952,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             {
               pax.checkin_status = "agent_checked";
 
-              switch(DecodeClientType(Qry.FieldAsString( "client_type" )))
+              switch(DecodeClientType(Qry.FieldAsString( "client_type" ).c_str()))
               {
                 case ctWeb:
                 case ctMobile:
@@ -1005,7 +1027,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (!pax.agent_checkin_reasons.empty())
               pax.checkin_status = "agent_checkin";
           }
-          pax.bagNorm=trueBagNorm(CheckIn::TSimplePaxItem::getCrsBagNorm<TQuery, string>(Qry, "crs_bag_norm", "crs_bag_norm_unit"), pax.etick);
+          pax.bagNorm=trueBagNorm(CheckIn::TSimplePaxItem::getCrsBagNorm<DB::TQuery, string>(Qry, "crs_bag_norm", "crs_bag_norm_unit"), pax.etick);
           pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
           pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
           if ( !Qry.FieldIsNULL( "pax_grp_tid" ) )
@@ -1404,8 +1426,7 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
   multiPnrData.segs.clear();
   TWebPaxForSaveSeg seg(multiPnrData.flt.oper.point_id);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX", "CRS_PAX_CHKD", "CRS_INF"}), STDLOG); // salons.get_crs_seat_no
   Qry.SQLText=
     "SELECT crs_pnr.pnr_id, "
     "       crs_pnr.airp_arv, "+
@@ -1425,20 +1446,21 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
     "       crs_pnr.tid AS crs_pnr_tid, "
     "       crs_pax.tid AS crs_pax_tid, "
     "       crs_pax_ids.reg_no "
-    "FROM crs_pnr, crs_pax, pax, "
-    "     (SELECT crs_pax.pax_id, crs_pax_chkd.reg_no "
-    "      FROM crs_pax, crs_pax_chkd "
-    "      WHERE crs_pax.pax_id=crs_pax_chkd.pax_id(+) AND "
-    "            crs_pax.pax_id=:pax_id "
+    "FROM crs_pax "
+    "JOIN crs_pnr ON crs_pnr.pnr_id = crs_pax.pnr_id "
+    "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id AND pax.pax_id IS NULL "
+    "JOIN (SELECT crs_pax.pax_id, crs_pax_chkd.reg_no "
+    "      FROM crs_pax "
+    "      LEFT OUTER JOIN crs_pax_chkd ON crs_pax.pax_id = crs_pax_chkd.pax_id "
+    "      WHERE crs_pax.pax_id=:pax_id "
     "      UNION "
     "      SELECT crs_inf.inf_id AS pax_id, crs_pax_chkd.reg_no "
-    "      FROM crs_inf, crs_pax_chkd "
-    "      WHERE crs_inf.inf_id=crs_pax_chkd.pax_id(+) AND "
-    "            crs_inf.pax_id=:pax_id) crs_pax_ids "
-    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pax.pax_id=crs_pax_ids.pax_id AND "
-    "      crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-    "      crs_pnr.system='CRS' AND "
+    "      FROM crs_inf "
+    "      LEFT OUTER JOIN crs_pax_chkd ON crs_inf.inf_id = crs_pax_chkd.pax_id "
+    "      WHERE crs_inf.pax_id=:pax_id "
+    "      ) crs_pax_ids "
+    "ON crs_pax.pax_id = crs_pax_ids.pax_id"
+    "WHERE crs_pnr.system='CRS' AND "
     "      crs_pax.pr_del=0 ";
   Qry.CreateVariable("pax_id", otInteger, crs_pax_id);
   Qry.Execute();
@@ -1509,8 +1531,6 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
   int firstPointIdForCkin=NoExists;
   segs.checkSegmentsFromReq(firstPointIdForCkin);
 
-  TQuery Qry(&OraSession);
-
   TMultiPnrDataSegs multiPnrDataSegs;
   boost::optional<bool> is_test=false;
   is_test=boost::none;
@@ -1549,11 +1569,26 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
 
           idsPnrData.add(TIdsPnrData::VerifyPNRByPaxId(s.point_id, paxFromReq.id), paxFromReq.id);
 
-          Qry.Clear();
-          if (!paxFromReq.checked())
-            Qry.SQLText=TWebPaxForCkin::sql(paxFromReq.isTest());
-          else
-            Qry.SQLText=TWebPaxForChng::sql();
+          std::string sql;
+          std::list<std::string> tables;
+          if (!paxFromReq.checked()) {
+            sql=TWebPaxForCkin::sql(paxFromReq.isTest());
+            if (paxFromReq.isTest()) {
+              tables.push_back("PAX");
+              tables.push_back("CRS_PAX");
+              tables.push_back("CRS_PNR");
+            } else {
+              tables.push_back("TEST_PAX");
+              tables.push_back("SUBCLS");
+            }
+          } else {
+            tables.push_back("PAX");
+            tables.push_back("CRS_PAX");
+            tables.push_back("PAX_GRP");
+            sql=TWebPaxForChng::sql();
+          }
+          DB::TQuery Qry(PgOra::getROSession(tables), STDLOG);
+          Qry.SQLText = sql;
           Qry.CreateVariable("pax_id", otInteger, paxFromReq.id);
           Qry.Execute();
 

@@ -1720,7 +1720,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
     if ( ipasses != passengers.end() ) {
       SEATS2::AutoReSeatsPassengers( salonList, ipasses->second,
-                                     SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ),
+                                     SEATS2::GetSeatAlgo(info.airline, info.flt_no, info.airp),
                                      remGrp );
     }
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );

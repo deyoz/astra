@@ -347,8 +347,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
 
   //разметка детей по взрослым
   vector<TInfantAdults> InfItems, AdultItems;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CRS_INF"), STDLOG);
   Qry.SQLText = "SELECT pax_id FROM crs_inf WHERE inf_id=:inf_id";
   Qry.DeclareVariable("inf_id", otInteger);
   for(int k=0;k<=1;k++)
@@ -471,7 +470,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   }
 
   //определим алгоритм рассадки
-  SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
+  SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
   boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
   //рассадка
   SALONS2::TAutoSeats autoSeats;
@@ -751,7 +750,7 @@ std::string RegNoGenerator::traceStr(const boost::optional<RegNoRange>& range)
 
 } //namespace CheckIn
 
-TWebTids& TWebTids::fromDB(TQuery &Qry)
+TWebTids& TWebTids::fromDB(DB::TQuery &Qry)
 {
   clear();
   if (Qry.GetFieldIndex("crs_pnr_tid")>=0 && !Qry.FieldIsNULL("crs_pnr_tid"))
@@ -848,7 +847,7 @@ void TWebAPISItem::set(const CheckIn::TPaxAPIItem& item)
   presentAPITypes.insert(type);
 }
 
-TWebPaxFromReq& TWebPaxFromReq::fromDB(TQuery &Qry)
+TWebPaxFromReq& TWebPaxFromReq::fromDB(DB::TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
@@ -1000,7 +999,7 @@ void TWebPaxForSaveSegs::checkSegmentsFromReq(int& firstPointIdForCkin)
   };
 }
 
-TWebPaxForChng& TWebPaxForChng::fromDB(TQuery &Qry)
+TWebPaxForChng& TWebPaxForChng::fromDB(DB::TQuery &Qry)
 {
   clear();
   CheckIn::TSimplePaxGrpItem::fromDB(Qry);
@@ -1011,7 +1010,23 @@ TWebPaxForChng& TWebPaxForChng::fromDB(TQuery &Qry)
   return *this;
 }
 
-TWebPaxForCkin& TWebPaxForCkin::fromDB(TQuery &Qry)
+const string& TWebPaxForChng::sql()
+{
+  static const std::string result=
+      "SELECT pax_grp.*, pax.*, "
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+      "       crs_pax.tid AS crs_pax_tid, "
+      "       pax_grp.tid AS pax_grp_tid, "
+      "       pax.tid AS pax_tid, "
+      "       crs_pax.pnr_id "
+      "FROM pax_grp"
+      "JOIN (pax LEFT OUTER JOIN crs_pax ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0) "
+      "ON pax_grp.grp_id = pax.grp_id "
+      "WHERE pax.pax_id=:pax_id";
+  return result;
+}
+
+TWebPaxForCkin& TWebPaxForCkin::fromDB(DB::TQuery &Qry)
 {
   clear();
   CheckIn::TSimplePnrItem::fromDB(Qry);

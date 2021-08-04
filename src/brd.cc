@@ -682,7 +682,8 @@ void BrdInterface::GetPaxQuery(DB::TQuery &Qry,
             sql << " ORDER BY pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
-            sql << " ORDER BY seat_no, pax.reg_no, pax.seats DESC ";
+      // sql << " ORDER BY seat_no, pax.reg_no, pax.seats DESC ";
+      // use std::sort
             break;
     }
 
@@ -721,10 +722,10 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   //берем новый tid
   lock_and_get_new_tid(point_id); //здесь лочим
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
   Qry.SQLText=
-    "SELECT pax_grp.* FROM pax_grp, pax "
+    "SELECT pax_grp.* "
+    "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND pax.pax_id=:pax_id AND pax.tid=:tid";
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -750,15 +751,16 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   CheckIn::TAPISItem prior_apis;
   prior_apis.fromDB(pax_id);
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
+  QryUpd.SQLText =
     "UPDATE pax "
-    "SET tid=cycle_tid__seq.currval "
+    "SET tid=:new_tid "
     "WHERE pax_id=:pax_id AND tid=:tid";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.CreateVariable("tid", otInteger, tid);
-  Qry.Execute();
-  if (Qry.RowsProcessed()<=0)
+  QryUpd.CreateVariable("pax_id", otInteger, pax_id);
+  QryUpd.CreateVariable("new_tid", otInteger, PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ"));
+  QryUpd.CreateVariable("tid", otInteger, tid);
+  QryUpd.Execute();
+  if (QryUpd.RowsProcessed()<=0)
     throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
   PaxIdWithSegmentPair paxId(PaxId_t(pax_id), grp.getSegmentPair());
@@ -787,7 +789,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
     apis.doca_map.fromXML(docaNode);
     HandleDoca(grp, pax, checkInfo, apis.doca_map);
     CheckIn::SavePaxDoca(paxId, apis.doca_map, prior_apis.doca_map, modifiedPaxRem);
-  };
+  }
 
   modifiedPaxRem.executeCallbacksByPaxId(TRACE5);
   modifiedPaxRem.executeCallbacksByCategory(TRACE5);
@@ -813,7 +815,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       logPaxName(EncodePaxStatus(grp.status), pax.surname, pax.name, EncodePerson(pax.pers_type), params);
       TReqInfo::Instance()->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
                                      ASTRA::evtPax, point_id, pax.reg_no, grp.id);
-    };
+    }
   }
   else
   {
@@ -826,9 +828,9 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       LEvntPrms params;
       logPaxName(EncodePaxStatus(grp.status), pax.surname, pax.name, EncodePerson(pax.pers_type), params);
       TReqInfo::Instance()->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, pax.reg_no, grp.id);
-    };
-  };
-};
+    }
+  }
+}
 
 static set<APIS::TAlarmType> getAPISAlarms(AllAPIAttrs& allAPIAttrs,
                                            DB::TQuery& Qry,
@@ -1110,29 +1112,27 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (isDoomedToWait()) return;
       };
 
-      DB::TQuery Qry3(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_CALC_DATA"}), STDLOG);
-      Qry3.SQLText=
+      DB::TQuery QryPaxData(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_CALC_DATA"}), STDLOG);
+      QryPaxData.SQLText=
         "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, pax.crew_type, "
         "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.is_jmp, pax.ticket_rem, pax.tid, pax.doco_confirm, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'list',rownum,0) AS seat_no, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_for_bgr, "
         "       pax_calc_data.* "
-        "FROM pax_grp, pax, pax_calc_data "
-        "WHERE pax_grp.grp_id=pax.grp_id AND "
-        "      pax.pax_id=pax_calc_data.pax_calc_data_id(+) AND "
-        "      point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL AND "
+        "FROM pax_grp "
+        "JOIN (pax LEFT OUTER JOIN pax_calc_data ON pax.pax_id = pax_calc_data.pax_calc_data_id) "
+        "ON pax_grp.grp_id = pax.grp_id "
+        "WHERE point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL AND "
         "      reg_no=:reg_no";
-      Qry3.CreateVariable("point_id", otInteger, point_id);
-      Qry3.CreateVariable("reg_no", otInteger, reg_no);
-      Qry3.Execute();
-      if (Qry3.Eof)
+      QryPaxData.CreateVariable("point_id", otInteger, point_id);
+      QryPaxData.CreateVariable("reg_no", otInteger, reg_no);
+      QryPaxData.Execute();
+      if (QryPaxData.Eof)
         throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
-      int grp_id=Qry3.FieldAsInteger("grp_id");
-      int point_arv=Qry3.FieldAsInteger("point_arv");
-      string airp_arv=Qry3.FieldAsString("airp_arv");
-      TPaxStatus grp_status=DecodePaxStatus(Qry3.FieldAsString("status").c_str());
-      ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry3.FieldAsString("crew_type"));
+      int grp_id=QryPaxData.FieldAsInteger("grp_id");
+      int point_arv=QryPaxData.FieldAsInteger("point_arv");
+      string airp_arv=QryPaxData.FieldAsString("airp_arv");
+      TPaxStatus grp_status=DecodePaxStatus(QryPaxData.FieldAsString("status").c_str());
+      ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(QryPaxData.FieldAsString("crew_type"));
       ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
 
       class TPaxItem
@@ -1202,32 +1202,52 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       TPaxItem paxWithSeat, paxWithoutSeat;
-      string surname;
-      string name;
       AllAPIAttrs allAPIAttrs(fltInfo.scd_out);
-      for(;!Qry3.Eof;Qry3.Next())
+      int rownum = 0;
+      for(;!QryPaxData.Eof;QryPaxData.Next())
       {
-        if (grp_id!=Qry3.FieldAsInteger("grp_id"))
+        rownum++;
+        if (grp_id!=QryPaxData.FieldAsInteger("grp_id"))
           throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
-        int seats=Qry3.FieldAsInteger("seats");
+        int seats=QryPaxData.FieldAsInteger("seats");
         TPaxItem &pax=seats>0?paxWithSeat:paxWithoutSeat;
         if (pax.exists())
           throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
-        pax.pax_id=Qry3.FieldAsInteger("pax_id");
-        pax.surname=Qry3.FieldAsString("surname");
-        pax.name=Qry3.FieldAsString("name");
-        pax.wl_type=Qry3.FieldAsString("wl_type");
-        pax.ticket_rem=Qry3.FieldAsString("ticket_rem");
-        pax.pr_brd=Qry3.FieldAsInteger("pr_brd")!=0;
-        pax.pr_exam=Qry3.FieldAsInteger("pr_exam")!=0;
+        pax.pax_id=QryPaxData.FieldAsInteger("pax_id");
+        pax.surname=QryPaxData.FieldAsString("surname");
+        pax.name=QryPaxData.FieldAsString("name");
+        pax.wl_type=QryPaxData.FieldAsString("wl_type");
+        pax.ticket_rem=QryPaxData.FieldAsString("ticket_rem");
+        pax.pr_brd=QryPaxData.FieldAsInteger("pr_brd")!=0;
+        pax.pr_exam=QryPaxData.FieldAsInteger("pr_exam")!=0;
         pax.already_marked=(screen==sBoarding?pax.pr_brd:pax.pr_exam);
-        pax.tid=Qry3.FieldAsInteger("tid");
-        pax.seat_no=Qry3.FieldAsString("seat_no");
-        pax.seat_no_for_bgr=Qry3.FieldAsString("seat_no_for_bgr");
-        pax.is_jmp = Qry3.FieldAsInteger("is_jmp") != 0;
-        pax.docoConfirmed = Qry3.FieldAsInteger("doco_confirm") != 0;
-        pax.alarms=getAPISAlarms(allAPIAttrs, Qry3, pax.name!="CBBG", pax_ext, pax.docoConfirmed, false,
+        pax.tid=QryPaxData.FieldAsInteger("tid");
+        pax.is_jmp = QryPaxData.FieldAsInteger("is_jmp") != 0;
+        pax.docoConfirmed = QryPaxData.FieldAsInteger("doco_confirm") != 0;
+        pax.alarms=getAPISAlarms(allAPIAttrs, QryPaxData, pax.name!="CBBG", pax_ext, pax.docoConfirmed, false,
                                  route_check_info, AirportCode_t(airp_arv), setList, pax.documentAlarm);
+        QParams params;
+        params << QParam("pax_id", otInteger, pax.pax_id)
+               << QParam("seats", otInteger, seats)
+               << QParam("is_jmp", otInteger, pax.is_jmp ? 1 : 0)
+               << QParam("status", otString, QryPaxData.FieldAsString("status"))
+               << QParam("point_dep", otInteger, point_id)
+               << QParam("num", otInteger, rownum);
+        DB::TCachedQuery SeatQry(
+              PgOra::getROSession("ORACLE"),
+              "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'list',:num,0) AS seat_no FROM dual",
+              params,
+              STDLOG);
+        SeatQry.get().Execute();
+        pax.seat_no=SeatQry.get().FieldAsString("seat_no");
+
+        DB::TCachedQuery SeatBgrQry(
+              PgOra::getROSession("ORACLE"),
+              "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'seats',:num,1) AS seat_no_for_bgr FROM dual",
+              params,
+              STDLOG);
+        SeatBgrQry.get().Execute();
+        pax.seat_no_for_bgr=SeatBgrQry.get().FieldAsString("seat_no_for_bgr");
       };
 
       if (!paxWithSeat.exists() && !paxWithoutSeat.exists())

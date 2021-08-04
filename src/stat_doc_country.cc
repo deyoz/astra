@@ -163,18 +163,20 @@ int stat_belgorod(int argc, char **argv)
     for(;!Qry.Eof;Qry.Next())
         moscow_airps.insert(Qry.FieldAsString("code"));
 
-    TCachedQuery PointsQry(
-                "SELECT pax.*, pax_grp.airp_dep, pax_grp.airp_arv, points.point_id "
-                "FROM points, pax_grp, pax, pax_doc "
-                "WHERE points.point_id=pax_grp.point_dep AND "
-                "      pax_grp.grp_id=pax.grp_id AND "
-                "      pax.pax_id=pax_doc.pax_id AND "
-                "      points.move_id=:move_id AND "
-                "      points.pr_del>=0 AND "
-                "      pax_grp.status NOT IN ('E') AND (pax_grp.airp_dep=:airp OR pax_grp.airp_arv=:airp) AND "
-                "      pax.refuse IS NULL AND pax_doc.issue_country<>'RUS' ",
-                QParams() << QParam("move_id", otInteger)
-                << QParam("airp", otString, belgorod_airp));
+    DB::TCachedQuery PointsQry(
+          PgOra::getROSession({"POINTS", "PAX_GRP", "PAX", "PAX_DOC"}),
+          "SELECT pax.*, pax_grp.airp_dep, pax_grp.airp_arv, points.point_id "
+          "FROM points, pax_grp, pax, pax_doc "
+          "WHERE points.point_id=pax_grp.point_dep AND "
+          "      pax_grp.grp_id=pax.grp_id AND "
+          "      pax.pax_id=pax_doc.pax_id AND "
+          "      points.move_id=:move_id AND "
+          "      points.pr_del>=0 AND "
+          "      pax_grp.status NOT IN ('E') AND (pax_grp.airp_dep=:airp OR pax_grp.airp_arv=:airp) AND "
+          "      pax.refuse IS NULL AND pax_doc.issue_country<>'RUS' ",
+          QParams() << QParam("move_id", otInteger)
+                    << QParam("airp", otString, belgorod_airp),
+          STDLOG);
 
 
     std::ofstream farv(fname_arv.str().c_str());
@@ -222,7 +224,7 @@ int stat_belgorod(int argc, char **argv)
                 }
                 else {
 
-                    TQuery &PQry = PointsQry.get();
+                    DB::TQuery &PQry = PointsQry.get();
                     PQry.SetVariable("move_id", move_id);
                     PQry.Execute();
                     for(;!PQry.Eof;PQry.Next())

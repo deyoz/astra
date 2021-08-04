@@ -69,16 +69,16 @@ void TServiceList::fromDB(const TRptParams &rpt_params)
 {
     clear();
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG); // salons.get_seat_no
     string SQLText =
-    "select "
+    "SELECT "
     "    pax_grp.*, "
     "    pax.*, "
     "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
-    "from "
+    "FROM "
     "    pax_grp, "
     "    pax "
-    "where "
+    "WHERE "
     "    pax_grp.point_dep = :point_id and "
     "    pax_grp.grp_id = pax.grp_id ";
     /*"order by "

@@ -182,7 +182,6 @@ namespace REPORTS {
         }
 
         virtual void trace(TRACE_SIGNATURE);
-        virtual void fromDB(TQuery &Qry);
         virtual void fromDB(DB::TQuery &Qry);
         virtual ~TPax() {}
         const CheckIn::TSimplePaxGrpItem &grp() const;
@@ -217,7 +216,6 @@ namespace REPORTS {
         void clear();
         void trace(TRACE_SIGNATURE);
         // внешний запрос
-        void fromDB(TQuery &Qry, bool countExcessPC);
         void fromDB(DB::TQuery &Qry, bool countExcessPC);
         // клеится свой, внутренний
         void fromDB();

@@ -224,14 +224,14 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   QryAODB.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
   QryAODB.CreateVariable( "airline", otString, airline );
   QryAODB.Execute();
-  TQuery PaxQry(&OraSession);
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","PAX_DOC"}), STDLOG); // ckin.get_excess_wt, ckin.get_rkAmount2, ckin.get_rkWeight2, ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_bag_pool_pax_id, salons.get_seat_no
   PaxQry.SQLText =
-       "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,"
+       "SELECT pax.pax_id,pax.reg_no,RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) name,"
        "       pax_grp.grp_id,"
        "       pax_grp.airp_arv,pax_grp.airp_dep,"
        "       pax_grp.class,pax.refuse,"
        "       pax.pers_type, "
-       "       NVL(pax.is_female,1) as is_female, "
+       "       COALESCE(pax.is_female,1) as is_female, "
        "       pax.subclass, "
        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
        "       pax.seats seats, "
@@ -247,11 +247,11 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       pax_grp.client_type, "
        "       pax_doc.no document, "
        "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
-       " FROM pax_grp, pax, pax_doc "
-       " WHERE pax_grp.grp_id=pax.grp_id AND "
-       "       pax.pax_id=:pax_id AND "
-       "       pax.wl_type IS NULL AND "
-       "       pax.pax_id=pax_doc.pax_id(+) ";
+       "FROM pax_grp "
+       "JOIN (pax LEFT OUTER JOIN pax_doc ON pax.pax_id = pax_doc.pax_id) "
+       "ON pax_grp.grp_id = pax.grp_id "
+       "WHERE pax.pax_id=:pax_id AND "
+       "      pax.wl_type IS NULL ";
   PaxQry.DeclareVariable( "pax_id", otInteger );
   DB::TQuery RemQry(PgOra::getROSession("PAX_REM"), STDLOG);
   RemQry.SQLText =
@@ -304,9 +304,6 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       FltQry.SetVariable( "point_id", p_id );
       FltQry.Execute();
       TTripInfo tripInfo( FltQry );
-/*      if ( !tripInfo.getByPointId ( p_id ) ) {
-        throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", p_id );
-      }*/
       trips.insert( make_pair( p_id, tripInfo ) );
     }
     if ( sync_meridian.find( p_id ) == sync_meridian.end() ) {

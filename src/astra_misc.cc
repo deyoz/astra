@@ -1736,17 +1736,17 @@ void TMktFlight::getByPaxId(int pax_id)
 
 void TMktFlight::getByCrsPaxId(int pax_id)
 {
-    DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"CRS_PAX","CRS_PNR"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "    crs_pnr.pnr_id, "
         "    crs_pnr.point_id, "
         "    crs_pnr.subclass tlg_subcls, "
         "    crs_pnr.airp_arv tlg_airp_arv "
-        "from "
+        "FROM "
         "   crs_pax, "
         "   crs_pnr "
-        "where "
+        "WHERE "
         "    crs_pax.pax_id = :id and crs_pax.pr_del=0 and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id ";
     get(Qry, pax_id);
@@ -2874,12 +2874,12 @@ AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &d
   return result;
 }
 
-TInfantAdults::TInfantAdults(TQuery &Qry)
+TInfantAdults::TInfantAdults(DB::TQuery &Qry)
 {
     fromDB(Qry);
 }
 
-void TInfantAdults::fromDB(TQuery &Qry)
+void TInfantAdults::fromDB(DB::TQuery &Qry)
 {
     clear();
     grp_id = Qry.FieldAsInteger("grp_id");

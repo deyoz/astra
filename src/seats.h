@@ -526,7 +526,7 @@ BitSet<TChangeLayerSeatsProps>
                   const std::string& whence, xmlNodePtr reqNode, xmlNodePtr resNode );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create );
-TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
+TSeatAlgoParams GetSeatAlgo(std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
 bool isCheckinWOChoiceSeats( int point_id );
 

@@ -1579,10 +1579,10 @@ void get_flight_stat(int point_id, bool final_collection)
 
      DB::TCachedQuery Qry(PgOra::getRWSession("TRIP_SETS"),
         "UPDATE trip_sets SET pr_stat = :final_collection "
-         "WHERE point_id = :point_id AND pr_stat = 0", QryParams, STDLOG);
+        "WHERE point_id = :point_id AND pr_stat = 0", QryParams, STDLOG);
      Qry.get().Execute();
      if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
-   };
+   }
    {
      timing.start("statist");
      get_stat(PointId_t(point_id));
@@ -1615,7 +1615,7 @@ void get_flight_stat(int point_id, bool final_collection)
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
 
    timing.finish("get_flight_stat", point_id);
-};
+}
 
 void collectStatTask(const TTripTaskKey &task)
 {

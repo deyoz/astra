@@ -4231,15 +4231,18 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, TSeatRanges &s
 }
 
 bool isINFT( int point_id, int pax_id ) {
-  TQuery PaxQry( &OraSession );
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","CRS_PAX","CRS_PNR"}), STDLOG);
   PaxQry.SQLText =
-    "SELECT grp_id, 0 inf_id, 0 priority FROM pax WHERE pax_id=:pax_id "
+    "SELECT grp_id, 0 inf_id, 0 priority "
+    "FROM pax "
+    "WHERE pax_id=:pax_id "
     "UNION "
-    "SELECT crs_pnr.pnr_id, crs_pax.inf_id, 1 priority FROM crs_pax, crs_pnr "
-    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "       crs_pax.pax_id=:pax_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       crs_pnr.system='CRS' "
+    "SELECT crs_pnr.pnr_id, crs_pax.inf_id, 1 priority "
+    "FROM crs_pax, crs_pnr "
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pax.pax_id=:pax_id AND "
+    "      crs_pax.pr_del=0 AND "
+    "      crs_pnr.system='CRS' "
     "ORDER BY priority";
   PaxQry.CreateVariable( "pax_id", otInteger, pax_id );
   PaxQry.Execute();
@@ -4250,33 +4253,39 @@ bool isINFT( int point_id, int pax_id ) {
     return !PaxQry.FieldIsNULL( "inf_id");
   }
   int grp_id = PaxQry.FieldAsInteger( "grp_id");
-  PaxQry.Clear();
-  PaxQry.SQLText =
-    " SELECT pax.pax_id, pax.pers_type, pax.seats, "
-    "        reg_no, pax.surname, crs_inf.pax_id AS parent_pax_id "
-    "    FROM pax_grp, pax, crs_inf "
-    "   WHERE pax.grp_id=pax_grp.grp_id AND "
-    "         pax_grp.point_dep=:point_dep AND "
-    "         pax.pax_id=crs_inf.inf_id(+) AND "
-    "         pax_grp.status NOT IN ('E') AND "
-    "         pax.refuse IS NULL AND "
-    "         pax.grp_id=:grp_id ";
-  PaxQry.CreateVariable( "point_dep", otInteger, point_id );
-  PaxQry.CreateVariable( "grp_id", otInteger, grp_id );
-  PaxQry.Execute();
+  DB::TQuery GrpQry(PgOra::getROSession({"PAX","PAX_GRP","CRS_INF"}), STDLOG);
+  GrpQry.SQLText =
+      "SELECT "
+      "  pax.pax_id, "
+      "  pax.pers_type, "
+      "  pax.seats, "
+      "  reg_no, "
+      "  pax.surname, "
+      "  crs_inf.pax_id AS parent_pax_id "
+      "FROM pax_grp "
+      "  JOIN (pax LEFT OUTER JOIN crs_inf ON pax.pax_id = crs_inf.inf_id) "
+      "  ON pax.grp_id = pax_grp.grp_id "
+      "WHERE "
+      "  pax_grp.point_dep = :point_dep "
+      "  AND pax_grp.status NOT IN ('E') "
+      "  AND pax.refuse IS NULL "
+      "  AND pax.grp_id = :grp_id ";
+  GrpQry.CreateVariable( "point_dep", otInteger, point_id );
+  GrpQry.CreateVariable( "grp_id", otInteger, grp_id );
+  GrpQry.Execute();
   vector<TPass> InfItems, AdultItems;
-  for ( ;!PaxQry.Eof; PaxQry.Next() ) {
+  for ( ;!GrpQry.Eof; GrpQry.Next() ) {
     TPass pass;
     pass.grp_id = grp_id;
-    pass.pax_id = PaxQry.FieldAsInteger( "pax_id" );
-    pass.reg_no = PaxQry.FieldAsInteger( "reg_no" );
-    pass.surname = PaxQry.FieldAsString( "surname" );
-    pass.parent_pax_id = PaxQry.FieldAsInteger( "parent_pax_id" );
-    if ( PaxQry.FieldAsInteger( "seats" ) == 0 ) {
+    pass.pax_id = GrpQry.FieldAsInteger( "pax_id" );
+    pass.reg_no = GrpQry.FieldAsInteger( "reg_no" );
+    pass.surname = GrpQry.FieldAsString( "surname" );
+    pass.parent_pax_id = GrpQry.FieldAsInteger( "parent_pax_id" );
+    if ( GrpQry.FieldAsInteger( "seats" ) == 0 ) {
       InfItems.push_back( pass );
     }
     else {
-      if ( string(PaxQry.FieldAsString( "pers_type" )) == string("‚‡") ) {
+      if ( string(GrpQry.FieldAsString( "pers_type" )) == string("‚‡") ) {
         AdultItems.push_back( pass );
       }
     }
@@ -4325,16 +4334,20 @@ void SyncPRSA( const string &airline_oper,
   multiset<CheckIn::TPaxRemItem> prior_rems;
   CheckIn::LoadPaxRem(pax_id, prior_rems);
 
-  TQuery RemQry(&OraSession);
-  RemQry.Clear();
-  RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
-  RemQry.CreateVariable("pax_id",otInteger,pax_id);
-  RemQry.CreateVariable("rem_code",otString,"PRSA");
-  RemQry.Execute();
+  DB::TQuery RemQryDel(PgOra::getRWSession("PAX_REM"), STDLOG);
+  RemQryDel.SQLText =
+      "DELETE FROM pax_rem "
+      "WHERE pax_id=:pax_id "
+      "AND rem_code=:rem_code";
+  RemQryDel.CreateVariable("pax_id",otInteger,pax_id);
+  RemQryDel.CreateVariable("rem_code",otString,"PRSA");
+  RemQryDel.Execute();
 
-  RemQry.SQLText=
-    "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
-  RemQry.DeclareVariable("rem",otString);
+  DB::TQuery RemQryIns(PgOra::getRWSession("PAX_REM"), STDLOG);
+  RemQryIns.SQLText=
+    "INSERT INTO pax_rem(pax_id,rem,rem_code) "
+    "VALUES(:pax_id,:rem,:rem_code)";
+  RemQryIns.DeclareVariable("rem",otString);
 
   for ( vector<pair<TSeatRange,TRFISC> >::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
   {
@@ -4347,8 +4360,8 @@ void SyncPRSA( const string &airline_oper,
       rem << "/" << it->second.rateView()
           << "/" << it->second.currencyView(LANG_EN);
 
-    RemQry.SetVariable("rem", rem.str());
-    RemQry.Execute();
+    RemQryIns.SetVariable("rem", rem.str());
+    RemQryIns.Execute();
   }
 
   multiset<CheckIn::TPaxRemItem> curr_rems;
@@ -5334,14 +5347,16 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
   ProgTrace( TRACE5, "passengers.count=%d", Passes.getCount() );
 }
 
-TSeatAlgoParams GetSeatAlgo(TQuery &Qry, string airline, int flt_no, string airp_dep)
+TSeatAlgoParams GetSeatAlgo(string airline, int flt_no, string airp_dep)
 {
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("SEAT_ALGO_SETS"), STDLOG);
   Qry.SQLText=
-    "SELECT algo_type, pr_seat_in_row,"
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "SELECT "
+    "  algo_type, "
+    "  pr_seat_in_row, "
+    "  (CASE WHEN airline IS NULL THEN 0 ELSE 8 END "
+    "   + CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END "
+    "   + CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
     "FROM seat_algo_sets "
     "WHERE (airline IS NULL OR airline=:airline) AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "

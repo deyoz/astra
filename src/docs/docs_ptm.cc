@@ -54,10 +54,11 @@ int REPORTS::nosir_cbbg(int argc, char** argv)
     rpt_params.point_id = 4683700;
     TPMPaxList pax_list(rpt_params);
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_GRP"}), STDLOG);
     Qry.SQLText =
-        "select * from pax, pax_grp where "
-        "   pax_grp.point_dep = :point_id and "
+        "SELECT * FROM pax, pax_grp "
+        "WHERE "
+        "   pax_grp.point_dep = :point_id AND "
         "   pax_grp.grp_id = pax.grp_id ";
     Qry.CreateVariable("point_id", otInteger, pax_list.point_id);
     Qry.Execute();
@@ -77,27 +78,6 @@ TPaxPtr TPMPaxList::getPaxPtr()
 TPMPaxList &TPMPax::get_pax_list() const
 {
     return dynamic_cast<TPMPaxList&>(pax_list);
-}
-
-void TPMPax::fromDB(TQuery &Qry)
-{
-    TPax::fromDB(Qry);
-    target = Qry.FieldAsString("target");
-    last_target = get_last_target(Qry, get_pax_list().rpt_params);
-    point_num = Qry.FieldAsInteger("point_num");
-    status = Qry.FieldAsString("status");
-    point_id = Qry.FieldAsInteger("trip_id");
-    class_grp = Qry.FieldAsInteger("class_grp");
-    priority = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
-    cls = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).cl;
-    if(get_pax_list().rpt_params.pr_trfer) {
-        pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        trfer_airline = Qry.FieldAsString("trfer_airline");
-        trfer_flt_no = Qry.FieldAsInteger("trfer_flt_no");
-        trfer_suffix = Qry.FieldAsString("trfer_suffix");
-        trfer_airp_arv = Qry.FieldAsString("trfer_airp_arv");
-        trfer_scd = Qry.FieldAsDateTime("trfer_scd");
-    }
 }
 
 void TPMPax::fromDB(DB::TQuery &Qry)
@@ -405,101 +385,98 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         NewTextChild(variablesNode, "ptm", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et), rpt_params.dup_lang()));
         NewTextChild(variablesNode, "ptm_lat", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et_lat), AstraLocale::LANG_EN));
     }
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","POINTS","PAX","CLS_GRP","HALLS2","TRANSFER","TRFER_TRIPS","TCKIN_PAX_GRP"}), STDLOG); // ckin.get_rkWeight2, ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_excess_wt
     string SQLText =
-        "SELECT \n"
-        "   pax.*, \n"
-        "   pax_grp.point_dep AS trip_id, \n"
-        "   pax_grp.airp_arv AS target, \n"
-        "   points.point_num, \n";
+        "SELECT "
+        "   pax.*, "
+        "   pax_grp.point_dep AS trip_id, "
+        "   pax_grp.airp_arv AS target, "
+        "   points.point_num, ";
     if(rpt_params.pr_trfer)
         SQLText +=
-            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
-            "    trfer_trips.airline trfer_airline, \n"
-            "    trfer_trips.flt_no trfer_flt_no, \n"
-            "    trfer_trips.suffix trfer_suffix, \n"
-            "    transfer.airp_arv trfer_airp_arv, \n"
-            "    trfer_trips.scd trfer_scd, \n";
+            "    CASE WHEN transfer.grp_id IS NOT NULL THEN 1 ELSE 0 END AS pr_trfer, "
+            "    trfer_trips.airline trfer_airline, "
+            "    trfer_trips.flt_no trfer_flt_no, "
+            "    trfer_trips.suffix trfer_suffix, "
+            "    transfer.airp_arv trfer_airp_arv, "
+            "    trfer_trips.scd trfer_scd, ";
     SQLText +=
-        "   nvl(pax.cabin_class_grp, pax_grp.class_grp) class_grp, \n"
-        "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
-        "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
-        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
-        "   NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, \n"
-        "   0 AS excess_pc, \n"
-        "   pax_grp.grp_id \n"
-        "FROM  \n"
-        "   pax_grp, \n"
-        "   points, \n"
-        "   pax, \n"
-        "   cls_grp, \n"
-        "   halls2 \n";
-    if(rpt_params.pr_trfer)
-        SQLText += ", transfer, trfer_trips \n";
-    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All)
-        SQLText += ", tckin_pax_grp \n";
+        "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) class_grp, "
+        "   CASE WHEN pax_grp.status = 'T' THEN pax_grp.status ELSE 'N' END AS status, "
+        "   COALESCE(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, "
+        "   COALESCE(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
+        "   COALESCE(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, "
+        "   COALESCE(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, "
+        "   0 AS excess_pc, "
+        "   pax_grp.grp_id "
+        "FROM pax_grp "
+        "JOIN points ON pax_grp.point_arv = points.point_id "
+        "JOIN pax ON pax_grp.grp_id = pax.grp_id "
+        "JOIN cls_grp ON pax_grp.class_grp = cls_grp.id "
+        "LEFT OUTER JOIN halls2 ON pax_grp.hall = halls2.id ";
+    if(rpt_params.pr_trfer) {
+        SQLText += "LEFT OUTER JOIN ( "
+                   "  transfer LEFT OUTER JOIN trfer_trips ON transfer.point_id_trfer = trfer_trips.point_id) "
+                   "ON pax_grp.grp_id=transfer.grp_id AND transfer.pr_final <> 0 ";
+    }
+    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All) {
+        SQLText += "LEFT OUTER JOIN tckin_pax_grp "
+                   "ON pax_grp.grp_id = tckin_pax_grp.grp_id "
+                   "AND tckin_pax_grp.transit_num <> 0 ";
+    }
     SQLText +=
-        "WHERE \n"
-        "   points.pr_del>=0 AND \n"
-        "   pax_grp.point_dep = :point_id and \n"
-        "   pax_grp.point_arv = points.point_id and \n"
-        "   pax_grp.grp_id=pax.grp_id AND \n"
-        "   pax_grp.class_grp is not null AND \n"
-        "   pax_grp.class_grp = cls_grp.id and \n"
-        "   pax_grp.hall = halls2.id(+) and \n"
-        "   pax_grp.status NOT IN ('E') and \n"
-        "   pr_brd IS NOT NULL and \n"
-        "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+        "WHERE "
+        "   points.pr_del>=0 AND "
+        "   pax_grp.point_dep = :point_id AND "
+        "   pax_grp.class_grp is not null AND "
+        "   pax_grp.status NOT IN ('E') AND "
+        "   pr_brd IS NOT NULL AND "
+        "   WHERE "
+        "   CASE WHEN :pr_brd_pax = 0 "
+        "   THEN (CASE WHEN pax.pr_brd IS NOT NULL THEN 0 ELSE -1 END) "
+        "   ELSE pax.pr_brd "
+        "   END = :pr_brd_pax AND ";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
 
     if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All) {
         if(rpt_params.trzt_autoreg == TRptParams::TrztAutoreg::Auto)
             SQLText +=
-                "   pax_grp.status IN ('T') and \n"
-                "   tckin_pax_grp.grp_id is not null and \n";
+                "   pax_grp.status IN ('T') AND "
+                "   tckin_pax_grp.grp_id is NOT NULL AND ";
         else
             SQLText +=
-                "   not (pax_grp.status IN ('T') and \n"
-                "   tckin_pax_grp.grp_id is not null) and \n";
-        SQLText +=
-            "   tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND \n"
-            "   tckin_pax_grp.transit_num(+)<>0 and \n";
+                "   NOT (pax_grp.status IN ('T') AND "
+                "   tckin_pax_grp.grp_id IS NOT NULL) AND ";
     }
 
     if(not rpt_params.subcls.empty()) {
         SQLText +=
-            "   pax.subclass = :subcls and \n";
+            "   pax.subclass = :subcls AND ";
         Qry.CreateVariable("subcls", otString, rpt_params.subcls);
     }
 
     if(not rpt_params.cls.empty()) {
         SQLText +=
-            "   nvl(pax.cabin_class, pax_grp.class) = :cls and \n";
+            "   COALESCE(pax.cabin_class, pax_grp.class) = :cls AND ";
         Qry.CreateVariable("cls", otString, rpt_params.cls);
     }
 
 
     if(rpt_params.pr_et) //ЭБ
         SQLText +=
-            "   pax.ticket_rem='TKNE' and \n";
+            "   pax.ticket_rem='TKNE' AND ";
     if(not rpt_params.airp_arv.empty()) { // сегмент
         SQLText +=
-            "    pax_grp.airp_arv = :target AND \n";
+            "    pax_grp.airp_arv = :target AND ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL and ";
+            "   COALESCE(halls2.rpt_grp, ' ') = COALESCE(:zone, ' ') AND pax_grp.hall IS NOT NULL AND ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     SQLText +=
-        "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ('T', 'N') \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
-            " transfer.pr_final(+) <> 0 and \n"
-            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+        "       CASE WHEN pax_grp.status = 'T' THEN pax_grp.status ELSE 'N' END IN ('T', 'N') ";
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
@@ -512,9 +489,9 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     PaxListToXML(pax_list, dataSetsNode, rpt_params);
 
     // Теперь переменные отчета
-    Qry.Clear();
-    Qry.SQLText =
-        "select "
+    DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+    QryPoint.SQLText =
+        "SELECT "
         "   airp, "
         "   airline, "
         "   flt_no, "
@@ -528,19 +505,19 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         "   airline_fmt, "
         "   suffix_fmt, "
         "   craft_fmt "
-        "from "
+        "FROM "
         "   points "
-        "where "
+        "WHERE "
         "   point_id = :point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
+    QryPoint.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    QryPoint.Execute();
+    if(QryPoint.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
-    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
-    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)QryPoint.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)QryPoint.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)QryPoint.FieldAsInteger("craft_fmt");
 
-    string airp = Qry.FieldAsString("airp");
+    string airp = QryPoint.FieldAsString("airp");
     string airline, suffix;
     int flt_no = NoExists;
     if(rpt_params.mkt_flt.empty()) {
@@ -553,9 +530,9 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
             flt_no = franchise_prop.franchisee.flt_no;
             suffix = franchise_prop.franchisee.suffix;
         } else {
-            airline = Qry.FieldAsString("airline");
-            flt_no = Qry.FieldAsInteger("flt_no");
-            suffix = Qry.FieldAsString("suffix");
+            airline = QryPoint.FieldAsString("airline");
+            flt_no = QryPoint.FieldAsInteger("flt_no");
+            suffix = QryPoint.FieldAsString("suffix");
         }
     } else {
         airline = rpt_params.mkt_flt.airline;
@@ -565,7 +542,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         suffix_fmt = efmtCodeNative;
         craft_fmt = efmtCodeNative;
     }
-    string craft = Qry.FieldAsString("craft");
+    string craft = QryPoint.FieldAsString("craft");
     string tz_region = AirpTZRegion(airp);
 
     //    TCrafts crafts;
@@ -585,9 +562,9 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         << setw(3) << setfill('0') << flt_no
         << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
     NewTextChild(variablesNode, "flt", flt.str());
-    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "bort", QryPoint.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
-    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    NewTextChild(variablesNode, "park", QryPoint.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
@@ -608,8 +585,8 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     trip_rpt_person(resNode, rpt_params);
 
     TDateTime takeoff = NoExists;
-    if(not Qry.FieldIsNULL("act_out"))
-        takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
+    if(not QryPoint.FieldIsNULL("act_out"))
+        takeoff = UTCToLocal(QryPoint.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
     NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
     NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));

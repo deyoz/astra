@@ -383,8 +383,8 @@ void get_limited_capability_stat(int point_id)
 
     DB::TCachedQuery Qry(
             PgOra::getROSession({"PAX_GRP", "PAX", "PAX_REM"}),
-            "select pax.grp_id, pax_grp.airp_arv, rem_code "
-            "from pax_grp, pax, pax_rem where "
+            "SELECT pax.grp_id, pax_grp.airp_arv, rem_code "
+            "FROM pax_grp, pax, pax_rem where "
             "   pax_grp.point_dep = :point_id and "
             "   pax.grp_id = pax_grp.grp_id and "
             "   pax_rem.pax_id = pax.pax_id ",

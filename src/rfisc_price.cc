@@ -936,6 +936,16 @@ void SegsPaxs::fromDB(int grp_id, int point_dep)
   }
 }
 
+PaxsNames::PaxsNames()
+  : Qry(PgOra::getROSession("PAX"), STDLOG)
+{
+    Qry.SQLText =
+      "SELECT pax.* "
+      "FROM pax "
+      "WHERE pax_id=:pax_id ";
+    Qry.DeclareVariable( "pax_id", otInteger );
+}
+
 std::string PaxsNames::getPaxName( int pax_id ) {
   if ( items.find( pax_id ) == items.end() ) {
     Qry.SetVariable( "pax_id", pax_id );

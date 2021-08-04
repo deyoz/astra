@@ -223,7 +223,9 @@ class EMDAutoBoundId
     void loadPaxList() const;
 
   protected:
+    virtual const std::list<std::string> grpTables() const=0;
     virtual const char* grpSQL() const=0;
+    virtual const std::list<std::string> paxTables() const=0;
     virtual const char* paxSQL() const=0;
     virtual void setSQLParams(QParams &params) const=0;
 
@@ -242,12 +244,14 @@ class EMDAutoBoundGrpId : public EMDAutoBoundId
     GrpId_t grpId_;
 
   protected:
+    virtual const std::list<std::string> grpTables() const { return {"PAX_GRP"}; }
     virtual const char* grpSQL() const
     {
       return "SELECT pax_grp.point_dep, pax_grp.grp_id "
              "FROM pax_grp "
              "WHERE pax_grp.grp_id=:grp_id";
     }
+    virtual const std::list<std::string> paxTables() const { return {"PAX"}; }
     virtual const char* paxSQL() const
     {
       return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
@@ -287,6 +291,7 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
     RegNo_t regNo_;
 
   protected:
+    virtual const std::list<std::string> grpTables() const { return {"PAX","PAX_GRP"}; }
     virtual const char* grpSQL() const
     {
       return "SELECT pax_grp.point_dep, pax_grp.grp_id "
@@ -294,6 +299,7 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
              "WHERE pax_grp.grp_id=pax.grp_id AND "
              "      pax_grp.point_dep=:point_id AND pax.reg_no=:reg_no";
     }
+    virtual const std::list<std::string> paxTables() const { return {"PAX","PAX_GRP"}; }
     virtual const char* paxSQL() const
     {
       return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
@@ -335,6 +341,7 @@ class EMDAutoBoundPointId : public EMDAutoBoundId
     PointId_t pointId_;
 
   protected:
+    virtual const std::list<std::string> grpTables() const { return {"PAX","PAX_GRP"}; }
     virtual const char* grpSQL() const
     {
       return "SELECT pax_grp.point_dep, pax_grp.grp_id "
@@ -342,6 +349,7 @@ class EMDAutoBoundPointId : public EMDAutoBoundId
              "WHERE pax_grp.grp_id=pax.grp_id AND "
              "      pax_grp.point_dep=:point_id";
     }
+    virtual const std::list<std::string> paxTables() const { return {"PAX","PAX_GRP"}; }
     virtual const char* paxSQL() const
     {
       return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "

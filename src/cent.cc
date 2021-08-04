@@ -23,6 +23,139 @@ using namespace ASTRA;
 
 const string ROGNOV_BALANCE_TYPE = "BR";
 
+const std::string qryBalancePassWOCheckinTranzit =
+    "SELECT "
+    "  point_dep, "
+    "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
+    "  class, "
+    "  pax.grp_id, "
+    "  pax.pax_id, "
+    "  pax.pers_type, "
+    "  COALESCE(pax.is_female, 0) AS is_female, "
+    "  pax.surname, "
+    "  crs_inf.pax_id AS parent_pax_id, "
+    "  seats, "
+    "  reg_no "
+    "FROM pax_grp "
+    "  JOIN (pax "
+    "        LEFT OUTER JOIN crs_inf ON pax.pax_id = crs_inf.inf_id) "
+    "  ON pax_grp.grp_id = pax.grp_id "
+    "WHERE "
+    "  point_arv = :point_arv "
+    "  AND pax_grp.status NOT IN ('E') "
+    "  AND pr_brd IS NOT NULL ";
+
+const std::string qryBalancePassWithCheckinTranzit =
+    "SELECT "
+    "  point_dep, "
+    "  CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END AS pr_tranzit, "
+    "  class, "
+    "  pax.grp_id, "
+    "  pax.pax_id, "
+    "  pax.pers_type, "
+    "  COALESCE(pax.is_female, 0) AS is_female, "
+    "  pax.surname, "
+    "  crs_inf.pax_id AS parent_pax_id, "
+    "  seats, "
+    "  reg_no "
+    "FROM pax_grp "
+    "  JOIN (pax "
+    "        LEFT OUTER JOIN crs_inf ON pax.pax_id = crs_inf.inf_id) "
+    "  ON pax_grp.grp_id = pax.grp_id "
+    "WHERE "
+    "  point_dep = :point_dep "
+    "  AND point_arv = :point_arv "
+    "  AND pax_grp.status NOT IN ('E') "
+    "  AND pr_brd IS NOT NULL ";
+
+const std::string qryBalanceBagWOCheckinTranzit =
+    "SELECT point_dep, "
+    "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
+    "  class, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN amount ELSE 0 END) AS bag_amount, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN weight ELSE 0 END) AS bag_weight, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN 0 ELSE amount END) AS rk_amount, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN 0 ELSE weight END) AS rk_weight "
+    "FROM pax_grp, bag2 "
+    "WHERE pax_grp.grp_id = bag2.grp_id "
+    "      AND point_arv=:point_arv "
+    "      AND pax_grp.status NOT IN ('E') "
+    "      AND pax_grp.bag_refuse = 0 "
+    "      AND (pax_grp.class IS NULL OR "
+    "           EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+    "                                        AND p.bag_pool_num = bag2.bag_pool_num "
+    "                                        AND p.refuse IS NULL)) " // ckin.bag_pool_refused
+    "GROUP BY point_dep, CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END, class ";
+
+const std::string qryBalanceBagWithCheckinTranzit =
+    "SELECT "
+    "  point_dep, "
+    "  CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END AS pr_tranzit, "
+    "  class, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN amount ELSE 0 END) AS bag_amount, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN weight ELSE 0 END) AS bag_weight, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN 0 ELSE amount END) AS rk_amount, "
+    "  SUM(CASE WHEN bag2.pr_cabin = 0 THEN 0 ELSE weight END) AS rk_weight "
+    "FROM pax_grp, bag2 "
+    "WHERE pax_grp.grp_id = bag2.grp_id "
+    "      AND point_dep=:point_dep "
+    "      AND point_arv=:point_arv "
+    "      AND pax_grp.status NOT IN ('E') "
+    "      AND (pax_grp.class IS NULL OR "
+    "           EXISTS(SELECT 1 FROM pax p WHERE p.grp_id = bag2.grp_id "
+    "                                        AND p.bag_pool_num = bag2.bag_pool_num "
+    "                                        AND p.refuse IS NULL)) " // ckin.bag_pool_refused
+    "GROUP BY point_dep, CASE WHEN status = :STATUS_TRANZIT THEN 1 ELSE 0 END, class ";
+
+const std::string qryBalanceExcessBagWOCheckinTranzit =
+    "SELECT "
+    "  point_dep, "
+    "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
+    "  class, "
+    "  SUM(COALESCE(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse), 0)) AS paybag_weight "
+    "FROM pax_grp "
+    "WHERE "
+    "  point_arv = :point_arv "
+    "  AND pax_grp.status NOT IN ('E') "
+    "GROUP BY point_dep, CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END, class ";
+
+const std::string qryBalanceExcessBagWithCheckinTranzit =
+    "SELECT "
+    "  point_dep, "
+    "  CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END AS pr_tranzit, "
+    "  class, "
+    "  SUM(COALESCE(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse), 0)) AS paybag_weight "
+    "FROM pax_grp "
+    "WHERE "
+    "  point_dep = :point_dep "
+    "  AND point_arv = :point_arv "
+    "  AND pax_grp.status NOT IN ('E') "
+    "GROUP BY point_dep, CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END, class ";
+
+const std::string qryBalancePad =
+    "SELECT "
+    "  pax.pax_id, "
+    "  point_dep, "
+    "  point_arv, "
+    "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
+    "  pax_grp.class, "
+    "  pax.seats "
+    " FROM pax_grp, pax, crs_pax, crs_pnr "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL AND "
+    "       pax.pax_id=crs_pax.pax_id AND "
+    "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
+    "       crs_pax.pr_del=0 AND "
+    "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
+
+const std::string qryBalanceCargo =
+    "SELECT point_dep, "
+    "       CASE point_dep WHEN :point_dep THEN 0 ELSE 1 END as pr_tranzit, "
+    "       cargo, mail "
+    "FROM trip_load "
+    "WHERE point_arv = :point_arv";
 
 void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
 {
@@ -532,43 +665,43 @@ void TBalanceData::init() {
   qPADQry = NULL;
 
   if ( dataFlags.isFlag( tdPass ) ) {
-    qPassQry = new TQuery( &OraSession );
+    qPassQry = new DB::TQuery(PgOra::getROSession({"PAX_GRP", "PAX", "CRS_INF"}), STDLOG);
     qPassQry->SQLText = qryBalancePassWOCheckinTranzit.c_str();
     qPassQry->DeclareVariable( "point_dep", otInteger );
     qPassQry->DeclareVariable( "point_arv", otInteger );
 
-    qPassTQry = new TQuery( &OraSession );
+    qPassTQry = new DB::TQuery(PgOra::getROSession({"PAX_GRP", "PAX", "CRS_INF"}), STDLOG);
     qPassTQry->SQLText = qryBalancePassWithCheckinTranzit.c_str();
     qPassTQry->DeclareVariable( "point_dep", otInteger );
     qPassTQry->DeclareVariable( "point_arv", otInteger );
     qPassTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
   }
   if ( dataFlags.isFlag( tdBag ) ) {
-    qBagQry = new TQuery( &OraSession );
+    qBagQry = new DB::TQuery(PgOra::getROSession({"PAX", "PAX_GRP", "BAG2"}), STDLOG);
     qBagQry->SQLText = qryBalanceBagWOCheckinTranzit.c_str();
     qBagQry->DeclareVariable( "point_dep", otInteger );
     qBagQry->DeclareVariable( "point_arv", otInteger );
 
-    qBagTQry = new TQuery( &OraSession );
+    qBagTQry = new DB::TQuery(PgOra::getROSession({"PAX", "PAX_GRP", "BAG2"}), STDLOG);
     qBagTQry->SQLText = qryBalanceBagWithCheckinTranzit.c_str();
     qBagTQry->DeclareVariable( "point_dep", otInteger );
     qBagTQry->DeclareVariable( "point_arv", otInteger );
     qBagTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
   }
   if ( dataFlags.isFlag( tdExcess ) ) {
-    qExcessBagQry = new TQuery( &OraSession );
+    qExcessBagQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG); // ckin.get_excess_wt
     qExcessBagQry->SQLText = qryBalanceExcessBagWOCheckinTranzit.c_str();
     qExcessBagQry->DeclareVariable( "point_dep", otInteger );
     qExcessBagQry->DeclareVariable( "point_arv", otInteger );
 
-    qExcessBagTQry = new TQuery( &OraSession );
+    qExcessBagTQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG); // ckin.get_excess_wt
     qExcessBagTQry->SQLText = qryBalanceExcessBagWithCheckinTranzit.c_str();
     qExcessBagTQry->DeclareVariable( "point_dep", otInteger );
     qExcessBagTQry->DeclareVariable( "point_arv", otInteger );
     qExcessBagTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
   }
   if ( dataFlags.isFlag( tdPad ) ) {
-    qPADQry = new TQuery( &OraSession );
+    qPADQry = new DB::TQuery(PgOra::getROSession({"PAX_GRP", "PAX", "CRS_PAX", "CRS_PNR"}), STDLOG);
     qPADQry->SQLText = qryBalancePad.c_str();
     qPADQry->DeclareVariable( "point_dep", otInteger );
     qPADQry->DeclareVariable( "point_arv", otInteger );
@@ -590,7 +723,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
   else
     maxdestnum = routesA.size();
 
-  TQuery *PassQry, *BagQry, *ExcessBagQry;
+  DB::TQuery *PassQry, *BagQry, *ExcessBagQry;
 
   ProgTrace( TRACE5, "pr_tranzit_pass=%d", pr_tranzit_pass );
   if ( pr_tranzit_pass ) {
@@ -752,7 +885,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
             dest_bal.tranzit_classbal = classbal;
           }
           ProgTrace( TRACE5, "class=%s, point_arv=%d, rk_weight=%d, bag_amount=%d, bag_weight=%d",
-                     BagQry->FieldAsString( "class" ),
+                     BagQry->FieldAsString( "class" ).c_str(),
                      routesA[ num - 1 ].point_id,
                      BagQry->FieldAsInteger( "rk_weight" ),
                      BagQry->FieldAsInteger( "bag_amount" ),
@@ -796,7 +929,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
             dest_bal.tranzit_classbal = classbal;
           }
           ProgTrace( TRACE5, "class=%s, point_arv=%d, paybag_weight=%d",
-                     ExcessBagQry->FieldAsString( "class" ),
+                     ExcessBagQry->FieldAsString( "class" ).c_str(),
                      routesA[ num - 1 ].point_id,
                      ExcessBagQry->FieldAsInteger( "paybag_weight" ) );
         }

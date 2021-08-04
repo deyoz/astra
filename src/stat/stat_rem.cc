@@ -431,65 +431,71 @@ void TRemInfo::parse(const string &rem_code, const string &rem)
 
 void get_rem_stat(int point_id)
 {
-    TCachedQuery delQry("delete from stat_rem where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_REM"),
+          "DELETE FROM stat_rem WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
-    TCachedQuery Qry(
-            "select "
-            "    pax.pax_id, "
-            "    points.craft, "
-            "    points.airp, "
-            "    pro.rem_code, "
-            "    pro.rem, "
-            "    pro.user_id, "
-            "    pro.desk "
-            "from "
-            "    points, "
-            "    pax_grp, "
-            "    pax, "
-            "    pax_rem_origin pro "
-            "where "
-            "    points.point_id = :point_id and "
-            "    pax_grp.point_dep = points.point_id and "
-            "    pax_grp.grp_id = pax.grp_id and"
-            "    pax.pax_id = pro.pax_id ",
-            QParams() << QParam("point_id", otInteger, point_id)
-            );
-    TCachedQuery insQry(
-            "insert into stat_rem( "
-            "   point_id, "
-            "   travel_time, "
-            "   rem_code, "
-            "   ticket_no, "
-            "   airp_last, "
-            "   user_id, "
-            "   desk, "
-            "   rfisc, "
-            "   rate, "
-            "   rate_cur "
-            ") values ( "
-            "   :point_id, "
-            "   :travel_time, "
-            "   :rem_code, "
-            "   :ticket_no, "
-            "   :airp_last, "
-            "   :user_id, "
-            "   :desk, "
-            "   :rfisc, "
-            "   :rate, "
-            "   :rate_cur "
-            ") ",
-            QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("travel_time", otDate)
-            << QParam("rem_code", otString)
-            << QParam("ticket_no", otString)
-            << QParam("airp_last", otString)
-            << QParam("user_id", otInteger)
-            << QParam("desk", otString)
-            << QParam("rfisc", otString)
-            << QParam("rate", otFloat)
-            << QParam("rate_cur", otString)
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"POINTS", "PAX_GRP", "PAX", "PAX_REM_ORIGIN"}),
+          "SELECT "
+          "    pax.pax_id, "
+          "    points.craft, "
+          "    points.airp, "
+          "    pro.rem_code, "
+          "    pro.rem, "
+          "    pro.user_id, "
+          "    pro.desk "
+          "FROM "
+          "    points, "
+          "    pax_grp, "
+          "    pax, "
+          "    pax_rem_origin pro "
+          "WHERE "
+          "    points.point_id = :point_id and "
+          "    pax_grp.point_dep = points.point_id and "
+          "    pax_grp.grp_id = pax.grp_id and"
+          "    pax.pax_id = pro.pax_id ",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("STAT_REM"),
+          "INSERT INTO stat_rem( "
+          "   point_id, "
+          "   travel_time, "
+          "   rem_code, "
+          "   ticket_no, "
+          "   airp_last, "
+          "   user_id, "
+          "   desk, "
+          "   rfisc, "
+          "   rate, "
+          "   rate_cur "
+          ") VALUES ( "
+          "   :point_id, "
+          "   :travel_time, "
+          "   :rem_code, "
+          "   :ticket_no, "
+          "   :airp_last, "
+          "   :user_id, "
+          "   :desk, "
+          "   :rfisc, "
+          "   :rate, "
+          "   :rate_cur "
+          ") ",
+          QParams()
+          << QParam("point_id", otInteger, point_id)
+          << QParam("travel_time", otDate)
+          << QParam("rem_code", otString)
+          << QParam("ticket_no", otString)
+          << QParam("airp_last", otString)
+          << QParam("user_id", otInteger)
+          << QParam("desk", otString)
+          << QParam("rfisc", otString)
+          << QParam("rate", otFloat)
+          << QParam("rate_cur", otString),
+          STDLOG);
 
     Qry.get().Execute();
 

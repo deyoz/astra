@@ -172,8 +172,7 @@ bool Pax::fromDB()
 {
   if (isTestPaxId(id)) return false;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING", "PAX"}), STDLOG);
   Qry.SQLText=
       "SELECT tlg_binding.point_id_spp AS point_dep, tlg_binding.point_id_tlg, "
       "       crs_pnr.airp_arv, crs_pax.surname, crs_pax.name, crs_pax.pers_type, "
@@ -181,11 +180,11 @@ bool Pax::fromDB()
       "       crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "
       "       pax.tid AS pax_tid "
-      "FROM crs_pax, crs_pnr, tlg_binding, pax "
-      "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-      "      crs_pax.pax_id=:pax_id AND "
-      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "FROM crs_pax "
+      "JOIN (crs_pnr JOIN tlg_binding ON tlg_binding.point_id_tlg = crs_pnr.point_id) "
+      "ON crs_pnr.pnr_id = crs_pax.pnr_id "
+      "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id "
+      "WHERE crs_pax.pax_id=:pax_id AND "
       "      crs_pax.pr_del=0";
   Qry.CreateVariable("pax_id", otInteger, id);
   Qry.Execute();
@@ -444,9 +443,9 @@ namespace ProtLayerResponse
 
 bool Pax::fromDB()
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  if (!isTestPaxId(id))
+  DB::TQuery Qry(!isTestPaxId(id) ? PgOra::getROSession({"CRS_PNR", "CRS_PAX", "PAX"})
+                                  : PgOra::getROSession({"TEST_PAX", "SUBCLS"}), STDLOG);
+  if (!isTestPaxId(id)) {
     Qry.SQLText=
         "SELECT crs_pnr.pnr_id, crs_pnr.status AS pnr_status, " +
         CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, " +
@@ -455,12 +454,12 @@ bool Pax::fromDB()
         "       crs_pnr.tid AS crs_pnr_tid, "
         "       crs_pax.tid AS crs_pax_tid, "
         "       pax.tid AS pax_tid "
-        "FROM crs_pnr, crs_pax, pax "
-        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-        "      crs_pax.pax_id=:crs_pax_id AND "
-        "      crs_pax.pax_id=pax.pax_id(+) AND "
+        "FROM crs_pnr "
+        "JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+        "ON crs_pnr.pnr_id=crs_pax.pnr_id "
+        "WHERE crs_pax.pax_id=:crs_pax_id AND "
         "      crs_pax.pr_del=0";
-  else
+  } else {
     Qry.SQLText=
         "SELECT id AS pnr_id, NULL AS pnr_status, "
         "       subclass, subcls.class, "
@@ -469,6 +468,7 @@ bool Pax::fromDB()
         "       id AS crs_pax_tid "
         "FROM test_pax, subcls "
         "WHERE test_pax.subclass=subcls.code AND test_pax.id=:crs_pax_id";
+  }
   Qry.CreateVariable("crs_pax_id", otInteger, id);
   Qry.Execute();
   if (Qry.Eof) return false;

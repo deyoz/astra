@@ -645,7 +645,7 @@ void GetEMDStatusList(const int grp_id,
 
   CheckIn::TServicePaymentListWithAuto curr_payment;
   curr_payment.fromDB(grp_id);
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_GRP", "PAX_ASVC", "PAX_EMD"}), STDLOG);
   Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
@@ -1475,7 +1475,9 @@ void EMDAutoBoundId::loadGrpIds() const
   grpIds_.emplace();
   QParams params;
   setSQLParams(params);
-  TCachedQuery Qry(grpSQL(), params);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession(grpTables()),
+        grpSQL(), params, STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
@@ -1490,7 +1492,9 @@ void EMDAutoBoundId::loadPaxList() const
   paxList_.emplace();
   QParams params;
   setSQLParams(params);
-  TCachedQuery Qry(paxSQL(), params);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession(paxTables()),
+        paxSQL(), params, STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     paxList_.value().emplace_back(Qry.get());

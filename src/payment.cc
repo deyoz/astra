@@ -401,7 +401,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   int point_dep;
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","AIRPS","PAX_DOC"}), STDLOG);
   if (!(search_type==searchByReceiptNo && grp_id==NoExists))
   {
     if (!pr_unaccomp)
@@ -414,11 +414,11 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       pax.surname, "
         "       pax.name, "
         "       pax_doc.gender "
-        "FROM pax_grp,pax,airps, pax_doc "
-        "WHERE pax_grp.grp_id=pax.grp_id AND "
-        "      pax_grp.airp_arv=airps.code AND "
-        "      pax.pax_id = pax_doc.pax_id(+) and "
-        "      pax.pax_id=:pax_id";
+          "FROM pax_grp "
+          "  JOIN pax ON pax_grp.grp_id = pax.grp_id "
+          "  JOIN airps ON pax_grp.airp_arv = airps.code "
+          "  JOIN pax_doc ON pax_grp.grp_id = pax.grp_id "
+          "WHERE pax.pax_id = :pax_id ";
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (Qry.Eof)

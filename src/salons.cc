@@ -8393,10 +8393,10 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
   DB::TQuery RemsQry(PgOra::getROSession({"PAX_REM","COMP_REM_TYPES"}), STDLOG);
   RemsQry.SQLText =
     "SELECT rem, rem_code, comp_rem_types.pr_comp "
-    " FROM pax_rem, comp_rem_types "
-    "WHERE pax_rem.pax_id=:pax_id AND "
-    "      rem_code=comp_rem_types.code(+) "
-    " ORDER BY pr_comp, code ";
+    "FROM pax_rem "
+    "LEFT OUTER JOIN comp_rem_types ON rem_code = comp_rem_types.code "
+    "WHERE pax_rem.pax_id=:pax_id "
+    "ORDER BY pr_comp, code ";
   RemsQry.DeclareVariable( "pax_id", otInteger );
 
   TQuery Qry( &OraSession );

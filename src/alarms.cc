@@ -372,13 +372,14 @@ bool check_spec_service_alarm(int point_id)
 {
     TRemGrp alarm_rems;
     alarm_rems.Load(retALARM_SS, point_id);
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_REM"}), STDLOG);
     Qry.SQLText =
-        "select pax_rem.rem_code from "
+        "SELECT pax_rem.rem_code "
+        "FROM "
         "  pax_grp, "
         "  pax,  "
         "  pax_rem "
-        "where "
+        "WHERE "
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.status NOT IN ('E') and "
         "  pax_grp.grp_id = pax.grp_id and "
@@ -621,16 +622,17 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
         sql << "       crs_pax.pax_id AS crs_pax_id ";
       else
         sql << "       NULL AS crs_pax_id ";
-      sql << "FROM pax_grp, pax, pax_calc_data ";
-      if (need_crs_pax)
-        sql << ", crs_pax ";
-      sql << "WHERE pax_grp.grp_id = pax.grp_id AND "
-             "      pax.pax_id = pax_calc_data.pax_calc_data_id(+) AND "
-             "      pax_grp.point_dep = :point_id AND "
+      sql << "FROM pax_grp "
+             "JOIN (pax LEFT OUTER JOIN pax_calc_data ON pax.pax_id = pax_calc_data.pax_calc_data_id ";
+      if (need_crs_pax) {
+        sql << "LEFT OUTER JOIN crs_pax ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 ";
+      }
+
+      sql << ") "
+             "ON pax_grp.grp_id = pax.grp_id ";
+      sql << "WHERE pax_grp.point_dep = :point_id AND "
              "      pax.refuse IS NULL ";
-      if (need_crs_pax)
-        sql << "      AND pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 ";
-      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_CALC_DATA"}), STDLOG);
+      DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "CRS_PAX", "PAX_CALC_DATA"}), STDLOG);
       Qry.SQLText=sql.str().c_str();
       Qry.CreateVariable("point_id", otInteger, point_id);
       Qry.Execute();

@@ -1259,29 +1259,38 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
 void flt_infants(int point_id, vector<TInfantAdults> &infants)
 {
     infants.clear();
-    TCachedQuery Qry(
-            "SELECT pax.*, crs_inf.pax_id crs_inf_pax_id "
-            "FROM pax_grp,pax,crs_inf WHERE "
-            "   pax_grp.grp_id=pax.grp_id AND "
-            "   pax_grp.point_dep=:point_id AND "
-            "   pax_grp.status NOT IN ('E') AND "
-            "   pax.seats=0 AND "
-            "   pax.pr_brd is not null and "
-            "   pax.pax_id=crs_inf.inf_id(+) ",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX_GRP","PAX","CRS_INF"}),
+          "SELECT "
+          "  pax.*, "
+          "  crs_inf.pax_id AS crs_inf_pax_id "
+          "FROM pax_grp "
+          "  JOIN (pax "
+          "        LEFT OUTER JOIN crs_inf ON pax.pax_id = crs_inf.inf_id) "
+          "  ON pax_grp.grp_id = pax.grp_id "
+          "WHERE "
+          "  pax_grp.point_dep = :point_id "
+          "  AND pax_grp.status NOT IN ('E') "
+          "  AND pax.seats = 0 "
+          "  AND pax.pr_brd IS NOT NULL ",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
         infants.push_back(TInfantAdults(Qry.get()));
     if(not infants.empty()) {
         vector<TInfantAdults> adults;
-        TCachedQuery adultQry(
-                "SELECT * FROM pax_grp,pax WHERE "
-                "   pax_grp.grp_id=pax.grp_id AND "
-                "   pax_grp.point_dep=:point_id AND "
-                "   pax_grp.status NOT IN ('E') AND "
-                "   pax.pers_type='‚‡' AND "
-                "   pax.pr_brd is not null ",
-                QParams() << QParam("point_id", otInteger, point_id));
+        DB::TCachedQuery adultQry(
+              PgOra::getROSession({"PAX_GRP","PAX"}),
+              "SELECT * FROM pax_grp,pax "
+              "WHERE "
+              "   pax_grp.grp_id=pax.grp_id AND "
+              "   pax_grp.point_dep=:point_id AND "
+              "   pax_grp.status NOT IN ('E') AND "
+              "   pax.pers_type='‚‡' AND "
+              "   pax.pr_brd IS NOT NULL ",
+              QParams() << QParam("point_id", otInteger, point_id),
+              STDLOG);
         adultQry.get().Execute();
         for(; not adultQry.get().Eof; adultQry.get().Next())
             adults.push_back(TInfantAdults(adultQry.get()));

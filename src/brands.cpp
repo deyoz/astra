@@ -10,22 +10,24 @@ using namespace std;
 void TBrands::get(int pax_id)
 {
     clear();
-    TCachedQuery paxQry(
-            "select "
-            "   ticket_no, "
-            "   coupon_no, "
-            "   ticket_rem, "
-            "   ticket_confirm, "
-            "   points.airline "
-            "from "
-            "   pax, "
-            "   pax_grp, "
-            "   points "
-            "where "
-            "   pax_id = :pax_id and "
-            "   pax.grp_id = pax_grp.grp_id and "
-            "   pax_grp.point_dep = points.point_id ",
-            QParams() << QParam("pax_id", otInteger, pax_id));
+    DB::TCachedQuery paxQry(
+          PgOra::getROSession({"PAX","PAX_GRP","POINTS"}),
+          "SELECT "
+          "   ticket_no, "
+          "   coupon_no, "
+          "   ticket_rem, "
+          "   ticket_confirm, "
+          "   points.airline "
+          "FROM "
+          "   pax, "
+          "   pax_grp, "
+          "   points "
+          "WHERE "
+          "   pax_id = :pax_id and "
+          "   pax.grp_id = pax_grp.grp_id and "
+          "   pax_grp.point_dep = points.point_id ",
+          QParams() << QParam("pax_id", otInteger, pax_id),
+          STDLOG);
     paxQry.get().Execute();
     if(not paxQry.get().Eof) {
         CheckIn::TPaxTknItem tkn;

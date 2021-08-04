@@ -37,7 +37,6 @@ namespace REPORTS {
         string final_rems_str() const;
 
         TREMPaxList &get_pax_list() const;
-        void fromDB(TQuery &Qry);
         void fromDB(DB::TQuery &Qry);
         void clear()
         {
@@ -55,22 +54,6 @@ namespace REPORTS {
     TPaxPtr TREMPaxList::getPaxPtr()
     {
         return TPaxPtr(new TREMPax(*this));
-    }
-
-    void TREMPax::fromDB(TQuery &Qry)
-    {
-        TPax::fromDB(Qry);
-        REPORT_PAX_REMS::get(Qry, pax_list.options.lang, get_pax_list().rems, _final_rems);
-        if(get_pax_list().is_spec) {
-            if(not get_pax_list().spec_rems) {
-                get_pax_list().spec_rems = TRemGrp{};
-                get_pax_list().spec_rems->Load(retRPT_SS, pax_list.point_id);
-            }
-            for(multiset<CheckIn::TPaxRemItem>::iterator r=_final_rems.begin();r!=_final_rems.end();)
-            {
-                if (!get_pax_list().spec_rems.get().exists(r->code)) r=Erase(_final_rems, r); else ++r;
-            };
-        }
     }
 
     void TREMPax::fromDB(DB::TQuery &Qry)

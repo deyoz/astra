@@ -136,48 +136,43 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
   {
     if (pass==2 && pax_status!=psGoshow) continue;
     if (pass==2)
-      sql << "   UNION \n";
+      sql << "   UNION ";
 
     if (return_pnr_ids)
-      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
+      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status ";
     else
-      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
+      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status ";
 
-    sql <<   "   FROM crs_pnr";
+    sql <<   "   FROM crs_pnr ";
 
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << ", crs_pax";
+    if (!return_pnr_ids || exclude_checked || exclude_deleted) {
+      sql << "JOIN (crs_pax ";
+      if (exclude_checked) {
+        sql << "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id AND pax.pax_id IS NULL ";
+      }
+      sql << ") ON crs_pnr.pnr_id = crs_pax.pnr_id ";
+    }
 
-    if (exclude_checked)
-      sql << ", pax";
-
-
-    sql <<   "   WHERE crs_pnr.point_id=:point_id_tlg AND \n"
-             "         crs_pnr.system='CRS' AND \n"
-             "         crs_pnr.airp_arv=:airp_arv_tlg AND \n"
-             "         crs_pnr.class=:class_tlg \n";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
+    sql <<   "   WHERE crs_pnr.point_id=:point_id_tlg AND "
+             "         crs_pnr.system='CRS' AND "
+             "         crs_pnr.airp_arv=:airp_arv_tlg AND "
+             "         crs_pnr.class=:class_tlg ";
 
     if (pass==1)
-      sql << "         AND :status= " << status_param << " \n";
+      sql << "         AND :status= " << status_param << " ";
 
     if (pass==1 && pax_status==psCheckin && !select_pad_with_ok)
-      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
+      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) ";
 
     if (pass==2 && pax_status==psGoshow)
-      sql << "         AND :status= :ps_ok \n"
-             "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
-
-    if (exclude_checked)
-      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
+      sql << "         AND :status= :ps_ok "
+             "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') ";
 
     if (exclude_deleted)
-      sql << "         AND crs_pax.pr_del=0 \n";
+      sql << "         AND crs_pax.pr_del=0 ";
 
     if (!sql_filter.empty())
-      sql << "         AND ("+sql_filter+") \n";
+      sql << "         AND ("+sql_filter+") ";
 
   }
 
@@ -187,48 +182,43 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
     if ((pass==1 && pax_status!=psCheckin && pax_status!=psGoshow) ||
         (pass==2 && pax_status==psCheckin)) continue;
     if (pass==1)
-      sql << "   UNION \n";
+      sql << "   UNION ";
     else
-      sql << (forOracle ? "   MINUS \n" : "   EXCEPT \n");
+      sql << (forOracle ? "   MINUS " : "   EXCEPT ");
 
     if (return_pnr_ids)
-      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
+      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status ";
     else
-      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
+      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status ";
 
-    sql <<   "   FROM crs_pnr, tlg_binding";
+    sql <<   "   FROM crs_pnr "
+          << "     JOIN tlg_binding ON crs_pnr.point_id=tlg_binding.point_id_tlg ";
 
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << ", crs_pax";
+    if (!return_pnr_ids || exclude_checked || exclude_deleted) {
+      sql << "JOIN (crs_pax ";
+      if (exclude_checked) {
+        sql << "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id AND pax.pax_id IS NULL ";
+      }
+      sql << ") ON crs_pnr.pnr_id = crs_pax.pnr_id ";
+    }
 
-    if (exclude_checked)
-      sql << ", pax \n";
-    else
-      sql << " \n";
-
-    sql   << "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-             "         crs_pnr.system='CRS' AND \n"
-             "         tlg_binding.point_id_spp= :point_id \n";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
+    sql   << "   WHERE crs_pnr.system='CRS' AND "
+             "         tlg_binding.point_id_spp= :point_id ";
 
     if ((pass==1 && pax_status==psCheckin && !select_pad_with_ok) ||
         (pass==2 && pax_status==psGoshow))
-      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
+      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) ";
 
     if (pass==1 && pax_status==psGoshow)
-      sql << "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
-
-    if (exclude_checked)
-      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
+      sql << "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') ";
 
     if (exclude_deleted)
-      sql << "         AND crs_pax.pr_del=0 \n";
+      sql << "         AND crs_pax.pr_del=0 ";
 
     if (!sql_filter.empty())
-      sql << "         AND ("+sql_filter+") \n";
+      sql << "         AND ("+sql_filter+") ";
   }
+
   return sql.str();
 }
 
@@ -253,41 +243,43 @@ void bindSearchPaxQuery(DB::TQuery& Qry, const PointId_t& point_id, const TPaxSt
 static const std::string& getSearchPaxQuerySelectPart()
 {
   static const std::string result=
-         "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"+
-         CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, \n"+
-         CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"+
-         CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, \n"
-         "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
-         "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
-         "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
-         "       crs_pax.seat_type,crs_pax.seats, \n"
-         "       crs_pnr.pnr_id \n";
+         "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, "+
+         CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
+         CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, "+
+         CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
+         "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
+         "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+         "       crs_pax.seat_xname,crs_pax.seat_yname, "
+         "       crs_pax.seat_type,crs_pax.seats, "
+         "       crs_pnr.pnr_id ";
   return result;
 }
 
 static const std::string& getSearchPaxQueryOrderByPart()
 {
   static const std::string result=
-         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
+         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id ";
   return result;
 }
 
 void getTCkinSearchPaxQuery(DB::TQuery& Qry)
 {
+//  "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+//  "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
     std::ostringstream sql;
 
     sql << getSearchPaxQuerySelectPart()
-        << "FROM tlg_binding,crs_pnr,crs_pax,pax "
-           "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-           "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-           "      crs_pax.pax_id=pax.pax_id(+) AND "
-           "      tlg_binding.point_id_spp=:point_id AND "
+        << "FROM tlg_binding "
+           "JOIN (crs_pnr JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+           "              ON crs_pnr.pnr_id = crs_pax.pnr_id) "
+           "ON tlg_binding.point_id_tlg=crs_pnr.point_id "
+           "WHERE tlg_binding.point_id_spp=:point_id AND "
            "      crs_pnr.system='CRS' AND "
            "      crs_pnr.airp_arv=:airp_arv AND "
            "      crs_pnr.subclass=:subclass AND "
            "      (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND "
            "      crs_pax.pers_type=:pers_type AND "
-           "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
+           "      (CASE WHEN crs_pax.seats = 0 THEN 0 ELSE 1 END = :seats) AND "
            "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
            "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
            "      crs_pax.pr_del=0 AND "
@@ -336,7 +328,10 @@ std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
   ostringstream sql;
 
   sql << getSearchPaxQuerySelectPart()
-      << "FROM crs_pnr,crs_pax,pax,( \n";
+      << "FROM crs_pnr "
+         "  JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+         "    ON crs_pnr.pnr_id = crs_pax.pnr_id "
+         "  JOIN ( ";
 
 
   sql << getSearchPaxSubquery(pax_status,
@@ -347,18 +342,15 @@ std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
                               sql_filter,
                               forOracle);
 
-  sql << "  ) ids  \n"
-         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
-         "      crs_pax.pax_id=pax.pax_id(+) AND \n";
-  if (return_pnr_ids)
-    sql <<
-         "      ids.pnr_id=crs_pnr.pnr_id AND \n";
-  else
-    sql <<
-         "      ids.pax_id=crs_pax.pax_id AND \n";
+  sql << "  ) ids ON ";
+  if (return_pnr_ids) {
+    sql << "ids.pnr_id = crs_pnr.pnr_id ";
+  } else {
+    sql << "ids.pax_id = crs_pax.pax_id ";
+  }
 
-  sql << "      crs_pax.pr_del=0 AND \n"
-         "      pax.pax_id IS NULL \n"
+  sql << "WHERE crs_pax.pr_del=0 AND "
+         "      pax.pax_id IS NULL "
       << getSearchPaxQueryOrderByPart();
 
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
@@ -407,7 +399,18 @@ std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
 std::vector<SearchPaxResult> fetchSearchPaxResults(DB::TQuery& Qry)
 {
   std::vector<SearchPaxResult> result;
+  int rownum = 0;
   for(;!Qry.Eof;Qry.Next()) {
+    rownum++;
+    DB::TQuery QrySeat(PgOra::getROSession("ORACLE"), STDLOG);
+    QrySeat.SQLText = "SELECT salons.get_crs_seat_no(:pax_id,:seat_xname,:seat_yname,:seats,:point_id,'one',:num) AS seat_no FROM dual ";
+    QrySeat.CreateVariable("pax_id", otInteger, Qry.FieldAsInteger("pax_id"));
+    QrySeat.CreateVariable("seat_xname", otString, Qry.FieldAsString("seat_xname"));
+    QrySeat.CreateVariable("seat_yname", otString, Qry.FieldAsString("seat_yname"));
+    QrySeat.CreateVariable("seats", otInteger, Qry.FieldAsInteger("seats"));
+    QrySeat.CreateVariable("point_id", otInteger, Qry.FieldAsInteger("point_id"));
+    QrySeat.CreateVariable("num", otInteger, rownum);
+    QrySeat.Execute();
     SearchPaxResult data = {
       PaxId_t(Qry.FieldAsInteger("pax_id")),
       PointIdTlg_t(Qry.FieldAsInteger("point_id")),
@@ -420,7 +423,7 @@ std::vector<SearchPaxResult> fetchSearchPaxResults(DB::TQuery& Qry)
       Qry.FieldAsString("surname"),
       Qry.FieldAsString("name"),
       Qry.FieldAsString("pers_type"),
-      Qry.FieldAsString("seat_no"),
+      QrySeat.FieldAsString("seat_no"),
       Qry.FieldAsString("seat_type"),
       Qry.FieldAsInteger("seats"),
       PnrId_t(Qry.FieldAsInteger("pnr_id")),
@@ -471,42 +474,42 @@ std::string Search::getSQLText() const
   switch(origin)
   {
     case paxCheckIn:
-      sql << "SELECT pax.* \n"
+      sql << "SELECT pax.* "
              "FROM pax";
       for(const std::string& t : tables) {
         sql << ", " << t;
       }
-      sql << " \n";
+      sql << " ";
       for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
-        sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
+        sql << (c==conditions.begin() ? "WHERE ":"  AND ") << *c << " ";
       break;
     case paxPnl:
-      sql << "SELECT crs_pax.*, \n"
-          << CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() << " AS subclass, \n"
-          << CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() << " AS cabin_subclass, \n"
-          << CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() << " AS cabin_class, \n"
-             "       NULL AS cabin_class_grp \n"
+      sql << "SELECT crs_pax.*, "
+          << CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() << " AS subclass, "
+          << CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() << " AS cabin_subclass, "
+          << CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() << " AS cabin_class, "
+             "       NULL AS cabin_class_grp "
              "FROM crs_pnr, crs_pax";
       for(const std::string& t : tables) {
         sql << ", " << t;
       }
-      sql << " \n";
-      sql << "WHERE crs_pax.pnr_id=crs_pnr.pnr_id \n"
-             "  AND crs_pnr.system='CRS' \n"
-             "  AND crs_pax.pr_del=0 \n";
+      sql << " ";
+      sql << "WHERE crs_pax.pnr_id=crs_pnr.pnr_id "
+             "  AND crs_pnr.system='CRS' "
+             "  AND crs_pax.pr_del=0 ";
       for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c) {
-        sql << "  AND " << *c << " \n";
+        sql << "  AND " << *c << " ";
       }
       break;
     case paxTest:
-      sql << "SELECT test_pax.id AS pax_id, surname, name, subclass, tkn_no \n"
-             "FROM test_pax";
+      sql << "SELECT test_pax.id AS pax_id, surname, name, subclass, tkn_no "
+             "FROM test_pax ";
       for(const std::string& t : tables) {
         sql << ", " << t;
       }
-      sql << " \n";
+      sql << " ";
       for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
-        sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
+        sql << (c==conditions.begin() ? "WHERE ":"  AND ") << *c << " ";
       break;
   }
 
@@ -515,7 +518,11 @@ std::string Search::getSQLText() const
 
 bool Search::executePaxQuery(const std::string& sql, TSimplePaxList& paxs) const
 {
-  TCachedQuery Qry(sql, params);
+  std::set<std::string> involvedTablesSet({"PAX","CRS_PAX","CRS_PNR","TEST_PAX"});
+  involvedTablesSet.insert(tables.begin(), tables.end());
+  std::list<std::string> involvedTables;
+  involvedTables.insert(involvedTables.begin(), involvedTablesSet.begin(), involvedTablesSet.end());
+  DB::TCachedQuery Qry(PgOra::getROSession(involvedTables), sql, params, STDLOG);
 
   if (timeIsUp()) return false;
   Qry.get().Execute();
@@ -524,12 +531,14 @@ bool Search::executePaxQuery(const std::string& sql, TSimplePaxList& paxs) const
     if (timeIsUp()) return false;
 
     CheckIn::TSimplePaxItem pax;
-    if (origin==paxCheckIn)
+    if (origin==paxCheckIn) {
       pax.fromDB(Qry.get());
-    else
+    } else {
       pax.fromDBCrs(Qry.get(), false);
-    if (foundPaxIds.insert(pax.id).second)
+    }
+    if (foundPaxIds.insert(pax.id).second) {
       paxs.push_back(pax);
+    }
   }
 
   return true;

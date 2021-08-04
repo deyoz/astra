@@ -16,7 +16,6 @@ namespace REPORT_PAX_REMS {
     void get(TQuery &Qry, const std::string &lang, std::multiset<CheckIn::TPaxRemItem> &final_rems);
     void get(DB::TQuery &Qry, const std::string &lang, std::multiset<CheckIn::TPaxRemItem> &final_rems);
 
-    void get_rem_codes(TQuery &Qry, const std::string &lang, std::set<std::string> &rem_codes);
     void get_rem_codes(DB::TQuery &Qry, const std::string &lang, std::set<std::string> &rem_codes);
 
     void get_rem_codes(int pax_id, TPerson pers_type, int seats, const CheckIn::TPaxTknItem& tkn,

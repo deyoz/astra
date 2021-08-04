@@ -168,8 +168,8 @@ class TPaxRemItem : public TPaxRemBasic
     const TPaxRemItem& toXML(xmlNodePtr node) const;
     TPaxRemItem& fromXML(xmlNodePtr node);
     TPaxRemItem& fromWebXML(xmlNodePtr node);
-    const TPaxRemItem& toDB(TQuery &Qry) const;
-    TPaxRemItem& fromDB(TQuery &Qry);
+    const TPaxRemItem& toDB(DB::TQuery &Qry) const;
+    TPaxRemItem& fromDB(DB::TQuery &Qry);
     void calcPriority();
     std::string rem_code() const
     {
