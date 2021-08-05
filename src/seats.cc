@@ -2328,7 +2328,7 @@ TSublsRems::TSublsRems( const std::string &vairline )
 {
     SeatsStat.start(__FUNCTION__);
     airline = vairline;
-    TQuery Qry(&OraSession );
+    DB::TQuery Qry(PgOra::getROSession("COMP_SUBCLS_SETS"), STDLOG);
     Qry.SQLText =
      "SELECT subclass,rem FROM comp_subcls_sets "
      " WHERE airline=:airline ";
@@ -5430,6 +5430,3 @@ TPassengers Passengers;
 
 //seats with:SeatAlg=2,FCanUseRems=sIgnoreUse,FCanUseAlone=0,KeyStatus=1,FCanUseTube=0,FCanUseSmoke=0,PlaceStatus=, MAXPLACE=3,canUseOneRow=0, CanUseSUBCLS=1, SUBCLS_REM=SUBCLS
 //seats with:SeatAlg=2,FCanUseRems=sNotUse_NotUseDenial,FCanUseAlone=1,KeyStatus=1,FCanUseTube=0,FCanUseS
-
-
-

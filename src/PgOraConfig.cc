@@ -312,6 +312,9 @@ namespace PgOra
                 "COMPS", // POINTS, LIBRA_COMPS, COMP_CLASSES, TRIP_SETS
         }},
         { "SP_PG_GROUP_OPERATORS", {"OPERATORS","HIST_OPERATORS"} },
+        { "SP_PG_GROUP_COMP_SUBCLS_SETS", {
+                "COMP_SUBCLS_SETS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
