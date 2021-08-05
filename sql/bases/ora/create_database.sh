@@ -1,11 +1,10 @@
 #!/bin/bash
 set -euo pipefail
-if [ -z "$CONNECT_STRING" ];
-then
-    export CONNECT_STRING=$1
-fi
-set -x
-if [ -z "$CONNECT_STRING" -a -n ${TOP_SRCDIR:+isset} ];
+
+[ ${QUIET:-0} -eq 0 ] && set -x
+
+export CONNECT_STRING="${CONNECT_STRING:-$1}"
+if [ -z "$CONNECT_STRING" ] && [ -n ${TOP_SRCDIR:+isset} ];
 then
     . $TOP_SRCDIR/connection.mk
     export CONNECT_STRING
@@ -17,7 +16,8 @@ then
     exit 1
 fi
 
-export PATH=$PATH:$ORACLE_HOME/bin
+[[ ! -z ${ORACLE_HOME+x} ]] && export PATH=$PATH:$ORACLE_HOME/bin
+[[ ! -z ${ORACLE_INSTANT+x} ]] && export PATH=$PATH:$ORACLE_INSTANT
 
 [[ $CONNECT_STRING = *@* && -z ${SYSPAROL:+isset} ]] && SYSPAROL=system/manager@${CONNECT_STRING#*@}
 SYSPAROL=${SYSPAROL:-system/manager}
