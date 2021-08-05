@@ -18,7 +18,7 @@ TYPE periods_cur IS REF CURSOR RETURN periods_row;
 PROCEDURE check_ascii(str	IN VARCHAR2,
                       cache_code  IN cache_tables.code%TYPE,
                       cache_field IN cache_fields.name%TYPE,
-                      vlang       IN locale_messages.lang%TYPE)
+                      vlang       IN lang_types.code%TYPE)
 IS
 c       CHAR(1);
 info	 adm.TCacheInfo;
@@ -28,7 +28,7 @@ BEGIN
     c:=SUBSTR(str,i,1);
     IF ASCII(c)>127 THEN
       info:=adm.get_cache_info(cache_code);
-      lparams('field_name'):=get_locale_text(info.field_title(cache_field), vlang);
+      lparams('field_name'):=info.field_title(cache_field);
       lparams('symbol'):=c;
       system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
     END IF;
@@ -40,7 +40,7 @@ PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               symbols     IN VARCHAR2,
                               cache_code  IN cache_tables.code%TYPE,
                               cache_field IN cache_fields.name%TYPE,
-                              vlang       IN locale_messages.lang%TYPE)
+                              vlang       IN lang_types.code%TYPE)
 IS
 c CHAR(1);
 info	 adm.TCacheInfo;
@@ -49,7 +49,7 @@ BEGIN
   c:=system.invalid_char_in_name(str, pr_lat, symbols);
   IF c IS NOT NULL THEN
     info:=adm.get_cache_info(cache_code);
-    lparams('field_name'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('field_name'):=info.field_title(cache_field);
     lparams('symbol'):=c;
     system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
   END IF;
@@ -189,7 +189,7 @@ BEGIN
   IF not(pr_opd) THEN
     IF vaddr IS NULL THEN
       info:=adm.get_cache_info('TYPEB_ORIGINATORS');
-      lparams('fieldname'):=get_locale_text(info.field_title('ADDR'), vlang);
+      lparams('fieldname'):=info.field_title('ADDR');
       system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
     ELSE
       check_sita_addr(vaddr, 'TYPEB_ORIGINATORS', 'ADDR', vlang);
@@ -197,13 +197,13 @@ BEGIN
     IF vdouble_sign IS NOT NULL THEN
       IF LENGTH(vdouble_sign)<>2 OR system.is_upp_let_dig(vdouble_sign,1)=0 THEN
         info:=adm.get_cache_info('TYPEB_ORIGINATORS');
-        lparams('fieldname'):=get_locale_text(info.field_title('DOUBLE_SIGN'), vlang);
+        lparams('fieldname'):=info.field_title('DOUBLE_SIGN');
         system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
       END IF;
     END IF;
     IF vdescr IS NULL THEN
       info:=adm.get_cache_info('TYPEB_ORIGINATORS');
-      lparams('fieldname'):=get_locale_text(info.field_title('DESCR'), vlang);
+      lparams('fieldname'):=info.field_title('DESCR');
       system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
     END IF;
   END IF;
@@ -1424,7 +1424,7 @@ BEGIN
       EXCEPTION
         WHEN OTHERS THEN NULL;
           info:=adm.get_cache_info('APIS_SETS');
-          lparams('fieldname'):=get_locale_text(info.field_title('EDI_ADDR'), vlang);
+          lparams('fieldname'):=info.field_title('EDI_ADDR');
           system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
       END;
     ELSE
@@ -1444,7 +1444,7 @@ BEGIN
       EXCEPTION
         WHEN OTHERS THEN
           info:=adm.get_cache_info('APIS_SETS');
-          lparams('fieldname'):=get_locale_text(info.field_title('EDI_OWN_ADDR'), vlang);
+          lparams('fieldname'):=info.field_title('EDI_OWN_ADDR');
           system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
       END;
     ELSE
@@ -1544,17 +1544,17 @@ BEGIN
     IF vfield_code IS NOT NULL THEN
       IF i BETWEEN 1 AND 4 THEN
         FOR curRow IN cur(vid,vfield_code) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('airline'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_AIRLINE', lparams);
         END LOOP;
       ELSE
         FOR curRow IN cur2(vid,vfield_code) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('airline'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_AIRLINE', lparams);
         END LOOP;
@@ -1601,9 +1601,9 @@ BEGIN
     IF vfield_code IS NOT NULL THEN
       IF i BETWEEN 1 AND 3 THEN
         FOR curRow IN cur(vid,vfield_code) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('country'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_COUNTRY', lparams);
         END LOOP;
@@ -1644,9 +1644,9 @@ BEGIN
     IF vfield_code IS NOT NULL THEN
       IF i BETWEEN 1 AND 2 THEN
         FOR curRow IN cur(vid,vfield_code) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('city'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_CITY', lparams);
         END LOOP;
@@ -1699,9 +1699,9 @@ BEGIN
     IF vfield_code IS NOT NULL THEN
       IF i BETWEEN 1 AND 4 THEN
         FOR curRow IN cur(vid,vfield_code) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('airp'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_AIRPORT', lparams);
         END LOOP;
@@ -1755,9 +1755,9 @@ BEGIN
     IF vfield_code IS NOT NULL THEN
       IF i BETWEEN 1 AND 4 THEN
         FOR curRow IN cur(vid,vfield_code,i) LOOP
-          lparams('field1'):=get_locale_text(info.field_title(vfield_title), vlang);
+          lparams('field1'):=info.field_title(vfield_title);
           lparams('value'):=vfield_code;
-          lparams('field2'):=get_locale_text(info.field_title(curRow.title), vlang);
+          lparams('field2'):=info.field_title(curRow.title);
           lparams('craft'):=curRow.code;
           system.raise_user_exception('MSG.CODE_ALREADY_USED_FOR_AIRCRAFT', lparams);
         END LOOP;
@@ -1916,17 +1916,6 @@ EXCEPTION
     system.raise_user_exception('Cache '||vcode||' not found');
 END get_cache_info;
 
-FUNCTION get_locale_text(vid   IN locale_messages.id%TYPE,
-                        vlang IN locale_messages.lang%TYPE) RETURN locale_messages.text%TYPE
-IS
-vtext locale_messages.text%TYPE;
-BEGIN
-  SELECT text INTO vtext FROM locale_messages WHERE id=vid AND lang=vlang;
-  RETURN vtext;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN vid;
-END;
-
 FUNCTION get_trfer_set_flts(vtrfer_set_id trfer_set_flts.trfer_set_id%TYPE,
                             vpr_onward    trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2
 IS
@@ -2011,7 +2000,7 @@ BEGIN
 EXCEPTION
   WHEN VALUE_ERROR THEN
     info:=adm.get_cache_info(cache_table);
-    lparams('fieldname'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('fieldname'):=info.field_title(cache_field);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
 END check_trfer_sets_interval;
 
@@ -2028,7 +2017,7 @@ BEGIN
       vmax IS NOT NULL AND
       vmin>vmax THEN
     info:=adm.get_cache_info(vcache_table);
-    lparams('fieldname'):=get_locale_text(info.field_title(vcache_field), vlang);
+    lparams('fieldname'):=info.field_title(vcache_field);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
   END IF;
 END check_range;
@@ -2558,7 +2547,7 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     info:=adm.get_cache_info(cache_table);
-    lparams('fieldname'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('fieldname'):=info.field_title(cache_field);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
 END check_date_wo_year;
 
@@ -2572,7 +2561,7 @@ lparams   system.TLexemeParams;
 BEGIN
   IF LENGTH(str)<>7 OR system.is_upp_let_dig(str,1)=0 THEN
     info:=adm.get_cache_info(cache_table);
-    lparams('fieldname'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('fieldname'):=info.field_title(cache_field);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
   END IF;
 END check_sita_addr;
@@ -2587,7 +2576,7 @@ lparams   system.TLexemeParams;
 BEGIN
   IF LENGTH(str)<>5 OR system.is_upp_let_dig(str,1)=0 THEN
     info:=adm.get_cache_info(cache_table);
-    lparams('fieldname'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('fieldname'):=info.field_title(cache_field);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
   END IF;
 END check_canon_name;
@@ -2612,7 +2601,7 @@ BEGIN
   vbort:=salons.check_bort(vbort);
   IF vpr_summer IS NULL AND vfirst_date IS NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
-    lparams('fieldname'):=get_locale_text(info.field_title('SEASON_NAME'), vlang);
+    lparams('fieldname'):=info.field_title('SEASON_NAME');
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
   END IF;
   IF vfirst_date IS NOT NULL THEN
@@ -2629,12 +2618,12 @@ BEGIN
   END IF;
   IF vfirst_date IS NULL AND vlast_date IS NOT NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
-    lparams('fieldname'):=get_locale_text(info.field_title('FIRST_DATE'), vlang);
+    lparams('fieldname'):=info.field_title('FIRST_DATE');
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
   END IF;
   IF vfirst_date IS NOT NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
-    lparams('fieldname'):=get_locale_text(info.field_title('LAST_DATE'), vlang);
+    lparams('fieldname'):=info.field_title('LAST_DATE');
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
   END IF;
   IF vpr_summer IS NOT NULL THEN
@@ -3351,7 +3340,7 @@ PROCEDURE insert_brand_fares(vid              IN brand_fares.id%TYPE,
                              vbrand           IN brand_fares.brand%TYPE,
                              vsale_first_date IN brand_fares.sale_first_date%TYPE,
                              vsale_last_date  IN brand_fares.sale_last_date%TYPE,
-                             vlang            IN locale_messages.lang%TYPE,
+                             vlang            IN lang_types.code%TYPE,
                              vsetting_user    IN history_events.open_user%TYPE,
                              vstation         IN history_events.open_desk%TYPE)
 IS
@@ -3409,7 +3398,7 @@ BEGIN
   IF v_st_user IS NOT NULL THEN
     IF LENGTH(v_st_user)<10 THEN
       info:=adm.get_cache_info('WEB_SALES');
-      lparams('fieldname'):=get_locale_text(info.field_title('ST_USER'), vlang);
+      lparams('fieldname'):=info.field_title('ST_USER');
       system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
     END IF;
   END IF;

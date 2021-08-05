@@ -252,7 +252,7 @@ BEGIN
 END transliter_equal_begin;
 
 PROCEDURE raise_user_exception(verror_code   IN NUMBER,
-                               lexeme_id     IN locale_messages.id%TYPE,
+                               lexeme_id     IN VARCHAR2,
                                lexeme_params IN TLexemeParams)
 IS
 xml VARCHAR2(2000);
@@ -274,14 +274,14 @@ BEGIN
   raise_application_error(verror_code, xml);
 END raise_user_exception;
 
-PROCEDURE raise_user_exception(lexeme_id     IN locale_messages.id%TYPE,
+PROCEDURE raise_user_exception(lexeme_id     IN VARCHAR2,
                                lexeme_params IN TLexemeParams)
 IS
 BEGIN
   raise_user_exception(-20000, lexeme_id, lexeme_params);
 END raise_user_exception;
 
-PROCEDURE raise_user_exception(lexeme_id     IN locale_messages.id%TYPE)
+PROCEDURE raise_user_exception(lexeme_id     IN VARCHAR2)
 IS
 lexeme_params TLexemeParams;
 BEGIN

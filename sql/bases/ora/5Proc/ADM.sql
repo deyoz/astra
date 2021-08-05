@@ -9,14 +9,14 @@ utAirline       CONSTANT TUserType := 2;
 PROCEDURE check_ascii(str	IN VARCHAR2,
                       cache_code  IN cache_tables.code%TYPE,
                       cache_field IN cache_fields.name%TYPE,
-                      vlang       IN locale_messages.lang%TYPE);
+                      vlang       IN lang_types.code%TYPE);
 
 PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               pr_lat      IN INTEGER,
                               symbols     IN VARCHAR2,
                               cache_code  IN cache_tables.code%TYPE,
                               cache_field IN cache_fields.name%TYPE,
-                              vlang       IN locale_messages.lang%TYPE);
+                              vlang       IN lang_types.code%TYPE);
 
 PROCEDURE check_period(pr_new           BOOLEAN,
                        vfirst_date      DATE,
@@ -255,9 +255,6 @@ FUNCTION check_trfer_sets_interval(str         IN VARCHAR2,
                                    cache_table IN cache_tables.code%TYPE,
                                    cache_field IN cache_fields.name%TYPE,
                                    vlang       IN lang_types.code%TYPE) RETURN trfer_sets.min_interval%TYPE;
-
-FUNCTION get_locale_text(vid   IN locale_messages.id%TYPE,
-                        vlang IN locale_messages.lang%TYPE) RETURN locale_messages.text%TYPE;
 
 FUNCTION get_trfer_set_flts(vtrfer_set_id trfer_set_flts.trfer_set_id%TYPE,
                             vpr_onward    trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2;
@@ -527,7 +524,7 @@ PROCEDURE insert_brand_fares(vid              IN brand_fares.id%TYPE,
                              vbrand           IN brand_fares.brand%TYPE,
                              vsale_first_date IN brand_fares.sale_first_date%TYPE,
                              vsale_last_date  IN brand_fares.sale_last_date%TYPE,
-                             vlang            IN locale_messages.lang%TYPE,
+                             vlang            IN lang_types.code%TYPE,
                              vsetting_user    IN history_events.open_user%TYPE,
                              vstation         IN history_events.open_desk%TYPE);
 

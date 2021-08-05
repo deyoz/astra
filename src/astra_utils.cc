@@ -1159,6 +1159,17 @@ std::string getLocaleText(xmlNodePtr lexemeNode)
   return getLocaleText(lexemeData);
 }
 
+static const std::map< std::string, std::list<std::string> > LexemeDataToBeLocalized = {
+    { "MSG.TABLE.NOT_SET_FIELD_VALUE",        { "fieldname" } },
+    { "MSG.TABLE.INVALID_FIELD_VALUE",        { "fieldname" } },
+    { "MSG.FIELD_INCLUDE_INVALID_CHARACTER1", { "field_name" } },
+    { "MSG.CODE_ALREADY_USED_FOR_AIRLINE",    { "field1", "field2" } },
+    { "MSG.CODE_ALREADY_USED_FOR_COUNTRY",    { "field1", "field2" } },
+    { "MSG.CODE_ALREADY_USED_FOR_CITY",       { "field1", "field2" } },
+    { "MSG.CODE_ALREADY_USED_FOR_AIRPORT",    { "field1", "field2" } },
+    { "MSG.CODE_ALREADY_USED_FOR_AIRCRAFT",   { "field1", "field2" } },
+};
+
 void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
 {
   if (lexemeNode==NULL) return;
@@ -1167,7 +1178,7 @@ void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
   for(LParams::const_iterator p=lexemeData.lparams.begin();p!=lexemeData.lparams.end();p++)
   {
     NewTextChild(node,p->first.c_str(),lexemeData.lparams.StringValue(p->first));
-  };
+  }
 }
 
 void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
@@ -1177,11 +1188,19 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
   if (lexemeNode==NULL) return;
   lexemeData.lexema_id=NodeAsString("id",lexemeNode);
   xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
+  const auto additionalLocalization = algo::find_opt<std::optional>(LexemeDataToBeLocalized,
+                                                                    lexemeData.lexema_id);
   for(;node!=NULL;node=node->next)
   {
-    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
-  };
-};
+    std::string param_name((const char*)node->name);
+    std::string param_value = NodeAsString(node);
+    // дополнительная локализация, которая делалась в oracle в пакете ADM
+    if(additionalLocalization && algo::contains(*additionalLocalization, param_name)) {
+        param_value = AstraLocale::getLocaleText(param_value);
+    }
+    lexemeData.lparams << LParam(param_name, param_value);
+  }
+}
 
 xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message)
 {
@@ -1774,9 +1793,9 @@ AstraLocale::UserException EOracleError2UserException(string& msg)
     LexemaData lexemeData;
     LexemeDataFromXML(NodeAsNode("/lexeme_data",msgDoc.docPtr()), lexemeData);
     return AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams);
-  };
+  }
   return AstraLocale::UserException(msg);
-};
+}
 
 bool isIgnoredEOracleError(const std::exception& e)
 {

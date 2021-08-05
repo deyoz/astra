@@ -1529,4 +1529,20 @@ $(cache PIKE EN FORM_PACKS $(cache_iface_ver FORM_PACKS) ""
     </data>
 
 
+%%
 
+### test 8
+### CHECK ERRORS
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE EN COUNTRIES $(cache_iface_ver COUNTRIES) ""
+  insert code:OO
+         code_lat:RU
+         code_iso:RUS
+         name:îàÉçü)
+
+>> lines=auto
+      <user_error lexema_id='MSG.CODE_ALREADY_USED_FOR_COUNTRY' code='0'>The value of 'Code (LAT)' RU field is already used in the 'Code (LAT)' field for country êî</user_error>

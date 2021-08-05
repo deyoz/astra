@@ -136,6 +136,7 @@ namespace PgOra
                                     "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_BT", "TRIP_HALL",
         } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
+        { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES" } },
 
         // ASTRA MINIMUM
         { "SP_PG_GROUP_DESK", {
@@ -157,7 +158,7 @@ namespace PgOra
                                         // 7Proc: ADM
                 "PROFILE_RIGHTS",       // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr
                                         // 7Proc: ADM
-                "LOCALE_MESSAGES",      // client_error_list,
+                                        // client_error_list,
                                         // // 7Proc: ADM, SYSTEM
         }},
         { "SP_PG_GROUP_RIGHTS", {

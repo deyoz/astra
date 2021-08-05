@@ -62,11 +62,11 @@ FUNCTION transliter_equal_begin(str       IN VARCHAR2,
 TYPE TLexemeParams IS TABLE OF VARCHAR2(50) INDEX BY VARCHAR2(20);
 
 PROCEDURE raise_user_exception(verror_code   IN NUMBER,
-                               lexeme_id     IN locale_messages.id%TYPE,
+                               lexeme_id     IN VARCHAR2,
                                lexeme_params IN TLexemeParams);
-PROCEDURE raise_user_exception(lexeme_id     IN locale_messages.id%TYPE,
+PROCEDURE raise_user_exception(lexeme_id     IN VARCHAR2,
                                lexeme_params IN TLexemeParams);
-PROCEDURE raise_user_exception(lexeme_id     IN locale_messages.id%TYPE);
+PROCEDURE raise_user_exception(lexeme_id     IN VARCHAR2);
 
 END system;
 /
