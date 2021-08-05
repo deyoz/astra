@@ -32,29 +32,63 @@ using BASIC::date_time::TDateTime;
 
 namespace {
 
-std::string getQueryCmd(const std::string& s)
-{
-    static const size_t CmdLength = 6; // len of SELECT, INSERT, UPDATE, DELETE cmds
-
-    auto pos_beg = s.find_first_not_of(" \n");
-    if (pos_beg == std::string::npos) {
-        return std::string();
+bool isAllowedForSQLKeywords(const unsigned char c) {
+    if (::isalnum(c)
+     || '_' == c
+     || '$' == c) {
+        return true;
     }
-
-    std::string cmd = s.substr(pos_beg);
-    if(cmd.length() < CmdLength) {
-        return std::string();
-    }
-
-    cmd = StrUtils::ToUpper(cmd.substr(0, CmdLength));
-    return cmd;
+    return false;
 }
 
-bool isSelectQuery(const std::string& s)
-{
-    return getQueryCmd(s) == "SELECT";
-}
+enum StatementType : unsigned {
+    None         = 0,
+    Retrieval    = 1,
+    Modification = 2,
+};
 
+StatementType getStatementType(const std::string& sql)
+{
+    struct statementComparator {
+        bool operator() (std::string_view lhs, std::string_view rhs) const {
+            int result = strncasecmp(begin(lhs), begin(rhs), std::min(lhs.length(), rhs.length()));
+            if (0 == result) {
+                return lhs.length() < rhs.length();
+            }
+            return result < 0;
+        }
+    };
+
+    static const std::map<std::string_view, StatementType, statementComparator> types = {
+        {"DELETE",    StatementType::Modification},
+        {"INSERT",    StatementType::Modification},
+        {"NEXTVAL",   StatementType::Modification},
+        {"RETURNING", StatementType::Retrieval},
+        {"SELECT",    StatementType::Retrieval},
+        {"UPDATE",    StatementType::Modification},
+    };
+
+    bool prevSpace = true;
+
+    unsigned result = StatementType::None;
+
+    auto keywordBegin = begin(sql);
+    for (auto it = keywordBegin; it <= end(sql); ++it) {
+        bool isSpace = !isAllowedForSQLKeywords(*it);
+        if (prevSpace != isSpace) {
+            if (isSpace) {
+                auto search = types.find(std::string_view(&*keywordBegin, it - keywordBegin));
+                if (search != types.end()) {
+                    result |= search->second;
+                }
+            }
+            keywordBegin = it;
+        }
+        prevSpace = isSpace;
+    }
+
+    return static_cast<StatementType>(result);
+}
 
 static const std::map<PgCpp::ResultCode, OciCppErrs> sPgOraErrorCodeMapper = {
     { PgCpp::BadSqlText,     CERR_INVALID_IDENTIFIER },
@@ -223,9 +257,10 @@ void TQueryIfaceDbCppImpl::Execute()
     initInnerCursCtl();
     bindVariables();
     ASSERT(m_cur);
-    bool isSelect = isSelectQuery(m_sqlText);
+    StatementType statementType = getStatementType(m_sqlText);
+
     try {
-        if(!isSelect) {
+        if(statementType & StatementType::Modification) {
             DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
                                        "savepoint BEFORE_INNER_CURSCTL_EXEC",
                                        m_sess)
@@ -233,7 +268,7 @@ void TQueryIfaceDbCppImpl::Execute()
         }
         m_cur->exec();
     } catch(PgCpp::PgException& e) {
-        if(!isSelect) {
+        if(statementType & StatementType::Modification) {
             DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
                                        "rollback to savepoint BEFORE_INNER_CURSCTL_EXEC",
                                        m_sess)
@@ -247,7 +282,7 @@ void TQueryIfaceDbCppImpl::Execute()
     }
 
     m_eof = 1;
-    if(isSelect) {
+    if(statementType & StatementType::Retrieval) {
         m_eof = 0;
         Next();
     }
