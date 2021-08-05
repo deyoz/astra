@@ -11,6 +11,7 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
+using namespace AstraLocale;
 
 CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
 {
@@ -62,6 +63,9 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="FORM_TYPES")          return new CacheTable::FormTypes;
   if (cacheCode=="FORM_PACKS")          return new CacheTable::FormPacks;
   if (cacheCode=="OPERATORS")           return new CacheTable::Operators;
+  if (cacheCode=="PAY_CLIENTS")         return new CacheTable::PayClients;
+  if (cacheCode=="POS_TERM_VENDORS")    return new CacheTable::PosTermVendors;
+  if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -2295,6 +2299,159 @@ void Operators::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                         const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("operators").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//PayClients
+
+bool PayClients::userDependence() const {
+  return true;
+}
+std::string PayClients::selectSql() const {
+  return
+   "SELECT id, client_id, airline, airp_dep, pact, pr_denial "
+   "FROM pay_clients "
+   "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp_dep", AccessControl::PermittedAirportsOrNull) +
+   "ORDER BY client_id";
+}
+std::string PayClients::insertSql() const {
+  return "INSERT INTO pay_clients(id, client_id, airline, airp_dep, pact, pr_denial) "
+         "VALUES(:id, :client_id, :airline, :airp_dep, :pact, :pr_denial)";
+}
+std::string PayClients::updateSql() const {
+  return "UPDATE pay_clients "
+         "SET client_id=:client_id, airline=:airline, airp_dep=:airp_dep, pact=:pact, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id";
+}
+std::string PayClients::deleteSql() const {
+  return "DELETE FROM pay_clients WHERE id=:OLD_id";
+}
+std::list<std::string> PayClients::dbSessionObjectNames() const {
+  return {"PAY_CLIENTS"};
+}
+
+void PayClients::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    if (newRow.value().getAsString("airline").empty() &&
+        newRow.value().getAsString("airp_dep").empty())
+      throw UserException("MSG.AIRLINE_OR_AIRPORT_REQUIRED");
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void PayClients::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("pay_clients").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//PosTermVendors
+
+bool PosTermVendors::userDependence() const {
+  return false;
+}
+std::string PosTermVendors::selectSql() const {
+  return
+   "SELECT id, code, serial_rule, descr, descr_lat "
+   "FROM pos_term_vendors "
+   "ORDER BY id";
+}
+std::string PosTermVendors::insertSql() const {
+  return "INSERT INTO pos_term_vendors(id, code, serial_rule, descr, descr_lat) "
+         "VALUES(:id, :code, :serial_rule, :descr, :descr_lat)";
+}
+std::string PosTermVendors::updateSql() const {
+  return "UPDATE pos_term_vendors "
+         "SET code=:code, serial_rule=:serial_rule, descr=:descr, descr_lat=:descr_lat "
+         "WHERE id=:OLD_id";
+}
+std::string PosTermVendors::deleteSql() const {
+  return "DELETE FROM pos_term_vendors WHERE id=:OLD_id";
+}
+std::list<std::string> PosTermVendors::dbSessionObjectNames() const {
+  return {"POS_TERM_VENDORS"};
+}
+
+void PosTermVendors::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              std::optional<CacheTable::Row>& newRow) const
+{
+  setRowId("id", status, newRow);
+}
+
+//PosTermSets
+
+bool PosTermSets::userDependence() const {
+  return true;
+}
+std::string PosTermSets::selectSql() const {
+  return
+   "SELECT pos_term_sets.id, "
+          "pos_term_sets.airline, "
+          "pos_term_sets.airp, "
+          "pos_term_sets.shop_id, "
+          "pos_term_sets.client_id, "
+          "pay_clients.client_id AS client_view, "
+          "pos_term_sets.serial, "
+          "pos_term_sets.address, "
+          "pos_term_sets.name, "
+          "pos_term_sets.pr_denial, "
+          "pos_term_sets.vendor_id, "
+          "pos_term_vendors.code AS vendor_view "
+   "FROM pos_term_sets, pay_clients, pos_term_vendors "
+   "WHERE " + getSQLFilter("pos_term_sets.airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("pos_term_sets.airp",    AccessControl::PermittedAirportsOrNull) + " AND "
+   "      pay_clients.id=pos_term_sets.client_id AND pos_term_sets.vendor_id=pos_term_vendors.id "
+   "ORDER BY pos_term_sets.id";
+}
+std::string PosTermSets::insertSql() const {
+  return "INSERT INTO pos_term_sets(id, airline, airp, shop_id, client_id, serial, address, name, pr_denial, vendor_id) "
+         "VALUES(:id, :airline, :airp, :shop_id, :client_id, :serial, :address, :name, :pr_denial, :vendor_id)";
+}
+std::string PosTermSets::updateSql() const {
+  return "UPDATE pos_term_sets "
+         "SET airline=:airline, airp=:airp, shop_id=:shop_id, client_id=:client_id, serial=:serial, address=:address, "
+         "    name=:name, pr_denial=:pr_denial, vendor_id=:vendor_id "
+         "WHERE id=:OLD_id";
+}
+std::string PosTermSets::deleteSql() const {
+  return "DELETE FROM pos_term_sets WHERE id=:OLD_id";
+}
+std::list<std::string> PosTermSets::dbSessionObjectNames() const {
+  return {"POS_TERM_SETS", "PAY_CLIENTS", "POS_TERM_VENDORS"};
+}
+
+void PosTermSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    if (newRow.value().getAsString("airline").empty() &&
+        newRow.value().getAsString("airp").empty())
+      throw UserException("MSG.AIRLINE_OR_AIRPORT_REQUIRED");
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void PosTermSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("pos_term_sets").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables
