@@ -4443,8 +4443,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       //BSM
       BSM::TBSMAddrs BSMaddrs;
       BSM::TTlgContent BSMContentBefore;
-      bool BSMsend=grp.status==psCrew?false:
-                                      BSM::IsSend(fltInfo, BSMaddrs, false);
+      bool BSMsend=BSM::IsSend(fltInfo, BSMaddrs, false);
 
       set<int> nextTrferSegs;
 
