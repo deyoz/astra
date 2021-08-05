@@ -89,6 +89,30 @@ BEGIN
   RETURN NULL;
 END denormalize_yname;
 
+FUNCTION get_pr_tranzit(vpoint_id IN points.point_id%TYPE) RETURN points.pr_tranzit%TYPE
+IS
+vfirst_point  points.first_point%TYPE;
+vpoint_num  points.point_num%TYPE;
+n   BINARY_INTEGER;
+BEGIN
+  BEGIN
+    SELECT DECODE(pr_tranzit,0,points.point_id,first_point),point_num
+    INTO vfirst_point,vpoint_num
+    FROM points
+    WHERE point_id=vpoint_id AND pr_del=0 AND pr_tranzit<>0;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN RETURN 0;
+  END;
+
+  SELECT COUNT(*) INTO n FROM points
+  WHERE first_point=vfirst_point AND point_num>vpoint_num AND pr_del=0 AND rownum<2;
+  IF n=0 THEN RETURN 0; END IF;
+  SELECT COUNT(*) INTO n FROM points
+  WHERE vfirst_point IN (point_id,first_point) AND point_num<vpoint_num AND pr_del=0; --rownum портит план разбора
+  IF n=0 THEN RETURN 0; END IF;
+  RETURN 1;
+END get_pr_tranzit;
+
 FUNCTION get_crs_seat_no_int(vlayer_type IN tlg_comp_layers.layer_type%TYPE,
                              vseat_xname IN crs_pax.seat_xname%TYPE,
                              vseat_yname IN crs_pax.seat_yname%TYPE,
