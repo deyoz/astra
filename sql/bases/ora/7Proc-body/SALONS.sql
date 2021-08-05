@@ -672,7 +672,7 @@ BEGIN
       seatInfo.pr_block_trzt:=0;
       seatInfo.pr_free_seating:=0;
       --получим признак транзита
-      SELECT NVL(ckin.get_pr_tranzit(vpoint_dep),0)
+      SELECT NVL(get_pr_tranzit(vpoint_dep),0)
       INTO seatInfo.pr_tranzit
       FROM dual;
 

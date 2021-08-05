@@ -54,6 +54,7 @@ FUNCTION denormalize_xname(vxname comp_elems.xname%TYPE,
                            pr_lat NUMBER) RETURN comp_elems.xname%TYPE;
 FUNCTION denormalize_yname(vyname comp_elems.yname%TYPE,
                            add_ch VARCHAR2) RETURN comp_elems.yname%TYPE;
+FUNCTION get_pr_tranzit(vpoint_id   IN points.point_id%TYPE) RETURN points.pr_tranzit%TYPE;
 
 FUNCTION get_crs_seat_no(vseat_xname IN crs_pax.seat_xname%TYPE,
                          vseat_yname IN crs_pax.seat_yname%TYPE,
