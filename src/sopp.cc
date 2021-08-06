@@ -140,7 +140,7 @@ const char* points_ISG_SQL =
       "WHERE ((time_in  >= :FIRST_DATE AND time_in  < :NEXT_DATE) "
           "OR (time_out >= :FIRST_DATE AND time_out < :NEXT_DATE) "
           "OR (time_in = to_date('01.01.1900', 'DD.MM.YYYY') AND time_out = to_date('01.01.1900', 'DD.MM.YYYY'))) "
-         "AND points.pr_del <> -1) AS p "
+         "AND points.pr_del <> -1) p "
          "ON points.move_id = p.move_id "
       "INNER JOIN move_ref "
          "ON p.move_id = move_ref.move_id "
