@@ -10,7 +10,6 @@
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
-using namespace std;
 using namespace AstraLocale;
 
 CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
@@ -1086,7 +1085,7 @@ void SoppStations::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
       .addRow();
 
   TElemFmt fmt;
-  string airp=ElemToElemId(etAirp, getParamValue("airp", sqlParams), fmt);
+    std::string airp=ElemToElemId(etAirp, getParamValue("airp", sqlParams), fmt);
   if (fmt==efmtUnknown) return;
 
   DB::TQuery Qry(PgOra::getROSession("STATIONS"), STDLOG);
@@ -1274,7 +1273,7 @@ void BaggageWt::beforeApplyingRowChanges(const TCacheUpdateStatus status,
 
 std::string BagNorms::getSelectOrRefreshSql(const bool isRefreshSql) const
 {
-  ostringstream sql;
+    std::ostringstream sql;
   sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
          "       first_date, " << lastDateSelectSQL("BAG_NORMS") << ", "
          "bag_type, amount, weight, per_unit, norm_type, extra, pr_del, tid "
@@ -1343,7 +1342,7 @@ void BagNorms::onApplyingRowChanges(const TCacheUpdateStatus status,
 
 std::string BagRates::getSelectOrRefreshSql(const bool isRefreshSql) const
 {
-  ostringstream sql;
+    std::ostringstream sql;
   sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, "
          "       bag_type, first_date, " << lastDateSelectSQL("BAG_RATES") << ", rate, rate_cur, min_weight, extra, pr_del, tid "
          "FROM bag_rates "
@@ -1409,7 +1408,7 @@ void BagRates::onApplyingRowChanges(const TCacheUpdateStatus status,
 
 std::string ValueBagTaxes::getSelectOrRefreshSql(const bool isRefreshSql) const
 {
-  ostringstream sql;
+    std::ostringstream sql;
   sql << "SELECT id, airline, pr_trfer, city_dep, city_arv, "
          "       first_date, " << lastDateSelectSQL("VALUE_BAG_TAXES") << ", tax, min_value, min_value_cur, extra, pr_del, tid "
          "FROM value_bag_taxes "
@@ -1468,7 +1467,7 @@ void ValueBagTaxes::onApplyingRowChanges(const TCacheUpdateStatus status,
 
 std::string ExchangeRates::getSelectOrRefreshSql(const bool isRefreshSql) const
 {
-  ostringstream sql;
+    std::ostringstream sql;
   sql << "SELECT id, airline, rate1, cur1, rate2, cur2, "
          "       first_date, " << lastDateSelectSQL("EXCHANGE_RATES") << ", extra, pr_del, tid "
          "FROM exchange_rates "
@@ -1628,9 +1627,9 @@ void TripBagNorms::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
 
   for(; !Qry.Eof; Qry.Next())
   {
-    ostringstream bagType;
+    std::ostringstream bagType;
     if (!Qry.FieldIsNULL(idxBagType))
-      bagType << setw(outdated_?0:2) << setfill('0') << Qry.FieldAsInteger(idxBagType);
+      bagType << std::setw(outdated_?0:2) << std::setfill('0') << Qry.FieldAsInteger(idxBagType);
 
     rows.setFromInteger (Qry, idxId)
         .setFromString  (Qry, idxAirline)
@@ -1748,9 +1747,9 @@ void TripBagRates::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
 
   for(; !Qry.Eof; Qry.Next())
   {
-    ostringstream bagType;
+    std::ostringstream bagType;
     if (!Qry.FieldIsNULL(idxBagType))
-      bagType << setw(outdated_?0:2) << setfill('0') << Qry.FieldAsInteger(idxBagType);
+      bagType << std::setw(outdated_?0:2) << std::setfill('0') << Qry.FieldAsInteger(idxBagType);
 
     rows.setFromInteger (Qry, idxId)
         .setFromString  (Qry, idxAirline)
@@ -2204,7 +2203,7 @@ void FormPacks::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selected
 
     if (!validatorViewAccess.check(validatorCode)) continue;
 
-    string currNoStr;
+    std::string currNoStr;
     if (!Qry.FieldIsNULL(idxCurrNo))
       currNoStr = StrUtils::LPad(FloatToString(Qry.FieldAsFloat(idxCurrNo), 0),
                                  Qry.FieldAsInteger(idxNoLen),
@@ -2229,7 +2228,7 @@ void FormPacks::onApplyingRowChanges(const TCacheUpdateStatus status,
   {
     std::optional<double> currNo=newRow.value().getAsDouble("curr_no");
     int userId=oldRow.value().getAsInteger_ThrowOnEmpty("user_id");
-    string type=oldRow.value().getAsString_ThrowOnEmpty("type");
+    std::string type=oldRow.value().getAsString_ThrowOnEmpty("type");
     if (!currNo)
     {
       auto cur=make_db_curs("DELETE FROM form_packs WHERE user_id=:user_id AND type=:type",

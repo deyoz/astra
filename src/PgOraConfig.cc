@@ -320,7 +320,8 @@ namespace PgOra
         { "SP_PG_GROUP_POS_TERM", {
                 "PAY_CLIENTS", "POS_TERM_ASSIGN", "POS_TERM_SETS", "POS_TERM_VENDORS",
                 "HIST_PAY_CLIENTS", "HIST_POS_TERM_SETS"
-        }}
+        }},
+        { "SP_PG_GROUP_VALIDATOR_TYPES", {"VALIDATOR_TYPES","HIST_VALIDATOR_TYPES"} },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
