@@ -136,7 +136,7 @@ namespace PgOra
                                     "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_BT", "TRIP_HALL",
         } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
-        { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES" } },
+        { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES", "CLIENT_ERROR_LIST" } },
 
         // ASTRA MINIMUM
         { "SP_PG_GROUP_DESK", {
