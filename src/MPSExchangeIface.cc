@@ -998,10 +998,10 @@ void TermPos::toXML(  xmlNodePtr node ) const {
 
 
 void PosAssignator::checkTimeout( ) {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("POS_TERM_ASSIGN"), STDLOG);
   Qry.SQLText =
-    "DELETE pos_term_assign "
-    " WHERE time_create < :time_create";
+    "DELETE FROM pos_term_assign "
+    "WHERE time_create<:time_create";
   Qry.CreateVariable( "time_create", otDate,  BASIC::date_time::NowUTC() );
   Qry.Execute();
 }
@@ -1017,15 +1017,24 @@ void PosAssignator::fromDB( int point_id ) {
     ReleasePos( );
   }
   checkTimeout();
-  TQuery Qry(&OraSession);
+
+  DB::TQuery Qry(PgOra::getROSession({"POS_TERM_ASSIGN", "POS_TERM_SETS", "POS_TERM_VENDORS"}), STDLOG);
   Qry.SQLText =
-    "SELECT s.id,s.name,s.address,s.serial,v.code "
-    " FROM pos_term_sets s, pos_term_vendors v "
-    "WHERE s.vendor_id=v.id AND "
-    "      s.airline=:airline AND "
-    "      s.airp=:airp AND "
-    "      s.pr_denial=0 AND "
-    "      s.id NOT IN (SELECT pos_id FROM pos_term_assign WHERE desk<>:desk) "
+    "SELECT "
+        "s.id, "
+        "s.name, "
+        "s.address, "
+        "s.serial, "
+        "v.code "
+    "FROM "
+        "pos_term_sets s, "
+        "pos_term_vendors v "
+    "WHERE "
+        "s.vendor_id=v.id AND "
+        "s.airline=:airline AND "
+        "s.airp=:airp AND "
+        "s.pr_denial=0 AND "
+        "s.id NOT IN (SELECT pos_id FROM pos_term_assign WHERE desk<>:desk) "
     "ORDER BY name";
   Qry.CreateVariable( "airline", otString, fltInfo.airline );
   Qry.CreateVariable( "airp", otString, fltInfo.airp );
@@ -1055,16 +1064,24 @@ void PosAssignator::AssignPos( int pos_id ) {
   if ( pos_id == ASTRA::NoExists ) {
     throw AstraLocale::UserException("MSG.MPS_POS_NOTSELECTED");
   }
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "BEGIN "
-    " UPDATE pos_term_assign SET pos_id=:pos_id,time_create=:time_create "
-    " WHERE desk=:desk;"
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO pos_term_assign(pos_id, time_create, desk) "
-    "    VALUES(:pos_id, :time_create, :desk); "
-    "  END IF;"
-    "END;";
+  DB::TQuery Qry(PgOra::getRWSession("POS_TERM_ASSIGN"), STDLOG);
+  if (PgOra::supportsPg("POS_TERM_ASSIGN")) {
+    Qry.SQLText =
+      "INSERT INTO pos_term_assign (pos_id, time_create, desk) "
+      "VALUES (:pos_id, :time_create, :desk) "
+      "ON CONFLICT (desk) DO UPDATE "
+      "SET pos_id=:pos_id, time_create=:time_create";
+  } else {
+    Qry.SQLText =
+      "BEGIN "
+      " UPDATE pos_term_assign SET pos_id=:pos_id,time_create=:time_create "
+      " WHERE desk=:desk;"
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO pos_term_assign(pos_id, time_create, desk) "
+      "    VALUES(:pos_id, :time_create, :desk); "
+      "  END IF;"
+      "END;";
+  }
   Qry.CreateVariable( "pos_id", otInteger,  pos_id );
   Qry.CreateVariable( "desk", otString,  TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "time_create", otDate, BASIC::date_time::NowUTC() + PosAssignator::TIME_OUT/1440.0 );
@@ -1079,9 +1096,10 @@ void PosAssignator::AssignPos( int pos_id ) {
 }
 
 void PosAssignator::ReleasePos( ) {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("POS_TERM_ASSIGN"), STDLOG);
   Qry.SQLText =
-    "DELETE pos_term_assign WHERE desk=:desk";
+    "DELETE FROM pos_term_assign "
+    "WHERE desk=:desk";
   Qry.CreateVariable( "desk", otString,  TReqInfo::Instance()->desk.code );
   Qry.Execute();
   FPosId = ASTRA::NoExists;
@@ -1091,13 +1109,19 @@ void PosAssignator::ReleasePos( ) {
 
 bool PosAssignator::inUse( )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"POS_TERM_ASSIGN", "POS_TERM_SETS"}), STDLOG);
   Qry.SQLText =
-    "SELECT a.pos_id, s.airline, s.airp "
-    " FROM pos_term_assign a, pos_term_sets s "
-    " WHERE a.desk=:desk AND "
-    "       s.id=a.pos_id AND "
-    "       s.pr_denial=0";
+    "SELECT "
+        "a.pos_id, "
+        "s.airline, "
+        "s.airp "
+    "FROM "
+        "pos_term_assign a, "
+        "pos_term_sets s "
+    "WHERE "
+        "a.desk=:desk AND "
+        "s.id=a.pos_id AND "
+        "s.pr_denial=0";
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.Execute();
   if ( Qry.Eof ) {
@@ -1118,15 +1142,23 @@ void PosClient::fromDB( int posId )
   clear();
   PosAssignator posAssignator;
   posAssignator.AssignPos( posId );
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"PAY_CLIENTS", "POS_TERM_SETS", "POS_TERM_VENDORS"}), STDLOG);
   Qry.SQLText =
-    "SELECT pay_clients.client_id, shop_id,serial,pos_term_vendors.code vendor "
-    " FROM pay_clients, pos_term_sets, pos_term_vendors "
-    " WHERE pos_term_sets.id=:pos_id AND "
-    "       pos_term_sets.vendor_id=pos_term_vendors.id AND "
-    "       pos_term_sets.pr_denial=0 AND "
-    "       pay_clients.id=pos_term_sets.client_id AND "
-    "       pay_clients.pr_denial=0";
+    "SELECT "
+        "pay_clients.client_id, "
+        "shop_id, "
+        "serial, "
+        "pos_term_vendors.code AS vendor "
+    "FROM "
+        "pay_clients, "
+        "pos_term_sets, "
+        "pos_term_vendors "
+    "WHERE "
+        "pos_term_sets.id = :pos_id AND "
+        "pos_term_sets.vendor_id = pos_term_vendors.id AND "
+        "pos_term_sets.pr_denial = 0 AND "
+        "pay_clients.id = pos_term_sets.client_id AND "
+        "pay_clients.pr_denial = 0";
   Qry.CreateVariable( "pos_id", otInteger,  posId );
   Qry.Execute();
   if ( Qry.Eof ) {

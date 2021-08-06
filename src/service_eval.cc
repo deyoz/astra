@@ -1063,15 +1063,17 @@ void ServiceEvalInterface::RequestFromGrpId(xmlNodePtr reqNode, int grp_id, SWC:
     TTripInfo info;
     if (!info.getByGrpId(grp_id))
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-    TQuery Qry( &OraSession );
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT client_id, pr_denial, "
-      "    DECODE(airline,NULL,0,8)+ "
-      "    DECODE(airp_dep,NULL,0,4) AS priority "
-      "FROM pay_clients "
-      "WHERE (airline IS NULL OR airline=:airline) AND "
-      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    DB::TQuery Qry(PgOra::getROSession("PAY_CLIENTS"), STDLOG);
+    Qry.SQLText =
+      "SELECT "
+          "client_id, "
+          "pr_denial, "
+          "((CASE WHEN airline IS NULL THEN 0 ELSE 8 END) + (CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END)) AS priority "
+      "FROM "
+          "pay_clients "
+      "WHERE "
+          "(airline IS NULL OR airline=:airline) AND "
+          "(airp_dep IS NULL OR airp_dep=:airp_dep) "
       "ORDER BY priority DESC";
     Qry.CreateVariable("airline",otString,info.airline);
     Qry.CreateVariable("airp_dep",otString,info.airp);

@@ -317,6 +317,10 @@ namespace PgOra
                 "COMP_SUBCLS_SETS",
         }},
         { "SP_PG_GROUP_SALE_POINTS", {"SALE_DESKS","SALE_POINTS","HIST_SALE_DESKS","HIST_SALE_POINTS"} },
+        { "SP_PG_GROUP_POS_TERM", {
+                "PAY_CLIENTS", "POS_TERM_ASSIGN", "POS_TERM_SETS", "POS_TERM_VENDORS",
+                "HIST_PAY_CLIENTS", "HIST_POS_TERM_SETS"
+        }}
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
