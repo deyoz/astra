@@ -2792,9 +2792,11 @@ string TLCIContent::answer()
 {
     string result;
     try {
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession({"TLG_BINDING", "POINTS"}), STDLOG);
         Qry.SQLText =
-            "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id";
+            "SELECT point_id_spp, COALESCE(points.est_out, points.scd_out) scd_out "
+            "FROM tlg_binding, points "
+            "WHERE point_id_tlg=:point_id and point_id_spp = point_id";
         Qry.CreateVariable("point_id", otInteger, point_id_tlg);
         Qry.Execute();
         if ( Qry.Eof )

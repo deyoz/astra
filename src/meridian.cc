@@ -225,7 +225,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   QryAODB.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
   QryAODB.CreateVariable( "airline", otString, airline );
   QryAODB.Execute();
-  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","PAX_DOC"}), STDLOG); // ckin.get_excess_wt, ckin.get_rkAmount2, ckin.get_rkWeight2, ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_bag_pool_pax_id, salons.get_seat_no
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","PAX_DOC"}), STDLOG); // salons.get_seat_no
   PaxQry.SQLText =
        "SELECT pax.pax_id,pax.reg_no,RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) name,"
        "       pax_grp.grp_id,"

@@ -739,11 +739,11 @@ static std::string FP_getCrsPaxUniqRef(const std::vector<std::string>& p)
 
     std::string uniqRef;
     auto cur = make_db_curs(
-"select UNIQUE_REFERENCE from CRS_PAX, CRS_PNR "
-"where CRS_PAX.PNR_ID=CRS_PNR.PNR_ID "
-"and CRS_PAX.SURNAME=:surname and CRS_PAX.NAME=:name "
-"and CRS_PNR.POINT_ID=:point_dep",
-PgOra::getROSession("PAX_GRP"));
+          "select UNIQUE_REFERENCE from CRS_PAX, CRS_PNR "
+          "where CRS_PAX.PNR_ID=CRS_PNR.PNR_ID "
+          "and CRS_PAX.SURNAME=:surname and CRS_PAX.NAME=:name "
+          "and CRS_PNR.POINT_ID=:point_dep",
+          PgOra::getROSession({"CRS_PAX", "CRS_PNR"}));
     cur
         .stb()
         .defNull(uniqRef, "")

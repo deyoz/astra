@@ -1454,12 +1454,12 @@ namespace PRL_SPACE {
         if(info.optionsIs<TypeB::TPRLOptions>())
             PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
-        std::list<std::string> involvedTables({"PAX","PAX_GRP","CRS_PAX","CRS_PNR"});
+        std::list<std::string> involvedTables({"PAX","PAX_GRP","CRS_PAX","CRS_PNR"}); // system.transliter
         if(not(PRLOptions and PRLOptions->rbd))
           involvedTables.push_back("CLS_GRP");
 
         string SQLText =
-            "select "
+            "SELECT "
             "    pax_grp.airp_arv target, ";
         if(PRLOptions and PRLOptions->rbd)
             SQLText += "    NULL cls, ";
@@ -1481,38 +1481,33 @@ namespace PRL_SPACE {
             "    pax.pers_type, "
             "    pax.reg_no, "
             "    pax.crew_type "
-            "from "
-            "    pax, "
-            "    pax_grp, ";
-        if(not(PRLOptions and PRLOptions->rbd))
-            SQLText += "    cls_grp, ";
+            "FROM (pax "
+            "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) ";
+        if(not(PRLOptions and PRLOptions->rbd)) {
+            SQLText += "LEFT OUTER JOIN cls_grp ";
+            "    ON COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id "
+            "       AND cls_grp.code = :class ";
+        }
         SQLText +=
-            "    crs_pax, "
-            "    crs_pnr "
+            "LEFT OUTER JOIN (crs_pax "
+            "    LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id AND crs_pnr.system = 'CRS' "
+            ") ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
             "WHERE "
-            "    pax_grp.point_dep = :point_id and "
+            "    pax_grp.point_dep = :point_id AND "
             "    pax_grp.status NOT IN ('E') AND "
-            "    pax_grp.airp_arv = :airp and "
-            "    pax_grp.grp_id=pax.grp_id AND ";
+            "    pax_grp.airp_arv = :airp AND ";
         if(PRLOptions and PRLOptions->rbd) {
             SQLText +=
-                "   COALESCE(COALESCE(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) = :class and ";
-        } else {
-            SQLText +=
-                "    COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
-                "    cls_grp.code = :class and ";
+                "   COALESCE(COALESCE(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) = :class AND ";
         }
-        if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
-            SQLText += " pax.pr_brd is not null and ";
-        else
-            SQLText += "    pax.pr_brd = 1 and ";
+        if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI") {
+            SQLText += " pax.pr_brd IS NOT NULL AND ";
+        } else {
+            SQLText += "    pax.pr_brd = 1 AND ";
+        }
         SQLText +=
-            "    pax.seats>0 and "
-            "    pax.pax_id = crs_pax.pax_id(+) and "
-            "    crs_pax.pr_del(+)=0 and "
-            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-            "    crs_pnr.system(+) = 'CRS' "
-            "order by "
+            "    pax.seats > 0 "
+            "ORDER BY "
             "    target, "
             "    cls, "
             "    surname, "
@@ -4446,13 +4441,14 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxRemBasic &basi
 static std::string get_pax_subclass(int pax_id)
 {
     auto cur = make_db_curs(
-        "select crs_pnr.subclass "
-        "from crs_pax, crs_pnr "
-        "where "
-        "   crs_pax.pax_id = :pax_id and "
-        "   crs_pax.pr_del = 0 and "
-        "   crs_pax.pnr_id = crs_pnr.pnr_id and "
-        "   crs_pnr.system = 'CRS'", PgOra::getRWSession("CRS_PAX"));
+        "SELECT crs_pnr.subclass "
+        "FROM crs_pax, crs_pnr "
+        "WHERE "
+        "   crs_pax.pax_id = :pax_id AND "
+        "   crs_pax.pr_del = 0 AND "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id AND "
+        "   crs_pnr.system = 'CRS'",
+          PgOra::getRWSession({"CRS_PAX","CRS_PNR"}));
 
     std::string subclass;
     cur.bind(":pax_id", pax_id).def(subclass).EXfet();
@@ -4686,19 +4682,13 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
         "    pax.surname, "
         "    pax.name, "
         "    COALESCE(COALESCE(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) subclass "
-        "FROM "
-        "    pax_grp, "
-        "    pax, "
-        "    crs_pnr, "
-        "    crs_pax, "
-        "    classes "
+        "FROM (pax JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) "
+        "JOIN classes ON COALESCE(pax.cabin_class, pax_grp.class) = classes.code "
+        "LEFT OUTER JOIN (crs_pax "
+        "    LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id "
+        "                               AND crs_pnr.system = 'CRS' "
+        ") ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
         "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax.pax_id=crs_pax.pax_id(+) AND "
-        "    crs_pax.pr_del(+)=0 AND "
-        "    crs_pax.pnr_id=crs_pnr.pnr_id(+) AND "
-        "    crs_pnr.system(+) = 'CRS' and "
-        "    COALESCE(pax.cabin_class, pax_grp.class)=classes.code AND "
         "    pax_grp.point_dep=:point_id AND "
         "    pax_grp.status NOT IN ('E') AND "
         "    pr_brd IS NOT NULL "
@@ -4798,8 +4788,8 @@ struct TTPLDest {
 
 void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers)
 {
-    DB::TCachedQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),
-            "select "
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}), // system.transliter
+            "SELECT "
             "   pax_grp.airp_arv target, "
             "   cls_grp.id cls, "
             "   system.transliter(pax.surname, 1, :pr_lat) surname, "
@@ -4808,28 +4798,21 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             "   pax.pax_id, "
             "   pax.grp_id, "
             "   pax.bag_pool_num "
-            "from "
-            "   pax, "
-            "   pax_grp, "
-            "   cls_grp, "
-            "   crs_pax, "
-            "   crs_pnr "
-            "where "
-            "   pax_grp.point_dep = :point_id and "
-            "   pax_grp.airp_arv = :airp and "
-            "   pax_grp.grp_id=pax.grp_id AND "
-            "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
-            "   cls_grp.code = :class and "
-            "   pax.pr_brd = 1 and "
-            "   pax.pax_id = crs_pax.pax_id(+) and "
-            "   crs_pax.pr_del(+)=0 and "
-            "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-            "   crs_pnr.system(+) = 'CRS' "
-            "order by "
+            "FROM (pax JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) "
+            "LEFT OUTER JOIN cls_grp ON COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id "
+            "                           AND cls_grp.code = :class "
+            "LEFT OUTER JOIN (crs_pax "
+            "    LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id AND crs_pnr.system = 'CRS' "
+            ") ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
+            "WHERE "
+            "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.airp_arv = :airp AND "
+            "   pax.pr_brd = 1 "
+            "ORDER BY "
             "   target, "
             "   cls, "
             "   surname, "
-            "   name nulls first, "
+            "   name NULLS FIRST, "
             "   pax.pax_id ",
         QParams()
             << QParam("point_id", otInteger, info.point_id)
@@ -4899,7 +4882,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
 {
     const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
 
-    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),STDLOG); // system.transliter
     Qry.SQLText =
         "select "
         "    pax_grp.airp_arv target, "
@@ -4914,31 +4897,24 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.coupon_no, "
         "    pax.grp_id, "
         "    pax.bag_pool_num "
-        "from "
-        "    pax, "
-        "    pax_grp, "
-        "    cls_grp, "
-        "    crs_pax, "
-        "    crs_pnr "
+        "FROM (pax JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) "
+        "LEFT OUTER JOIN cls_grp ON COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id "
+        "                           AND cls_grp.code = :class "
+        "LEFT OUTER JOIN (crs_pax "
+        "   LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id AND crs_pnr.system = 'CRS' "
+        ") ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
         "WHERE "
-        "    pax_grp.point_dep = :point_id and "
+        "    pax_grp.point_dep = :point_id AND "
         "    pax_grp.status NOT IN ('E') AND "
-        "    pax_grp.airp_arv = :airp and "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
-        "    cls_grp.code = :class and "
-        "    pax.pr_brd = 1 and "
-        "    pax.seats>0 and "
-        "    pax.pax_id = crs_pax.pax_id(+) and "
-        "    crs_pax.pr_del(+)=0 and "
-        "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "    crs_pnr.system(+) = 'CRS' and "
+        "    pax_grp.airp_arv = :airp AND "
+        "    pax.pr_brd = 1 AND "
+        "    pax.seats > 0 AND "
         "    pax.ticket_rem = 'TKNE' "
-        "order by "
+        "ORDER BY "
         "    target, "
         "    cls, "
         "    surname, "
-        "    name nulls first, "
+        "    name NULLS FIRST, "
         "    pax.pax_id ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
@@ -5011,7 +4987,7 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         ETLOptions=info.optionsAs<TypeB::TETLOptions>();
 
     string SQLText =
-        "select "
+        "SELECT "
         "    pax_grp.airp_arv target, ";
     if(ETLOptions and ETLOptions->rbd)
         SQLText += "    NULL cls, ";
@@ -5027,42 +5003,34 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.coupon_no, "
         "    pax.grp_id, "
         "    pax.bag_pool_num "
-        "from "
-        "    pax, "
-        "    pax_grp, ";
-    if(not(ETLOptions and ETLOptions->rbd))
-        SQLText += "    cls_grp, ";
-    SQLText +=
-        "    crs_pax, "
-        "    crs_pnr "
-        "WHERE "
-        "    pax_grp.point_dep = :point_id and "
-        "    pax_grp.status NOT IN ('E') AND "
-        "    pax_grp.airp_arv = :airp and "
-        "    pax_grp.grp_id=pax.grp_id AND ";
-    if(ETLOptions and ETLOptions->rbd) {
-        SQLText +=
-            "   nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) = :class and ";
-    } else {
-        SQLText +=
-            "    nvl(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
-            "    cls_grp.code = :class and ";
+        "FROM (pax JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) ";
+    if(not(ETLOptions and ETLOptions->rbd)) {
+        SQLText += "LEFT OUTER JOIN cls_grp ON COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id "
+                   "                           AND cls_grp.code = :class ";
     }
     SQLText +=
-        "    pax.pr_brd = 1 and "
-        "    pax.seats>0 and "
-        "    pax.pax_id = crs_pax.pax_id(+) and "
-        "    crs_pax.pr_del(+)=0 and "
-        "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "    crs_pnr.system(+) = 'CRS' and "
+        "LEFT OUTER JOIN (crs_pax "
+        "    LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id AND crs_pnr.system = 'CRS' "
+        "ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
+        "WHERE "
+        "    pax_grp.point_dep = :point_id AND "
+        "    pax_grp.status NOT IN ('E') AND "
+        "    pax_grp.airp_arv = :airp AND ";
+    if(ETLOptions and ETLOptions->rbd) {
+        SQLText +=
+            "   COALESCE(COALESCE(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) = :class AND ";
+    }
+    SQLText +=
+        "    pax.pr_brd = 1 AND "
+        "    pax.seats>0 AND "
         "    pax.ticket_rem = 'TKNE' "
-        "order by "
+        "ORDER BY "
         "    target, "
         "    cls, "
         "    surname, "
-        "    name nulls first, "
+        "    name NULLS FIRST, "
         "    pax.pax_id ";
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CLS_GRP","CRS_PAX","CRS_PNR"}), STDLOG); // system.transliter
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
@@ -6290,12 +6258,13 @@ void TMVTABody::get(TypeB::TDetailCreateInfo &info)
 
     DB::TQuery Qry(PgOra::getROSession({"POINTS","PAX_GRP","PAX"}),STDLOG);
     Qry.SQLText =
-        "select points.airp as target, "
+        "SELECT points.airp as target, "
         "       COALESCE(est_in,scd_in) as est_in, "
         "       COALESCE(pax.seats,0) as seats, "
         "       COALESCE(pax.inf,0) as inf "
-        "FROM points, "
-        "     (SELECT pax_grp.point_arv, "
+        "FROM points "
+        "LEFT OUTER JOIN ("
+        "      SELECT pax_grp.point_arv, "
         "             SUM(pax.seats) AS seats, "
         "             SUM((CASE WHEN pax.seats=0 THEN 1 ELSE 0 END)) AS inf "
         "      FROM pax_grp,pax "
@@ -6304,8 +6273,8 @@ void TMVTABody::get(TypeB::TDetailCreateInfo &info)
         "            pax_grp.status NOT IN ('E') AND "
         "            pr_brd=1 "
         "      GROUP BY pax_grp.point_arv) pax "
-        "WHERE points.point_id=pax.point_arv(+) AND "
-        "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+        "ON points.point_id = pax.point_arv "
+        "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY point_num ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
@@ -7832,13 +7801,13 @@ void TIDM::append_evt_transit(
              pax_map_coord.point_dep == routeItem.point_id)
       ) {
         DB::TCachedQuery Qry(PgOra::getROSession({"CRS_PAX","CRS_PNR"}),
-                "select "
+                "SELECT "
                 "   crs_pnr.status, "
                 "   crs_pnr.priority "
-                "from "
+                "FROM "
                 "   crs_pax, "
                 "   crs_pnr "
-                "where "
+                "WHERE "
                 "   crs_pax.pax_id = :pax_id and "
                 "   crs_pax.pnr_id = crs_pnr.pnr_id and "
                 "   crs_pnr.system = 'CRS' ",
@@ -8359,7 +8328,7 @@ struct TPNLPaxInfo {
             pnr_id(NoExists)
         {
             Qry.SQLText =
-                "select "
+                "SELECT "
                 "    crs_pax.pax_id, "
                 "    crs_pax.pnr_id, "
                 "    crs_pax.surname, "
@@ -8370,13 +8339,13 @@ struct TPNLPaxInfo {
                 "    crs_pnr.airp_arv, "
                 "    crs_pnr.status, "
                 "    crs_pnr.sender crs "
-                "from "
+                "FROM "
                 "    crs_pnr, "
                 "    crs_pax "
-                "where "
-                "    crs_pax.pax_id = :pax_id and "
-                "    crs_pax.pr_del=0 and "
-                "    crs_pnr.pnr_id = crs_pax.pnr_id and "
+                "WHERE "
+                "    crs_pax.pax_id = :pax_id AND "
+                "    crs_pax.pr_del=0 AND "
+                "    crs_pnr.pnr_id = crs_pax.pnr_id AND "
                 "    crs_pnr.system = 'CRS' ";
             Qry.DeclareVariable("pax_id", otInteger);
         }
@@ -8487,7 +8456,7 @@ struct TFQT {
 
 struct TCKINPaxInfo {
     private:
-        TQuery Qry;
+        DB::TQuery Qry;
         int col_pax_id;
         int col_grp_id;
         int col_surname;
@@ -8622,7 +8591,7 @@ struct TCKINPaxInfo {
                 crs_pax.get(item.pnl_pax_id);
         }
         TCKINPaxInfo(TInfants *ainfants):
-            Qry(&OraSession),
+          Qry(PgOra::getROSession({"PAX","PAX_GRP"}), STDLOG),
             col_pax_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
@@ -8639,22 +8608,22 @@ struct TCKINPaxInfo {
             rems(ainfants)
         {
             Qry.SQLText =
-                "select "
+                "SELECT "
                 "    pax.pax_id, "
                 "    pax.grp_id, "
                 "    pax.surname, "
                 "    pax.name, "
                 "    pax.seats, "
                 "    pax.pers_type, "
-                "    nvl(pax.cabin_class, pax_grp.class) cls, "
-                "    nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) subclass, "
+                "    COALESCE(pax.cabin_class, pax_grp.class) cls, "
+                "    COALESCE(nvl(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) subclass, "
                 "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
                 "    pax_grp.status "
-                "from "
+                "FROM "
                 "    pax, "
                 "    pax_grp "
-                "where "
+                "WHERE "
                 "    pax.pax_id = :pax_id and "
                 "    pax_grp.grp_id = pax.grp_id ";
             Qry.DeclareVariable("pax_id", otInteger);
@@ -8891,23 +8860,20 @@ void TPFSInfo::dump()
 
 void TPFSInfo::get(int point_id)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_PAX"}), STDLOG);
     Qry.SQLText =
-        "select  "
+        "SELECT  "
         "    pax.pax_id,  "
         "    crs_pax.pnr_id  "
-        "from  "
-        "    pax_grp,  "
-        "    pax,  "
-        "    crs_pax  "
-        "where  "
-        "    pax_grp.status NOT IN (:psTransit, :psCrew) and  "
-        "    pax_grp.point_dep = :point_id and  "
-        "    pax_grp.grp_id = pax.grp_id and  "
-        "    pax.refuse is null and "
-        "    pax.seats > 0 and "
-        "    pax.pax_id = crs_pax.pax_id(+) and  "
-        "    crs_pax.pr_del(+) = 0  ";
+        "FROM pax_grp "
+        "JOIN (pax LEFT OUTER JOIN crs_pax "
+        "          ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
+        ") ON pax_grp.grp_id = pax.grp_id "
+        "WHERE  "
+        "    pax_grp.status NOT IN (:psTransit, :psCrew) AND "
+        "    pax_grp.point_dep = :point_id AND "
+        "    pax.refuse IS NULL AND "
+        "    pax.seats > 0 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("psTransit", otString, EncodePaxStatus(psTransit));
     Qry.CreateVariable("psCrew", otString, EncodePaxStatus(psCrew));
@@ -8924,37 +8890,33 @@ void TPFSInfo::get(int point_id)
             items[pax_id].pnr_id = pnr_id;
         }
     }
-    Qry.Clear();
-    Qry.SQLText =
-        "select  "
+    DB::TQuery QryTlgBind(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX","PAX","PAX_GRP"}), STDLOG);
+    QryTlgBind.SQLText =
+        "SELECT  "
         "    crs_pax.pax_id pnl_pax_id, "
         "    pax_grp.point_dep pnl_point_id "
-        "from  "
-        "    tlg_binding,  "
-        "    crs_pnr,  "
-        "    crs_pax, "
-        "    pax, "
-        "    pax_grp "
-        "where  "
-        "    tlg_binding.point_id_spp = :point_id and  "
-        "    tlg_binding.point_id_tlg = crs_pnr.point_id and  "
-        "    crs_pnr.system = 'CRS' and "
-        "    crs_pnr.pnr_id = crs_pax.pnr_id and  "
-        "    crs_pax.pr_del = 0 and "
-        "    crs_pax.pax_id = pax.pax_id(+) and "
-        "    pax.refuse(+) is null and "
-        "    nvl(pax.seats, crs_pax.seats) > 0 and "
-        "    pax.grp_id = pax_grp.grp_id(+) ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        int col_pnl_pax_id = Qry.FieldIndex("pnl_pax_id");
-        int col_pnl_point_id = Qry.FieldIndex("pnl_point_id");
-        for(; !Qry.Eof; Qry.Next()) {
-            int pnl_pax_id = Qry.FieldAsInteger(col_pnl_pax_id);
+        "FROM crs_pnr "
+        "JOIN tlg_binding ON crs_pnr.point_id = tlg_binding.point_id_tlg "
+        "JOIN (crs_pax "
+        "    LEFT OUTER JOIN (pax"
+        "        LEFT OUTER JOIN pax_grp ON pax.grp_id = pax_grp.grp_id "
+        "    ) ON crs_pax.pax_id = pax.pax_id AND pax.refuse IS NULL "
+        ") ON crs_pnr.pnr_id = crs_pax.pnr_id "
+        "WHERE  "
+        "    tlg_binding.point_id_spp = :point_id AND  "
+        "    crs_pnr.system = 'CRS' AND "
+        "    crs_pax.pr_del = 0 AND "
+        "    COALESCE(pax.seats, crs_pax.seats) > 0";
+    QryTlgBind.CreateVariable("point_id", otInteger, point_id);
+    QryTlgBind.Execute();
+    if(!QryTlgBind.Eof) {
+        int col_pnl_pax_id = QryTlgBind.FieldIndex("pnl_pax_id");
+        int col_pnl_point_id = QryTlgBind.FieldIndex("pnl_point_id");
+        for(; !QryTlgBind.Eof; QryTlgBind.Next()) {
+            int pnl_pax_id = QryTlgBind.FieldAsInteger(col_pnl_pax_id);
             int pnl_point_id = NoExists;
-            if(!Qry.FieldIsNULL(col_pnl_point_id))
-                pnl_point_id = Qry.FieldAsInteger(col_pnl_point_id);
+            if(!QryTlgBind.FieldIsNULL(col_pnl_point_id))
+                pnl_point_id = QryTlgBind.FieldAsInteger(col_pnl_point_id);
             items[pnl_pax_id].pnl_pax_id = pnl_pax_id;
             items[pnl_pax_id].pnl_point_id = pnl_point_id;
         }
@@ -9298,7 +9260,6 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
       throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
     };
 
-    TQuery Qry(&OraSession);
     TypeB::TDetailCreateInfo info;
     info.create_point = createInfo.create_point;
     info.copy(createInfo);

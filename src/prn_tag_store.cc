@@ -1043,23 +1043,24 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
     BagReader bag_reader(GrpId_t(grp_info.grp_id), std::nullopt, READ::BAGS_AND_TAGS);
     if(pax_id == NoExists) {
         pax_id = apax_id;
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(!isTestPaxId(pax_id) ? PgOra::getROSession({"PAX_GRP","PAX","CRS_PAX","CRS_PNR"})
+                                            : PgOra::getROSession({"TEST_PAX","SUBCLS","CLS_GRP"}), STDLOG);
         if (!isTestPaxId(pax_id))
         {
             LoadPaxDoc(pax_id, doc);
             Qry.SQLText =
-                "select "
+                "SELECT "
                 "   pax.surname, "
                 "   pax.name, "
                 "   pax.ticket_rem, "
                 "   pax.ticket_no, "
                 "   pax.coupon_no, "
-                "   DECODE( "
-                "       pax.SEAT_TYPE, "
-                "       'SMSA',1, "
-                "       'SMSW',1, "
-                "       'SMST',1, "
-                "       0) pr_smoke, "
+                "   CASE "
+                "     WHEN pax.seat_type = 'SMSA' THEN 1 "
+                "     WHEN pax.seat_type = 'SMSW' THEN 1 "
+                "     WHEN pax.seat_type = 'SMST' THEN 1 "
+                "     ELSE 0 "
+                "   END AS pr_smoke, "
                 "   is_jmp, "
                 "   pax.reg_no, "
                 "   pax.seats, "
@@ -1067,21 +1068,18 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   pax.bag_pool_num, "
                 "   pax_grp.excess_wt, pax_grp.bag_refuse, "
                 "   pax.subclass, "
-                "   nvl(pax.cabin_class, pax_grp.class) cabin_class, "
-                "   nvl(pax.cabin_class_grp, pax_grp.class_grp) cabin_class_grp, "
+                "   COALESCE(pax.cabin_class, pax_grp.class) cabin_class, "
+                "   COALESCE(pax.cabin_class_grp, pax_grp.class_grp) cabin_class_grp, "
                 "   crs_pnr.class crs_cls "
-                "from "
-                "   pax_grp, "
-                "   pax, "
-                "   crs_pax, "
-                "   crs_pnr "
-                "where "
-                "   pax.pax_id = :pax_id and "
-                "   pax.grp_id = pax_grp.grp_id and "
-                "   pax.pax_id = crs_pax.pax_id(+) and "
-                "   crs_pax.pr_del(+) = 0 and "
-                "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-                "   crs_pnr.system(+) = 'CRS' ";
+                "FROM pax_grp "
+                "JOIN (pax "
+                "    LEFT OUTER JOIN (crs_pax "
+                "        LEFT OUTER JOIN crs_pnr "
+                "        ON crs_pax.pnr_id = crs_pnr.pnr_id "
+                "        AND crs_pnr.system = 'CRS' "
+                "    ) ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0 "
+                ") ON pax.grp_id = pax_grp.grp_id "
+                "WHERE pax.pax_id = :pax_id ";
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
             brands.get(pax_id);
@@ -1181,8 +1179,13 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
 
         if(grp_info.pr_print_fio_pnl) {
             // esli nastroyka vkluchena, togda vytaskivaem dannye is PNL
-            TCachedQuery Qry("select name, surname from crs_pax where pax_id = :pax_id",
-                    QParams() << QParam("pax_id", otInteger, pax_id));
+            DB::TCachedQuery Qry(
+                  PgOra::getROSession("CRS_PAX"),
+                  "SELECT name, surname "
+                  "FROM crs_pax "
+                  "WHERE pax_id = :pax_id",
+                  QParams() << QParam("pax_id", otInteger, pax_id),
+                  STDLOG);
             Qry.get().Execute();
             if(not Qry.get().Eof) {
                 surname = Qry.get().FieldAsString("surname");
@@ -1202,21 +1205,20 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
     }
     if(grp_id == NoExists) {
         grp_id = agrp_id;
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(!isTestPaxId(grp_id) ? PgOra::getROSession("PAX_GRP")
+                                            : PgOra::getROSession("POINTS"), STDLOG);
         if (!isTestPaxId(grp_id))
         {
             Qry.SQLText =
-                "select "
+                "SELECT "
                 "   point_dep, "
                 "   point_arv, "
                 "   airp_dep, "
                 "   airp_arv, "
                 "   hall, "
                 "   status "
-                "from "
-                "   pax_grp "
-                "where "
-                "   grp_id = :grp_id ";
+                "FROM pax_grp "
+                "WHERE grp_id = :grp_id ";
             Qry.CreateVariable("grp_id", otInteger, grp_id);
             Qry.Execute();
             if(Qry.Eof)
@@ -1236,9 +1238,10 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
         else
         {
             point_dep=grp_id-TEST_ID_BASE;
-            Qry.Clear();
             Qry.SQLText =
-                "SELECT airp AS airp_dep FROM points WHERE point_id=:point_id AND pr_del>=0";
+                "SELECT airp AS airp_dep "
+                "FROM points "
+                "WHERE point_id=:point_id AND pr_del>=0";
             Qry.CreateVariable("point_id", otInteger, point_dep);
             Qry.Execute();
             if(Qry.Eof)
@@ -1252,7 +1255,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             point_arv = next.point_id;
             airp_arv = next.airp;
 
-        };
+        }
     }
 }
 
@@ -1276,13 +1279,14 @@ void flt_infants(int point_id, vector<TInfantAdults> &infants)
           QParams() << QParam("point_id", otInteger, point_id),
           STDLOG);
     Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
+    for(; not Qry.get().Eof; Qry.get().Next()) {
         infants.push_back(TInfantAdults(Qry.get()));
+    }
     if(not infants.empty()) {
         vector<TInfantAdults> adults;
         DB::TCachedQuery adultQry(
               PgOra::getROSession({"PAX_GRP","PAX"}),
-              "SELECT * FROM pax_grp,pax "
+              "SELECT * FROM pax_grp, pax "
               "WHERE "
               "   pax_grp.grp_id=pax.grp_id AND "
               "   pax_grp.point_dep=:point_id AND "

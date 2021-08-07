@@ -51,8 +51,7 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
 
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airp FROM points "
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
@@ -83,31 +82,30 @@ void BrdInterface::readTripCounters( const int point_id,
     bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
     TReqInfo *reqInfo = TReqInfo::Instance();
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_PAX"}), STDLOG);
     string sql=
         "SELECT "
         "    COUNT(*) AS reg, ";
-    if (reqInfo->screen.name == "BRDBUS.EXE")
-        sql+=   "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd ";
-    else
-        sql+=   "    NVL(SUM(DECODE(pr_exam,0,0,1)),0) AS brd ";
-    sql+=     "FROM "
-        "    pax_grp, "
-        "    pax ";
+    if (reqInfo->screen.name == "BRDBUS.EXE") {
+        sql += "COALESCE(SUM(CASE WHEN pr_brd = 0 THEN 0 ELSE 1 END), 0) AS brd ";
+    } else {
+        sql += "COALESCE(SUM(CASE WHEN pr_exam = 0 THEN 0 ELSE 1 END), 0) AS brd ";
+    }
+    sql+=
+        "FROM pax "
+        "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id ";
     if(used_for_norec_rpt or used_for_gosho_rpt)
-        sql += ", crs_pax ";
+        sql += "LEFT OUTER JOIN crs_pax "
+               "ON pax.pax_id = crs_pax.pax_id AND (crs_pax.pax_id IS NULL OR crs_pax.pr_del <> 0) ";
     sql+=
         "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.point_dep=:point_id AND NVL(pax.cabin_class, pax_grp.class)=:class AND "
-        "    pax_grp.status NOT IN ('E') AND "
-        "    pax.pr_brd IS NOT NULL ";
+        "    pax_grp.point_dep=:point_id "
+        "    AND COALESCE(pax.cabin_class, pax_grp.class)=:class "
+        "    AND pax_grp.status NOT IN ('E') "
+        "    AND pax.pr_brd IS NOT NULL ";
     if(used_for_norec_rpt or used_for_gosho_rpt) {
-        sql +=
-            " and pax.pax_id = crs_pax.pax_id(+) and "
-            " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
         if(used_for_gosho_rpt) {
-            sql += " and pax_grp.status not in(:psCheckin, :psTCheckin) ";
+            sql += " AND pax_grp.status not in(:psCheckin, :psTCheckin) ";
             Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
             Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
         }
@@ -158,7 +156,7 @@ void BrdInterface::readTripCounters( const int point_id,
         fr_brd_str << class_report_view << vbrd;
         if(!fr_not_brd_str.str().empty()) fr_not_brd_str << "/";
         fr_not_brd_str << class_report_view << vreg - vbrd;
-    };
+    }
 
     xmlNodePtr countersNode = GetNode("counters", dataNode);
     if (countersNode==NULL)
@@ -170,38 +168,54 @@ void BrdInterface::readTripCounters( const int point_id,
 
     xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
     if(variablesNode) {
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_PAX"}), STDLOG);
         string SQLText =
-            "select "
-            " nvl(sum(decode(pax.pers_type, 'ВЗ', 1, 0)), 0) adl, "
-            " nvl(sum(decode(pax.pers_type, 'РБ', 1, 0)), 0) chd, "
-            " nvl(sum(decode(pax.pers_type, 'РМ', 1, 0)), 0) inf, ";
+            "SELECT "
+            "COALESCE(SUM(CASE WHEN pax.pers_type = 'ВЗ' THEN 1 ELSE 0 END), 0) AS adl, "
+            "COALESCE(SUM(CASE WHEN pax.pers_type = 'РБ' THEN 1 ELSE 0 END), 0) AS chd, "
+            "COALESCE(SUM(CASE WHEN pax.pers_type = 'РМ' THEN 1 ELSE 0 END), 0) AS inf, ";
         if (reqInfo->screen.name == "BRDBUS.EXE")
             SQLText +=
-                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'ВЗ', 1, 0))),0) AS brd_adl, "
-                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'РБ', 1, 0))),0) AS brd_chd, "
-                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'РМ', 1, 0))),0) AS brd_inf ";
+                "COALESCE(SUM(CASE WHEN pr_brd = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'ВЗ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_adl, "
+                "COALESCE(SUM(CASE WHEN pr_brd = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'РБ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_chd, "
+                "COALESCE(SUM(CASE WHEN pr_brd = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'РМ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_inf ";
         else
             SQLText +=
-                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'ВЗ', 1, 0))),0) AS brd_adl, "
-                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'РБ', 1, 0))),0) AS brd_chd, "
-                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'РМ', 1, 0))),0) AS brd_inf ";
+                "COALESCE(SUM(CASE WHEN pr_exam = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'ВЗ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_adl, "
+                "COALESCE(SUM(CASE WHEN pr_exam = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'РБ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_chd, "
+                "COALESCE(SUM(CASE WHEN pr_exam = 0 "
+                "             THEN 0 "
+                "             ELSE (CASE WHEN pax.pers_type = 'РМ' THEN 1 ELSE 0 END) "
+                "             END), 0) AS brd_inf ";
         SQLText +=
-            "from "
-            " pax_grp, "
-            " pax ";
-        if(used_for_norec_rpt or used_for_gosho_rpt)
-            SQLText += ", crs_pax ";
+            "FROM pax "
+            "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id ";
+        if(used_for_norec_rpt or used_for_gosho_rpt) {
+            SQLText += "LEFT OUTER JOIN crs_pax "
+                       "ON pax.pax_id = crs_pax.pax_id "
+                       "AND (crs_pax.pax_id IS NULL OR crs_pax.pr_del <> 0) ";
+        }
         SQLText +=
-            "where "
-            " pax_grp.grp_id=pax.grp_id AND "
+            "WHERE "
             " point_dep = :point_id and "
             " pax_grp.status NOT IN ('E') AND "
-            " pr_brd is not null ";
+            " pr_brd IS NOT NULL ";
         if(used_for_norec_rpt or used_for_gosho_rpt) {
-            SQLText +=
-                " and pax.pax_id = crs_pax.pax_id(+) and "
-                " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
             if(used_for_gosho_rpt) {
                 SQLText += " and pax_grp.status not in(:psCheckin, :psTCheckin) ";
                 Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
@@ -274,8 +288,7 @@ void lock_and_get_new_tid(int locked_point_id)
     flights.Get( locked_point_id, ftTranzit );
     flights.Lock(__FUNCTION__); //лочим весь транзитный рейс
   };
-  TCachedQuery Qry("SELECT cycle_tid__seq.nextval FROM dual");
-  Qry.get().Execute();
+  PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
 }
 
 void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -288,10 +301,10 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   lock_and_get_new_tid(point_id);
 
   ostringstream sql;
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
   sql.str("");
-  sql << "SELECT pax.grp_id, pax_id,reg_no,pr_brd FROM pax_grp,pax "
+  sql << "SELECT pax.grp_id, pax_id,reg_no,pr_brd "
+         "FROM pax_grp,pax "
          "WHERE pax_grp.grp_id=pax.grp_id AND "
          "      point_dep=:point_id AND "
          "      pax_grp.status NOT IN ('E') AND ";
@@ -306,18 +319,24 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   if (!PaxQry.Eof)
   {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    int tid = PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ");
+    DB::TQuery QryUpd(PgOra::getRWSession({"PAX_GRP","PAX"}), STDLOG);
     sql.str("");
-    if (reqInfo->screen.name == "BRDBUS.EXE")
-      sql << "UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
+    if (reqInfo->screen.name == "BRDBUS.EXE") {
+      sql << "UPDATE pax SET "
+             "  pr_brd=(CASE WHEN :mark = 0 THEN 1 ELSE 0 END), "
+             "  tid=:tid "
              "WHERE pax_id=:pax_id AND pr_brd=:mark ";
-    else
-      sql << "UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
+    } else {
+      sql << "UPDATE pax SET "
+             "  pr_exam=(CASE WHEN :mark = 0 THEN 1 ELSE 0 END), "
+             "  tid=:tid "
              "WHERE pax_id=:pax_id AND pr_exam=:mark ";
-    Qry.SQLText=sql.str().c_str();
-    Qry.DeclareVariable( "pax_id", otInteger );
-    Qry.CreateVariable( "mark", otInteger, (int)!boarding );
+    }
+    QryUpd.SQLText=sql.str().c_str();
+    QryUpd.DeclareVariable("pax_id", otInteger);
+    QryUpd.CreateVariable("mark", otInteger, (int)!boarding);
+    QryUpd.CreateVariable("tid", otInteger, tid);
 
     TAdvTripInfo fltInfo;
     fltInfo.getByPointId(point_id);
@@ -328,18 +347,18 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
       RegNo_t regNo(PaxQry.FieldAsInteger("reg_no"));
-      Qry.SetVariable("pax_id", pax_id);
+      QryUpd.SetVariable("pax_id", pax_id);
 
       bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
 
       if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
           bsm_grp.insert(PaxQry.FieldAsInteger("grp_id"));
 
-      Qry.Execute();
+      QryUpd.Execute();
 
       TPaxEvent().toDB(pax_id, (boarding ? TPaxEventTypes::BRD : TPaxEventTypes::UNBRD));
 
-      if (Qry.RowsProcessed()>0)
+      if (QryUpd.RowsProcessed()>0)
         rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
 
       if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
@@ -386,41 +405,46 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  TQuery Qry(&OraSession);
+  const int new_tid = PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ");
+  DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
-    Qry.SQLText=
+    QryUpd.SQLText=
       "UPDATE pax "
       "SET pr_brd=:mark, "
-      "    pr_exam=DECODE(:pr_exam_with_brd,0,pr_exam,:mark), "
-      "    tid=cycle_tid__seq.currval "
+      "    pr_exam=(CASE WHEN :pr_exam_with_brd = 0 THEN pr_exam ELSE :mark END), "
+      "    tid=:new_tid "
       "WHERE pax_id=:pax_id AND tid=:tid";
-    Qry.CreateVariable("pr_exam_with_brd",otInteger,(int)pr_exam_with_brd);
+    QryUpd.CreateVariable("pr_exam_with_brd",otInteger,(int)pr_exam_with_brd);
     TPaxEvent().toDB(pax_id, (mark ? TPaxEventTypes::BRD : TPaxEventTypes::UNBRD));
   }
-  else
-    Qry.SQLText=
-      "UPDATE pax SET pr_exam=:mark, tid=cycle_tid__seq.currval "
+  else {
+    QryUpd.SQLText=
+      "UPDATE pax "
+      "SET pr_exam=:mark, "
+      "    tid=:new_tid "
       "WHERE pax_id=:pax_id AND tid=:tid";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.CreateVariable("tid", otInteger, tid);
-  Qry.CreateVariable("mark", otInteger, (int)mark);
-  Qry.Execute();
-  if (Qry.RowsProcessed()<=0) return false;
+  }
+  QryUpd.CreateVariable("pax_id", otInteger, pax_id);
+  QryUpd.CreateVariable("new_tid", otInteger, new_tid);
+  QryUpd.CreateVariable("tid", otInteger, tid);
+  QryUpd.CreateVariable("mark", otInteger, (int)mark);
+  QryUpd.Execute();
+  if (QryUpd.RowsProcessed()<=0) return false;
 
   rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT surname, name, reg_no, grp_id, cycle_tid__seq.currval AS tid "
+  DB::TQuery QryPax(PgOra::getRWSession("PAX"), STDLOG);
+  QryPax.SQLText=
+    "SELECT surname, name, reg_no, grp_id "
     "FROM pax "
     "WHERE pax_id=:pax_id";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-  if (!Qry.Eof)
+  QryPax.CreateVariable("pax_id", otInteger, pax_id);
+  QryPax.Execute();
+  if (!QryPax.Eof)
   {
-    int grp_id=Qry.FieldAsInteger("grp_id");
-    RegNo_t regNo(Qry.FieldAsInteger("reg_no"));
+    int grp_id=QryPax.FieldAsInteger("grp_id");
+    RegNo_t regNo(QryPax.FieldAsInteger("reg_no"));
 
     string lexema_id;
     if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -435,12 +459,12 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
     else
       lexema_id = (mark ? "EVT.PASSENGER.EXAMED" : "EVT.PASSENGER.NOT_EXAMED");
 
-    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<string>("surname", Qry.FieldAsString("surname"))
-                                      << PrmSmpl<string>("name", Qry.FieldAsString("name")),
+    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<string>("surname", QryPax.FieldAsString("surname"))
+                                      << PrmSmpl<string>("name", QryPax.FieldAsString("name")),
                                       evtPax, point_id, regNo.get(), grp_id);
 
     //отвяжем сквозняков от предыдущих сегментов
-    SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,Qry.FieldAsInteger("tid"));
+    SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid);
 
     if (reqInfo->screen.name == "BRDBUS.EXE")
     {
@@ -516,7 +540,7 @@ bool CheckSeat(int pax_id, const string& scan_data)
     else
     {
       //сравниваем с номером места, который пришел в 2D
-      TQuery Qry(&OraSession);
+      DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG); // salons.get_seat_no
       Qry.SQLText =
         "SELECT LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
         "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat "
@@ -1708,7 +1732,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     LogTrace(TRACE3) << __func__ << ": Eof=" << QryPaxes.Eof;
     if (!QryPaxes.Eof)
     {
-      TQuery TCkinQry(&OraSession);
+      DB::TQuery TCkinQry(PgOra::getROSession("POINTS"), STDLOG);
 
       bool free_seating=SALONS2::isFreeSeating(point_id);
 
@@ -1975,10 +1999,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                   NewTextChild(paxNode, "inbound_flt", trip.str());
 
-                  TCkinQry.Clear();
                   TCkinQry.SQLText=
-                    "SELECT scd_in, NVL(act_in,NVL(est_in,scd_in)) AS real_in "
-                    "FROM points WHERE point_id=:point_id";
+                    "SELECT scd_in, COALESCE(act_in,COALESCE(est_in,scd_in)) AS real_in "
+                    "FROM points "
+                    "WHERE point_id=:point_id";
                   TCkinQry.CreateVariable("point_id",otInteger,inboundGrp.get().point_arv);
                   TCkinQry.Execute();
                   if (!TCkinQry.Eof && !TCkinQry.FieldIsNULL("scd_in") && !TCkinQry.FieldIsNULL("real_in"))
@@ -2002,15 +2026,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
     if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
-};
+}
 
 void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
   int pax_id=NodeAsInteger("pax_id",reqNode);
   int tid=NodeAsInteger("tid",reqNode);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
   Qry.SQLText=
     "SELECT pax_grp.airp_arv, pax_grp.status, pax.crew_type "
     "FROM pax_grp, pax "
@@ -2027,7 +2050,7 @@ void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
 
   LoadAPIS(paxSegment, pax_ext, pax_id, resNode);
-};
+}
 
 void BrdInterface::SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

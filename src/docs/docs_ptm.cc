@@ -385,7 +385,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         NewTextChild(variablesNode, "ptm", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et), rpt_params.dup_lang()));
         NewTextChild(variablesNode, "ptm_lat", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et_lat), AstraLocale::LANG_EN));
     }
-    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","POINTS","PAX","CLS_GRP","HALLS2","TRANSFER","TRFER_TRIPS","TCKIN_PAX_GRP"}), STDLOG); // ckin.get_rkWeight2, ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_excess_wt
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","POINTS","PAX","CLS_GRP","HALLS2","TRANSFER","TRFER_TRIPS","TCKIN_PAX_GRP"}), STDLOG);
     string SQLText =
         "SELECT "
         "   pax.*, "

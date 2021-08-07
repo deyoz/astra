@@ -785,7 +785,6 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
   if ( mode==dbRewriteAll ) {
     LogTrace(TRACE5) << "dbRewriteAll_Delete_Terms=" << flags.isFlag(dbRewriteAll_Delete_Terms) << ",dbRewriteAll_Delete_Gates=" << flags.isFlag(dbRewriteAll_Delete_Gates);
   }
-  TQuery Qry(&OraSession);
   tstations dbStations;
   dbStations.fromDB(point_id);
   if ( mode == toDbMode::dbWriteReceiveChanged ) { //приходят только изменения
@@ -3021,47 +3020,6 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 {
   int point_id=fltInfo.point_id;
 
-  TQuery DelQry(&OraSession);
-  TQuery PaxQry(&OraSession);
-
-  const char* pax_sql=
-    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd,status "
-    "FROM pax_grp, pax "
-    "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.grp_id=:grp_id";
-  const char* del_sql=
-    "BEGIN "
-    "  DELETE FROM "
-    "   (SELECT * "
-    "    FROM trip_comp_layers,pax,pax_grp,grp_status_types "
-    "    WHERE trip_comp_layers.pax_id=pax.pax_id AND "
-    "          trip_comp_layers.layer_type=grp_status_types.layer_type AND "
-    "          pax.grp_id=pax_grp.grp_id AND "
-    "          pax_grp.status=grp_status_types.code AND "
-    "          pax_grp.grp_id=:grp_id); "
-    "  DELETE FROM "
-    "   (SELECT * "
-    "    FROM pax_seats,pax,pax_grp "
-    "    WHERE pax_seats.pax_id=pax.pax_id AND "
-    "          pax.grp_id=pax_grp.grp_id AND "
-    "          pax_grp.grp_id=:grp_id); "
-    "  UPDATE pax SET refuse=:refuse,pr_brd=NULL WHERE grp_id=:grp_id; "
-    "END;";
-
-  if (strcmp(PaxQry.SQLText.SQLText(),pax_sql)!=0)
-  {
-    PaxQry.Clear();
-    PaxQry.SQLText=pax_sql;
-    PaxQry.DeclareVariable("grp_id",otInteger);
-  };
-
-  if (strcmp(DelQry.SQLText.SQLText(),del_sql)!=0)
-  {
-    DelQry.Clear();
-    DelQry.SQLText=del_sql;
-    DelQry.CreateVariable( "refuse", otString, refuseAgentError );
-    DelQry.DeclareVariable("grp_id",otInteger);
-  };
-
   //набираем вектор BSMsegs
   if (BSMsegs.find(fltInfo.point_id)==BSMsegs.end())
   {
@@ -3083,7 +3041,12 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 
   bool SyncPaxs=is_sync_paxs(point_id);
 
-  PaxQry.SetVariable("grp_id",grp_id);
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
+  PaxQry.SQLText =
+      "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd,status "
+      "FROM pax_grp, pax "
+      "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.grp_id=:grp_id";
+  PaxQry.CreateVariable("grp_id",otInteger, grp_id);
   PaxQry.Execute();
   for(;!PaxQry.Eof;PaxQry.Next())
   {
@@ -3115,8 +3078,36 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
     };
   };
 
-  DelQry.SetVariable("grp_id",grp_id);
-  DelQry.Execute();
+  DB::TQuery DelLayerQry(PgOra::getRWSession({"TRIP_COMP_LAYERS","PAX","PAX_GRP","GRP_STATUS_TYPES"}), STDLOG);
+  DelLayerQry.SQLText =
+      "DELETE FROM trip_comp_layers "
+      "WHERE (trip_comp_layers.pax_id, trip_comp_layers.layer_type) IN ( "
+      "    SELECT pax.pax_id, grp_status_types.layer_type "
+      "    FROM pax,pax_grp,grp_status_types "
+      "    WHERE pax.grp_id=pax_grp.grp_id AND "
+      "          pax_grp.status=grp_status_types.code AND "
+      "          pax_grp.grp_id=:grp_id "
+      ") ";
+  DelLayerQry.CreateVariable("grp_id",otInteger, grp_id);
+  DelLayerQry.Execute();
+
+  DB::TQuery DelSeatQry(PgOra::getRWSession({"PAX_SEATS","PAX","PAX_GRP"}), STDLOG);
+  DelSeatQry.SQLText =
+      "DELETE FROM pax_seats "
+      "WHERE pax_id IN (SELECT pax.pax_id "
+      "FROM pax,pax_grp "
+      "WHERE pax.grp_id=pax_grp.grp_id AND "
+      "      pax_grp.grp_id=:grp_id) ";
+
+  DB::TQuery UpdQry(PgOra::getRWSession("PAX"), STDLOG);
+  UpdQry.SQLText =
+      "UPDATE pax "
+      "SET refuse=:refuse, "
+      "    pr_brd=NULL "
+      "WHERE grp_id=:grp_id ";
+  UpdQry.CreateVariable("refuse", otString, refuseAgentError);
+  UpdQry.CreateVariable("grp_id",otInteger, grp_id);
+  UpdQry.Execute();
 
   rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
 
@@ -3132,7 +3123,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   annul_bt.minus(annul_bt_after);
 
   annul_bt.toDB();
-};
+}
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
                        map<int,TAdvTripInfo> &segs )
@@ -3519,7 +3510,6 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
     xmlNodePtr node = NodeAsNode( "trips", reqNode );
     node = node->children;
-    TQuery Qry(&OraSession);
     tstations stations;
     BitSet<tstations::toDBModeRewriteAll> flags;
     xmlNodePtr n, stnode;
@@ -5579,8 +5569,8 @@ void SetFlightFact(int point_id, TDateTime utc_act_out)
   TFlights flights;
   flights.Get( point_id, ftAll );  //весь маршрут
   flights.Lock(__FUNCTION__);
-  TQuery Qry(&OraSession);
-    Qry.SQLText=
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+  Qry.SQLText =
     "SELECT move_id,airline,flt_no,suffix,act_out,airp,point_num,pr_del "
     "FROM points "
     "WHERE point_id=:point_id AND pr_del <> -1";
@@ -5590,12 +5580,14 @@ void SetFlightFact(int point_id, TDateTime utc_act_out)
     return;
   }
   int move_id = Qry.FieldAsInteger( "move_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT reference FROM move_ref WHERE move_id=:move_id";
-  Qry.CreateVariable( "move_id", otInteger, move_id );
-  Qry.Execute();
-  string reference = Qry.FieldAsString( "reference" );
+  DB::TQuery QryMove(PgOra::getROSession("MOVE_REF"), STDLOG);
+  QryMove.SQLText =
+    "SELECT reference "
+    "FROM move_ref "
+    "WHERE move_id=:move_id";
+  QryMove.CreateVariable( "move_id", otInteger, move_id );
+  QryMove.Execute();
+  string reference = QryMove.FieldAsString( "reference" );
   TSOPPDests dests;
   internal_ReadDests( move_id, dests, reference, NoExists );
   if ( dests.size() > 1 ) {
@@ -7304,7 +7296,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
 "  coalesce(ckin_client_sets.pr_tckin, 0) AS pr_tckin, "
 "  coalesce(ckin_client_sets.pr_upd_stage, 0) AS pr_upd_stage, "
 "  coalesce(ckin_client_sets.priority, 0) AS priority "
-"FROM client_types"
+"FROM client_types "
 "  LEFT OUTER JOIN ("
 "     SELECT"
 "       client_type,"

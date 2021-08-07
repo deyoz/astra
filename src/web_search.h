@@ -90,7 +90,7 @@ class TPNRFilter : public SurnameFilter
     TPNRFilter& fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode);
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
-    std::string getSurnameSQLFilter(const std::string &field_name, TQuery &Qry) const;
+    std::string getSurnameSQLFilter(const std::string &field_name, DB::TQuery &Qry) const;
     bool isEqualPnrAddr(const TPnrAddrs &pnr_addrs) const;
     bool isEqualSurname(const std::string &pax_surname) const;
     bool isEqualName(const std::string &pax_name) const;
@@ -227,7 +227,7 @@ struct TFlightInfo
   };
 
   void set(const TAdvTripInfo& fltInfo);
-  bool fromDB(TQuery &Qry);
+  bool fromDB(DB::TQuery &Qry);
   bool fromDB(int point_id, bool pr_throw);
   bool fromDBadditional(bool first_segment, bool pr_throw);
   void add(const TDestInfo &dest);
@@ -288,7 +288,7 @@ struct TPNRSegId
     return orig_subcls<segId.orig_subcls;
   }
 
-  bool fromDB(TQuery &Qry);
+  bool fromDB(DB::TQuery &Qry);
 
   std::string traceStr() const;
 };
@@ -311,7 +311,7 @@ struct TPNRSegInfo : public TPNRSegId
     cabin_subcls.clear();
   }
 
-  bool fromDB(int point_id, const TTripRoute &route, TQuery &Qry);
+  bool fromDB(int point_id, const TTripRoute &route, DB::TQuery &Qry);
   bool filterFromDB(const TPNRFilter &filter);
   bool setIfSuitable(const TPNRFilter &filter,
                      const TAdvTripInfo& flt,
@@ -351,7 +351,7 @@ struct TPaxInfo
     return pax_id < item.pax_id;
   }
 
-  bool filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no);
+  bool filterFromDB(const TPNRFilter &filter, DB::TQuery &Qry, bool ignore_reg_no);
   bool setIfSuitable(const TPNRFilter& filter, const CheckIn::TSimplePaxItem& pax, bool ignore_reg_no=false);
   bool fromTestPax(const TTestPaxInfo &pax);
   void toXML(xmlNodePtr node) const;

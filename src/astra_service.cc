@@ -950,18 +950,6 @@ void createSofiFileDATA(int receipt_id)
   }
 }
 
-/*void createAODBFileDATA( int point_id )
-{
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT airp, airline, flt_no FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if ( !Qry.Eof )
-        CreateCommonFileData( point_id, FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
-                              Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
-}*/
-
-
 class TAODBPointAddr: public TPointAddr {
 public:
   TAODBPointAddr( ):TPointAddr( string(FILE_AODB_OUT_TYPE), true ) {}
@@ -1014,11 +1002,8 @@ public:
 
 void sync_sppcek( void )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT system.UTCSYSDATE currdate FROM dual";
-  Qry.Execute();
-  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  TDateTime currdate = NowUTC();
+
   TSPPCEKPointAddr point_addr;
   TSQLCondDates cond_dates;
   cond_dates.sql = " ( scd_in >= :day1 OR scd_out >= :day1 OR "
@@ -1278,14 +1263,15 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
 
   TBalanceData balanceData;
   balanceData.get( point_id, Qry.FieldAsInteger( "pr_tranzit" ), routesB, routesA, true );
- TQuery ResaQry( &OraSession );
+  DB::TQuery ResaQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX"}), STDLOG);
   ResaQry.SQLText =
-    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
-    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       tlg_binding.point_id_spp=:point_id AND "
-    "       tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-    "       crs_pnr.system='CRS' "
+    "SELECT COUNT(*) resa, airp_arv, class "
+    "FROM tlg_binding,crs_pnr,crs_pax "
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pax.pr_del=0 AND "
+    "      tlg_binding.point_id_spp=:point_id AND "
+    "      tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+    "      crs_pnr.system='CRS' "
     "GROUP BY airp_arv, class";
   ResaQry.CreateVariable( "point_id", otInteger, point_id );
   tst();
@@ -1504,11 +1490,14 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     fds.clear();
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
-    TCachedQuery fltQry(
-            "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
-            " WHERE point_id=:point_id",
-            QryParams
-            );
+    DB::TCachedQuery fltQry(
+            PgOra::getROSession("POINTS"),
+            "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,"
+            "       airp,scd_out,est_out,act_out,pr_del "
+            "FROM points "
+            "WHERE point_id=:point_id",
+            QryParams,
+            STDLOG);
     fltQry.get().Execute();
 
     QryParams.clear();

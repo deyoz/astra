@@ -218,7 +218,7 @@ namespace TypeB
             t.airp = info.flt.airp_dep;
             if(con.msg_type == msgAD) { // Взлет
                 if(GetTripSets(tsSetDepTimeByMVT, t)) {
-                    TQuery Qry(&OraSession);
+                    DB::TQuery Qry(PgOra::getROSession("TLG_BINDING"), STDLOG);
                     Qry.SQLText =
                         "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
                     Qry.CreateVariable("point_id", otInteger, point_id_tlg);

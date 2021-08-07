@@ -21,15 +21,16 @@ int getPointIdsSpp(int id, bool is_pnr_id, set<int>& point_ids_spp)
   point_ids_spp.clear();
   int result=ASTRA::NoExists;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(!isTestPaxId(id) ? PgOra::getROSession({"CRS_PNR","CRS_PAX","TLG_BINDING"})
+                                  : PgOra::getROSession("TEST_PAX"), STDLOG);
   if (!isTestPaxId(id))
   {
     ostringstream sql;
     sql << "SELECT point_id_spp, crs_pnr.pnr_id "
-           "FROM crs_pnr,crs_pax,tlg_binding "
-           "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
-           "      crs_pnr.point_id=tlg_binding.point_id_tlg(+) AND "
-           "      crs_pnr.system='CRS' AND ";
+           "FROM crs_pnr "
+           "JOIN crs_pax ON crs_pnr.pnr_id = crs_pax.pnr_id "
+           "LEFT OUTER JOIN tlg_binding ON crs_pnr.point_id = tlg_binding.point_id_tlg "
+           "WHERE crs_pnr.system='CRS' AND ";
     if (is_pnr_id)
       sql << "      crs_pnr.pnr_id=:id AND ";
     else
@@ -53,7 +54,7 @@ int getPointIdsSpp(int id, bool is_pnr_id, set<int>& point_ids_spp)
     Qry.CreateVariable( "id", otInteger, id );
     Qry.Execute();
     if ( !Qry.Eof ) result=id;
-  };
+  }
 
   return result;
 }

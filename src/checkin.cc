@@ -5762,30 +5762,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
         if (!needSyncEdsEts(ediResNode))
         {
-          //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
-          TQuery Qry(&OraSession);
-          Qry.SQLText=
-            "BEGIN "
-            "  IF :pax_id IS NOT NULL THEN "
-            "    UPDATE pax SET ticket_confirm=1,tid=cycle_tid__seq.currval "
-            "    WHERE pax_id=:pax_id AND "
-            "          ticket_rem=:ticket_rem AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
-            "    RETURNING grp_id,reg_no INTO :grp_id,:reg_no; "
-            "    IF :grp_id IS NOT NULL AND :reg_no IS NOT NULL AND "
-            "       :ev_time IS NOT NULL AND :ev_order IS NOT NULL THEN "
-            "      DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order; "
-            "    END IF; "
-            "  END IF; "
-            "END; ";
-          Qry.DeclareVariable("pax_id",otInteger);
-          Qry.DeclareVariable("grp_id",otInteger);
-          Qry.DeclareVariable("reg_no",otInteger);
-          Qry.DeclareVariable("ticket_no",otString);
-          Qry.DeclareVariable("coupon_no",otInteger);
-          Qry.DeclareVariable("ev_time",otDate);
-          Qry.DeclareVariable("ev_order",otInteger);
-          Qry.CreateVariable("ticket_rem",otString,"TKNE");
-
           xmlNodePtr ticketNode=GetNode("tickets",ediResNode);
           if (ticketNode!=NULL) ticketNode=ticketNode->children;
           for(;ticketNode!=NULL;ticketNode=ticketNode->next)
@@ -5810,43 +5786,70 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
             if (p!=paxs.end())
             {
-              Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",ticketNode2));
-              Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",ticketNode2));
-              Qry.SetVariable("pax_id",ticket_pax_id);
-              Qry.SetVariable("grp_id",FNull);
-              Qry.SetVariable("reg_no",FNull);
+              //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
+               DB::TCachedQuery QryLock(
+                     PgOra::getRWSession("PAX"),
+                     "SELECT grp_id,reg_no "
+                     "FROM pax "
+                     "WHERE pax_id = :pax_id "
+                     "AND ticket_rem = :ticket_rem "
+                     "AND ticket_no = :ticket_no "
+                     "AND coupon_no = :coupon_no "
+                     "FOR UPDATE ",
+                     QParams() << QParam("pax_id",otInteger, ticket_pax_id)
+                               << QParam("ticket_rem",otString,"TKNE")
+                               << QParam("ticket_no",otString, NodeAsStringFast("ticket_no",ticketNode2))
+                               << QParam("coupon_no",otInteger, NodeAsIntegerFast("coupon_no",ticketNode2)),
+                     STDLOG);
+               QryLock.get().Execute();
+               if (!QryLock.get().Eof) {
+                 DB::TCachedQuery QryUpd(
+                       PgOra::getRWSession("PAX"),
+                       "UPDATE pax "
+                       "SET ticket_confirm = 1,"
+                       "    tid = :new_tid "
+                       "WHERE pax_id = :pax_id "
+                       "AND ticket_rem = :ticket_rem "
+                       "AND ticket_no = :ticket_no "
+                       "AND coupon_no = :coupon_no ",
+                       QParams() << QParam("pax_id",otInteger, ticket_pax_id)
+                                 << QParam("ticket_rem",otString,"TKNE")
+                                 << QParam("ticket_no",otString, NodeAsStringFast("ticket_no",ticketNode2))
+                                 << QParam("coupon_no",otInteger, NodeAsIntegerFast("coupon_no",ticketNode2))
+                                 << QParam("new_tid",otInteger, PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ")),
+                       STDLOG);
+                 QryUpd.get().Execute();
 
-              xmlNodePtr eventNode=GetNode("coupon_status/event",ticketNode);
-              if (eventNode!=NULL &&
-                  GetNodeFast("reg_no",ticketNode2)==NULL &&
-                  GetNode("@ev_time",eventNode)!=NULL &&
-                  GetNode("@ev_order",eventNode)!=NULL)
-              {
-                Qry.SetVariable("ev_time",NodeAsDateTime("@ev_time",eventNode));
-                Qry.SetVariable("ev_order",NodeAsInteger("@ev_order",eventNode));
-              }
-              else
-              {
-                Qry.SetVariable("ev_time",FNull);
-                Qry.SetVariable("ev_order",FNull);
-              }
-              Qry.Execute();
-              if (eventNode!=NULL &&
-                  GetNodeFast("reg_no",ticketNode2)==NULL &&
-                  !Qry.VariableIsNULL("reg_no") &&
-                  !Qry.VariableIsNULL("grp_id"))
-              {
-                TLogLocale locale;
-                locale.ev_type=ASTRA::evtPax;
-                locale.id1=grp.point_dep;
-                locale.id2=Qry.GetVariableAsInteger("reg_no");
-                locale.id3=Qry.GetVariableAsInteger("grp_id");
-                LocaleFromXML(eventNode, locale.lexema_id, locale.prms);
-                reqInfo->LocaleToLog(locale);
-              }
-
-            }
-          }
+                 xmlNodePtr eventNode=GetNode("coupon_status/event",ticketNode);
+                 if (eventNode!=NULL &&
+                     GetNodeFast("reg_no",ticketNode2)==NULL &&
+                     !QryLock.get().FieldIsNULL("reg_no") &&
+                     !QryLock.get().FieldIsNULL("grp_id"))
+                 {
+                   if (GetNode("@ev_time",eventNode)!=NULL &&
+                       GetNode("@ev_order",eventNode)!=NULL)
+                   {
+                     DB::TCachedQuery QryDel(
+                           PgOra::getRWSession("EVENTS_BILINGUAL"),
+                           "DELETE FROM events_bilingual "
+                           "WHERE time = :ev_time AND ev_order = :ev_order ",
+                           QParams() << QParam("ev_time", otDate, NodeAsDateTime("@ev_time",eventNode))
+                                     << QParam("ev_order",otInteger, NodeAsInteger("@ev_order",eventNode)),
+                           STDLOG);
+                     QryDel.get().Execute();
+                     LogTrace(TRACE3) << "QryDel RowsProcessed=" << QryDel.get().RowsProcessed();
+                   }
+                   TLogLocale locale;
+                   locale.ev_type=ASTRA::evtPax;
+                   locale.id1=grp.point_dep;
+                   locale.id2=QryLock.get().FieldAsInteger("reg_no");
+                   locale.id3=QryLock.get().FieldAsInteger("grp_id");
+                   LocaleFromXML(eventNode, locale.lexema_id, locale.prms);
+                   reqInfo->LocaleToLog(locale);
+                 }
+               }
+             }
+           }
 
           xmlNodePtr emdNode=GetNode("emdocs",ediResNode);
           if (emdNode!=NULL) emdNode=emdNode->children;
@@ -7487,7 +7490,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
 
   DB::TQuery qryInsert(PgOra::getRWSession("TRFER_TRIPS"),STDLOG);
   qryInsert.SQLText = std::string("INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-                      "VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL)") 
+                      "VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL)")
                       + (PgOra::supportsPg("TRFER_TRIPS") ? " ON CONFLICT DO NOTHING" : "");
 
   qryInsert.DeclareVariable("point_id_trfer",otInteger);

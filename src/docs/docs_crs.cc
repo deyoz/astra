@@ -22,11 +22,11 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form((rpt_params.rpt_type == rtBDOCS ? "bdocs" : "crs"), reqNode, resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"CRS_PNR","TLG_BINDING","CRS_PAX","PAX"}), STDLOG); // salons.get_crs_seat_no
     string SQLText =
         "SELECT "
         "      crs_pax.pax_id, "
-        "      crs_pax.surname||' '||crs_pax.name family ";
+        "      RTRIM(COALESCE(crs_pax.surname,'')||' '||COALESCE(crs_pax.name,'')) family ";
     if(rpt_params.rpt_type != rtBDOCS) {
         SQLText +=
             "      , tlg_binding.point_id_spp AS point_id, "
@@ -38,21 +38,22 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      crs_pnr.pnr_id ";
     }
     SQLText +=
-        "FROM crs_pnr,tlg_binding,crs_pax ";
-    if(pr_unreg)
-        SQLText += " , pax ";
+        "FROM crs_pnr "
+        "JOIN tlg_binding ON crs_pnr.point_id = tlg_binding.point_id_tlg "
+        "JOIN (crs_pax ";
+
+    if(pr_unreg) {
+        SQLText += "LEFT OUTER JOIN pax "
+                   "ON crs_pax.pax_id = pax.pax_id AND pax.pax_id IS NULL ";
+    }
     SQLText +=
-        "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-        "      crs_pnr.system='CRS' AND "
-        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        ") ON crs_pnr.pnr_id = crs_pax.pnr_id ";
+    SQLText +=
+        "WHERE crs_pnr.system='CRS' AND "
         "      crs_pax.pr_del=0 and "
         "      tlg_binding.point_id_spp = :point_id ";
-    if(pr_unreg)
-        SQLText +=
-            "    and crs_pax.pax_id = pax.pax_id(+) and "
-            "    pax.pax_id is null ";
     SQLText +=
-        "order by ";
+        "ORDER BY ";
     switch(rpt_params.sort) {
         case stServiceCode:
         case stRegNo:
@@ -72,7 +73,8 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
 
     DB::TQuery docsQry(PgOra::getROSession("CRS_PAX_DOC"), STDLOG);
-    docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
+    docsQry.SQLText = "SELECT * FROM crs_pax_doc "
+                      "WHERE pax_id = :pax_id AND rem_code = 'DOCS'";
     docsQry.DeclareVariable("pax_id", otInteger);
     //ремарки пассажиров
 

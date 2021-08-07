@@ -180,12 +180,12 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
   xmlNodePtr node;
 
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out, "
     "       point_num, first_point, pr_tranzit "
-    "FROM points WHERE point_id=:point_id AND pr_del>=0";
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
@@ -912,8 +912,10 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   int point_id = NodeAsInteger( "point_id", reqNode );
 
-  TQuery RegionQry(&OraSession);
-  RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
+  DB::TQuery RegionQry(PgOra::getROSession("POINTS"), STDLOG);
+  RegionQry.SQLText =
+      "SELECT airp FROM points "
+      "WHERE point_id=:point_id AND pr_del>=0";
   RegionQry.CreateVariable("point_id",otInteger,point_id);
   RegionQry.Execute();
   if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
@@ -1082,8 +1084,10 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     if (!Qry.FieldIsNULL("point_id"))
     {
       point_id = Qry.FieldAsInteger("point_id");
-      TQuery RegionQry(&OraSession);
-      RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
+      DB::TQuery RegionQry(PgOra::getROSession("POINTS"), STDLOG);
+      RegionQry.SQLText =
+          "SELECT airp FROM points "
+          "WHERE point_id=:point_id AND pr_del>=0";
       RegionQry.CreateVariable("point_id",otInteger,point_id);
       RegionQry.Execute();
       if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");

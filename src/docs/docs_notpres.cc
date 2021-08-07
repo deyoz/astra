@@ -23,7 +23,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
 
     if(old_cbbg()) {
-        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG); // salons.get_seat_no, ckin.get_bagAmount2, ckin.get_birks2
+        DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG); // salons.get_seat_no
         string SQLText =
             "SELECT point_dep AS point_id, "
             "       pax.*, "

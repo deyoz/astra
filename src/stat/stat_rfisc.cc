@@ -99,7 +99,9 @@ static std::string get_subclass_by_pax_id(int pax_id)
 {
     std::string subclass;
     auto cur = make_db_curs(
-        "select crs_pnr.subclass from crs_pax, crs_pnr where "
+        "SELECT crs_pnr.subclass "
+        "FROM crs_pax, crs_pnr "
+        "WHERE "
         "crs_pax.pax_id = :pax_id "
         "and crs_pax.pr_del = 0 "
         "and crs_pax.pnr_id = crs_pnr.pnr_id", PgOra::getROSession({"CRS_PAX", "CRS_PNR"}));

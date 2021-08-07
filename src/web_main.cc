@@ -832,7 +832,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
   {
     if (!isTestPaxId(pnr_id))
     {
-      TQuery CrsSeatQry(&OraSession);
+      TQuery CrsSeatQry(&OraSession); // salons.get_crs_seat_no
       CrsSeatQry.SQLText=
           "BEGIN "
           "  :crs_seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'one',:crs_row); "
@@ -848,7 +848,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
       CrsSeatQry.DeclareVariable("crs_seat_no", otString);
 
 
-      TQuery SeatQry(&OraSession);
+      TQuery SeatQry(&OraSession); // salons.get_crs_seat_no
       SeatQry.SQLText=
           "SELECT salons.get_seat_no(:pax_id,:seats,NULL,:status,:point_dep,'one',:num) AS seat_no FROM dual ";
       SeatQry.DeclareVariable("pax_id", otInteger);
@@ -1040,7 +1040,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
     }
     else
     {
-      TQuery Qry(&OraSession);
+      DB::TQuery Qry(PgOra::getROSession({"TEST_PAX", "SUBCLS"}), STDLOG);
         Qry.SQLText =
         "SELECT surname, name, subcls.class, subclass, doc_no, tkn_no, "
         "       pnr_airline AS fqt_airline, fqt_no, "
@@ -3120,40 +3120,41 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
     reqInfo->user.user_type=utSupport;
     reqInfo->user.access.set_total_permit();
 
-    TQuery UpdQry(&OraSession);
+    DB::TQuery UpdChkdQry(PgOra::getRWSession({"CRS_PAX","CRS_PNR","CRS_PAX","CRS_PAX_CHKD"}), STDLOG);
     if (sync_all)
     {
-      UpdQry.SQLText=
+      UpdChkdQry.SQLText=
         "UPDATE crs_pax SET sync_chkd=1 "
         "WHERE pax_id IN "
         "(SELECT crs_pax.pax_id "
-        " FROM crs_pnr, crs_pax, crs_pax_chkd"
+        " FROM crs_pnr, crs_pax, crs_pax_chkd "
         " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "       crs_pax.pax_id=crs_pax_chkd.pax_id AND "
         "       crs_pnr.point_id=:point_id_tlg AND "
         "       crs_pnr.system='CRS' AND "
         "       crs_pax.pr_del=0 AND "
         "       crs_pax.sync_chkd=0) ";
-      UpdQry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
-      UpdQry.Execute();
+      UpdChkdQry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
+      UpdChkdQry.Execute();
     }
 
-    UpdQry.Clear();
-    UpdQry.SQLText="UPDATE crs_pax SET sync_chkd=0 WHERE pax_id=:pax_id AND sync_chkd<>0";
+    DB::TQuery UpdQry(PgOra::getRWSession("CRS_PAX"), STDLOG);
+    UpdQry.SQLText=
+        "UPDATE crs_pax SET sync_chkd=0 "
+        "WHERE pax_id=:pax_id AND sync_chkd<>0";
     UpdQry.DeclareVariable("pax_id", otInteger);
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"CRS_PNR", "CRS_PAX", "CRS_PAX_CHKD", "PAX"}), STDLOG);
     Qry.SQLText =
       "SELECT crs_pax.pax_id AS crs_pax_id, pax.pax_id, "
       "       MIN(crs_pax.surname) AS surname, "
       "       MIN(crs_pax.name) AS name, "
       "       MIN(crs_pax_chkd.reg_no) AS reg_no "
-      "FROM crs_pnr, crs_pax, crs_pax_chkd, pax "
-      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-      "      crs_pax.pax_id=crs_pax_chkd.pax_id AND "
-      "      crs_pax.pax_id=pax.pax_id(+) AND "
-      "      crs_pnr.point_id=:point_id_tlg AND "
+      "FROM crs_pax "
+      "JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id "
+      "JOIN crs_pax_chkd ON crs_pax.pax_id = crs_pax_chkd.pax_id "
+      "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id "
+      "WHERE crs_pnr.point_id=:point_id_tlg AND "
       "      crs_pnr.system='CRS' AND "
       "      crs_pax.pr_del=0 AND crs_pax.seats>0 AND "
       "      crs_pax.sync_chkd<>0 "
@@ -3275,8 +3276,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
 
 void SyncCHKD(int point_id_spp, bool sync_all)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"TLG_BINDING", "POINTS"}), STDLOG);
   Qry.SQLText =
     "SELECT point_id_tlg "
     "FROM tlg_binding, points "
@@ -3427,8 +3427,7 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
   TPaxSection *paxSection=dynamic_cast<TPaxSection*>(&exch);
   TSvcSection *svcSection=dynamic_cast<TSvcSection*>(&exch);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PAX", "CRS_PNR"}), STDLOG);
   Qry.SQLText =
     "SELECT crs_pnr.airp_arv, "
     "       crs_pax.pax_id, crs_pax.surname, crs_pax.name, crs_pax.pers_type, crs_pax.seats "
@@ -3516,8 +3515,7 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
   TCheckedReqPassengers req_grps(false, true, true);
   TNotCheckedReqPassengers req_pnrs(false, true, true);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX","CRS_PAX"}), STDLOG);
   Qry.SQLText =
     "SELECT pax.grp_id, pax.pax_id, crs_pax.pnr_id AS crs_pnr_id, crs_pax.pax_id AS crs_pax_id "
     "FROM (SELECT grp_id, pax_id FROM pax WHERE pax_id=:pax_id) pax "

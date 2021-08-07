@@ -141,15 +141,15 @@ const std::string qryBalancePad =
     "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
     "  pax_grp.class, "
     "  pax.seats "
-    " FROM pax_grp, pax, crs_pax, crs_pnr "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pr_brd IS NOT NULL AND "
-    "       pax.pax_id=crs_pax.pax_id AND "
-    "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
+    "FROM pax_grp, pax, crs_pax, crs_pnr "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      point_arv=:point_arv AND "
+    "      pax_grp.status NOT IN ('E') AND "
+    "      pr_brd IS NOT NULL AND "
+    "      pax.pax_id=crs_pax.pax_id AND "
+    "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+    "      crs_pax.pr_del=0 AND "
+    "      crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
 
 const std::string qryBalanceCargo =
     "SELECT point_dep, "
@@ -1036,19 +1036,14 @@ void importDBF( int external_point_id, string &dbf_file )
   FlightPermitQry.DeclareVariable( "airline", otString );
   FlightPermitQry.DeclareVariable( "flt_no", otInteger );
   //начитываем данные по СПП для центровки
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT system.UTCSYSDATE currdate FROM dual";
-  Qry.Execute();
-  tst();
-  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
-  Qry.Clear();
-  string sql;
-  sql =
+  TDateTime currdate = NowUTC();
+  DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+  string sql =
     "SELECT point_id,point_num,first_point,pr_tranzit,airline,flt_no,suffix,"
     "       craft,bort,airp,trip_type,SUBSTR( park_out, 1, 5 ) park_out,"
-    "       scd_out,est_out,act_out,time_out FROM points "
-    " WHERE time_out in (:day1,:day2) AND pr_del=0 AND pr_reg=1 ";
+    "       scd_out,est_out,act_out,time_out "
+    "FROM points "
+    "WHERE time_out in (:day1,:day2) AND pr_del=0 AND pr_reg=1 ";
   if ( external_point_id != NoExists )
     sql += " AND point_id=:point_id ";
   if ( !airps.empty() ) {
@@ -1058,7 +1053,7 @@ void importDBF( int external_point_id, string &dbf_file )
       if ( istr != airps.begin() )
         sql += ",";
       sql += ":airp"+IntToString(idx);
-      Qry.CreateVariable( "airp"+IntToString(idx), otString, *istr );
+      QryPoint.CreateVariable( "airp"+IntToString(idx), otString, *istr );
       idx++;
     }
     sql += ")";
@@ -1070,7 +1065,7 @@ void importDBF( int external_point_id, string &dbf_file )
       if ( istr != airlines.begin() )
         sql += ",";
       sql += ":airline"+IntToString(idx);
-      Qry.CreateVariable( "airline"+IntToString(idx), otString, *istr );
+      QryPoint.CreateVariable( "airline"+IntToString(idx), otString, *istr );
       idx++;
     }
     sql += ")";
@@ -1082,19 +1077,19 @@ void importDBF( int external_point_id, string &dbf_file )
       if ( iflt_no != flt_nos.begin() )
         sql += ",";
       sql += ":flt_no"+IntToString(idx);
-      Qry.CreateVariable( "flt_no"+IntToString(idx), otInteger, *iflt_no );
+      QryPoint.CreateVariable( "flt_no"+IntToString(idx), otInteger, *iflt_no );
       idx++;
     }
     sql += ")";
   }
-  Qry.SQLText = sql;
+  QryPoint.SQLText = sql;
   TDateTime vdate;
   modf( currdate, &vdate );
-  Qry.CreateVariable( "day1", otDate, vdate );
-  Qry.CreateVariable( "day2", otDate, vdate + 1 );
+  QryPoint.CreateVariable( "day1", otDate, vdate );
+  QryPoint.CreateVariable( "day2", otDate, vdate + 1 );
   if ( external_point_id != NoExists )
-    Qry.CreateVariable( "point_id", otInteger, external_point_id );
-  Qry.Execute();
+    QryPoint.CreateVariable( "point_id", otInteger, external_point_id );
+  QryPoint.Execute();
   TTripRoute routesB, routesA;
   //экипаж
   DB::TQuery CrewsQry(PgOra::getROSession("TRIP_CREW"), STDLOG);
@@ -1120,24 +1115,24 @@ void importDBF( int external_point_id, string &dbf_file )
     points.insert( make_pair( dbf.GetFieldValue( irow, "ID" ), external_point_id != NoExists && strexternal_point_id != dbf.GetFieldValue( irow, "ID" ) ) );
   }
 
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    int point_id = Qry.FieldAsInteger( "point_id" );
-    if ( fabs( Qry.FieldAsDateTime( "time_out" ) - currdate ) > 1.0 )
+  for ( ;!QryPoint.Eof; QryPoint.Next() ) {
+    int point_id = QryPoint.FieldAsInteger( "point_id" );
+    if ( fabs( QryPoint.FieldAsDateTime( "time_out" ) - currdate ) > 1.0 )
       continue;
     if ( !getBalanceFlightPermit( FlightPermitQry,
-                                  Qry.FieldAsInteger( "point_id" ),
-                                  Qry.FieldAsString( "airline" ),
-                                  Qry.FieldAsString( "airp" ),
-                                  Qry.FieldAsInteger( "flt_no" ),
-                                  Qry.FieldAsString( "bort" ),
+                                  QryPoint.FieldAsInteger( "point_id" ),
+                                  QryPoint.FieldAsString( "airline" ),
+                                  QryPoint.FieldAsString( "airp" ),
+                                  QryPoint.FieldAsInteger( "flt_no" ),
+                                  QryPoint.FieldAsString( "bort" ),
                                   ROGNOV_BALANCE_TYPE ) )
       continue;
     prior_constraint_balance_value.clear();
     routesA.GetRouteAfter( NoExists,
                            point_id,
-                           Qry.FieldAsInteger( "point_num" ),
-                           Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                           Qry.FieldAsInteger( "pr_tranzit" ),
+                           QryPoint.FieldAsInteger( "point_num" ),
+                           QryPoint.FieldIsNULL("first_point")?NoExists:QryPoint.FieldAsInteger("first_point"),
+                           QryPoint.FieldAsInteger( "pr_tranzit" ),
                            trtNotCurrent,
                            trtNotCancelled );
     ProgTrace( TRACE5, "point_id=%d, routes.size()=%zu", point_id, routesA.size() );
@@ -1146,9 +1141,9 @@ void importDBF( int external_point_id, string &dbf_file )
     }
     routesB.GetRouteBefore( NoExists,
                             point_id,
-                            Qry.FieldAsInteger( "point_num" ),
-                            Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                            Qry.FieldAsInteger( "pr_tranzit" ),
+                            QryPoint.FieldAsInteger( "point_num" ),
+                            QryPoint.FieldIsNULL("first_point")?NoExists:QryPoint.FieldAsInteger("first_point"),
+                            QryPoint.FieldAsInteger( "pr_tranzit" ),
                             trtWithCurrent,
                             trtNotCancelled );
     int irow = 0;
@@ -1174,7 +1169,7 @@ void importDBF( int external_point_id, string &dbf_file )
         ProgTrace( TRACE5, "CompSectionsLayers.empty(), point_id=%d", point_id );
         throw Exception( "CompSectionsLayers is empty" );
       }
-      string bort = Qry.FieldAsString( "bort" );
+      string bort = QryPoint.FieldAsString( "bort" );
       if ( !( (bort.size() == 5 && bort.find( "-" ) == string::npos) ||
               (bort.size() == 6 && bort.find( "-" ) == 2) ) ) {
         ProgTrace( TRACE5, "point_id=%d,bort=%s, bort.find=%zu", point_id, bort.c_str(), bort.find( "-" ) );
@@ -1183,23 +1178,23 @@ void importDBF( int external_point_id, string &dbf_file )
 
       //надо будет заполнить на основе данных
       dbf.SetFieldValue( irow, "ID", IntToString( point_id ) );
-      value = string(Qry.FieldAsString( "airline" )) + Qry.FieldAsString( "flt_no" ) + Qry.FieldAsString( "suffix" );
+      value = string(QryPoint.FieldAsString( "airline" )) + QryPoint.FieldAsString( "flt_no" ) + QryPoint.FieldAsString( "suffix" );
       dbf.SetFieldValue( irow, "NR", value );
-      dbf.SetFieldValue( irow, "TRANSIT", Qry.FieldAsInteger( "pr_tranzit" )==0?string(" "):FLAG_SET );
-      dbf.SetFieldValue( irow, "TYPE", Qry.FieldAsString( "craft" ) );
-      dbf.SetFieldValue( irow, "BORT", Qry.FieldAsString( "bort" ) );
+      dbf.SetFieldValue( irow, "TRANSIT", QryPoint.FieldAsInteger( "pr_tranzit" )==0?string(" "):FLAG_SET );
+      dbf.SetFieldValue( irow, "TYPE", QryPoint.FieldAsString( "craft" ) );
+      dbf.SetFieldValue( irow, "BORT", QryPoint.FieldAsString( "bort" ) );
       tst();
-      string region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
-      TDateTime scd_out =  UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+      string region = AirpTZRegion( QryPoint.FieldAsString( "airp" ) );
+      TDateTime scd_out =  UTCToLocal( QryPoint.FieldAsDateTime( "scd_out" ), region );
       dbf.SetFieldValue( irow, "PLANDAT", DateTimeToStr( scd_out, "yyyymmdd" ) );
-      if ( Qry.FieldIsNULL( "est_out" ) )
+      if ( QryPoint.FieldIsNULL( "est_out" ) )
         dbf.SetFieldValue( irow, "TIME", DateTimeToStr( scd_out, "hhnn" ) );
       else {
-        scd_out =  UTCToLocal( Qry.FieldAsDateTime( "est_out" ), region );
+        scd_out =  UTCToLocal( QryPoint.FieldAsDateTime( "est_out" ), region );
         dbf.SetFieldValue( irow, "TIME", DateTimeToStr( scd_out, "hhnn" ) );
       }
       tst();
-      dbf.SetFieldValue( irow, "STAND", Qry.FieldAsString( "park_out" ) );
+      dbf.SetFieldValue( irow, "STAND", QryPoint.FieldAsString( "park_out" ) );
       CrewsQry.SetVariable( "point_id", point_id );
       CrewsQry.Execute();
       if ( !CrewsQry.Eof ) {
@@ -1213,10 +1208,10 @@ void importDBF( int external_point_id, string &dbf_file )
           dbf.SetFieldValue( irow, "CAPT", upperc( CrewsQry.FieldAsString( "commander" ) ) );
       }
 
-      dbf.SetFieldValue( irow, "COMPANY", Qry.FieldAsString( "airline" ) );
+      dbf.SetFieldValue( irow, "COMPANY", QryPoint.FieldAsString( "airline" ) );
 
       TBalanceData balanceData;
-      balanceData.get( point_id, Qry.FieldAsInteger( "pr_tranzit" ), routesB, routesA, true );
+      balanceData.get( point_id, QryPoint.FieldAsInteger( "pr_tranzit" ), routesB, routesA, true );
 
       dbf.SetFieldValue( irow, "PAS_ROW", "Z" );
       string strnum;

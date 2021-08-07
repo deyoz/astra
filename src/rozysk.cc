@@ -95,7 +95,7 @@ struct TRow {
       point_id=NoExists;
     };
     TRow& fltFromDB(DB::TQuery &Qry);
-    TRow& paxFromDB(TQuery &Qry, std::optional<CKIN::BagReader> bag_reader);
+    TRow& paxFromDB(DB::TQuery &Qry, std::optional<CKIN::BagReader> bag_reader);
     TRow& setPnr(const TPnrAddrs &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &_visa);
@@ -152,7 +152,7 @@ TRow& TRow::fltFromDB(DB::TQuery &Qry)
   return *this;
 };
 
-TRow& TRow::paxFromDB(TQuery &Qry, std::optional<CKIN::BagReader> bag_reader)
+TRow& TRow::paxFromDB(DB::TQuery &Qry, std::optional<CKIN::BagReader> bag_reader)
 {
   airp_arv=Qry.FieldAsString("airp_arv");
   TDateTime landing=Qry.FieldIsNULL("landing")?NoExists:Qry.FieldAsDateTime("landing");
@@ -462,41 +462,36 @@ const char* pax_sql=
   "  pax_grp.point_dep AS point_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.grp_id, "
   "  pax.pax_id, pax.surname, pax.name, pax.reg_no, pax.bag_pool_num, "
   "  salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
-  "  DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,DECODE(pax.pr_exam,0,'K1','K2'),'K3'),'K0') AS operation, "
-  "  NVL(scd_in,NVL(est_in,act_in)) AS landing, 1 AS is_utc "
+  "  CASE WHEN pax.refuse IS NULL "
+  "  THEN (CASE WHEN pax.pr_brd = 0 "
+  "        THEN (CASE WHEN pax.pr_exam = 0 THEN 'K1' ELSE 'K2' END) "
+  "        ELSE 'K3' "
+  "        END) "
+  "  ELSE 'K0' "
+  "  END AS operation, "
+  "  COALESCE(scd_in,COALESCE(est_in,act_in)) AS landing, 1 AS is_utc "
   "FROM pax_grp, pax, points "
   "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.point_arv=points.point_id ";
 
-const char* crs_pax_sql=
-  "SELECT "
-  "  crs_pnr.point_id, crs_pnr.airp_arv, crs_pnr.pnr_id, "
-  "  crs_pax.pax_id, crs_pax.surname, crs_pax.name, NULL AS reg_no, "
-  "  salons.get_crs_seat_no(seat_xname,seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-  "  'K0' AS operation, "
-  "  NULL AS landing, 0 AS is_utc "
-  "FROM crs_pnr,crs_pax,pax "
-  "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
-  "      crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL";
-
-void check_pax(TQuery &Qry, int pax_id)
+void check_pax(DB::TQuery &Qry, int pax_id)
 {
   if (Qry.Eof) throw Exception("passenger not found (pax_id=%d)", pax_id);
   if (Qry.FieldIsNULL("airp_arv")) throw Exception("empty airp_arv (pax_id=%d)", pax_id);
   if (Qry.FieldIsNULL("surname")) throw Exception("empty surname (pax_id=%d)", pax_id);
   if (Qry.FieldIsNULL("operation")) throw Exception("empty operation(pax_id=%d)", pax_id);
-};
+}
 
 void sync_pax_internal(int id,
                        const string &term,
                        bool is_grp_id)
 {
-  TQuery Qry(&OraSession, STDLOG);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "POINTS"}), STDLOG); // salons.get_seat_no
   ostringstream sql;
-  if (is_grp_id)
+  if (is_grp_id) {
     sql << pax_sql << " AND pax_grp.grp_id=:grp_id";
-  else
+  } else {
     sql << pax_sql << " AND pax.pax_id=:pax_id";
+  }
   Qry.SQLText=sql.str().c_str();
   if (is_grp_id)
     Qry.CreateVariable("grp_id", otInteger, id);
@@ -589,8 +584,22 @@ void sync_crs_pax_internal(int id,
                            const string &user_descr,
                            bool is_pnr_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  const char* crs_pax_sql=
+    "SELECT "
+    "  crs_pnr.point_id, crs_pnr.airp_arv, crs_pnr.pnr_id, "
+    "  crs_pax.pax_id, crs_pax.surname, crs_pax.name, NULL AS reg_no, "
+    "  salons.get_crs_seat_no(seat_xname,seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
+    "  NULL AS bag_weight, NULL AS rk_weight, "
+    "  NULL AS tags, "
+    "  'K0' AS operation, "
+    "  NULL AS landing, 0 AS is_utc "
+    "FROM crs_pnr "
+    "JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+    "ON crs_pnr.pnr_id = crs_pax.pnr_id "
+    "WHERE crs_pax.pr_del = 0 "
+    "      AND pax.pax_id IS NULL ";
+
+  DB::TQuery Qry(PgOra::getROSession({"CRS_PNR","CRS_PAX","PAX"}), STDLOG); // salons.get_crs_seat_no
   ostringstream sql;
   if (is_pnr_id)
     sql << crs_pax_sql << " AND crs_pnr.pnr_id=:pnr_id";

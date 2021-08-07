@@ -243,9 +243,10 @@ void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
     point_ids_spp.clear();
   }
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("TLG_BINDING"), STDLOG);
   Qry.SQLText =
-    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id";
+    "SELECT point_id_spp FROM tlg_binding "
+    "WHERE point_id_tlg = :point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id_tlg.get() );
   Qry.Execute();
   for( ; !Qry.Eof; Qry.Next() )
@@ -277,8 +278,12 @@ void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips)
 {
   trips.clear();
-  TCachedQuery Qry("SELECT point_id FROM crs_pnr WHERE pnr_id=:pnr_id AND system='CRS'",
-                   QParams() << QParam("pnr_id", otInteger, pnr_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_PNR"),
+        "SELECT point_id FROM crs_pnr "
+        "WHERE pnr_id=:pnr_id AND system='CRS'",
+        QParams() << QParam("pnr_id", otInteger, pnr_id),
+        STDLOG);
   Qry.get().Execute();
   if(Qry.get().Eof) return;
 
@@ -327,12 +332,15 @@ std::optional<PointIdTlg_t> getPointIdTlgByPaxId(const PaxId_t pax_id, bool with
 {
   LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-  TCachedQuery Qry("SELECT point_id "
-                   "FROM crs_pnr, crs_pax "
-                   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id AND "
-                   "      crs_pnr.system='CRS' "
-                   + std::string(with_deleted ? "" : "AND crs_pax.pr_del=0 "),
-                   QParams() << QParam("pax_id", otInteger, pax_id.get()));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"CRS_PNR, CRS_PAX"}),
+        "SELECT point_id "
+        "FROM crs_pnr, crs_pax "
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id AND "
+        "      crs_pnr.system='CRS' "
+        + std::string(with_deleted ? "" : "AND crs_pax.pr_del=0 "),
+        QParams() << QParam("pax_id", otInteger, pax_id.get()),
+        STDLOG);
   Qry.get().Execute();
   if(Qry.get().Eof) return {};
 

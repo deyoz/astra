@@ -427,7 +427,7 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
           "       crs_pnr.tid AS crs_pnr_tid, "
           "       crs_pax.tid AS crs_pax_tid, "
           "       pax.tid AS pax_tid "
-          "FROM crs_pnr"
+          "FROM crs_pnr "
           "JOIN crs_pax ON crs_pnr.pnr_id = crs_pax.pnr_id "
           "LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id "
           "WHERE crs_pax.pax_id=:pax_id AND "

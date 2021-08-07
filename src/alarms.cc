@@ -285,23 +285,14 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp ¬.¡.
   if (point_id_spp!=NoExists)
   {
     const std::string sql =
-"SELECT 1 FROM tlg_binding "
-"JOIN (tlg_source LEFT OUTER JOIN typeb_in_history"
-"                 ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id) "
-"ON tlg_binding.point_id_tlg = tlg_source.point_id_tlg "
-"WHERE typeb_in_history.prev_tlg_id IS NULL "
-"AND tlg_binding.point_id_spp = :point_id_spp "
-"AND tlg_source.has_alarm_errors <> 0 "
-"FETCH FIRST 1 ROW ONLY";
-
-    // ora was
-//    "SELECT tlg_binding.point_id_tlg "
-//    "FROM tlg_binding, tlg_source, typeb_in_history "
-//    "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND "
-//    "      tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
-//    "      typeb_in_history.prev_tlg_id IS NULL AND "
-//    "      tlg_binding.point_id_spp=:point_id_spp AND "
-//    "      tlg_source.has_alarm_errors<>0 AND rownum<2 ";
+        "SELECT 1 FROM tlg_binding "
+        "JOIN (tlg_source LEFT OUTER JOIN typeb_in_history"
+        "                 ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id) "
+        "ON tlg_binding.point_id_tlg = tlg_source.point_id_tlg "
+        "WHERE typeb_in_history.prev_tlg_id IS NULL "
+        "AND tlg_binding.point_id_spp = :point_id_spp "
+        "AND tlg_source.has_alarm_errors <> 0 "
+        "FETCH FIRST 1 ROW ONLY";
 
     QParams QryParams;
     QryParams << QParam("point_id_spp", otInteger, point_id_spp);
@@ -315,25 +306,15 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp ¬.¡.
   else
   {
     const std::string sql =
-"SELECT tlg_binding.point_id_spp, tls.has_alarm_errors "
-"FROM tlg_binding, "
-"  (SELECT MAX(CASE WHEN tlg_source.has_alarm_errors = 0 THEN 0 ELSE 1 END) AS has_alarm_errors "
-"   FROM tlg_source "
-"   LEFT OUTER JOIN typeb_in_history "
-"   ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id "
-"   WHERE typeb_in_history.prev_tlg_id IS NULL "
-"   AND tlg_source.point_id_tlg = :point_id_tlg) tls "
-"WHERE tlg_binding.point_id_tlg = :point_id_tlg";
-
-    // ora was
-//    "SELECT tlg_binding.point_id_spp, tlg_source.has_alarm_errors "
-//    "FROM tlg_binding, "
-//    "     (SELECT MAX(DECODE(NVL(tlg_source.has_alarm_errors,0), 0, 0, 1)) AS has_alarm_errors "
-//    "      FROM tlg_source, typeb_in_history "
-//    "      WHERE tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
-//    "            typeb_in_history.prev_tlg_id IS NULL AND "
-//    "            tlg_source.point_id_tlg=:point_id_tlg) tlg_source "
-//    "WHERE tlg_binding.point_id_tlg=:point_id_tlg";
+        "SELECT tlg_binding.point_id_spp, tls.has_alarm_errors "
+        "FROM tlg_binding, "
+        "  (SELECT MAX(CASE WHEN tlg_source.has_alarm_errors = 0 THEN 0 ELSE 1 END) AS has_alarm_errors "
+        "   FROM tlg_source "
+        "   LEFT OUTER JOIN typeb_in_history "
+        "   ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id "
+        "   WHERE typeb_in_history.prev_tlg_id IS NULL "
+        "   AND tlg_source.point_id_tlg = :point_id_tlg) tls "
+        "WHERE tlg_binding.point_id_tlg = :point_id_tlg";
 
     QParams QryParams;
     QryParams << QParam("point_id_tlg", otInteger, point_id_tlg);
@@ -827,13 +808,16 @@ void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
 
 void TCrsPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
 {
-  TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
-                   "FROM tlg_binding, crs_pnr, crs_pax "
-                   "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-                   "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-                   "      crs_pax.pax_id=:pax_id AND "
-                   "      crs_pnr.system='CRS' AND crs_pax.pr_del=0 ",
-                   QParams() << QParam("pax_id", otInteger, _id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"TLG_BINDING", "CRS_PNR", "CRS_PAX"}),
+        "SELECT tlg_binding.point_id_spp "
+        "FROM tlg_binding, crs_pnr, crs_pax "
+        "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pax.pax_id=:pax_id AND "
+        "      crs_pnr.system='CRS' AND crs_pax.pr_del=0 ",
+        QParams() << QParam("pax_id", otInteger, _id),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_id_spp"))));

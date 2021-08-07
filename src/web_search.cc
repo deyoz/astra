@@ -219,9 +219,9 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
   };
 
   return *this;
-};
+}
 
-string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) const
+string TPNRFilter::getSurnameSQLFilter(const string &field_name, DB::TQuery &Qry) const
 {
   ostringstream sql;
   sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
@@ -310,11 +310,11 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
 
   test_paxs.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TEST_PAX"), STDLOG);
   ostringstream sql;
   sql << "SELECT id, airline, surname, name, subclass, doc_no, tkn_no, "
-         "       pnr_airline, pnr_addr, reg_no FROM test_pax "
+         "       pnr_airline, pnr_addr, reg_no "
+         "FROM test_pax "
       << "WHERE " << getSurnameSQLFilter("test_pax.surname", Qry);
 
   if (!airlines.empty())
@@ -354,7 +354,7 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
   };
 
   return *this;
-};
+}
 
 void TPNRFilter::trace( TRACE_SIGNATURE ) const
 {
@@ -545,9 +545,11 @@ bool TDestInfo::fromDB(int point_id, bool pr_throw)
   clear();
   try
   {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText=
-      "SELECT scd_in, est_in, act_in, airp FROM points WHERE point_id=:point_id AND pr_del=0";
+      "SELECT scd_in, est_in, act_in, airp "
+      "FROM points "
+      "WHERE point_id=:point_id AND pr_del=0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if (Qry.Eof) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
@@ -621,7 +623,7 @@ void TFlightInfo::set(const TAdvTripInfo& fltInfo)
     dep_utc_offset = NoExists;
 }
 
-bool TFlightInfo::fromDB(TQuery &Qry)
+bool TFlightInfo::fromDB(DB::TQuery &Qry)
 {
   clear();
   if (Qry.Eof) return false;
@@ -953,7 +955,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
   return true;
 };
 
-bool TPNRSegId::fromDB(TQuery &Qry)
+bool TPNRSegId::fromDB(DB::TQuery &Qry)
 {
   clear();
   if (Qry.Eof) return false;
@@ -1259,7 +1261,7 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle, const boost::optiona
     m.toXML(NewTextChild( fltsNode, "flight" ), AstraLocale::OutputLang());
 };
 
-bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
+bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, DB::TQuery &Qry)
 {
   clear();
   if (Qry.Eof) return false;
@@ -1417,7 +1419,7 @@ bool TPaxInfo::fromTestPax(const TTestPaxInfo &pax)
   return true;
 };
 
-bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no)
+bool TPaxInfo::filterFromDB(const TPNRFilter &filter, DB::TQuery &Qry, bool ignore_reg_no)
 {
   clear();
   if (Qry.Eof) return false;
@@ -1436,12 +1438,14 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_r
   document=doc.no;
   if (!filter.isEqualDoc(document)) return false;
 
-  TQuery Qry1(&OraSession);
-  Qry1.Clear();
-  Qry1.SQLText="SELECT reg_no FROM pax WHERE pax_id=:pax_id";
-  Qry1.CreateVariable("pax_id", otInteger, pax_id);
-  Qry1.Execute();
-  if (!Qry1.Eof) reg_no=Qry1.FieldAsInteger("reg_no");
+  DB::TQuery QryPax(PgOra::getROSession("PAX"), STDLOG);
+  QryPax.SQLText =
+      "SELECT reg_no "
+      "FROM pax "
+      "WHERE pax_id=:pax_id";
+  QryPax.CreateVariable("pax_id", otInteger, pax_id);
+  QryPax.Execute();
+  if (!QryPax.Eof) reg_no=QryPax.FieldAsInteger("reg_no");
   if (!ignore_reg_no &&
       !filter.isEqualRegNo(reg_no)) return false;
 
@@ -2091,18 +2095,17 @@ void TMultiPNRsList::checkSegmentCompatibility()
 
 void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
 {
-  if (filter.flt_no==NoExists) return;
-  if (filter.scd_out_local_ranges.empty() &&
-      filter.scd_out_utc_ranges.empty()) return;
+    if (filter.flt_no==NoExists) return;
+    if (filter.scd_out_local_ranges.empty() &&
+        filter.scd_out_utc_ranges.empty()) return;
 
-  if (filter.surname.empty())
-    throw EXCEPTIONS::Exception("findPNRs: filter.surname not defined");
+    if (filter.surname.empty())
+      throw EXCEPTIONS::Exception("findPNRs: filter.surname not defined");
 
-  TReqInfo *reqInfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
 
-  TQuery PointsQry(&OraSession);
-  TQuery PaxQry(&OraSession);
 
+    DB::TQuery PointsQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX"}), STDLOG);
     ostringstream sql;
     sql.str("");
     sql << "SELECT " << TAdvTripInfo::selectedFields("points")
@@ -2116,7 +2119,6 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
            "      points.scd_out >= :first_date AND points.scd_out < :last_date AND "
            "      points.pr_del=0 AND points.pr_reg<>0";
 
-    PointsQry.Clear();
     PointsQry.SQLText= sql.str().c_str();
     PointsQry.CreateVariable("flt_no", otInteger, filter.flt_no);
     PointsQry.CreateVariable("suffix", otString, filter.suffix);
@@ -2125,7 +2127,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
     PointsQry.DeclareVariable("last_date", otDate);
 
 
-    PaxQry.Clear();
+    DB::TQuery PaxQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX"}), STDLOG);
     sql.str("");
     sql << "SELECT crs_pnr.pnr_id, "
            "       crs_pnr.airp_arv, "
@@ -2224,9 +2226,9 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
               TPaxInfo pax;
               if (!pax.filterFromDB(filter, PaxQry, ignore_reg_no)) continue;
               PNRs.add(iFlt->first, seg, pax, false);
-            };
-          };
-        };
+            }
+          }
+        }
       }
       else
       {
@@ -2246,10 +2248,10 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
           TPaxInfo pax;
           if (!pax.fromTestPax(*p)) continue;
           PNRs.add(iFlt->first, seg, pax, true);
-        };
-      };
-    };
-};
+        }
+      }
+    }
+}
 
 bool TPNRFilter::userAccessIsAllowed(const TAdvTripInfo &oper, const boost::optional<TSimpleMktFlight>& mark)
 {
@@ -2405,8 +2407,6 @@ void getTCkinData( const TFlightInfo& first_flt,
       map<int, pair<CheckIn::Segments, TTrferSetsInfo> >::const_iterator s=trfer_segs.begin();
       map<int, CheckIn::TTransferItem>::const_iterator f=crs_trfer.begin();
 
-      TQuery Qry(&OraSession);
-
       for(;s!=trfer_segs.end() && f!=crs_trfer.end();++s,++f)
       {
         seg_no++;
@@ -2457,7 +2457,7 @@ void getTCkinData( const TFlightInfo& first_flt,
           throw "PNR not defined";
 
         //ищем PNR по номеру
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession({"TLG_BINDING", "CRS_PNR", "CRS_PAX"}), STDLOG);
         Qry.SQLText=
           "SELECT DISTINCT crs_pnr.pnr_id, crs_pnr.airp_arv, "+
           CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" AS cabin_subclass, "+
@@ -2573,9 +2573,7 @@ bool SearchPaxByScanData(const std::string& bcbp,
 
     if (flts.empty()) return result;
 
-    TQuery Qry( &OraSession );
-    Qry.Clear();
-
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
     ostringstream sql;
     sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats, pax.reg_no "
            "FROM pax_grp, pax "
@@ -2624,8 +2622,8 @@ bool SearchPaxByScanData(const std::string& bcbp,
         reg_no=filter.reg_no;
         pax_id=new_pax_id;
         result=true;
-      };
-    };
+      }
+    }
 
     if (point_id==NoExists) point_id=anySuitablePointId;
     if (pax_id==NoExists) pax_id=anySuitablePaxId;

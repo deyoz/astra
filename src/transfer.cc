@@ -2476,25 +2476,25 @@ void LoadPaxLists(int point_id,
     paxs_ckin.push_back(TPaxItem("",Qry.FieldAsString("surname"),Qry.FieldAsString("name")));
   };
 
-  DB::TQuery Qry2(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX","PAX"}),STDLOG);
-  Qry2.ClearParams();
-  Qry2.SQLText=
+  DB::TQuery QryTlgBind(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX","PAX"}),STDLOG);
+  QryTlgBind.ClearParams();
+  QryTlgBind.SQLText=
     "SELECT crs_pax.pax_id, crs_pax.surname, crs_pax.name "
-    "FROM tlg_binding, crs_pnr, crs_pax, pax "
-    "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-    "      tlg_binding.point_id_spp=:point_id AND "
+    "FROM crs_pnr "
+    "JOIN tlg_binding ON tlg_binding.point_id_tlg = crs_pnr.point_id "
+    "JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id AND pax.pax_id IS NULL) "
+    "ON crs_pnr.pnr_id = crs_pax.pnr_id "
+    "WHERE tlg_binding.point_id_spp=:point_id AND "
     "      crs_pnr.system='CRS' AND "
     "      crs_pax.pr_del=0 ";
-  Qry2.CreateVariable("point_id", otInteger, point_id);
-  Qry2.Execute();
-  for(;!Qry2.Eof;Qry2.Next())
+  QryTlgBind.CreateVariable("point_id", otInteger, point_id);
+  QryTlgBind.Execute();
+  for(;!QryTlgBind.Eof;QryTlgBind.Next())
   {
-    if (pax_out_ids.find(Qry2.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
-    paxs_crs.push_back(TPaxItem("",Qry2.FieldAsString("surname"),Qry2.FieldAsString("name")));
-  };
-};
+    if (pax_out_ids.find(QryTlgBind.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
+    paxs_crs.push_back(TPaxItem("",QryTlgBind.FieldAsString("surname"),QryTlgBind.FieldAsString("name")));
+  }
+}
 
 string GetConflictStr(const set<ConflictReason> &conflicts)
 {

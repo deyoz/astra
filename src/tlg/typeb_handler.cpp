@@ -330,10 +330,13 @@ void forwardTypeB(const int typeb_tlg_id,
                   const string &typeb_tlg_type)
 {
   if (typeb_tlg_type!="PNL" && typeb_tlg_type!="ADL") return;
-  TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
-                   "FROM tlg_binding, tlg_source "
-                   "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND tlg_source.tlg_id=:tlg_id",
-                   QParams() << QParam("tlg_id", otInteger, typeb_tlg_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"TLG_BINDING, TLG_SOURCE"}),
+        "SELECT tlg_binding.point_id_spp "
+        "FROM tlg_binding, tlg_source "
+        "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND tlg_source.tlg_id=:tlg_id",
+        QParams() << QParam("tlg_id", otInteger, typeb_tlg_id),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
@@ -979,8 +982,6 @@ bool parse_tlg(const string &handler_id)
     "WHERE id=:id "
     "ORDER BY num DESC";
   TlgInQry.DeclareVariable("id",otInteger);
-
-  TQuery TripsQry(&OraSession);
 
   TDateTime time_receive;
   int count;

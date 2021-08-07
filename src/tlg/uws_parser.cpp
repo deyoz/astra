@@ -79,7 +79,7 @@ namespace TypeB
         void SaveUWSContent(int tlg_id, TAHMHeadingInfo& info, TUWSContent& con) {
             int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type);
 
-            TQuery Qry(&OraSession);
+            DB::TQuery Qry(PgOra::getROSession("TLG_BINDING"), STDLOG);
             Qry.SQLText =
                 "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
             Qry.CreateVariable("point_id", otInteger, point_id_tlg);

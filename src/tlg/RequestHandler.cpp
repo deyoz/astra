@@ -44,6 +44,8 @@ void AstraEdiRequestHandler::onHandlerError(const std::exception *e)
             WriteLog(STDLOG, "%s", exc->what());
         }
         saveErrorInfo(exc->errCode(), exc->errText());
+    } else if(__CAST(EOracleError, exc, e)) {
+        exc->showProgError();
     } else if(__CAST(EXCEPTIONS::Exception, exc, e)) {
         ProgError(STDLOG, "%s", exc->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, "Unable to process - internal error");

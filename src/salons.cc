@@ -8104,38 +8104,38 @@ bool compareLayerSeat( const TLayerPrioritySeat &layer1, const TLayerPrioritySea
 
 int getCrsPaxPointArv( int crs_pax_id, int point_id_spp )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  DB::TQuery QryCrs(PgOra::getROSession({"CRS_PAX", "CRS_PNR"}), STDLOG);
+  QryCrs.SQLText =
     "SELECT airp_arv, point_id "
     " FROM crs_pax, crs_pnr "
     " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
     "       crs_pax.pnr_id=crs_pnr.pnr_id";
-  Qry.CreateVariable( "pax_id", otInteger, crs_pax_id );
-  Qry.Execute();
-  if ( Qry.Eof ) {
+  QryCrs.CreateVariable( "pax_id", otInteger, crs_pax_id );
+  QryCrs.Execute();
+  if ( QryCrs.Eof ) {
     return ASTRA::NoExists; //???
   }
-  int point_id_tlg = Qry.FieldAsInteger( "point_id" );
-  string airp_arv = Qry.FieldAsString( "airp_arv" );
-  Qry.Clear();
-  Qry.SQLText =
+  int point_id_tlg = QryCrs.FieldAsInteger( "point_id" );
+  string airp_arv = QryCrs.FieldAsString( "airp_arv" );
+  DB::TQuery QryTlgBind(PgOra::getROSession({"TLG_BINDING", "POINTS"}), STDLOG);
+  QryTlgBind.SQLText =
     "SELECT points.point_id, point_num, first_point, pr_tranzit "
     " FROM tlg_binding, points "
     "WHERE tlg_binding.point_id_spp=points.point_id AND "
     "      tlg_binding.point_id_tlg=:point_id_tlg AND "
     "      point_id_spp=:point_id_spp";
-  Qry.CreateVariable( "point_id_tlg", otInteger, point_id_tlg );
-  Qry.CreateVariable( "point_id_spp", otInteger, point_id_spp );
-  Qry.Execute();
-  if ( Qry.Eof ) {
+  QryTlgBind.CreateVariable( "point_id_tlg", otInteger, point_id_tlg );
+  QryTlgBind.CreateVariable( "point_id_spp", otInteger, point_id_spp );
+  QryTlgBind.Execute();
+  if ( QryTlgBind.Eof ) {
     return ASTRA::NoExists; //???
   }
   TTripRoute route;
   route.GetRouteAfter( NoExists,
-                       Qry.FieldAsInteger( "point_id" ),
-                       Qry.FieldAsInteger("point_num" ),
-                       Qry.FieldIsNULL( "first_point" )?NoExists:Qry.FieldAsInteger( "first_point" ),
-                       Qry.FieldAsInteger( "pr_tranzit" ) != 0,
+                       QryTlgBind.FieldAsInteger( "point_id" ),
+                       QryTlgBind.FieldAsInteger("point_num" ),
+                       QryTlgBind.FieldIsNULL( "first_point" )?NoExists:QryTlgBind.FieldAsInteger( "first_point" ),
+                       QryTlgBind.FieldAsInteger( "pr_tranzit" ) != 0,
                        trtNotCurrent, trtWithCancelled );
   for( TTripRoute::const_iterator iroute=route.begin(); iroute!=route.end(); iroute++ ) { //цикл по маршруту
     if ( iroute->airp == airp_arv ) {

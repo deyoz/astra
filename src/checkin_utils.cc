@@ -1019,7 +1019,7 @@ const string& TWebPaxForChng::sql()
       "       pax_grp.tid AS pax_grp_tid, "
       "       pax.tid AS pax_tid, "
       "       crs_pax.pnr_id "
-      "FROM pax_grp"
+      "FROM pax_grp "
       "JOIN (pax LEFT OUTER JOIN crs_pax ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0) "
       "ON pax_grp.grp_id = pax.grp_id "
       "WHERE pax.pax_id=:pax_id";
@@ -1073,38 +1073,43 @@ void CheckSeatNoFromReq(int point_id,
 
     if ( prior_xname + prior_yname != curr_xname + curr_yname )
     {
-      TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession({"CRS_PNR","CRS_PAX"}), STDLOG);
       Qry.SQLText=
+          "SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
+          "FROM crs_pnr,crs_pax "
+          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id "
+          "AND crs_pax.pax_id=:crs_pax_id "
+          "AND crs_pax.pr_del=0 ";
+      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+      Qry.Execute();
+
 /*      все бы хорошо в закомментированном методе, но IntChangeSeatsN и IntChangeSeats не работают  с cltPNLBeforePay и cltPNLAfterPay
  *      возможно, потом докрутим*/
-        "DECLARE "
-        "vseat_xname crs_pax.seat_xname%TYPE; "
-        "vseat_yname crs_pax.seat_yname%TYPE; "
-        "vseats      crs_pax.seats%TYPE; "
-        "vpoint_id   crs_pnr.point_id%TYPE; "
-        "BEGIN "
-        "  SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
-        "  INTO vseat_xname, vseat_yname, vseats, vpoint_id "
-        "  FROM crs_pnr,crs_pax "
-        "  WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:crs_pax_id AND crs_pax.pr_del=0; "
-        "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, vseat_xname, vseat_yname, vseats, vpoint_id, :layer_type, 'one', 1); "
-        "EXCEPTION "
-        "  WHEN NO_DATA_FOUND THEN NULL; "
-        "END;";
-      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-      Qry.CreateVariable("layer_type", otString, FNull);
-      Qry.CreateVariable("crs_seat_no", otString, FNull);
-      Qry.Execute();
-      TCompLayerType layer_type=DecodeCompLayerType(Qry.GetVariableAsString("layer_type"));
-      if (layer_type==cltPNLBeforePay ||
-          layer_type==cltPNLAfterPay ||
-          layer_type==cltProtBeforePay ||
-          layer_type==cltProtAfterPay)
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
-      changed=true;
-    };
-  };
+      if (!Qry.Eof) {
+        TQuery QrySeat(&OraSession, STDLOG);
+        QrySeat.SQLText =
+            "BEGIN "
+            "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, :seat_xname, :seat_yname, :seats, :point_id, :layer_type, 'one', 1); "
+            "END;";
+        QrySeat.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+        QrySeat.CreateVariable("seat_xname", otString, Qry.FieldAsString("seat_xname"));
+        QrySeat.CreateVariable("seat_yname", otString, Qry.FieldAsString("seat_yname"));
+        QrySeat.CreateVariable("seats", otInteger, Qry.FieldAsInteger("seats"));
+        QrySeat.CreateVariable("point_id", otInteger, Qry.FieldAsInteger("point_id"));
+        QrySeat.CreateVariable("layer_type", otString, FNull);
+        QrySeat.CreateVariable("crs_seat_no", otString, FNull);
+        QrySeat.Execute();
+
+        TCompLayerType layer_type=DecodeCompLayerType(QrySeat.GetVariableAsString("layer_type"));
+        if (layer_type==cltPNLBeforePay ||
+            layer_type==cltPNLAfterPay ||
+            layer_type==cltProtBeforePay ||
+            layer_type==cltProtAfterPay)
+          throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
+        changed=true;
+      }
+    }
+  }
 }
 
 void getForbiddenRemGrp(const TTripInfo &flt, TRemGrp& forbiddenRemGrp)

@@ -4447,7 +4447,6 @@ BitSet<TChangeLayerSeatsProps>
   first_yname = SeatNumber::tryNormalizeRow( first_yname );
   LogTrace( TRACE5 ) << ((salonList.getRFISCMode() == rTariff)?string(""):string("RFISC Mode ")) << "layer=" << EncodeCompLayerType( layer_type )
               << ",point_id=" << point_id << ",pax_id=" << pax_id << ",first_xname=" << first_xname << ",first_yname=" << first_yname;
-  TQuery Qry( &OraSession );
   TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
@@ -4458,6 +4457,9 @@ BitSet<TChangeLayerSeatsProps>
   BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, operFlt )?
                                                   BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
                                                   BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
+  std::list<std::string> tables;
+  std::string sql;
+  QParams QryParams;
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
     case cltGoShow:
@@ -4469,14 +4471,16 @@ BitSet<TChangeLayerSeatsProps>
         CheckIn::LoadPaxRem(false /*crs*/, pax_id, rems, false /*onlyPD*/, "STCR");
         step = rems.size();
       }
-      Qry.SQLText =
+    tables.push_back("PAX");
+    tables.push_back("PAX_GRP");
+      sql =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
-       "       NVL(pax.cabin_class, pax_grp.class) AS class, pers_type "
-       " FROM pax, pax_grp "
+       "       COALESCE(pax.cabin_class, pax_grp.class) AS class, pers_type "
+       "FROM pax, pax_grp "
        "WHERE pax.pax_id=:pax_id AND "
        "      pax_grp.grp_id=pax.grp_id ";
-       Qry.CreateVariable( "point_dep", otInteger, point_id );
+       QryParams << QParam("point_dep", otInteger, point_id);
       break;
     case cltProtCkin:
     case cltProtBeforePay: //WEB ChangeProtPaidLayer
@@ -4488,13 +4492,15 @@ BitSet<TChangeLayerSeatsProps>
         CheckIn::LoadCrsPaxRem(pax_id, rems, false /*onlyPD*/, "STCR");
         step = rems.size();
       }
-      Qry.SQLText =
+      tables.push_back("CRS_PAX");
+      tables.push_back("CRS_PNR");
+      sql =
         "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, pers_type, " +
         CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS class "
-        " FROM crs_pax, crs_pnr "
-        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
-        "       crs_pax.pnr_id=crs_pnr.pnr_id";
+        "FROM crs_pax, crs_pnr "
+        "WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
+        "      crs_pax.pnr_id=crs_pnr.pnr_id";
         if ( layer_type == cltProtCkin || layer_type == cltProtSelfCkin ||
              ( !procFlags.isFlag( procPaySeatSet ) && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
              procFlags.isFlag( procPaySeatSet ) ) {
@@ -4505,7 +4511,13 @@ BitSet<TChangeLayerSeatsProps>
         ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
         throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
   }
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  DB::TCachedQuery CachedQry(
+        PgOra::getROSession(tables),
+        sql,
+        QryParams,
+        STDLOG); // salons.get_seat_no
+  DB::TQuery& Qry = CachedQry.get();
   Qry.Execute();
   // пассажир не найден или изменеоизводились с другой стойки или при предв. рассадке пассажир уже зарегистрирован
   if ( !Qry.RowCount() ) {
@@ -4575,7 +4587,8 @@ BitSet<TChangeLayerSeatsProps>
   DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
   PointsQry.SQLText =
     "SELECT airline,airp,point_id,point_num,first_point,pr_tranzit "
-    " FROM points WHERE point_id=:point_id";
+    "FROM points "
+    "WHERE point_id=:point_id";
   PointsQry.DeclareVariable( "point_id", otInteger );
 
   TSeatTariffMap passTariffs;
@@ -4845,27 +4858,29 @@ BitSet<TChangeLayerSeatsProps>
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-        Qry.Clear();
-        Qry.SQLText =
-          "BEGIN "
-          " DELETE FROM trip_comp_layers "
-          "  WHERE point_id=:point_id AND "
-          "        layer_type=:layer_type AND "
-          "        pax_id=:pax_id; "
-          " IF :tid IS NULL THEN "
-          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " END IF;"
-          "END;";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-        if ( curr_tid == NoExists )
-          Qry.CreateVariable( "tid", otInteger, FNull );
-        else
-          Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.Execute();
-        curr_tid = Qry.GetVariableAsInteger( "tid" );
+        {
+          DB::TQuery QryDel(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
+          QryDel.SQLText =
+            "DELETE FROM trip_comp_layers "
+            "WHERE point_id=:point_id AND "
+            "      layer_type=:layer_type AND "
+            "      pax_id=:pax_id ";
+          QryDel.CreateVariable("point_id", otInteger, point_id);
+          QryDel.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
+          QryDel.CreateVariable("pax_id", otInteger, pax_id);
+          QryDel.Execute();
+
+          if (curr_tid == NoExists) {
+            curr_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+            DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
+            QryUpd.SQLText =
+                "UPDATE pax SET tid=:tid "
+                "WHERE pax_id=:pax_id";
+            QryUpd.CreateVariable("tid", otInteger, curr_tid);
+            QryUpd.CreateVariable("pax_id", otInteger, pax_id);
+            QryUpd.Execute();
+          }
+        }
         break;
         case cltProtCkin:
         case cltProtAfterPay:
@@ -4890,21 +4905,16 @@ BitSet<TChangeLayerSeatsProps>
         case cltCheckin:
         case cltTCheckin:
           SaveTripSeatRanges( point_id, layer_type, seatRanges, pax_id, point_id, point_arv, NowUTC() );
-          Qry.Clear();
-          Qry.SQLText =
-          "BEGIN "
-          " IF :tid IS NULL THEN "
-          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " END IF;"
-          "END;";
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        if ( curr_tid == NoExists )
-          Qry.CreateVariable( "tid", otInteger, FNull );
-        else
-          Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.Execute();
-        curr_tid = Qry.GetVariableAsInteger( "tid" );
+          if (curr_tid == NoExists) {
+            curr_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+            DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
+            QryUpd.SQLText =
+                "UPDATE pax SET tid=:tid "
+                "WHERE pax_id=:pax_id";
+            QryUpd.CreateVariable("tid", otInteger, curr_tid);
+            QryUpd.CreateVariable("pax_id", otInteger, pax_id);
+            QryUpd.Execute();
+          }
         break;
       case cltProtCkin:
       case cltProtBeforePay: //WEB ChangeProtPaidLayer

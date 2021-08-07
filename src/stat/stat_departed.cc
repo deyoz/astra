@@ -154,29 +154,27 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 
     TRegEvents events;
     events.fromDB(part_key, point_id);
-    TQuery paxQry(&OraSession);
+    DB::TQuery paxQry(PgOra::getROSession({"PAX", "PAX_GRP"}), STDLOG); // salons.get_seat_no
     paxQry.CreateVariable("point_id", otInteger, point_id);
-
-    string SQLText =
-        "select \n"
-        "   pax.bag_pool_num, \n"
-        "   pax.name, \n"
-        "   pax.surname, \n"
-        "   pax.ticket_no, \n"
-        "   pax.coupon_no, \n"
-        "   pax.pax_id, \n"
-        "   pax.grp_id, \n"
-        "   pax.reg_no, \n"
-        "   pax_grp.client_type, \n"
-        "   pax_grp.airp_arv, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no ";
-    SQLText +=  "from pax, pax_grp \n"
-                "where pax_grp.point_dep = :point_id and \n"
-                "      pax_grp.grp_id = pax.grp_id \n";
+    paxQry.SQLText =
+        "SELECT "
+        "   pax.bag_pool_num, "
+        "   pax.name, "
+        "   pax.surname, "
+        "   pax.ticket_no, "
+        "   pax.coupon_no, "
+        "   pax.pax_id, "
+        "   pax.grp_id, "
+        "   pax.reg_no, "
+        "   pax_grp.client_type, "
+        "   pax_grp.airp_arv, "
+        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no "
+        "FROM pax, pax_grp "
+        "WHERE pax_grp.point_dep = :point_id AND "
+        "      pax_grp.grp_id = pax.grp_id ";
 
     string delim = ";";
 
-    paxQry.SQLText = SQLText;
     paxQry.Execute();
     TAirpArvInfo airp_arv_info;
 
@@ -303,12 +301,6 @@ void departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStre
            "WHERE scd_out>=:first_date AND scd_out<:last_date AND airline='ž’' AND "
            "    pr_reg<>0 AND pr_del>=0";
 
-    /*
-       ofstream out(IntToString(pass) + ".sql");
-       out << sql.str();
-       out.close();
-       */
-
     Qry.SQLText = sql.str().c_str();
     LogTrace5 << "query: " << sql.str();
     Qry.Execute();
@@ -372,39 +364,40 @@ int nosir_departed_pax(int argc, char **argv)
     TDateTime FirstDate, LastDate;
     StrToDateTime("01.04.2016 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
     LastDate = NowUTC();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-    "SELECT point_id, airline, flt_no, suffix, airp, scd_out  FROM points "
+    DB::TQuery pointQry(PgOra::getROSession("POINTS"), STDLOG);
+    pointQry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
+    "FROM points "
     "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ž’' AND "
     "      pr_reg<>0 AND pr_del>=0";
-    Qry.CreateVariable("FirstDate", otDate, FirstDate);
-    Qry.CreateVariable("LastDate", otDate, LastDate);
+    pointQry.CreateVariable("FirstDate", otDate, FirstDate);
+    pointQry.CreateVariable("LastDate", otDate, LastDate);
 
-    TQuery paxQry(&OraSession);
+    DB::TQuery paxQry(PgOra::getROSession({"PAX", "PAX_GRP", "CRS_PNR", "CRS_PAX"}), STDLOG);
     paxQry.SQLText =
-        "select "
+        "SELECT "
         "   pax.name, "
         "   pax.surname, "
         "   pax.ticket_no, "
         "   pax.coupon_no, "
         "   crs_pnr.pnr_id, "
         "   pax.pax_id "
-        "from "
-        "   pax, pax_grp, crs_pnr, crs_pax where "
-        "   pax.pax_id = crs_pax.pax_id(+) and "
-        "   crs_pax.pr_del(+)=0 and "
-        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "   pax_grp.point_dep = :point_id and "
-        "   pax_grp.grp_id = pax.grp_id ";
+        "FROM "
+        "   pax_grp JOIN (pax "
+        "   LEFT OUTER JOIN (crs_pax "
+        "        LEFT OUTER JOIN crs_pnr ON crs_pax.pnr_id = crs_pnr.pnr_id "
+        "   ) ON pax.pax_id = crs_pax.pax_id AND crs_pax.pr_del = 0"
+        ") ON pax_grp.grp_id = pax.grp_id "
+        "WHERE pax_grp.point_dep = :point_id ";
     paxQry.DeclareVariable("point_id", otInteger);
 
-    Qry.Execute();
+    pointQry.Execute();
     bool pr_header = true;
     string delim = ";";
     ofstream of;
     TTripRoute route;
-    for(; not Qry.Eof; Qry.Next()) {
-        int point_id = Qry.FieldAsInteger("point_id");
+    for(; not pointQry.Eof; pointQry.Next()) {
+        int point_id = pointQry.FieldAsInteger("point_id");
         route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
         string airp_arv;
         if(not route.empty())
@@ -429,11 +422,11 @@ int nosir_departed_pax(int argc, char **argv)
             string name = paxQry.FieldAsString("name");
             string surname = paxQry.FieldAsString("surname");
 
-            string airline = Qry.FieldAsString("airline");
-            int flt_no = Qry.FieldAsInteger("flt_no");
-            string suffix = Qry.FieldAsString("suffix");
-            string airp = Qry.FieldAsString("airp");
-            TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+            string airline = pointQry.FieldAsString("airline");
+            int flt_no = pointQry.FieldAsInteger("flt_no");
+            string suffix = pointQry.FieldAsString("suffix");
+            string airp = pointQry.FieldAsString("airp");
+            TDateTime scd_out = pointQry.FieldAsDateTime("scd_out");
             ostringstream flt_str;
             flt_str
                 << airline
@@ -489,9 +482,7 @@ int nosir_departed_sql(int argc, char **argv)
     Qry.SQLText = "select :part_key part_key from dual";
     Qry.CreateVariable("part_key", otDate, FNull);
     Qry.Execute();
-//    departed_flt(Qry);
     Qry.SetVariable("part_key", NowUTC());
     Qry.Execute();
-//    departed_flt(Qry);
     return 1;
 }

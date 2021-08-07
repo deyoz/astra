@@ -402,7 +402,6 @@ int ego_stat(int argc,char **argv)
     if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
         return 1;
 
-    TQuery Qry(&OraSession);
     int processed=0;
 
     const string delim = ";";
@@ -418,30 +417,30 @@ int ego_stat(int argc,char **argv)
             << "Направление полета" << delim
             << "Дата перелета" << endl;
 
-    string SQLText = "SELECT point_id, scd_out "
-                     "FROM points "
-                     "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND pr_reg<>0 AND pr_del>=0";
-    Qry.Clear();
-    Qry.SQLText= SQLText;
-    Qry.CreateVariable("FirstDate", otDate, FirstDate);
-    Qry.CreateVariable("LastDate", otDate, LastDate);
-    Qry.Execute();
+    DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+    QryPoint.SQLText =
+        "SELECT point_id, scd_out "
+        "FROM points "
+        "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND pr_reg<>0 AND pr_del>=0";
+    QryPoint.CreateVariable("FirstDate", otDate, FirstDate);
+    QryPoint.CreateVariable("LastDate", otDate, LastDate);
+    QryPoint.Execute();
     list< pair<int, pair<TDateTime, TDateTime> > > point_ids;
-    for(;!Qry.Eof;Qry.Next()) {
+    for(;!QryPoint.Eof;QryPoint.Next()) {
         TDateTime part_key = ASTRA::NoExists;
         point_ids.push_back(
                     make_pair(
-                        Qry.FieldAsInteger("point_id"),
+                        QryPoint.FieldAsInteger("point_id"),
                         make_pair(
-                            Qry.FieldAsDateTime("scd_out"),
+                            QryPoint.FieldAsDateTime("scd_out"),
                             part_key
                             )
                         )
                     );
     }
 
-    Qry.Clear();
-    SQLText =
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","PAX_DOC"}), STDLOG);
+    Qry.SQLText =
             "SELECT "
             "   pax.surname, "
             "   pax.name, "
@@ -458,7 +457,6 @@ int ego_stat(int argc,char **argv)
             "   pax_doc.no like '20%' and "
             "   pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id ";
 
-    Qry.SQLText= SQLText;
     Qry.DeclareVariable("point_id", otInteger);
     for(list< pair<int, pair<TDateTime, TDateTime> > >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
     {

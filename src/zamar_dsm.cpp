@@ -444,11 +444,11 @@ static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TBagTypeList& 
 static void GetSeats(int point_id, int pax_id, vector<string>& seats, const AstraLocale::OutputLang& lang)
 {
   seats.clear();
-  TQuery SeatsQry(&OraSession);
+  DB::TQuery SeatsQry(PgOra::getROSession("PAX_SEATS"), STDLOG);
   SeatsQry.SQLText=
     "SELECT yname AS seat_row, xname AS seat_column "
     "FROM pax_seats "
-    "WHERE pax_id=:pax_id AND point_id=:point_id AND NVL(pr_wl,0)=0";
+    "WHERE pax_id=:pax_id AND point_id=:point_id AND COALESCE(pr_wl,0)=0";
   SeatsQry.CreateVariable("point_id",otInteger,point_id);
   SeatsQry.CreateVariable("pax_id",otInteger,pax_id);
   SeatsQry.Execute();

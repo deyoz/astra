@@ -1560,18 +1560,12 @@ std::string createCrewFilter()
 
 void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem> &paxLoad, std::map<std::string,int> &paxRemCounters ) //pr_section=true
 {
-  if(DEMO_MODE()) {
-      // Ç ÑÖåé çÖ ÇõèéãçüÖå
-      TST();
-      return;
-  }
-
   multiset<CheckIn::TPaxRemItem> rems;
   for ( auto& ic : paxRemCounters ) {
     ic.second = 0;
   }
   paxLoad.clear();
-  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_INF"}),STDLOG); // ckin.get_bagAmount2, ckin.get_bagWeight2, ckin.get_rkWeight2
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","PAX","CRS_INF"}),STDLOG);
   Qry.ClearParams();
   ostringstream sql;
   sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, pax.bag_pool_num, "
@@ -3147,7 +3141,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
 
   // ¨•·‚† Ø†··†¶®‡†
-  TQuery SQry( &OraSession );
+  TQuery SQry( &OraSession ); // salons.get_seat_no, salons.get_crs_seat_no
   SQry.SQLText =
     "BEGIN "
     " IF :mode=0 THEN "

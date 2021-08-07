@@ -749,7 +749,7 @@ void InsertTripCompLayers(int point_id_tlg,
         "       first_xname,last_xname,first_yname,last_yname,rem_code, "
         "       crs_pax_id, "
         "       surname, name, pers_type "
-        "FROM tlg_binding"
+        "FROM tlg_binding "
         "  JOIN (tlg_comp_layers LEFT OUTER JOIN crs_pax "
         "            ON tlg_comp_layers.crs_pax_id=crs_pax.pax_id) "
         "  ON tlg_binding.point_id_tlg=tlg_comp_layers.point_id "

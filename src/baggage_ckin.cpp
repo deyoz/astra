@@ -258,8 +258,8 @@ std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id,
 
     if(!excess_wt || !bag_refuse) {
         auto cur = make_db_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN EXCESS_WT ELSE 0 END) "
-                                "FROM PAX_GRP"
-                                " WHERE GRP_ID=:grp_id ",
+                                "FROM PAX_GRP "
+                                "WHERE GRP_ID=:grp_id ",
                                 PgOra::getROSession("PAX_GRP"));
         cur.def(excess)
            .bind(":grp_id", grp_id.get());

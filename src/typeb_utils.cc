@@ -1062,7 +1062,6 @@ void filter_typeb_addrs(const TSendInfo &sendInfo,
     };
 
     ostringstream sql;
-    TQuery OptionsQry(&OraSession);
     TQuery AddrQry(&OraSession);
     AddrQry.Clear();
     sql << "SELECT * FROM typeb_addrs "

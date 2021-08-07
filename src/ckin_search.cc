@@ -475,7 +475,7 @@ std::string Search::getSQLText() const
   {
     case paxCheckIn:
       sql << "SELECT pax.* "
-             "FROM pax";
+             "FROM pax ";
       for(const std::string& t : tables) {
         sql << ", " << t;
       }

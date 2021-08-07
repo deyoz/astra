@@ -112,7 +112,7 @@ std::set<std::pair<TStage, TStage_Type>> getStageStatuses()
 {
     DbCpp::CursCtl cur = make_db_curs(
        "SELECT stage_id, stage_type "
-       "FROM stage_statuses",
+       "FROM stage_statuses ",
         PgOra::getROSession("STAGE_STATUSES")
     );
 

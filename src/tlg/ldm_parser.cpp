@@ -56,26 +56,17 @@ namespace TypeB
                 con.cabin = ToInt(results[2]) + ToInt(results[3]);
             } else
                 throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong crew: " + crew);
-
-            /*
-            TTlgParser tlg;
-            const char *line_p=body.p;
-            try {
-                do {
-                    tlg.GetToEOLLexeme(line_p);
-                    LogTrace(TRACE5) << "line: '" << tlg.lex << "'";
-                    line_p=tlg.NextLine(line_p);
-                } while (line_p and *line_p != 0);
-            } catch (ETlgError E) {
-                throwTlgError(E.what(), body, line_p);
-            }
-            */
         }
 
         void SaveLDMContent(int tlg_id, TUCMHeadingInfo& info, TLDMContent& con) {
             int point_id_tlg = SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
-            TCachedQuery Qry("select point_id_spp from tlg_binding where point_id_tlg = :point_id_tlg",
-                    QParams() << QParam("point_id_tlg", otInteger, point_id_tlg));
+            DB::TCachedQuery Qry(
+                  PgOra::getROSession("TLG_BINDING"),
+                  "SELECT point_id_spp "
+                  "FROM tlg_binding "
+                  "WHERE point_id_tlg = :point_id_tlg",
+                  QParams() << QParam("point_id_tlg", otInteger, point_id_tlg),
+                  STDLOG);
             Qry.get().Execute();
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TTripInfo flt;

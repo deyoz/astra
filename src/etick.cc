@@ -293,19 +293,18 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
   if (clear_list) list.clear();
 
   if (type==allStatusesByPointIdFromTlg) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}), STDLOG);
     Qry.SQLText =
-        "SELECT crs_pax.pax_id, \n"
-        "       crs_pnr.airp_arv, \n"
-        "       crs_pnr.point_id AS point_id_tlg, \n"
-        "       tlg_binding.point_id_spp AS point_id \n"
-        "FROM crs_pax, crs_pnr, tlg_binding \n"
-        "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
-        "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-        "      tlg_binding.point_id_spp=:point_id AND \n"
-        "      crs_pnr.system='CRS' AND \n"
-        "      crs_pax.pr_del=0 \n";
+        "SELECT crs_pax.pax_id, "
+        "       crs_pnr.airp_arv, "
+        "       crs_pnr.point_id AS point_id_tlg, "
+        "       tlg_binding.point_id_spp AS point_id "
+        "FROM crs_pax, crs_pnr, tlg_binding "
+        "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
+        "      crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "      tlg_binding.point_id_spp=:point_id AND "
+        "      crs_pnr.system='CRS' AND "
+        "      crs_pax.pr_del=0 ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     TlgTripsPnlCache tlg_trips_pnl_cached;

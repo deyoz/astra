@@ -182,17 +182,18 @@ void collect(map<string, int> &result, TDateTime from, TDateTime to)
         "   airp = :airp";
 
     string grpSQL =
-        "select grp_id, point_dep, point_arv "
-        "from pax_grp"
-        " where "
-        "   (point_dep = :point_id or point_arv = :point_id) and "
-        "   status not in ('E') ";
+        "SELECT grp_id, point_dep, point_arv "
+        "FROM pax_grp "
+        "WHERE "
+        "  (point_dep = :point_id or point_arv = :point_id) and "
+        "  status not in ('E') ";
 
     string paxSQL =
-        "select pax_id from pax"
-        " where "
-        "   grp_id = :grp_id and "
-        "   refuse is null ";
+        "SELECT pax_id "
+        "FROM pax "
+        "WHERE "
+        "  grp_id = :grp_id and "
+        "  refuse is null ";
 
     QParams QryParams;
     QryParams

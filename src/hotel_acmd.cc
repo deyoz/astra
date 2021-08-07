@@ -16,25 +16,23 @@ const string HotelAcmdDateFormat = "dd.mm.yyyy hh:nn";
 void TPaxList::fromDB(int point_id)
 {
     // из PNL
-    TCachedQuery crsQry(
-            "select "
-            "   crs_pax.surname||' '||crs_pax.name full_name, "
-            "   pax.reg_no, "
-            "   crs_pax.pax_id, "
-            "   crs_pax.pers_type "
-            "from "
-            "   crs_pnr, "
-            "   tlg_binding, "
-            "   crs_pax, "
-            "   pax "
-            "where "
-            "   crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-            "   crs_pnr.system='CRS' AND "
-            "   crs_pnr.pnr_id=crs_pax.pnr_id AND "
-            "   crs_pax.pr_del=0 and "
-            "   tlg_binding.point_id_spp = :point_id and "
-            "   crs_pax.pax_id = pax.pax_id(+) ",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery crsQry(
+          PgOra::getROSession({"CRS_PNR","TLG_BINDING","CRS_PAX","PAX"}),
+          "SELECT "
+          "   RTRIM(COALESCE(crs_pax.surname,'')||' '||COALESCE(crs_pax.name,'')) full_name, "
+          "   pax.reg_no, "
+          "   crs_pax.pax_id, "
+          "   crs_pax.pers_type "
+          "FROM crs_pnr "
+          "JOIN tlg_binding ON crs_pnr.point_id = tlg_binding.point_id_tlg "
+          "JOIN (crs_pax LEFT OUTER JOIN pax ON crs_pax.pax_id = pax.pax_id) "
+          "ON crs_pnr.pnr_id = crs_pax.pnr_id "
+          "WHERE "
+          "   crs_pnr.system='CRS' AND "
+          "   crs_pax.pr_del=0 AND "
+          "   tlg_binding.point_id_spp = :point_id ",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     crsQry.get().Execute();
     for(; not crsQry.get().Eof; crsQry.get().Next()) {
         TPaxListItem item;

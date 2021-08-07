@@ -363,22 +363,24 @@ bool CompareShowComps( const TShowComps &item1, const TShowComps &item2 )
 
 int getPointArvFromPaxId( int pax_id, int point_dep )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_GRP"}), STDLOG);
   Qry.SQLText =
-    "SELECT point_arv FROM pax, pax_grp "
-    " WHERE pax.grp_id=pax_grp.grp_id AND pax_id=:pax_id";
+    "SELECT point_arv "
+    "FROM pax, pax_grp "
+    "WHERE pax.grp_id=pax_grp.grp_id AND pax_id=:pax_id";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
   if ( !Qry.Eof ) {
     return Qry.FieldAsInteger( "point_arv" );
   }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT airp_arv FROM crs_pnr, crs_pax "
-    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  if ( !Qry.Eof ) {
+  DB::TQuery QryCrs(PgOra::getROSession({"CRS_PNR", "CRS_PAX"}), STDLOG);
+  QryCrs.SQLText =
+    "SELECT airp_arv "
+    "FROM crs_pnr, crs_pax "
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id";
+  QryCrs.CreateVariable( "pax_id", otInteger, pax_id );
+  QryCrs.Execute();
+  if ( !QryCrs.Eof ) {
     TTripRoute routes;
     if ( routes.GetRouteAfter( ASTRA::NoExists,
                                point_dep,
@@ -386,7 +388,7 @@ int getPointArvFromPaxId( int pax_id, int point_dep )
                                trtNotCancelled ) ) {
       for ( std::vector<TTripRouteItem>::iterator iroute=routes.begin();
             iroute!=routes.end(); iroute++ ) {
-        if ( iroute->airp == Qry.FieldAsString( "airp_arv" ) ) {
+        if ( iroute->airp == QryCrs.FieldAsString( "airp_arv" ) ) {
           return iroute->point_id;
         }
       }
@@ -986,7 +988,8 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )
 {
   seat_no.clear();
-  TQuery SQry( &OraSession );
+  DB::TQuery SQry(pr_pnl ? PgOra::getROSession({"CRS_PNR","CRS_PAX","PAX","PAX_GRP"})
+                         : PgOra::getROSession({"PAX","PAX_GRP"}), STDLOG);
   if ( pr_pnl ) {
       SQry.SQLText =
         "SELECT "
@@ -1000,13 +1003,14 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
         "      pax_grp.status, "
         "      pax.grp_id, "
         "      pax.refuse "
-        "FROM crs_pnr,crs_pax,pax,pax_grp "
-        "WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
-        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-        "      crs_pax.pax_id=pax.pax_id(+) AND "
-        "      pax.grp_id=pax_grp.grp_id(+)";
-  }
-  else {
+        "FROM crs_pnr "
+        "JOIN (crs_pax "
+        "    LEFT OUTER JOIN (pax "
+        "        LEFT OUTER pax_grp ON pax.grp_id = pax_grp.grp_id "
+        "    ) ON crs_pax.pax_id = pax.pax_id "
+        ") ON crs_pnr.pnr_id = crs_pax.pnr_id "
+        "WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 ";
+  } else {
       SQry.SQLText =
         "SELECT "
         "      pax.tid tid, "
@@ -1041,8 +1045,8 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
   bool pr_refuse = !SQry.FieldIsNULL( "refuse" );
   if ( pr_grp_id && pr_refuse )
     return;
-  SQry.Clear();
-  SQry.SQLText =
+  TQuery SeatQry(&OraSession, STDLOG);
+  SeatQry.SQLText =
     "BEGIN "
     " IF :mode=0 THEN "
     "  :seat_no:=salons.get_seat_no(:pax_id,:seats,NULL,:grp_status,:point_id,:format,:pax_row); "
@@ -1050,26 +1054,26 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
     "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,:format,:crs_row); "
     " END IF; "
     "END;";
-  SQry.CreateVariable( "format", otString, format.c_str() );
-  SQry.CreateVariable( "mode", otInteger, (int)!pr_grp_id );
-  SQry.CreateVariable( "pax_id", otInteger, pax_id );
-  SQry.CreateVariable( "xname", otString, xname );
-  SQry.CreateVariable( "yname", otString, yname );
-  SQry.CreateVariable( "grp_status", otString, grp_status );
-  SQry.CreateVariable( "layer_type", otString, FNull );
+  SeatQry.CreateVariable( "format", otString, format.c_str() );
+  SeatQry.CreateVariable( "mode", otInteger, (int)!pr_grp_id );
+  SeatQry.CreateVariable( "pax_id", otInteger, pax_id );
+  SeatQry.CreateVariable( "xname", otString, xname );
+  SeatQry.CreateVariable( "yname", otString, yname );
+  SeatQry.CreateVariable( "grp_status", otString, grp_status );
+  SeatQry.CreateVariable( "layer_type", otString, FNull );
   if ( pr_grp_id ) {
-    SQry.CreateVariable( "seats", otInteger, pax_seats );
-    SQry.CreateVariable( "point_id", otInteger, point_dep );
+    SeatQry.CreateVariable( "seats", otInteger, pax_seats );
+    SeatQry.CreateVariable( "point_id", otInteger, point_dep );
   }
   else {
-    SQry.CreateVariable( "seats", otInteger, seats );
-    SQry.CreateVariable( "point_id", otInteger, point_id_tlg );
+    SeatQry.CreateVariable( "seats", otInteger, seats );
+    SeatQry.CreateVariable( "point_id", otInteger, point_id_tlg );
   }
-  SQry.CreateVariable( "pax_row", otInteger, 1 );
-  SQry.CreateVariable( "crs_row", otInteger, 1 );
-  SQry.CreateVariable( "seat_no", otString, FNull );
-    SQry.Execute();
-    seat_no = SQry.GetVariableAsString( "seat_no" );
+  SeatQry.CreateVariable( "pax_row", otInteger, 1 );
+  SeatQry.CreateVariable( "crs_row", otInteger, 1 );
+  SeatQry.CreateVariable( "seat_no", otString, FNull );
+    SeatQry.Execute();
+    seat_no = SeatQry.GetVariableAsString( "seat_no" );
     if ( !seat_no.empty() ) {
         if ( pr_grp_id ) {
             TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
@@ -1079,7 +1083,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
             catch(EBaseTableError&){};
         }
         else
-            slayer_type = SQry.GetVariableAsString( "layer_type" );
+            slayer_type = SeatQry.GetVariableAsString( "layer_type" );
     }
 /*!!!djek  if ( slayer_type.empty() )
     throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );*/
@@ -1111,40 +1115,43 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
   int point_arv = NoExists;
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
+  QryPoint.SQLText =
     "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
     "FROM points "
     "WHERE points.point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  QryPoint.CreateVariable( "point_id", otInteger, point_id );
+  QryPoint.Execute();
+  if ( QryPoint.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
 
-  TTripInfo fltInfo( Qry );
+  TTripInfo fltInfo(QryPoint);
 
   if ( seat_type != SEATS2::stDropseat ) {
     xname = SeatNumber::tryNormalizeLine( xname );
     yname = SeatNumber::tryNormalizeRow( yname );
   }
-  Qry.Clear();
-  Qry.SQLText =
-   "SELECT layer_type, pax_grp.point_arv, pax_grp.status, pax.grp_id FROM grp_status_types, pax, pax_grp "
-   " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
+  DB::TQuery QryStatus(PgOra::getROSession({"GRP_STATUS_TYPES", "PAX", "PAX_GRP"}), STDLOG);
+  QryStatus.SQLText =
+   "SELECT layer_type, pax_grp.point_arv, pax_grp.status, pax.grp_id "
+   "FROM grp_status_types, pax, pax_grp "
+   "WHERE pax_id=:pax_id "
+   "AND pax.grp_id=pax_grp.grp_id "
+   "AND pax_grp.status=grp_status_types.code ";
+  QryStatus.CreateVariable( "pax_id", otInteger, pax_id );
+  QryStatus.Execute();
   GrpId_t grp_id(ASTRA::NoExists);
-  if ( !Qry.Eof ) {
-    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+  if ( !QryStatus.Eof ) {
+    if (DecodePaxStatus(QryStatus.FieldAsString("status"))==psCrew)
       throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
-    layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-    point_arv  = Qry.FieldAsInteger( "point_arv" );
+    layer_type = DecodeCompLayerType( QryStatus.FieldAsString( "layer_type" ).c_str() );
+    point_arv  = QryStatus.FieldAsInteger( "point_arv" );
     if ( flags.isFlag( flSetPayLayer ) ) {
       throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
     }
-    grp_id = GrpId_t(Qry.FieldAsInteger( "grp_id" ));
+    grp_id = GrpId_t(QryStatus.FieldAsInteger( "grp_id" ));
   }
   else {
     point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
@@ -1175,9 +1182,10 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
                point_id, pax_id, layerPrioritySeat.toString().c_str(), used_seat_no.c_str() );
     // вычисляем предв. места по слоям, для того чтобы предупредить о том, что есть предв. рассадка на тек. месте
     if ( !used_seat_no.empty() && !flags.isFlag( flSetPayLayer ) ) {
-      Qry.Clear();
-      Qry.SQLText =
-        "SELECT first_yname||first_xname pre_seat_no, t.layer_type, "
+      // need fix in #39728
+      DB::TQuery QryLayers(PgOra::getROSession({/*"TRIP_COMP_LAYERS",*/ "COMP_LAYER_TYPES", "COMP_LAYER_PRIORITIES"}), STDLOG);
+      QryLayers.SQLText =
+        "SELECT COALESCE(first_yname,'')||COALESCE(first_xname,'') pre_seat_no, t.layer_type, "
         "    CASE WHEN clp.airline IS NULL THEN clt.priority ELSE clp.priority END priority "
         "  FROM trip_comp_layers t "
         " JOIN comp_layer_types clt "
@@ -1190,33 +1198,31 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
         "       t.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
         "       crs_pax_id=:pax_id "
         " ORDER BY priority ";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "airline", otString, fltInfo.airline );
-      Qry.CreateVariable( "pax_id", otInteger, pax_id );
-      Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
-      Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
-      Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
-      Qry.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
-      Qry.CreateVariable( "airline_priority", otInteger, GetTripSets( tsAirlineCompLayerPriority, fltInfo )?1:0 );
-      Qry.Execute();
+      QryLayers.CreateVariable( "point_id", otInteger, point_id );
+      QryLayers.CreateVariable( "airline", otString, fltInfo.airline );
+      QryLayers.CreateVariable( "pax_id", otInteger, pax_id );
+      QryLayers.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
+      QryLayers.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
+      QryLayers.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
+      QryLayers.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
+      QryLayers.CreateVariable( "airline_priority", otInteger, GetTripSets( tsAirlineCompLayerPriority, fltInfo )?1:0 );
+      QryLayers.Execute();
       int priority = -1;
-      for ( ;!Qry.Eof; Qry.Next() ) {
+      for ( ;!QryLayers.Eof; QryLayers.Next() ) {
         if ( priority == -1 ) {
-          priority = Qry.FieldAsInteger( "priority" );
+          priority = QryLayers.FieldAsInteger( "priority" );
         }
-        if ( priority != Qry.FieldAsInteger( "priority" ) ) {
+        if ( priority != QryLayers.FieldAsInteger( "priority" ) ) {
           break;
         }
-        if ( used_seat_no == Qry.FieldAsString( "pre_seat_no" ) ) {
+        if (used_seat_no == QryLayers.FieldAsString("pre_seat_no")) {
           ProgTrace( TRACE5, "pax_id=%d,point_id=%d,used_seat_no=%s,pre_seat_no=%s",
-                      pax_id, point_id, used_seat_no.c_str(), Qry.FieldAsString( "pre_seat_no" ) );
-          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin ) {
-            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
+                      pax_id, point_id, used_seat_no.c_str(), QryLayers.FieldAsString( "pre_seat_no" ).c_str() );
+          if (DecodeCompLayerType(QryLayers.FieldAsString("layer_type").c_str()) == cltProtCkin) {
+            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
+          } else if (DecodeCompLayerType(QryLayers.FieldAsString("layer_type").c_str()) != cltProtSelfCkin) { //pay layers
+            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
           }
-          else
-            if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) != cltProtSelfCkin ) { //pay layers
-              NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
-            }
           return propsSeatsFlags;
         }
       }
@@ -1425,36 +1431,39 @@ void CheckResetLayer( const std::string& airline,
     return;
   }
   ProgTrace( TRACE5, "CheckResetLayer input layer_type=%s, airline=%s", EncodeCompLayerType(layer_type), airline.c_str() );
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "DECLARE "
-    "vseat_xname crs_pax.seat_xname%TYPE; "
-    "vseat_yname crs_pax.seat_yname%TYPE; "
-    "vseats      crs_pax.seats%TYPE; "
-    "vpoint_id   crs_pnr.point_id%TYPE; "
-    "BEGIN "
-    "  SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
-    "  INTO vseat_xname, vseat_yname, vseats, vpoint_id "
-    "  FROM crs_pnr,crs_pax "
-    "  WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:crs_pax_id AND crs_pax.pr_del=0; "
-    "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, vseat_xname, vseat_yname, vseats, vpoint_id, :layer_type, 'one', 1); "
-    "EXCEPTION "
-    "  WHEN NO_DATA_FOUND THEN NULL; "
-    "END;";
-  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-  Qry.CreateVariable("layer_type", otString, FNull);
-  Qry.CreateVariable("crs_seat_no", otString, FNull);
-  Qry.Execute();
-  TCompLayerType layer_type_out = DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) );
-  if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
-    //проверка прав изменения платного слоя
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if ( !reqInfo->user.access.profiledRightPermittedForCrsPax(PaxId_t(crs_pax_id), 193) ) {
-      throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
-    }
-    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ), flag ) <
-         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ), flag ) ) {
-      layer_type = layer_type_out;
+  DB::TQuery QryCrs(PgOra::getROSession({"CRS_PAX","CRS_PNR"}), STDLOG);
+  QryCrs.SQLText =
+      "SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
+      "FROM crs_pnr,crs_pax "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:crs_pax_id AND crs_pax.pr_del=0 ";
+  QryCrs.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  QryCrs.Execute();
+
+  if (!QryCrs.Eof) {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, :seat_xname, :seat_yname, :seats, :point_id, :layer_type, 'one', 1); "
+        "END;";
+    Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+    Qry.CreateVariable("seat_xname", otString, QryCrs.FieldAsString("seat_xname"));
+    Qry.CreateVariable("seat_yname", otString, QryCrs.FieldAsString("seat_yname"));
+    Qry.CreateVariable("seats", otInteger, QryCrs.FieldAsString("seats"));
+    Qry.CreateVariable("point_id", otInteger, QryCrs.FieldAsString("point_id"));
+    Qry.CreateVariable("layer_type", otString, FNull);
+    Qry.CreateVariable("crs_seat_no", otString, FNull);
+    Qry.Execute();
+    TCompLayerType layer_type_out = DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) );
+    if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
+      //проверка прав изменения платного слоя
+      TReqInfo *reqInfo = TReqInfo::Instance();
+      if ( !reqInfo->user.access.profiledRightPermittedForCrsPax(PaxId_t(crs_pax_id), 193) ) {
+        throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
+      }
+      if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ), flag ) <
+           BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ), flag ) ) {
+        layer_type = layer_type_out;
+      }
     }
   }
   ProgTrace( TRACE5, "CheckResetLayer return layer_type=%s", EncodeCompLayerType(layer_type) );

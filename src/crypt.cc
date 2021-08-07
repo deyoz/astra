@@ -922,12 +922,12 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt*, xmlNodePtr reqNode,
         Qry.SQLText =
            "SELECT id, desk, desk_grp_id, request "
            "FROM crypt_term_req "
-           "WHERE id=:id";
+           "WHERE id=:id ";
         Qry.CreateVariable("id", otInteger, NodeAsInteger("id", reqNode));
     } else {
         Qry.SQLText =
            "SELECT id, desk, desk_grp_id, request "
-           "FROM crypt_term_req";
+           "FROM crypt_term_req ";
     }
 
     Qry.Execute();
