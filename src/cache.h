@@ -194,7 +194,8 @@ class TCacheTable {
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
-        std::list<std::string> dbSessionObjectNames;
+        std::list<std::string> dbSessionObjectNamesForRead;
+        std::list<std::string> dbSessionObjectNamesForWrite;
 
         bool insertImplemented;
         bool updateImplemented;

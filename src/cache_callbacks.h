@@ -164,6 +164,8 @@ class CacheTableCallbacks
     virtual std::string updateSql() const =0;
     virtual std::string deleteSql() const =0;
     virtual std::list<std::string> dbSessionObjectNames() const =0;
+    virtual std::list<std::string> dbSessionObjectNamesForRead() const { return dbSessionObjectNames(); }
+    virtual std::list<std::string> dbSessionObjectNamesForWrite() const { return dbSessionObjectNames(); }
     virtual void beforeSelectOrRefresh(const TCacheQueryType queryType,
                                        const TParams& sqlParams,
                                        DB::TQuery& Qry) const {}

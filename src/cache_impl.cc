@@ -2425,8 +2425,11 @@ std::string PosTermSets::updateSql() const {
 std::string PosTermSets::deleteSql() const {
   return "DELETE FROM pos_term_sets WHERE id=:OLD_id";
 }
-std::list<std::string> PosTermSets::dbSessionObjectNames() const {
+std::list<std::string> PosTermSets::dbSessionObjectNamesForRead() const {
   return {"POS_TERM_SETS", "PAY_CLIENTS", "POS_TERM_VENDORS"};
+}
+std::list<std::string> PosTermSets::dbSessionObjectNames() const {
+  return {"POS_TERM_SETS"};
 }
 
 void PosTermSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,

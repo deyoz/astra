@@ -92,7 +92,8 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     InsertSQL  = callbacks->insertSql();
     UpdateSQL  = callbacks->updateSql();
     DeleteSQL  = callbacks->deleteSql();
-    dbSessionObjectNames = callbacks->dbSessionObjectNames();
+    dbSessionObjectNamesForRead = callbacks->dbSessionObjectNamesForRead();
+    dbSessionObjectNamesForWrite = callbacks->dbSessionObjectNamesForWrite();
     insertImplemented  = callbacks->insertImplemented();
     updateImplemented  = callbacks->updateImplemented();
     deleteImplemented  = callbacks->deleteImplemented();
@@ -104,7 +105,8 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     InsertSQL  = Qry.FieldAsString("insert_sql");
     UpdateSQL  = Qry.FieldAsString("update_sql");
     DeleteSQL  = Qry.FieldAsString("delete_sql");
-    dbSessionObjectNames = {"ORACLE"};
+    dbSessionObjectNamesForRead = {"ORACLE"};
+    dbSessionObjectNamesForWrite = {"ORACLE"};
     insertImplemented  = !InsertSQL.empty();
     updateImplemented  = !UpdateSQL.empty();
     deleteImplemented  = !DeleteSQL.empty();
@@ -681,8 +683,8 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     TCacheQueryType query_type;
     std::set<std::string> vars;
     FieldsForLogging fieldsForLogging; //заполняется, но не используется
-    ASSERT(PgOra::areROSessionsEqual(dbSessionObjectNames));
-    DB::TQuery Qry(PgOra::getROSession(dbSessionObjectNames.front()), STDLOG);
+    ASSERT(PgOra::areROSessionsEqual(dbSessionObjectNamesForRead));
+    DB::TQuery Qry(PgOra::getROSession(dbSessionObjectNamesForRead.front()), STDLOG);
 
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry.SQLText = SelectSQL;
@@ -1535,8 +1537,8 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
     }
     if (!sql.empty()) {
       FieldsForLogging fieldsForLogging;
-      ASSERT(PgOra::areRWSessionsEqual(dbSessionObjectNames));
-      DB::TQuery Qry(PgOra::getRWSession(dbSessionObjectNames.front()), STDLOG);
+      ASSERT(PgOra::areRWSessionsEqual(dbSessionObjectNamesForWrite));
+      DB::TQuery Qry(PgOra::getRWSession(dbSessionObjectNamesForWrite.front()), STDLOG);
       Qry.SQLText = sql;
 
       std::set<std::string> vars=getSQLVariables(sql);

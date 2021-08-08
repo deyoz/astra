@@ -583,6 +583,7 @@ class PosTermSets : public CacheTableWritable
     std::string insertSql() const;
     std::string updateSql() const;
     std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
     std::list<std::string> dbSessionObjectNames() const;
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
