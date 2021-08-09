@@ -2397,21 +2397,19 @@ void SaleDesks::beforeApplyingRowChanges(const TCacheUpdateStatus status,
 
   if (newRow)
   {
-    std::optional<int> deskId=newRow.value().getAsInteger("desks_id");
+    auto cur=make_db_curs("SELECT id FROM desks WHERE code=:code",
+                          PgOra::getROSession("DESKS"));
+    int id;
+    cur.stb()
+       .def(id)
+       .bind(":code", newRow.value().getAsString("code"))
+       .EXfet();
 
-    if (!deskId)
-    {
-      auto cur=make_db_curs("SELECT id FROM desks WHERE code=:code",
-                            PgOra::getROSession("DESKS"));
-      int id;
-      cur.stb()
-         .def(id)
-         .bind(":code", newRow.value().getAsString("code"))
-         .EXfet();
+    if (cur.err() != DbCpp::ResultCode::NoDataFound)
+      newRow.value().setFromInteger("desks_id", id);
+    else
+      newRow.value().setFromInteger("desks_id", std::nullopt);
 
-      if (cur.err() != DbCpp::ResultCode::NoDataFound)
-        newRow.value().setFromInteger("desks_id", id);
-    }
   }
 }
 
@@ -2432,7 +2430,7 @@ void SaleDesks::afterApplyingRowChanges(const TCacheUpdateStatus status,
          .bind(":currency", newRow.value().getAsString_ThrowOnEmpty("currency"))
          .exec();
 
-      HistoryTable("desks").synchronize(getRowId("desks_id", oldRow, newRow));
+      HistoryTable("desks").synchronize(RowId_t(deskId.value()));
     }
   }
 
