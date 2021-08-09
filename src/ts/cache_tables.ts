@@ -1546,3 +1546,238 @@ $(cache PIKE EN COUNTRIES $(cache_iface_ver COUNTRIES) ""
 
 >> lines=auto
       <user_error lexema_id='MSG.CODE_ALREADY_USED_FOR_COUNTRY' code='0'>The value of 'Code (LAT)' RU field is already used in the 'Code (LAT)' field for country êî</user_error>
+
+%%
+
+### test 9
+### PLACE_CALC
+#########################################################################################
+
+$(init_jxt_pult åéÇÇãÄ)
+$(login VLAD GHJHSD)
+
+$(UPDATE_USER PIKE "äéÇÄãÖÇ ê.Ä." 1
+{          <airps>
+            <item>Ççä</item>
+            <item>ëéó</item>
+          </airps>}
+ opr=VLAD)
+
+$(login PIKE PIKE)
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  insert airp_dep:Ççä
+         airp_dep_view:VKO
+         airp_arv:ÄçÄ
+         airp_arv_view:AAQ
+         craft:íì5
+         {time:30.12.1899 01:45:00})
+
+$(set id_VKO_AAQ $(last_history_row_id PLACE_CALC))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>íì5</col>
+          <col>TU5</col>
+          <col>30.12.1899 01:45:00</col>
+          <col>$(get id_VKO_AAQ)</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  insert airp_dep:óãÅ
+         airp_dep_view:CEK
+         airp_arv:ÄçÄ
+         airp_arv_view:AAQ
+         craft:íì5
+         {time:30.12.1899 02:05:00})
+
+$(USER_ERROR_RESPONSE MSG.NO_PERM_ENTER_AP_AND_AP 0 {No rights to fill in the row of the airport CEK and AAQ})
+
+$(login VLAD GHJHSD)
+
+!! capture=on
+$(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  insert airp_dep:óãÅ
+         airp_dep_view:CEK
+         airp_arv:ÄçÄ
+         airp_arv_view:AAQ
+         craft:íì5
+         {time:30.12.1899 02:05:00})
+
+$(set id_CEK_AAQ $(last_history_row_id PLACE_CALC))
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>íì5</col>
+          <col>TU5</col>
+          <col>30.12.1899 01:45:00</col>
+          <col>$(get id_VKO_AAQ)</col>
+        </row>
+        <row pr_del='0'>
+          <col>óãÅ</col>
+          <col>CEK</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>íì5</col>
+          <col>TU5</col>
+          <col>30.12.1899 02:05:00</col>
+          <col>$(get id_CEK_AAQ)</col>
+        </row>
+      </rows>
+
+$(login PIKE PIKE)
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  update old_id:$(get id_VKO_AAQ)        id:$(get id_VKO_AAQ)
+         old_airp_dep:Ççä                airp_dep:Ççä
+         old_airp_dep_view:VKO           airp_dep_view:VKO
+         old_airp_arv:ÄçÄ                airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ           airp_arv_view:AAQ
+         old_craft:íì5                   craft:777
+         {old_time:30.12.1899 01:45:00}  {time:30.12.1899 01:50:00})
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>777</col>
+          <col>777</col>
+          <col>30.12.1899 01:50:00</col>
+          <col>$(get id_VKO_AAQ)</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  update old_id:$(get id_VKO_AAQ)        id:$(get id_VKO_AAQ)
+         old_airp_dep:Ççä                airp_dep:ÑåÑ
+         old_airp_dep_view:VKO           airp_dep_view:DME
+         old_airp_arv:ÄçÄ                airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ           airp_arv_view:AAQ
+         old_craft:777                   craft:777
+         {time:30.12.1899 01:50:00}      {time:30.12.1899 01:50:00})
+
+$(USER_ERROR_RESPONSE MSG.NO_PERM_ENTER_AP_AND_AP 0 {No rights to fill in the row of the airport DME and AAQ})
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  update old_id:$(get id_CEK_AAQ)       id:$(get id_CEK_AAQ)
+         old_airp_dep:óãÅ               airp_dep:ÑåÑ
+         old_airp_dep_view:CEK          airp_dep_view:DME
+         old_airp_arv:ÄçÄ               airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ          airp_arv_view:AAQ
+         old_craft:íì5                  craft:íì5
+         {old_time:30.12.1899 02:05:00} {time:30.12.1899 02:05:00})
+
+$(USER_ERROR_RESPONSE MSG.NO_PERM_MODIFY_AP_AND_AP 0 {No rights to change or delete the row with the airport CEK and AAQ})
+
+$(login VLAD GHJHSD)
+
+!! capture=on
+$(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  update old_id:$(get id_CEK_AAQ)       id:$(get id_CEK_AAQ)
+         old_airp_dep:óãÅ               airp_dep:ÑåÑ
+         old_airp_dep_view:CEK          airp_dep_view:DME
+         old_airp_arv:ÄçÄ               airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ          airp_arv_view:AAQ
+         old_craft:íì5                  craft:íì5
+         {old_time:30.12.1899 02:05:00} {time:30.12.1899 02:05:00})
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>Ççä</col>
+          <col>VKO</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>777</col>
+          <col>777</col>
+          <col>30.12.1899 01:50:00</col>
+          <col>$(get id_VKO_AAQ)</col>
+        </row>
+        <row pr_del='0'>
+          <col>ÑåÑ</col>
+          <col>DME</col>
+          <col>ÄçÄ</col>
+          <col>AAQ</col>
+          <col>íì5</col>
+          <col>TU5</col>
+          <col>30.12.1899 02:05:00</col>
+          <col>$(get id_CEK_AAQ)</col>
+        </row>
+      </rows>
+
+$(login PIKE PIKE)
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  delete old_id:$(get id_VKO_AAQ)
+         old_airp_dep:Ççä
+         old_airp_dep_view:VKO
+         old_airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ
+         old_craft:777
+         {old_time:30.12.1899 01:50:00})
+
+>> lines=auto
+    <data>
+      <code>PLACE_CALC</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>
+
+!! capture=on
+$(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  delete old_id:$(get id_CEK_AAQ)
+         old_airp_dep:ÑåÑ
+         old_airp_dep_view:DME
+         old_airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ
+         old_craft:íì5
+         {old_time:30.12.1899 02:05:00})
+
+$(USER_ERROR_RESPONSE MSG.NO_PERM_MODIFY_AP_AND_AP 0 {No rights to change or delete the row with the airport DME and AAQ})
+
+$(login VLAD GHJHSD)
+
+!! capture=on
+$(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
+  delete old_id:$(get id_CEK_AAQ)
+         old_airp_dep:ÑåÑ
+         old_airp_dep_view:DME
+         old_airp_arv:ÄçÄ
+         old_airp_arv_view:AAQ
+         old_craft:íì5
+         {old_time:30.12.1899 02:05:00})
+
+>> lines=auto
+    <data>
+      <code>PLACE_CALC</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='-1'/>
+    </data>

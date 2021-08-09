@@ -481,5 +481,26 @@ void checkUserTypesAccess(const std::string& userTypeFieldName1,
   }
 }
 
+void checkNotNullAirportOrAirportAccess(const std::string& fieldName1,
+                                        const std::string& fieldName2,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow)
+{
+  for(bool isNewRow : {false, true})
+  {
+    const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
+    if (!row) continue;
+
+    AirportCode_t airport1(row.value().getAsString_ThrowOnEmpty(fieldName1));
+    AirportCode_t airport2(row.value().getAsString_ThrowOnEmpty(fieldName2));
+
+    if (isPermitted(airport1) || isPermitted(airport2)) continue;
+
+    throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AP_AND_AP":"MSG.NO_PERM_MODIFY_AP_AND_AP",
+                        LParams() << LParam("airp1", ElemIdToCodeNative(etAirp, airport1.get()))
+                                  << LParam("airp2", ElemIdToCodeNative(etAirp, airport2.get())));
+  }
+}
+
 } //namespace CacheTable
 

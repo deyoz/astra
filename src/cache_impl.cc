@@ -67,6 +67,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="PAY_CLIENTS")         return new CacheTable::PayClients;
   if (cacheCode=="POS_TERM_VENDORS")    return new CacheTable::PosTermVendors;
   if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
+  if (cacheCode=="PLACE_CALC")          return new CacheTable::PlaceCalc;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -2629,6 +2630,50 @@ void PosTermSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                           const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("pos_term_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//PlaceCalc
+
+bool PlaceCalc::userDependence() const {
+  return true;
+}
+std::string PlaceCalc::selectSql() const {
+  return "SELECT bc AS craft, cod_out AS airp_dep, cod_in AS airp_arv, time_out_in AS time, id "
+         "FROM place_calc "
+         "WHERE " + getSQLFilter("cod_out", AccessControl::PermittedAirports) + " OR "
+                  + getSQLFilter("cod_in",  AccessControl::PermittedAirports) + " "
+         "ORDER BY airp_dep,airp_arv,craft";
+}
+std::string PlaceCalc::insertSql() const {
+  return "INSERT INTO place_calc(bc, cod_out, cod_in, time_out_in, id) "
+         "VALUES(:craft, :airp_dep, :airp_arv, :time, :id)";
+}
+std::string PlaceCalc::updateSql() const {
+  return "UPDATE place_calc "
+         "SET bc=:craft, cod_out=:airp_dep, cod_in=:airp_arv, time_out_in=:time "
+         "WHERE id=:OLD_id";
+}
+std::string PlaceCalc::deleteSql() const {
+  return "DELETE FROM place_calc WHERE id=:OLD_id";
+}
+std::list<std::string> PlaceCalc::dbSessionObjectNames() const {
+  return {"PLACE_CALC"};
+}
+
+void PlaceCalc::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkNotNullAirportOrAirportAccess("airp_dep", "airp_arv", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void PlaceCalc::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("place_calc").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables

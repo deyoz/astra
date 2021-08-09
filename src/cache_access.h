@@ -115,5 +115,10 @@ void checkUserTypesAccess(const std::string& userTypeFieldName1,
                           const std::optional<CacheTable::Row>& oldRow,
                           const std::optional<CacheTable::Row>& newRow);
 
+void checkNotNullAirportOrAirportAccess(const std::string& fieldName1,
+                                        const std::string& fieldName2,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow);
+
 } //namespace CacheTable
 
