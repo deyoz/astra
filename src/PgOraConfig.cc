@@ -283,13 +283,13 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_COMP_BASELAYERS", {
                 "COMP_BASELAYERS", // COMP_ELEMS
-                "TRIP_COMP_BASELAYERS",
+                "TRIP_COMP_BASELAYERS", // COMP_ELEMS, COMP_BASELAYERS
         }},
         { "SP_PG_GROUP_COMP_CLASSES", {
                 "COMP_CLASSES", // COMPS
         }},
         { "SP_PG_GROUP_COMP_ELEMS", {
-                "COMP_ELEMS", // TRIP_COMP_ELEMS + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
+                "COMP_ELEMS", // TRIP_COMP_ELEMS, TRIP_COMP_BASELAYERS, COMP_BASELAYERS + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
         }},
         { "SP_PG_GROUP_COMP_RATES", {
                 "COMP_RATES", // TRIP_COMP_RATES
