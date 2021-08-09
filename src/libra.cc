@@ -289,6 +289,9 @@ std::string receiveHttpResponse()
     xmlNodePtr answerNode = findNodeR(resultNode, "answer");
     ASSERT(answerNode);
 
+    if(!findNode(answerNode, "root")) {
+        NewTextChild(answerNode, "root");
+    }
     xmlNodePtr rootNode = findNode(answerNode, "root");
     ASSERT(rootNode);
 
