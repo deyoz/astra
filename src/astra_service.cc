@@ -1672,20 +1672,27 @@ void sync_fids_data( )
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
 };
+inline void TimeToXML(xmlNodePtr node, const std::string& tag,
+                      const TDateTime &time, const std::string& region,
+                      bool setUTCTime)
+{
+  if (time == ASTRA::NoExists) return;
+  xmlNodePtr tnode = NewTextChild( node, tag.c_str(), DateTimeToStr( UTCToClient( time, region ), "dd.mm.yyyy hh:nn" ) );
+  if (setUTCTime)
+    SetProp(tnode,"utc",DateTimeToStr(time,"dd.mm.yyyy hh:nn"));
+}
 
 inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
-                            xmlNodePtr node, const string &region )
+                            xmlNodePtr node, const string &region, bool setUTCTime )
 {
   TStagesRules *sr = TStagesRules::Instance();
   if ( sr->isClientStage( (int)stage_id ) && !sr->canClientStage( CkinClients, (int)stage_id ) )
     return;
   xmlNodePtr node1 = NewTextChild( node, "stage" );
   SetProp( node1, "stage_id", stage_id );
-  NewTextChild( node1, "scd", DateTimeToStr( UTCToClient( stage.scd, region ), "dd.mm.yyyy hh:nn" ) );
-  if ( stage.est != ASTRA::NoExists )
-    NewTextChild( node1, "est", DateTimeToStr( UTCToClient( stage.est, region ), "dd.mm.yyyy hh:nn" ) );
-  if ( stage.act != ASTRA::NoExists )
-    NewTextChild( node1, "act", DateTimeToStr( UTCToClient( stage.act, region ), "dd.mm.yyyy hh:nn" ) );
+  TimeToXML(node1,"scd",stage.scd, region,setUTCTime);
+  TimeToXML(node1,"est",stage.est, region,setUTCTime);
+  TimeToXML(node1,"act",stage.act, region,setUTCTime);
 }
 
 bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )    //point_addr=BETADC
