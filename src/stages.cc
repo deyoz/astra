@@ -526,7 +526,7 @@ void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
        "SELECT client_type "
        "FROM trip_ckin_client "
        "WHERE point_id = :point_id "
-         "AND pr_permit != 0",
+         "AND pr_permit <> 0",
         PgOra::getROSession("TRIP_CKIN_CLIENT")
     );
 
@@ -537,7 +537,7 @@ void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
        .bind(":point_id", point_id)
        .exec();
 
-    if (!cur.fen()) {
+    while (!cur.fen()) {
         ckin_clients.push_back(client_type);
     }
 }
