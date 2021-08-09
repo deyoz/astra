@@ -524,6 +524,56 @@ class FormPacks : public CacheTableWritableHandmade
                               const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class SalePoints : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class Desk
+{
+  public:
+    DeskCode_t code;
+    RowId_t id;
+    CurrencyCode_t currency;
+
+    Desk(const DeskCode_t& code_,
+         const RowId_t& id_,
+         const CurrencyCode_t& currency_) :
+      code(code_), id(id_), currency(currency_) {}
+};
+
+std::map<DeskCode_t, Desk> getDesks();
+
+class SaleDesks : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const { return ""; }
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
 class Operators : public CacheTableWritable
 {
   public:

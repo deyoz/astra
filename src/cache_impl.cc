@@ -61,6 +61,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="VALIDATOR_TYPES")     return new CacheTable::ValidatorTypes;
   if (cacheCode=="FORM_TYPES")          return new CacheTable::FormTypes;
   if (cacheCode=="FORM_PACKS")          return new CacheTable::FormPacks;
+  if (cacheCode=="SALE_POINTS")         return new CacheTable::SalePoints;
+  if (cacheCode=="SALE_DESKS")          return new CacheTable::SaleDesks;
   if (cacheCode=="OPERATORS")           return new CacheTable::Operators;
   if (cacheCode=="PAY_CLIENTS")         return new CacheTable::PayClients;
   if (cacheCode=="POS_TERM_VENDORS")    return new CacheTable::PosTermVendors;
@@ -2260,6 +2262,181 @@ void FormPacks::onApplyingRowChanges(const TCacheUpdateStatus status,
       }
     }
   }
+}
+
+//SalePoints
+
+bool SalePoints::userDependence() const {
+  return false;
+}
+std::string SalePoints::selectSql() const {
+  return "SELECT code, validator, agency, city, descr, descr_lat, phone, id FROM sale_points ORDER BY code";
+}
+std::string SalePoints::insertSql() const {
+  return "INSERT INTO sale_points(code, validator, agency, city, descr, descr_lat, phone, forms, pr_permit, id) "
+         "VALUES(:code, :validator, :agency, :city, :descr, :descr_lat, :phone, NULL, 1, :id)";
+}
+std::string SalePoints::updateSql() const {
+  return "UPDATE sale_points "
+         "SET code=:code, validator=:validator, agency=:agency, city=:city, descr=:descr, descr_lat=:descr_lat, phone=:phone "
+         "WHERE id=:OLD_id";
+}
+std::string SalePoints::deleteSql() const {
+  return "DELETE FROM sale_points WHERE id=:OLD_id";
+}
+std::list<std::string> SalePoints::dbSessionObjectNames() const {
+  return {"SALE_POINTS"};
+}
+
+void SalePoints::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    std::string code=newRow.value().getAsString("code");
+    if (code.size()!=8 ||
+        !algo::all_of(code, [](const auto &c) { return IsUpperLetter(c) || IsDigit(c); }))
+      throw UserException("MSG.SALE_POINT_CONSISTS_OF_8_LET_DIG");
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void SalePoints::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("sale_points").synchronize(getRowId("id", oldRow, newRow));
+}
+
+std::map<DeskCode_t, Desk> getDesks()
+{
+  auto cur = make_db_curs("SELECT code, id, currency FROM desks",
+                          PgOra::getROSession("DESKS"));
+
+  std::string code, currency;
+  int id;
+  cur.def(code)
+     .def(id)
+     .def(currency)
+     .exec();
+
+  std::map<DeskCode_t, Desk> result;
+  while (!cur.fen())
+    result.emplace(DeskCode_t(code), Desk(DeskCode_t(code), RowId_t(id), CurrencyCode_t(currency)));
+
+  return result;
+}
+
+//SaleDesks
+
+bool SaleDesks::userDependence() const {
+  return false;
+}
+
+void SaleDesks::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery Qry(PgOra::getROSession("SALE_DESKS"), STDLOG);
+
+  Qry.SQLText="SELECT code, sale_point, validator, pr_denial, id FROM sale_desks ORDER BY code";
+  Qry.Execute();
+
+  if (Qry.Eof) return;
+
+  const auto desks=getDesks();
+
+  int idxCode=Qry.FieldIndex("code");
+  int idxSalePoint=Qry.FieldIndex("sale_point");
+  int idxValidator=Qry.FieldIndex("validator");
+  int idxPrDenial=Qry.FieldIndex("pr_denial");
+  int idxId=Qry.FieldIndex("id");
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    std::optional<Desk> desk;
+
+    std::string saleDeskCode=Qry.FieldAsString(idxCode);
+    if (saleDeskCode.size()==6) //потому что не требуем строго 6 символов при вводе в sale_desks
+      desk = algo::find_opt<std::optional>(desks, DeskCode_t(saleDeskCode));
+
+    rows.setFromString(saleDeskCode)
+        .setFromString(Qry, idxSalePoint)
+        .setFromString(Qry, idxValidator)
+        .setFromString(ElemIdToCodeNative(etValidatorType, Qry.FieldAsString(idxValidator)))
+        .setFromString(desk?desk.value().currency.get():"")
+        .setFromString(desk?ElemIdToCodeNative(etCurrency, desk.value().currency.get()):"")
+        .setFromBoolean(Qry, idxPrDenial)
+        .setFromString(desk?IntToString(desk.value().id.get()):"")
+        .setFromInteger(Qry, idxId)
+        .addRow();
+  }
+}
+
+std::string SaleDesks::insertSql() const {
+  return "INSERT INTO sale_desks(id, code, sale_point, validator, pr_denial) "
+         "VALUES(:sale_desks_id, :code, :sale_point, :validator, :pr_denial)";
+}
+std::string SaleDesks::updateSql() const {
+  return "UPDATE sale_desks "
+         "SET code=:code, sale_point=:sale_point, validator=:validator, pr_denial=:pr_denial "
+         "WHERE id=:OLD_sale_desks_id";
+}
+std::string SaleDesks::deleteSql() const {
+  return "DELETE FROM sale_desks WHERE id=:OLD_sale_desks_id";
+}
+std::list<std::string> SaleDesks::dbSessionObjectNames() const {
+  return {"SALE_DESKS"};
+}
+
+void SaleDesks::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  setRowId("sale_desks_id", status, newRow);
+
+  if (newRow)
+  {
+    std::optional<int> deskId=newRow.value().getAsInteger("desks_id");
+
+    if (!deskId)
+    {
+      auto cur=make_db_curs("SELECT id FROM desks WHERE code=:code",
+                            PgOra::getROSession("DESKS"));
+      int id;
+      cur.stb()
+         .def(id)
+         .bind(":code", newRow.value().getAsString("code"))
+         .EXfet();
+
+      if (cur.err() != DbCpp::ResultCode::NoDataFound)
+        newRow.value().setFromInteger("desks_id", id);
+    }
+  }
+}
+
+void SaleDesks::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    std::optional<int> deskId=newRow.value().getAsInteger("desks_id");
+
+    if (deskId)
+    {
+      auto cur=make_db_curs("UPDATE desks SET currency=:currency WHERE id=:id",
+                            PgOra::getRWSession("DESKS"));
+      cur.stb()
+         .bind(":id",       deskId.value())
+         .bind(":currency", newRow.value().getAsString_ThrowOnEmpty("currency"))
+         .exec();
+
+      HistoryTable("desks").synchronize(getRowId("desks_id", oldRow, newRow));
+    }
+  }
+
+  HistoryTable("sale_desks").synchronize(getRowId("sale_desks_id", oldRow, newRow));
 }
 
 //Operators
