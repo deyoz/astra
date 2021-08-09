@@ -28,7 +28,7 @@ typedef std::vector<TFileData> TFileDatas;
 
 
 void getFileParams( const std::string client_canon_name, const std::string &type,
-	                  int id, std::map<std::string, std::string> &fileparams, bool send );
+			  int id, std::map<std::string, std::string> &fileparams, bool send );
 
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
@@ -107,12 +107,12 @@ public:
 };
 
 void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
-                     xmlNodePtr node, const std::string &region );
+		     xmlNodePtr node, const std::string &region, bool setUTCTime=false );
 
 void put_string_into_snapshot_points( int point_id, std::string file_type,
-	                                    std::string point_addr, bool pr_old_record, std::string record );
+					    std::string point_addr, bool pr_old_record, std::string record );
 void get_string_into_snapshot_points( int point_id, const std::string &file_type,
-	                                    const std::string &point_addr, std::string &record );
+					    const std::string &point_addr, std::string &record );
 
 #endif /*_ASTRA_SERVICE_H_*/
 
