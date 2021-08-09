@@ -123,6 +123,23 @@ namespace EXCH_CHECKIN_RESULT
     Request( const MQRABBIT_TRANSPORT::MQRabbitRequest& req ):MQRABBIT_TRANSPORT::MQRabbitRequest(req){}
   };
 
+  inline bool isUTCUserSet()
+  {
+    return TReqInfo::Instance()->user.sets.time == ustTimeUTC;
+  }
+
+  inline void TimeToXML( xmlNodePtr node, const std::string& tag,
+                         const TDateTime &time, const std::string &region,
+                         const std::string& format="")
+  {
+    xmlNodePtr tnode = NewTextChild( node, tag.c_str(),
+                                     DateTimeToStr( ASTRA::date_time::UTCToClient(time,region),
+                                                    format.empty()?ServerFormatDateTimeAsString:format) );
+    if ( !isUTCUserSet() )
+      SetProp(tnode, "utc", DateTimeToStr(time,format.empty()?ServerFormatDateTimeAsString:format));
+
+  }
+
   struct FlightData {
     TDateTime scd_in;
     TDateTime est_in;
@@ -158,7 +175,8 @@ namespace EXCH_CHECKIN_RESULT
      int point_id;
      bool pr_del;
      std::string flight;
-     std::string scd_out;
+     TDateTime scd_out;
+     std::string region;
      std::string name;
      std::string cl;
      std::string cabin_cl;
@@ -500,8 +518,8 @@ namespace EXCH_CHECKIN_RESULT
       return;
     }
     paxData.flight = trips[ paxData.point_id ].airline + IntToString( trips[ paxData.point_id ].flt_no ) + trips[ paxData.point_id ].suffix;
-    paxData.scd_out = DateTimeToStr( ASTRA::date_time::UTCToClient(trips[ paxData.point_id ].scd_out,
-                                                                   AirpTZRegion( trips[ paxData.point_id ].airp )), ServerFormatDateTimeAsString );
+    paxData.scd_out = trips[ paxData.point_id ].scd_out;
+    paxData.region = AirpTZRegion( trips[ paxData.point_id ].airp );
     paxData.grp_id = PaxQry.FieldAsInteger( col_grp_id );
     paxData.name = PaxQry.FieldAsString( col_name );
     paxData.cl = PaxQry.FieldAsString( col_class );
@@ -597,7 +615,8 @@ namespace EXCH_CHECKIN_RESULT
     if ( !route.front().suffix_out.empty() ) {
       NewTextChild( flightNode, "suffix", route.front().suffix_out );
     }
-    NewTextChild( flightNode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" ) );
+    TimeToXML(flightNode,"scd_out",route.front().scd_out,region,"dd.mm.yyyy hh:nn");
+
     if ( !craft.empty() ) {
       NewTextChild( flightNode, "craft", craft );
     }
@@ -605,10 +624,10 @@ namespace EXCH_CHECKIN_RESULT
       NewTextChild( flightNode, "bort", bort );
     }
     if ( est_out != ASTRA::NoExists ) {
-      NewTextChild( flightNode, "est_out", DateTimeToStr( ASTRA::date_time::UTCToClient( est_out, region ), "dd.mm.yyyy hh:nn" ) );
+      TimeToXML(flightNode,"est_out",est_out,region,"dd.mm.yyyy hh:nn");
     }
     if ( route.front().act_out != ASTRA::NoExists ) {
-      NewTextChild( flightNode, "act_out", DateTimeToStr( ASTRA::date_time::UTCToClient( act_out, region ), "dd.mm.yyyy hh:nn" ) );
+      TimeToXML(flightNode,"act_out",act_out,region,"dd.mm.yyyy hh:nn");
     }
     NewTextChild( flightNode, "pr_cancel", route.front().pr_cancel );
     NewTextChild( flightNode, "airp_dep", route.front().airp );
@@ -616,13 +635,13 @@ namespace EXCH_CHECKIN_RESULT
       NewTextChild( flightNode, "airp_arv", airp_arv );
       std::string region_arr = AirpTZRegion( airp_arv );
       if ( scd_in != ASTRA::NoExists ) {
-        NewTextChild( flightNode, "scd_in",  DateTimeToStr( ASTRA::date_time::UTCToClient( scd_in, region_arr ), "dd.mm.yyyy hh:nn" ) );
+        TimeToXML(flightNode,"scd_in",scd_in,region_arr,"dd.mm.yyyy hh:nn");
       }
       if ( est_in != ASTRA::NoExists ) {
-        NewTextChild( flightNode, "est_in",  DateTimeToStr( ASTRA::date_time::UTCToClient( est_in, region_arr ), "dd.mm.yyyy hh:nn" ) );
+        TimeToXML(flightNode,"est_in",est_in,region_arr,"dd.mm.yyyy hh:nn");
       }
       if ( act_in != ASTRA::NoExists ) {
-        NewTextChild( flightNode, "act_in",  DateTimeToStr( ASTRA::date_time::UTCToClient( act_in, region_arr ), "dd.mm.yyyy hh:nn" ) );
+        TimeToXML(flightNode,"act_in",act_in,region_arr,"dd.mm.yyyy hh:nn");
       }
     }
     std::vector<TPointsDestDelay> vdelays;
@@ -633,19 +652,21 @@ namespace EXCH_CHECKIN_RESULT
         xmlNodePtr delNode = NewTextChild( node, "delay" );
         SetProp( delNode, "code", idel->code );
         SetProp( delNode, "time", DateTimeToStr( ASTRA::date_time::UTCToClient( idel->time, region ), "dd.mm.yyyy hh:nn" ) );
+        if (!isUTCUserSet())
+          SetProp(delNode,"utc",DateTimeToStr(idel->time,"dd.mm.yyyy hh:nn"));
       }
     }
     if ( !stages.Empty() ) {
       xmlNodePtr node = NewTextChild( flightNode, "stages" );
-      CreateXMLStage( CkinClients, sPrepCheckIn, stages.GetStage( sPrepCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sOpenCheckIn, stages.GetStage( sOpenCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sCloseCheckIn, stages.GetStage( sCloseCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sOpenBoarding, stages.GetStage( sOpenBoarding ), node, region );
-      CreateXMLStage( CkinClients, sCloseBoarding, stages.GetStage( sCloseBoarding ), node, region );
-      CreateXMLStage( CkinClients, sOpenWEBCheckIn, stages.GetStage( sOpenWEBCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
-      CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
+      CreateXMLStage( CkinClients, sPrepCheckIn, stages.GetStage( sPrepCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sOpenCheckIn, stages.GetStage( sOpenCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sCloseCheckIn, stages.GetStage( sCloseCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sOpenBoarding, stages.GetStage( sOpenBoarding ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sCloseBoarding, stages.GetStage( sCloseBoarding ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sOpenWEBCheckIn, stages.GetStage( sOpenWEBCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region, !isUTCUserSet() );
+      CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region, !isUTCUserSet() );
     }
     stations.toXML(flightNode);
   }
@@ -660,7 +681,7 @@ namespace EXCH_CHECKIN_RESULT
       return;
     }
     NewTextChild( paxNode, "flight", flight );
-    NewTextChild( paxNode, "scd_out", scd_out );
+    TimeToXML(paxNode,"scd_out",scd_out,region);
     NewTextChild( paxNode, "grp_id", grp_id );
     NewTextChild( paxNode, "name", name );
     NewTextChild( paxNode, "class", cl );
@@ -692,8 +713,7 @@ namespace EXCH_CHECKIN_RESULT
          NewTextChild( inode, "flight", i->operFlt.airline + IntToString(i->operFlt.flt_no) + i->operFlt.suffix );
          NewTextChild( inode, "airp_dep", i->airp_dep );
          NewTextChild( inode, "airp_arv", i->airp_arv );
-         NewTextChild( inode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient(i->operFlt.scd_out,AirpTZRegion( i->airp_dep )),
-                                                                                      ServerFormatDateTimeAsString ) );
+         TimeToXML(inode,"scd_out",i->operFlt.scd_out,AirpTZRegion( i->airp_dep ));
          seg_no++;
       }
     }
@@ -1020,7 +1040,7 @@ namespace EXCH_CHECKIN_RESULT
         //ProgTrace( TRACE5, "itid->second.pax_tid=%d, itid->second.grp_tid =%d",  itid->second.pax_tid, itid->second.grp_tid );
         continue; // уже передавали пассажира
       }
-      // рейс не передавалаи
+      // рейс не передавали
       std::pair<std::map<int,int>::iterator, bool> ret;
       ret = insert( make_pair( point_id, tid ) );
       if ( !ret.second ) {
