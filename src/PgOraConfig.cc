@@ -282,14 +282,11 @@ namespace PgOra
                 "TRFER_TRIPS", //"PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TCKIN_SEGMENTS","TRANSFER_SUBCLS","SUBCLS","BAG2","TRIP_STAGES"
         }},
         { "SP_PG_GROUP_COMP_BASELAYERS", {
-                "COMP_BASELAYERS", // "COMP_ELEMS"
+                "COMP_BASELAYERS", // COMP_ELEMS
                 "TRIP_COMP_BASELAYERS",
         }},
         { "SP_PG_GROUP_COMP_CLASSES", {
                 "COMP_CLASSES", // COMPS
-        }},
-        { "SP_PG_GROUP_BAG2", {
-                "BAG2",
         }},
         { "SP_PG_GROUP_COMP_ELEMS", {
                 "COMP_ELEMS", // TRIP_COMP_ELEMS + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
@@ -312,10 +309,16 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_COMPS", {
                 "COMPS", // POINTS, LIBRA_COMPS, COMP_CLASSES, TRIP_SETS
         }},
-        { "SP_PG_GROUP_OPERATORS", {"OPERATORS","HIST_OPERATORS"} },
         { "SP_PG_GROUP_COMP_SUBCLS_SETS", {
                 "COMP_SUBCLS_SETS",
         }},
+        { "SP_PG_GROUP_COMP_RFISC_COMP_PROPS", {
+                "RFISC_COMP_PROPS", // BRAND_FARES, RFISC_RATES
+        }},
+        { "SP_PG_GROUP_BAG2", {
+                "BAG2",
+        }},
+        { "SP_PG_GROUP_OPERATORS", {"OPERATORS","HIST_OPERATORS"} },
         { "SP_PG_GROUP_SALE_POINTS", {"SALE_DESKS","SALE_POINTS","HIST_SALE_DESKS","HIST_SALE_POINTS"} },
         { "SP_PG_GROUP_POS_TERM", {
                 "PAY_CLIENTS", "POS_TERM_ASSIGN", "POS_TERM_SETS", "POS_TERM_VENDORS",

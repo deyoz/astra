@@ -338,11 +338,11 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
     }
     _potential_queries++;
     _real_queries++;
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession({"BRAND_FARES", "RFISC_RATES", "RFISC_COMP_PROPS"}),
       "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc, "
-      "       DECODE(airp_dep,NULL,0,4) + "
-      "       DECODE(airp_arv,NULL,0,2) AS airps_priority, "
-      "       LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority, brand_fares.brand AS brand_code "
+      "       (CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) +"
+      "       (CASE WHEN airp_arv IS NULL THEN 0 ELSE 2 END) AS airps_priority, "
+      "       LENGTH(:fare_basis)-LENGTH(brand_fares.fare_basis) AS brand_priority, brand_fares.brand AS brand_code "
       "FROM brand_fares, rfisc_rates, rfisc_comp_props "
       "WHERE brand_fares.airline=rfisc_rates.airline AND "
       "      (rfisc_rates.airp_dep IS NULL OR rfisc_rates.airp_dep=:airp_dep) AND "
@@ -361,7 +361,8 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
                 << QParam("airp_dep", otString, operFlt.airp)
                 << QParam("airp_arv", otString, airp_arv)
                 << QParam("fare_basis", otString, etick.fare_basis)
-                << QParam("issue_date", otDate, etick.issue_date)
+                << QParam("issue_date", otDate, etick.issue_date),
+      STDLOG
     );
 
     ostringstream s;
