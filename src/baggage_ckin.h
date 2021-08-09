@@ -133,31 +133,14 @@ private:
     std::unordered_map<GrpId_t, std::map<BagNum_t, std::vector<TagInfo>>> grp_tags;
 };
 
-//std::optional<int> get_bagAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-//std::optional<int> get_bagWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-//                                  std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-//std::optional<int> get_rkAmount2(GrpId_t grp_id, std::optional<int> pax_id,
-//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-//std::optional<int> get_rkWeight2(GrpId_t grp_id, std::optional<int> pax_id,
-//                                 std::optional<int> bag_pool_num, Dates::DateTime_t part_key);
-
-//std::optional<BagInfo> get_bagInfo2(GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> bag_pool_num,
-//                      std::optional<DateTime_t> part_key);
-
 std::optional<PaxId_t> get_bag_pool_pax_id(GrpId_t grp_id, std::optional<int> bag_pool_num,
                                        std::optional<DateTime_t> part_key, int include_refused = 1);
-
-//std::optional<int> get_main_pax_id2(GrpId_t grp_id, int include_refused, std::optional<DateTime_t> part_key);
 
 int get_bag_pool_refused(GrpId_t grp_id, int bag_pool_num, std::optional<std::string> vclass, int bag_refuse,
                          std::optional<DateTime_t> part_key);
 
 std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
                                       std::optional<DateTime_t> part_key, const std::string &lang);
-
-//std::optional<std::string> get_birks2(GrpId_t grp_id, std::optional<int> pax_id, int bag_pool_num,
-//                                     int pr_lat, std::optional<DateTime_t> part_key );
 
 std::optional<int> get_excess_wt(GrpId_t grp_id, std::optional<PaxId_t> pax_id, std::optional<int> excess_wt, std::optional<int> bag_refuse);
 

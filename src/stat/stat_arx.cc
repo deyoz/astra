@@ -2332,12 +2332,14 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " pax_grp.grp_id, \n"
                " pax.pr_brd, \n"
                " pax.refuse, \n"
+               " pax.bag_pool_num, \n "
                " pax_grp.class_grp, \n"
                " COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, \n"
                " pax_grp.hall, \n"
                " pax.ticket_no, \n"
                " pax.pax_id, \n"
-               " pax_grp.status \n"
+               " pax_grp.status, \n"
+               " pax_grp.excess_wt, pax_grp.excess_pc, pax_grp.bag_refuse \n"
                "FROM pax_grp, pax, points \n";
         if(!document.empty())
         {

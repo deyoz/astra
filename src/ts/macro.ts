@@ -3726,7 +3726,7 @@ $(defmacro RUN_PAX_SRC_STAT
 
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='ARX.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <PaxSrcRun>
       <dev_model/>
       <fmt_type/>
@@ -3774,7 +3774,7 @@ $(defmacro ARX_RUN_FLT_TASK_LOG
     part_key
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='ARX.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <FltTaskLogRun>
       <dev_model/>
       <fmt_type/>
@@ -3829,7 +3829,7 @@ $(defmacro ARX_RUN_LOG_RUN
     reg_no
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='ARX.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <LogRun>
       <dev_model/>
       <fmt_type/>
@@ -3880,7 +3880,7 @@ $(defmacro ARX_RUN_FLT_LOG
     part_key
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='ARX.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <FltLogRun>
       <dev_model/>
       <fmt_type/>

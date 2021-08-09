@@ -112,26 +112,22 @@ const std::string qryBalanceExcessBagWOCheckinTranzit =
     "SELECT "
     "  point_dep, "
     "  CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END AS pr_tranzit, "
-    "  class, "
-    "  SUM(COALESCE(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse), 0)) AS paybag_weight "
+    "  class, grp_id, excess_wt, bag_refuse "
     "FROM pax_grp "
     "WHERE "
     "  point_arv = :point_arv "
-    "  AND pax_grp.status NOT IN ('E') "
-    "GROUP BY point_dep, CASE WHEN point_dep = :point_dep THEN 0 ELSE 1 END, class ";
+    "  AND pax_grp.status NOT IN ('E') ";
 
 const std::string qryBalanceExcessBagWithCheckinTranzit =
     "SELECT "
     "  point_dep, "
     "  CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END AS pr_tranzit, "
-    "  class, "
-    "  SUM(COALESCE(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse), 0)) AS paybag_weight "
+    "  class, grp_id, excess_wt, bag_refuse "
     "FROM pax_grp "
     "WHERE "
     "  point_dep = :point_dep "
     "  AND point_arv = :point_arv "
-    "  AND pax_grp.status NOT IN ('E') "
-    "GROUP BY point_dep, CASE WHEN status = :status_tranzit THEN 1 ELSE 0 END, class ";
+    "  AND pax_grp.status NOT IN ('E') ";
 
 const std::string qryBalancePad =
     "SELECT "
