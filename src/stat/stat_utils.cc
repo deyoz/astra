@@ -125,13 +125,13 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
     return result;
 };
 
-bool ArxValidateByAirp(const TDateTime& part_key, const int point_id,
-                      const std::string& airp, int point_num)
+bool validateByAirp(const int point_id, const std::string& airp, int point_num, std::optional<Dates::DateTime_t> part_key)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " point_id: " << point_id << " airp: " << airp;
+    LogTrace(TRACE6) << __func__ << " part_key: " << (part_key ? *part_key : Dates::not_a_date_time)
+                                 << " point_id: " << point_id << " airp: " << airp;
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.user.access.airps().elems().empty()) {
-        std::optional<std::string> next_airp = CKIN::next_airp(point_id, point_num, DateTimeToBoost(part_key));
+        std::optional<std::string> next_airp = CKIN::next_airp(point_id, point_num, part_key);
         const auto& airps = reqInfo.user.access.airps().elems();
         if (reqInfo.user.access.airps().elems_permit())
         {
@@ -181,10 +181,12 @@ void FltCBoxListRead(DB::TQuery& Qry, vector<TPointsRow> &points, int& count)
             };
             TPointsRow pointsRow;
             TDateTime scd_out_client;
+            std::optional<Dates::DateTime_t> opt_part_key;
             if(Qry.FieldIsNULL(col_part_key))
                 pointsRow.part_key = NoExists;
             else {
                 pointsRow.part_key =  Qry.FieldAsDateTime(col_part_key);
+                opt_part_key = DateTimeToBoost(pointsRow.part_key);
             }
             pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
             tripInfo.get_client_dates(scd_out_client, pointsRow.real_out_client);
@@ -194,19 +196,14 @@ void FltCBoxListRead(DB::TQuery& Qry, vector<TPointsRow> &points, int& count)
             pointsRow.flt_no = tripInfo.flt_no;
             pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
             pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
-            if( pointsRow.part_key != NoExists) {
-                int first_point = Qry.FieldAsInteger("first_point");
-                int pr_tranzit = Qry.FieldAsInteger("pr_tranzit");
-                std::string airp = Qry.FieldAsString("airp");
-                int point_id = pr_tranzit==0 ? pointsRow.point_id : first_point;
 
-                if(ArxValidateByAirp(pointsRow.part_key, point_id, airp, pointsRow.point_num)) {
-                    points.push_back(pointsRow);
-                }
-            } else {
+            int first_point = Qry.FieldAsInteger("first_point");
+            int pr_tranzit = Qry.FieldAsInteger("pr_tranzit");
+            std::string airp = Qry.FieldAsString("airp");
+            int point_id = pr_tranzit==0 ? pointsRow.point_id : first_point;
+            if(validateByAirp(point_id, airp, pointsRow.point_num, opt_part_key)) {
                 points.push_back(pointsRow);
             }
-
             count++;
             if(count >= MAX_STAT_ROWS()) {
                 AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
@@ -236,7 +233,6 @@ void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_da
             sql << "SELECT \n"
                 "    arx_points.part_key, \n"
                 "    arx_points.move_id, \n"
-                   " arx_points.airp, \n"
                    " arx_points.pr_tranzit, \n"
                    " arx_points.first_point, \n";
             sql << "    " << TTripInfo::selectedFields() << ", \n"
@@ -284,7 +280,9 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
         ostringstream sql;
         sql << "SELECT \n"
                 "    NULL part_key, \n"
-                "    move_id, \n";
+                "    move_id, \n"
+                "    pr_tranzit, \n"
+                "    first_point, \n";
         sql << "    " << TTripInfo::selectedFields() << ", \n"
                "    point_num \n";
         sql << "FROM points \n"
@@ -299,20 +297,6 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
             else
                 sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
         }
-        if (!reqInfo.user.access.airps().elems().empty()) {
-            if (reqInfo.user.access.airps().elems_permit())
-            {
-                sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
-                sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
-                sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
-            }
-            else
-            {
-                sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
-                sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
-                sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
-            };
-        };
 
         //ProgTrace(TRACE5, "FltCBoxDropDown: pass=%d SQL=\n%s", pass, sql.str().c_str());
         Qry.SQLText = sql.str().c_str();
