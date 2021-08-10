@@ -68,6 +68,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="POS_TERM_VENDORS")    return new CacheTable::PosTermVendors;
   if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
   if (cacheCode=="PLACE_CALC")          return new CacheTable::PlaceCalc;
+  if (cacheCode=="COMP_SUBCLS_SETS")    return new CacheTable::CompSubclsSets;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -2674,6 +2675,49 @@ void PlaceCalc::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                         const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("place_calc").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//CompSubclsSets
+
+bool CompSubclsSets::userDependence() const {
+  return true;
+}
+std::string CompSubclsSets::selectSql() const {
+  return "SELECT airline, subclass, rem, id "
+         "FROM comp_subcls_sets "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) +
+         "ORDER BY airline, rem, subclass";
+}
+std::string CompSubclsSets::insertSql() const {
+  return "INSERT INTO comp_subcls_sets(airline, subclass, rem, id) "
+         "VALUES(:airline, :subclass, :rem, :id)";
+}
+std::string CompSubclsSets::updateSql() const {
+  return "UPDATE comp_subcls_sets "
+         "SET airline=:airline, subclass=:subclass, rem=:rem "
+         "WHERE id=:OLD_id";
+}
+std::string CompSubclsSets::deleteSql() const {
+  return "DELETE FROM comp_subcls_sets WHERE id=:OLD_id";
+}
+std::list<std::string> CompSubclsSets::dbSessionObjectNames() const {
+  return {"COMP_SUBCLS_SETS"};
+}
+
+void CompSubclsSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void CompSubclsSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("comp_subcls_sets").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables
