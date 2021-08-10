@@ -1643,20 +1643,20 @@ $(login PIKE PIKE)
 !! capture=on
 $(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
   update old_id:$(get id_VKO_AAQ)        id:$(get id_VKO_AAQ)
-         old_airp_dep:Ççä                airp_dep:Ççä
-         old_airp_dep_view:VKO           airp_dep_view:VKO
-         old_airp_arv:ÄçÄ                airp_arv:ÄçÄ
-         old_airp_arv_view:AAQ           airp_arv_view:AAQ
+         old_airp_dep:Ççä                airp_dep:ÄçÄ
+         old_airp_dep_view:VKO           airp_dep_view:AAQ
+         old_airp_arv:ÄçÄ                airp_arv:Ççä
+         old_airp_arv_view:AAQ           airp_arv_view:VKO
          old_craft:íì5                   craft:777
          {old_time:30.12.1899 01:45:00}  {time:30.12.1899 01:50:00})
 
 >> lines=auto
       <rows tid='-1'>
         <row pr_del='0'>
-          <col>Ççä</col>
-          <col>VKO</col>
           <col>ÄçÄ</col>
           <col>AAQ</col>
+          <col>Ççä</col>
+          <col>VKO</col>
           <col>777</col>
           <col>777</col>
           <col>30.12.1899 01:50:00</col>
@@ -1667,10 +1667,10 @@ $(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
 !! capture=on
 $(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
   update old_id:$(get id_VKO_AAQ)        id:$(get id_VKO_AAQ)
-         old_airp_dep:Ççä                airp_dep:ÑåÑ
-         old_airp_dep_view:VKO           airp_dep_view:DME
-         old_airp_arv:ÄçÄ                airp_arv:ÄçÄ
-         old_airp_arv_view:AAQ           airp_arv_view:AAQ
+         old_airp_dep:ÄçÄ                airp_dep:ÑåÑ
+         old_airp_dep_view:AAQ           airp_dep_view:DME
+         old_airp_arv:Ççä                airp_arv:ÄçÄ
+         old_airp_arv_view:VKO           airp_arv_view:AAQ
          old_craft:777                   craft:777
          {time:30.12.1899 01:50:00}      {time:30.12.1899 01:50:00})
 
@@ -1703,10 +1703,10 @@ $(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
 >> lines=auto
       <rows tid='-1'>
         <row pr_del='0'>
-          <col>Ççä</col>
-          <col>VKO</col>
           <col>ÄçÄ</col>
           <col>AAQ</col>
+          <col>Ççä</col>
+          <col>VKO</col>
           <col>777</col>
           <col>777</col>
           <col>30.12.1899 01:50:00</col>
@@ -1729,10 +1729,10 @@ $(login PIKE PIKE)
 !! capture=on
 $(cache PIKE EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
   delete old_id:$(get id_VKO_AAQ)
-         old_airp_dep:Ççä
-         old_airp_dep_view:VKO
-         old_airp_arv:ÄçÄ
-         old_airp_arv_view:AAQ
+         old_airp_dep:ÄçÄ
+         old_airp_dep_view:AAQ
+         old_airp_arv:Ççä
+         old_airp_arv_view:VKO
          old_craft:777
          {old_time:30.12.1899 01:50:00})
 
@@ -1781,3 +1781,6 @@ $(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
       <user_depend>1</user_depend>
       <rows tid='-1'/>
     </data>
+
+
+
