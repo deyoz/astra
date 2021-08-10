@@ -175,6 +175,7 @@ astra_SOURCES = \
   transfer.cc \
   trip_tasks.cc \
   tripinfo.cc \
+  typeb_addrs.cc \
   typeb_utils.cc \
   web_craft.cc \
   web_exchange.cc \
@@ -405,6 +406,7 @@ noinst_HEADERS = \
   transfer.h \
   trip_tasks.h \
   tripinfo.h \
+  typeb_addrs.h \
   typeb_utils.h \
   web_craft.h \
   web_exchange.h \
