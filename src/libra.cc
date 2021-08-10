@@ -545,11 +545,10 @@ std::string callLibra(xmlNodePtr reqRootNode)
     std::string xml_in = XMLTreeToText(reqRootNode->doc);
     LogTrace(TRACE6) << __func__ << " xml_in=" << xml_in;
 
-    if(LIBRA::needSendHttpRequest()) {
-        return callLibraHttp(xml_in);
-    }
-
-    return callLibraPkg(xml_in);
+    std::string xml_out = LIBRA::needSendHttpRequest() ? callLibraHttp(xml_in)
+                                                       : callLibraPkg(xml_in);
+    LogTrace(TRACE6) << "xml_out=" << xml_out;
+    return xml_out;
 }
 
 std::string callAstra(xmlNodePtr reqRootNode)
