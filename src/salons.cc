@@ -8561,7 +8561,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
         }
       }
       string rem;
-      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp );
+      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp, true );
       if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
         comp_rem += rem;
       }
