@@ -43,6 +43,7 @@ struct LibraHttpResponse
 public:
     static boost::optional<LibraHttpResponse> read();
 
+    const std::string& text() const;
     xmlNodePtr resultNode() const;
 
 protected:

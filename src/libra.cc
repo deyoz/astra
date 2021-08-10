@@ -121,6 +121,11 @@ LibraHttpResponse::LibraHttpResponse(const std::string& resp)
     m_respDoc = ASTRA::createXmlDoc(resp);
 }
 
+const std::string& LibraHttpResponse::text() const
+{
+    return m_resp;
+}
+
 xmlNodePtr LibraHttpResponse::resultNode() const
 {
     if(!m_respDoc) {
@@ -180,10 +185,6 @@ bool needSendHttpRequest()
         return true;
     }
     return false;
-    // TODO временная реализация - на период отладки:
-    // идем по http только для пультов, начинающихся с МОВ..
-    // std::string desk = TReqInfo::Instance()->desk.code;
-    // return desk.substr(0, 3) == "МОВ";
 }
 
 void synchronousHttpGetRequest(const std::string& req, const std::string& path)
@@ -252,6 +253,18 @@ void asynchronousHttpPostRequest(const std::string& req, const std::string& path
     throw LIBRA::HttpAsyncRequestWasSent();
 }
 
+std::string makeXmlFromRootNode(const std::string& xml)
+{
+    static const std::string root_start = "<root";
+    static const std::string root_end = "</root>";
+    static const std::string header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+    auto first = xml.find(root_start);
+    ASSERT(first != std::string::npos);
+    auto last = xml.rfind(root_end);
+    ASSERT(last != std::string::npos);
+    return  header + xml.substr(first, last - first + root_end.length());
+}
+
 std::string receiveHttpResponse()
 {
     //<result><status>OK</status><answer><root/></answer></result>
@@ -285,26 +298,14 @@ std::string receiveHttpResponse()
         throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Inner error: " << errReason << "(" << errCode << ")";
     }
 
-
     xmlNodePtr answerNode = findNodeR(resultNode, "answer");
     ASSERT(answerNode);
 
-    if(!findNode(answerNode, "root")) {
-        NewTextChild(answerNode, "root");
+    if(findNode(answerNode, "root")) {
+        return makeXmlFromRootNode(resp->text());
     }
-    xmlNodePtr rootNode = findNode(answerNode, "root");
-    ASSERT(rootNode);
 
-
-    // следующие строки нужны только лишь для того,
-    // чтобы создать новый xml-документ, содержащий rootNode без его родителя answerNode
-    // не придумал ничего лучше..(
-    XMLDoc doc = ASTRA::createXmlDoc("<tmp/>");
-    auto tmpNode = NodeAsNode("/tmp", doc.docPtr());
-    CopyNode(tmpNode->parent, rootNode);
-    RemoveNode(tmpNode);
-
-    return doc.text();
+    return "";
 }
 
 FieldData::Type FieldData::getDataType(const std::string& date_type)
@@ -519,7 +520,7 @@ std::string callLibraPkg(const std::string& xml_in)
     throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Oracle not enabled. failed to call callLibraPkg";
 #endif // ENABLE_ORACLE
 
-    LogTrace(TRACE5) << "xml_out=" << xml_out;
+    LogTrace(TRACE7) << "libra xml_out=" << xml_out;
     return xml_out;
 }
 
