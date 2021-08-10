@@ -1398,8 +1398,8 @@ public:
     savePaxMessage.toXML(resNode); //восстановили SavePax  message ETS.. ERROR
     currMessage.toXML(emulResNode,true); //сохранить реальное сообщение при пересадке
     CopyNode(resNode,GetNode("data",emulResNode),true); //копируем все кроме сообщений
-    LogTrace(TRACE5) << doc.text();
-    LogTrace(TRACE5) << XMLTreeToText(resNode->doc);
+//    LogTrace(TRACE5) << doc.text();
+//    LogTrace(TRACE5) << XMLTreeToText(resNode->doc);
     AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
     if ( isDoomedToWait() ) {
       LogTrace(TRACE5) << __func__ << " isDoomedToWait return";
@@ -1517,7 +1517,8 @@ bool isSitDownPlease( int point_id, const std::string& whence ) {
     "SELECT "
     "    DECODE(airline,NULL,0,8)+ "
     "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "    DECODE(airp_dep,NULL,0,4) AS priority, "
+    "    pr_misc "
     "FROM tmp_reseat_algo "
     "WHERE type=:type AND "
     "      (airline IS NULL OR airline=:airline) AND "
@@ -1530,8 +1531,8 @@ bool isSitDownPlease( int point_id, const std::string& whence ) {
   Qry.CreateVariable("airp_dep",otString,info.airp);
   try {
     Qry.Execute();
-    if ( !Qry.Eof ) LogTrace(TRACE5) << __func__;
-    return !Qry.Eof;
+    if ( !Qry.Eof && Qry.FieldAsInteger("pr_misc") != 0 ) LogTrace(TRACE5) << __func__;
+    return !Qry.Eof && Qry.FieldAsInteger("pr_misc") != 0;
   }
   catch(...) {
     return false;
