@@ -3150,6 +3150,7 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
                       bool vseparately_seat_chin_emergency ) {
       separately_seat_adult_with_baby = vseparately_seat_adult_with_baby;
       separately_seat_chin_emergency = vseparately_seat_chin_emergency;
+      issubgrp = false;
     }
     void setAdultToGrp( const TPassenger& pass ) {
       TAdultWithBabys adult( pass.index );
