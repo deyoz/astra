@@ -224,13 +224,3 @@ string SeatNumber::normalizePrevIataRowOrException(const string& row)
   return result.get();
 }
 
-string SeatNumber::stupidlyChangeEncoding(const std::string& seatNumber)
-{
-  string result = seatNumber;
-  if ( seatNumber == CharReplace( result, rusLines, latLines ) )
-    CharReplace( result, latLines, rusLines );
-  if ( seatNumber == result )
-    result.clear();
-
-  return result;
-}

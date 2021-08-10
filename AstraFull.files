@@ -88,6 +88,8 @@ src/crafts/ComponCreator.сс
 src/crafts/ComponCreator.h
 src/crafts/CraftCaches.сс
 src/crafts/CraftCaches.h
+src/crafts/SeatsPlanter.cc
+src/crafts/SeatsPlanter.h
 src/crypt.cc
 src/crypt.h
 src/Depeches.cpp

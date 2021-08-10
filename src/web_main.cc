@@ -43,6 +43,7 @@
 #include "ckin_search.h"
 #include "web_craft.h"
 #include "seatPax.h"
+#include "crafts/SeatsPlanter.h"
 #include "flt_settings.h"
 #include "baggage_calc.h"
 #include "db_tquery.h"
@@ -2333,19 +2334,25 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
 
                   if (isTestPaxId(paxRes.id)) continue;
 
-                  IntChangeSeatsN( paxListRes.point_id,
-                                   paxRes.id,
-                                   tid,
-                                   iSeat->first.getXName(),
-                                   iSeat->first.getYName(),
-                                   stSeat,
-                                   segListRes.layer_type,
-                                   paxListRes.time_limit,
-                                   change_layer_flags,
-                                   0,
-                                   NoExists,
-                                   NULL, NULL,
-                                   __func__ );
+                  if ( RESEAT::isSitDownPlease(paxListRes.point_id, __func__) )
+                    RESEAT::ChangeLayer( paxListRes.point_id, paxRes.id, tid,
+                                         TSeat(iSeat->first.getYName(),iSeat->first.getXName()),
+                                         segListRes.layer_type, __func__,
+                                         paxListRes.time_limit);
+                  else
+                    IntChangeSeatsN( paxListRes.point_id,
+                                     paxRes.id,
+                                     tid,
+                                     iSeat->first.getXName(),
+                                     iSeat->first.getYName(),
+                                     stSeat,
+                                     segListRes.layer_type,
+                                     paxListRes.time_limit,
+                                     change_layer_flags,
+                                     0,
+                                     NoExists,
+                                     NULL, NULL,
+                                     __func__ );
                 }
               }
               catch(UserException &e)

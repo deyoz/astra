@@ -939,3 +939,10 @@ bool isTagRevokeRequestSBDO(xmlNodePtr reqNode)
          (GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr or
           (reqNode->parent and (string)"Set_Bag_as_Inactive" == (const char *)reqNode->parent->name));
 }
+
+bool isTagReseatRFISC(xmlNodePtr reqNode)
+{
+    return reqNode!=nullptr &&
+        TReqInfo::Instance()->client_type==ctTerm &&
+        GetNode("/term/query/Reseat", reqNode->doc)!=nullptr;
+}

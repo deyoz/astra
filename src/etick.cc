@@ -15,6 +15,7 @@
 #include "astra_context.h"
 #include "base_tables.h"
 #include "checkin.h"
+#include "salonform.h"
 #include "web_main.h"
 #include "term_version.h"
 #include "misc.h"
@@ -3581,7 +3582,8 @@ void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr &kickReqNode)
   if (isWebCheckinRequest(termReqNode) ||
       isTagAddRequestSBDO(termReqNode) ||
       isTagConfirmRequestSBDO(termReqNode) ||
-      isTagRevokeRequestSBDO(termReqNode))
+      isTagRevokeRequestSBDO(termReqNode) ||
+      isTagReseatRFISC(termReqNode))
   {
     string termReqName=(const char*)(termReqNode->name);
     xmlNodePtr node = NodeAsNode("/term/query",kickReqNode->doc);
@@ -3613,6 +3615,10 @@ void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodeP
   if (isTagRevokeRequestSBDO(reqNode))
   {
     ZamarSBDOInterface::PassengerBaggageTagRevoke(reqNode, externalSysResNode, resNode);
+    return;
+  }
+  if (isTagReseatRFISC(reqNode)) {
+    SalonFormInterface::ChangeSeats( reqNode, externalSysResNode, resNode, SEATS2::stReseat);
     return;
   }
 
@@ -4129,6 +4135,19 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     };
 
     ServiceEvalInterface::AfterPaid(termReqNode, resNode);
+  }
+  if (termReqName=="Reseat") {
+      lockAndTryBindEmd(EMDAutoBoundGrpId(NodeAsNode("TCkinSavePax",termReqNode)),
+                        termReqNode,
+                        ediResNode,
+                        string(__func__)+"("+termReqName+")");
+
+      if (isDoomedToWait())
+      {
+        AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
+        return;
+      };
+      SalonFormInterface::AfterRefreshEMD(termReqNode,resNode);
   }
 
 }

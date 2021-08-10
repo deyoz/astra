@@ -6595,12 +6595,12 @@ TPlace *TPlaceList::place( int idx )
   return &places[ idx ];
 }
 
-TPlace *TPlaceList::place( TPoint &p )
+TPlace *TPlaceList::place( const TPoint &p )
 {
   return place( GetPlaceIndex( p ) );
 }
 
-int TPlaceList::GetPlaceIndex( TPoint &p )
+int TPlaceList::GetPlaceIndex( const TPoint &p )
 {
   return GetPlaceIndex( p.x, p.y );
 }
@@ -6610,12 +6610,12 @@ int TPlaceList::GetPlaceIndex( int x, int y )
   return GetXsCount()*y + x;
 }
 
-bool TPlaceList::ValidPlace( TPoint &p )
+bool TPlaceList::ValidPlace( const TPoint &p )
 {
  return ( p.x < GetXsCount() && p.x >= 0 && p.y < GetYsCount() && p.y >= 0 );
 }
 
-string TPlaceList::GetPlaceName( TPoint &p )
+string TPlaceList::GetPlaceName( const TPoint &p )
 {
   if ( !ValidPlace( p ) )
     throw EXCEPTIONS::Exception( "Неправильные координаты места" );
@@ -6637,36 +6637,62 @@ string TPlaceList::GetYsName( int y )
   return ys[ y ];
 }
 
-bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
+bool TPlaceList::TPlaceList::GetIsNormalizePlaceXY( const std::string& xname,
+                                                    const std::string& yname,
+                                                    TSalonPoint &p )
 {
-    TrimString(placeName);
-    if ( placeName.empty() )
-        return false;
-  /* конвертация номеров мест в зависимости от лат. или рус. салона */
-  size_t i = 0;
-  for (; i < placeName.size(); i++)
-    if ( placeName[ i ] != '0' )
-      break;
-  if ( i )
-    placeName.erase( 0, i );
-
-  string seat_no = SeatNumber::stupidlyChangeEncoding(placeName), salon_seat_no;
-
-  for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
-    for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-        salon_seat_no = SeatNumber::tryDenormalizeRow(*iy) + SeatNumber::tryDenormalizeLine(*ix,false);
-        //ProgTrace( TRACE5, "GetisPlaceXY: salon_seat_no=|%s|, seat_no=|%s|, %d, %d", salon_seat_no.c_str(), seat_no.c_str(), salon_seat_no.back(), seat_no.back() );
-      if ( placeName == salon_seat_no ||
-           ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
-        p.x = distance( xs.begin(), ix );
-        p.y = distance( ys.begin(), iy );
-        return place( p )->isplace;
-      }
-    }
+  const auto& ix = std::find( xs.begin(), xs.end(), xname );
+  const auto& iy = std::find( ys.begin(), ys.end(), yname );
+  if ( ix != xs.end() &&
+       iy != ys.end() ) {
+    p = TSalonPoint(distance<std::vector<std::string>::const_iterator>( xs.begin(), ix ),
+                    distance<std::vector<std::string>::const_iterator>( ys.begin(), iy ),
+                    num);
+    return place(TPoint(p.x,p.y))->isplace;
+  }
+  p = TSalonPoint();
   return false;
 }
 
-void TPlaceList::Add( TPlace &pl )
+bool TPlaceList::GetIsPlaceXY( const std::string& placeName, TPoint &p )
+{
+  const auto& c = CacheSeatName.find( placeName );
+  if ( c != CacheSeatName.end() ) {
+    p = c->second;
+    return place(p)->isplace;
+  }
+
+  std::string seatName = placeName;
+  TrimString(seatName);
+  for (string::iterator i=seatName.begin(); i!=seatName.end(); ) {
+    if ( *i == '0' )
+      i = seatName.erase( i );
+    else
+      break;
+  }
+
+  if ( seatName.empty() ) return false;
+  for ( std::vector<std::string>::const_iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
+    std::string denormRow = SeatNumber::tryDenormalizeRow(*iy);
+    for( std::vector<std::string>::const_iterator ix=xs.begin(); ix!=xs.end(); ix++ ) {
+      std::string denormRU = denormRow + SeatNumber::tryDenormalizeLine(*ix,false);
+      std::string denormLAT = denormRow + SeatNumber::tryDenormalizeLine(*ix,true);
+      std::string norm = *iy + *ix;
+      if ( seatName == denormRU ||
+           seatName == denormLAT ||
+           seatName == norm ) {
+        const auto& d = CacheSeatName.emplace( placeName,
+                                               TPoint(std::distance<std::vector<std::string>::const_iterator>( xs.begin(), ix ),
+                                                           std::distance<std::vector<std::string>::const_iterator>( ys.begin(), iy )) );
+        p = d.first->second;
+        return place(p)->isplace;
+      }
+    }
+  }
+  return false;
+}
+
+int TPlaceList::Add( TPlace &pl )
 {
   int prior_max_x = (int)xs.size();
   int prior_max_y = (int)ys.size();
@@ -6704,6 +6730,7 @@ void TPlaceList::Add( TPlace &pl )
     place( p )->ynext = pl.y;
   }
   places[ idx ] = pl;
+  return idx;
 }
 
 void LoadCompRemarksPriority( std::map<std::string, int> &rems )
@@ -7990,7 +8017,7 @@ bool getSalonChanges( const vector<TPlaceList*> &list1, bool pr_craft_lat1,
                       TSalonChanges &seats )
 {
   seats.clear();
-  seats.RFISCMode = RFISCMode;
+  seats.setRFISCMode( RFISCMode );
   if ( pr_craft_lat1 != pr_craft_lat2 ||
          list1.size() != list2.size() ) {
     return false;
@@ -8085,7 +8112,7 @@ bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons,
                       TSalonChanges &seats )
 {
     seats.clear();
-    seats.RFISCMode = RFISCMode;
+    seats.setRFISCMode( RFISCMode );
     if ( NewSalons.getLatSeat() != OldSalons.getLatSeat() ||
            NewSalons.placelists.size() != OldSalons.placelists.size() )
         return false;
@@ -8133,7 +8160,7 @@ void BuildSalonChanges( xmlNodePtr dataNode, const TSalonChanges &seats )
   if ( seats.empty() )
     return;
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
-  SetProp( node, "RFISCMode", seats.RFISCMode );
+  SetProp( node, "RFISCMode", seats.RFISCMode() );
   node = NewTextChild( node, "seats" );
   int num = -1;
   xmlNodePtr salonNode = NULL;
@@ -8157,7 +8184,7 @@ void BuildSalonChanges( xmlNodePtr dataNode,
   if ( seats.empty() )
     return;
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
-  SetProp( node, "RFISCMode", (int)seats.RFISCMode );
+  SetProp( node, "RFISCMode", (int)seats.RFISCMode() );
   node = NewTextChild( node, "seats" );
   int num = -1;
   xmlNodePtr salonNode = NULL;
@@ -8169,7 +8196,7 @@ void BuildSalonChanges( xmlNodePtr dataNode,
           num = p->first;
       }
       p->second.Build( NewTextChild( salonNode, "place" ), point_dep, true,
-                       seats.RFISCMode, true,
+                       seats.RFISCMode(), true,
                        with_pax, pax_lists ); //!!props - могли измениться!!! - хорошо бы передать на клиент
       props += p->second.drawProps;
   }
@@ -9468,7 +9495,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
         }
       }
       string rem;
-      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp );
+      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp, true );
       if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
         comp_rem += rem;
       }
@@ -9708,6 +9735,78 @@ const TAdjustmentRows &TAdjustmentRows::get( const TSalonList &salonList ) {
   }
   return *this;
 }
+
+//если false - то не смогли сравнить, требуется перечитка всего салона
+TSalonChanges& TSalonChanges::get(const TSalonList &oldSalon,
+                                  const TSalonList &newSalon) {
+  clear();
+  if ( oldSalon.isCraftLat() != newSalon.isCraftLat() ||
+       oldSalon._seats.size() != newSalon._seats.size() ) {
+    throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
+  }
+  TCompareCompsFlags compareNotChangeFlags, comparePropChangeFlag;
+  compareNotChangeFlags.setFlag( ccXY );
+  compareNotChangeFlags.setFlag( ccElemType );
+  compareNotChangeFlags.setFlag( ccXYPrior );
+  compareNotChangeFlags.setFlag( ccXYNext );
+  compareNotChangeFlags.setFlag( ccAgle );
+  compareNotChangeFlags.setFlag( ccClass );
+  compareNotChangeFlags.setFlag( ccName );
+
+  comparePropChangeFlag.setFlag( ccRemarks );
+  comparePropChangeFlag.setFlag( ccLayers );
+  comparePropChangeFlag.setFlag( ccTariffs );
+  comparePropChangeFlag.setFlag( ccRFISC );
+  comparePropChangeFlag.setFlag( ccDrawProps );
+
+  for ( vector<TPlaceList*>::const_iterator s1=oldSalon._seats.begin(),
+          s2=newSalon._seats.begin();
+          s1!=oldSalon._seats.end(),
+          s2!=newSalon._seats.end();
+          s1++, s2++ ) {
+      if ( (*s1)->places.size() != (*s2)->places.size() )
+          throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
+     for ( TPlaces::const_iterator p1 = (*s1)->places.begin(),
+            p2 = (*s2)->places.begin();
+          p1 != (*s1)->places.end(),
+          p2 != (*s2)->places.end();
+          p1++, p2++ ) {
+      if ( p1->isChange( *p2, compareNotChangeFlags ) ) {
+        throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
+      }
+      if ( !p1->visible )
+        continue;
+      if ( p1->isChange( *p2, comparePropChangeFlag ) ) {
+        emplace_back( make_pair((*s1)->num,*p2) );
+      }
+    }
+  }
+  return *this;
+}
+
+void TSalonChanges::toXML(xmlNodePtr dataNode, bool pr_lat_seat,
+                          const std::optional<std::map<int,TPaxList> >& pax_list) {
+  if ( empty() )
+    return;
+  xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
+  SetProp( node, "RFISCMode", (int)_RFISCMode );
+  node = NewTextChild( node, "seats" );
+  int num = -1;
+  xmlNodePtr salonNode = NULL;
+  BitSet<TDrawPropsType> props;
+  for ( const auto& p : *this ) {
+    if ( num != p.first ) {
+      salonNode = NewTextChild( node, "salon" );
+      SetProp( salonNode, "num", p.first );
+      num = p.first;
+    }
+    p.second.Build( NewTextChild( salonNode, "place" ), _point_dep, pr_lat_seat,
+                    _RFISCMode, true,
+                    pax_list!=std::nullopt, pax_list.value_or(std::map<int,TPaxList>()) ); //!!props - могли измениться!!! - хорошо бы передать на клиент
+    props += p.second.drawProps; //???могут измениться
+  }
+}
+
 
 //////////////////////////////////////======================CraftSeats=========================
 void CraftSeats::Clear()

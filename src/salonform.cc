@@ -24,6 +24,7 @@
 #include "serverlib/str_utils.h"
 #include "seat_number.h"
 #include "flt_settings.h"
+#include "crafts/SeatsPlanter.h"
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -1006,6 +1007,11 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
     throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );*/
 }
 
+void SalonFormInterface::AfterRefreshEMD(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  RESEAT::AfterRefreshEMD(reqNode,resNode);
+}
+
 BitSet<SEATS2::TChangeLayerSeatsProps>
      IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
                       SEATS2::TSeatsType seat_type,
@@ -1014,7 +1020,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
                       const BitSet<TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
                       xmlNodePtr reqNode, xmlNodePtr resNode,
-                      const std::string& whence  )
+                      const std::string& whence )
 {
    BitSet<TChangeLayerSeatsProps> propsSeatsFlags;
    propsSeatsFlags.clearFlags();
@@ -1078,8 +1084,6 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
     // 2. предварительная пересадка/рассадка
     // старое место может иметь след. слои:
     // cltProtCkin, cltProtSelfCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay
-
-    // вычисляем занятое место
     SALONS2::TLayerPrioritySeat layerPrioritySeat = SALONS2::TLayerPrioritySeat::emptyLayer();
     std::set<SALONS2::TPlace*,SALONS2::CompareSeats> seats;
     salonList.getPaxLayer( point_id, pax_id, layerPrioritySeat, seats );
@@ -1394,11 +1398,19 @@ static void CheckPreseatingAccess(const TTripInfo& flt, const TCompLayerType lay
   throw UserException("MSG.PRESEATING.ACCESS_DENIED");
 }
 
-void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
+void SalonFormInterface::ChangeSeats( xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode,
+                                      SEATS2::TSeatsType seat_type )
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
   if(point_id < 0) {
       return ChangeIatciSeats(reqNode);
+  }
+  if ( RESEAT::isSitDownPlease(point_id,__func__) ) {
+    RESEAT::SitDownPlease(reqNode,externalSysResNode,resNode,
+                          seat_type==stSeat?RESEAT::EnumSitDown::stSeat:
+                          seat_type==stReseat?RESEAT::EnumSitDown::stReseat:
+                                              RESEAT::EnumSitDown::stDropseat,__func__);
+    return;
   }
   TTripInfo fltInfo;
   fltInfo.getByPointId( point_id );
@@ -1445,17 +1457,22 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
 void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
      // удаление мест пассажира
-  ChangeSeats( reqNode, resNode, SEATS2::stDropseat );
+  ChangeSeats( reqNode, nullptr, resNode, SEATS2::stDropseat );
 }
 
 void SalonFormInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ChangeSeats( reqNode, resNode, SEATS2::stReseat);
+  ChangeSeats( reqNode, nullptr, resNode, SEATS2::stReseat);
 }
 
 void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
+  if ( RESEAT::isSitDownPlease(point_id,__func__) ) {
+    RESEAT::SitDownPlease(reqNode,nullptr,resNode,RESEAT::EnumSitDown::stDropseat,__func__);
+    return;
+  }
+
   int point_arv = NodeAsInteger( "point_arv", reqNode, NoExists );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
