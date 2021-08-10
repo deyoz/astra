@@ -385,11 +385,12 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
     if (iTariffMap==tariff_map.end())
     {
       _real_queries++;
-      TCachedQuery Qry(
+      DB::TCachedQuery Qry(PgOra::getROSession({"TRIP_COMP_RATES"}),
         "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc, 0 AS pr_prot_ckin "
         "FROM trip_comp_rates "
         "WHERE point_id=:point_id",
-        QParams() << QParam("point_id", otInteger, operFlt.point_id)
+        QParams() << QParam("point_id", otInteger, operFlt.point_id),
+        STDLOG
       );
 
       ostringstream s;

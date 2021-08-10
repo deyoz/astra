@@ -315,6 +315,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_RFISC_COMP_PROPS", {
                 "RFISC_COMP_PROPS", // BRAND_FARES, RFISC_RATES
         }},
+        { "SP_PG_GROUP_COMP_TRIP_COMP_RATES", {
+                "TRIP_COMP_RATES", // COMP_RATES
+        }},
         { "SP_PG_GROUP_BAG2", {
                 "BAG2",
         }},
