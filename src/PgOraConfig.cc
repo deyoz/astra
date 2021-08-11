@@ -254,6 +254,13 @@ namespace PgOra
         { "SP_PG_GROUP_TYPEB_TYPES", {
                 "TYPEB_TYPES",
         }},
+        { "SP_PG_GROUP_TYPEB_ADDRS", {
+                "TYPEB_ADDR_OPTIONS",
+                "TYPEB_ADDR_OWNERS",
+                "TYPEB_ADDRS",              // "POINTS"
+                "TYPEB_ADDR_TRANS_PARAMS",
+                "TYPEB_CREATE_POINTS"
+        }},
         { "SP_PG_GROUP_CRS_PNR", {
                 "CRS_PNR",
                 "CRS_PAX",

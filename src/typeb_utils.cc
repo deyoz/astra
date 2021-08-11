@@ -978,24 +978,28 @@ bool TSendInfo::isSend() const
   return true;
 };
 
-void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, set<TCreatePoint> &result)
+void add_filtered_item(const TSendInfo &sendInfo, DB::TQuery &Qry, set<TCreatePoint> &result)
 {
-    QParams QryParams;
-    QryParams << QParam("id", otInteger, Qry.FieldAsInteger("id"));
-    TCachedQuery paramsQry("select stage_id, time_offset from typeb_create_points where typeb_addrs_id = :id", QryParams);
+    DB::TCachedQuery paramsQry(
+        PgOra::getROSession("TYPEB_CREATE_POINTS"),
+        "SELECT stage_id, time_offset "
+        "FROM typeb_create_points "
+        "WHERE typeb_addrs_id = :id",
+        QParams() << QParam("id", otInteger, Qry.FieldAsInteger("id")),
+        STDLOG);
+
     paramsQry.get().Execute();
-    for(; not paramsQry.get().Eof; paramsQry.get().Next())
-        result.insert(TCreatePoint(
-                                   (TStage)paramsQry.get().FieldAsInteger("stage_id"),
+    for (; not paramsQry.get().Eof; paramsQry.get().Next())
+        result.insert(TCreatePoint((TStage)paramsQry.get().FieldAsInteger("stage_id"),
                                    paramsQry.get().FieldAsInteger("time_offset")));
 }
 
-void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, vector<TCreateInfo> &result)
+void add_filtered_item(const TSendInfo &sendInfo, DB::TQuery &Qry, vector<TCreateInfo> &result)
 {
     if(not sendInfo.create_point.exists(Qry.FieldAsInteger("id"), sendInfo.tlg_type))
         return;
     TCreateInfo createInfo;
-    TQuery OptionsQry(&OraSession); // !!! vlad
+    DB::TQuery OptionsQry(PgOra::getROSession("TYPEB_ADDR_OPTIONS"), STDLOG); // !!! vlad
     createInfo.fromDB(Qry, OptionsQry);
     createInfo.create_point = sendInfo.create_point; // надо присваивать после fromDB, т.к. в нем clear
     result.push_back(createInfo);
@@ -1062,8 +1066,8 @@ void filter_typeb_addrs(const TSendInfo &sendInfo,
     };
 
     ostringstream sql;
-    TQuery AddrQry(&OraSession);
-    AddrQry.Clear();
+    DB::TQuery AddrQry(PgOra::getROSession({"TYPEB_ADDRS", "POINTS"}), STDLOG);
+
     sql << "SELECT * FROM typeb_addrs "
         "WHERE pr_mark_flt=:pr_mark_flt AND tlg_type=:tlg_type AND "
         "      (airline=:airline OR airline IS NULL) AND "
@@ -1186,24 +1190,23 @@ std::string TAddrInfo::getAddrs() const
 
 bool TCreatePoint::exists(int typeb_addrs_id, const string &tlg_type) const
 {
-    if(tlg_type == "LCI") {
-        if(stage_id == sNoActive)
+    if (tlg_type == "LCI") {
+        if (stage_id == sNoActive) {
             return true;
-        else {
-            QParams QryParams;
-            QryParams
-                << QParam("id", otInteger, typeb_addrs_id)
-                << QParam("stage_id", otInteger, stage_id);
-            QryParams << QParam("time_offset", otInteger, time_offset);
-            TCachedQuery Qry(
-                    "select * from typeb_create_points where "
-                    "typeb_addrs_id = :id and stage_id = :stage_id and "
-                    "time_offset = :time_offset ", QryParams);
+        } else {
+            DB::TCachedQuery Qry(
+                PgOra::getROSession("TYPEB_CREATE_POINTS"),
+                "SELECT * FROM typeb_create_points "
+                "WHERE typeb_addrs_id = :id AND stage_id = :stage_id AND time_offset = :time_offset",
+                QParams() << QParam("id", otInteger, typeb_addrs_id) << QParam("stage_id", otInteger, stage_id),
+                STDLOG);
+
             Qry.get().Execute();
             return not Qry.get().Eof;
         }
-    } else
+    } else {
         return true;
+    }
 }
 
 TCreator::TCreator(int point_id, const TCreatePoint &vcreate_point)

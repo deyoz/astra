@@ -1325,11 +1325,14 @@ class IataAddrOwnerItem
         if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
           throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
 
-      QParams QryParams;
-      QryParams << QParam("addr", otString, iata_addr);
-      TCachedQuery Qry("SELECT * FROM typeb_addr_owners WHERE addr=:addr", QryParams);
+      DB::TCachedQuery Qry(
+        PgOra::getROSession("TYPEB_ADDR_OWNERS"),
+        "SELECT * FROM typeb_addr_owners WHERE addr=:addr",
+        QParams() << QParam("addr", otString, iata_addr),
+        STDLOG);
       Qry.get().Execute();
-      if (Qry.get().Eof) throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", iata_addr));
+      if (Qry.get().Eof)
+          throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", iata_addr));
 
       string transport=Qry.get().FieldAsString("transport_type");
       if (transport=="BAG_MESSAGE") transport_type=ttBagMessage;
@@ -1343,9 +1346,12 @@ class IataAddrOwnerItem
       transport_addr=Qry.get().FieldAsString("transport_addr");
       country=Qry.get().FieldAsString("country");
 
-      QParams PQryParams;
-      PQryParams << QParam("addr", otString, iata_addr);
-      TCachedQuery PQry("SELECT param_name, param_value FROM typeb_addr_trans_params WHERE addr=:addr", PQryParams);
+      DB::TCachedQuery PQry(
+        PgOra::getROSession("TYPEB_ADDR_TRANS_PARAMS"),
+        "SELECT param_name, param_value FROM typeb_addr_trans_params WHERE addr=:addr",
+        QParams() << QParam("addr", otString, iata_addr),
+        STDLOG);
+
       PQry.get().Execute();
       for(; !PQry.get().Eof; PQry.get().Next())
         transport_params.insert(make_pair(PQry.get().FieldAsString("param_name"), PQry.get().FieldAsString("param_value")));

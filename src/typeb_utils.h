@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include "date_time.h"
+#include "db_tquery.h"
 #include "astra_locale.h"
 #include "astra_misc.h"
 #include "exceptions.h"
@@ -59,67 +60,63 @@ const std::string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ER
 class TCreateOptions
 {
   private:
-    void init()
-    {
-      is_lat=false;
-    };
+    void init() { is_lat=false; }
+
   public:
     bool is_lat;
-    TCreateOptions() {init();};
-    virtual ~TCreateOptions() {};
-    virtual void clear()
-    {
-      init();
-    };
+    TCreateOptions() { init(); }
+    virtual ~TCreateOptions() {}
+
+    virtual void clear() { init(); }
     virtual void fromXML(xmlNodePtr node)
     {
       clear();
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       is_lat=NodeAsBooleanFast( "pr_lat", node2, is_lat );
-    };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    }
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
+      static const std::string sqlText =
+        "SELECT category, value FROM typeb_addr_options "
+        "WHERE typeb_addrs_id=:id AND tlg_type=:tlg_type";
+
       clear();
       is_lat=Qry.FieldAsInteger("pr_lat")!=0;
 
-      const char* sql=
-        "SELECT category, value FROM typeb_addr_options "
-        "WHERE typeb_addrs_id=:id AND tlg_type=:tlg_type";
-      if (strcmp(OptionsQry.SQLText.SQLText(),sql)!=0)
+      if (OptionsQry.SQLText != sqlText)
       {
-        OptionsQry.Clear();
-        OptionsQry.SQLText=sql;
+        OptionsQry.ClearParams();
+        OptionsQry.SQLText = sqlText;
         OptionsQry.DeclareVariable("id", otInteger);
         OptionsQry.DeclareVariable("tlg_type", otString);
-      };
-
-    };
+      }
+    }
     virtual localizedstream& logStr(localizedstream &s) const
     {
       s << s("лат.") << ": " << s(is_lat);
       return s;
-    };
+    }
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       return s;
-    };
+    }
     virtual std::string typeName() const
     {
       return "TCreateOptions";
-    };
+    }
     virtual bool similar(const TCreateOptions &item) const
     {
       return is_lat==item.is_lat;
-    };
+    }
     virtual bool equal(const TCreateOptions &item) const
     {
       return is_lat==item.is_lat;
-    };
+    }
     virtual void copy(const TCreateOptions &item)
     {
       is_lat=item.is_lat;
-    };
+    }
 };
 
 class TUnknownFmtOptions : public TCreateOptions
@@ -230,7 +227,7 @@ class TFranchiseOptions : public TCreateOptions
       franchise_info.flt_no = NodeAsIntegerFast("flt_no_franchise", currNode);
       franchise_info.suffix = NodeAsStringFast("suffix_franchise", currNode);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TCreateOptions::fromDB(Qry, OptionsQry);
     };
@@ -333,7 +330,7 @@ class TAirpTrferOptions : public TFranchiseOptions
       xmlNodePtr node2=node->children;
       airp_trfer=NodeAsStringFast( "airp_arv", node2, airp_trfer.c_str() );
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       airp_trfer=Qry.FieldAsString("airp_arv");
@@ -419,7 +416,7 @@ class TCrsOptions : public TFranchiseOptions
       xmlNodePtr node2=node->children;
       crs=NodeAsStringFast( "crs", node2, crs.c_str() );
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       crs=Qry.FieldAsString("crs");
@@ -514,7 +511,7 @@ class TMarkInfoOptions : public TCrsOptions
       mark_info.suffix = NodeAsStringFast("suffix_mark", currNode);
       pr_mark_header = (int)NodeAsBooleanFast("pr_mark_header", currNode);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TCrsOptions::fromDB(Qry, OptionsQry);
       if (Qry.FieldAsInteger("pr_mark_flt")!=0)
@@ -628,7 +625,7 @@ class TETLOptions : public TMarkInfoOptions
             xmlNodePtr node2=node->children;
             rbd = NodeAsBooleanFast("rbd", node2, rbd);
         }
-        virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+        virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
         {
             TMarkInfoOptions::fromDB(Qry, OptionsQry);
 
@@ -745,7 +742,7 @@ class TMVTOptions : public TFranchiseOptions
       noend=NodeAsBooleanFast("noend", node2, noend);
       version=NodeAsStringFast("version", node2, version.c_str());
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
 
@@ -872,7 +869,7 @@ class TCOMOptions : public TFranchiseOptions
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
@@ -980,7 +977,7 @@ class TLDMOptions : public TFranchiseOptions
       exb=NodeAsBooleanFast("exb", node2, exb);
       noend=NodeAsBooleanFast("noend", node2, noend);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
@@ -1159,7 +1156,7 @@ class TPRLOptions : public TMarkInfoOptions
             rbd = NodeAsBooleanFast("rbd", node2, rbd);
             xbag = NodeAsBooleanFast("xbag", node2, xbag);
         }
-        virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+        virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
         {
             TMarkInfoOptions::fromDB(Qry, OptionsQry);
             OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
@@ -1341,7 +1338,7 @@ class TLCIOptions : public TFranchiseOptions
       seat_plan=NodeAsBooleanFast("seat_plan", node2, seat_plan);
       version=NodeAsStringFast("version", node2, version.c_str());
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
@@ -1584,7 +1581,7 @@ class TBSMOptions : public TFranchiseOptions
       trfer_in=       NodeAsBooleanFast("trfer_in", node2, trfer_in);
       long_flt_no=    NodeAsBooleanFast("long_flt_no", node2, long_flt_no);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
@@ -1768,7 +1765,7 @@ class TForwardOptions : public TCreateOptions
       xmlNodePtr node2=node->children;
       forwarding=NodeAsBooleanFast("forwarding", node2, forwarding);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TCreateOptions::fromDB(Qry, OptionsQry);
 
@@ -1883,7 +1880,7 @@ class TPNLADLOptions : public TMarkInfoOptions
       xmlNodePtr node2=node->children;
       forwarding=NodeAsBooleanFast("forwarding", node2, forwarding);
     };
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TMarkInfoOptions::fromDB(Qry, OptionsQry);
 
@@ -2023,7 +2020,7 @@ class TOptionsInfo
       options.get()->fromXML(node);
     };
 
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       clear();
       tlg_type=Qry.FieldAsString("tlg_type");
@@ -2158,7 +2155,7 @@ class TCreateInfo : public TOptionsInfo
       set_addrs(NodeAsStringFast( "addrs", node2));
     };
 
-    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    virtual void fromDB(DB::TQuery &Qry, DB::TQuery &OptionsQry)
     {
       TOptionsInfo::fromDB(Qry, OptionsQry);
       set_addrs(Qry.FieldAsString("addr"));
