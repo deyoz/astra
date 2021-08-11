@@ -255,14 +255,22 @@ void asynchronousHttpPostRequest(const std::string& req, const std::string& path
 
 std::string makeXmlFromRootNode(const std::string& xml)
 {
-    static const std::string root_start = "<root";
+    static const std::string root_beg = "<root";
     static const std::string root_end = "</root>";
+    static const std::string root_short_end = "/>";
     static const std::string header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
-    auto first = xml.find(root_start);
+
+    auto end_len = root_end.length();
+    auto first = xml.find(root_beg);
     ASSERT(first != std::string::npos);
     auto last = xml.rfind(root_end);
-    ASSERT(last != std::string::npos);
-    return  header + xml.substr(first, last - first + root_end.length());
+    if(last == std::string::npos) {
+        last = xml.rfind(root_short_end);
+        ASSERT(last != std::string::npos);
+        end_len = root_short_end.length();
+    }
+
+    return header + xml.substr(first, last-first+end_len);
 }
 
 std::string receiveHttpResponse()
