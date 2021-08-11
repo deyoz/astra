@@ -13,6 +13,7 @@
 #include "exch_checkin_result.h"
 #include "qrys.h"
 #include "emdoc.h"
+#include "db_tquery.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
@@ -2794,14 +2795,15 @@ std::list<TAdvTripInfo> FltOperFilter::search() const
 
 TDateTime getTimeTravel(const string &craft, const string &airp, const string &airp_last)
 {
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession("PLACE_CALC"),
     "SELECT time_out_in "
     "FROM place_calc "
     "WHERE bc=:bc and cod_out=:airp and cod_in=:airp_last ",
     QParams()
     << QParam("bc", otString, craft)
     << QParam("airp", otString, airp)
-    << QParam("airp_last", otString, airp_last)
+    << QParam("airp_last", otString, airp_last),
+    STDLOG
     );
   Qry.get().Execute();
   TDateTime result = NoExists;

@@ -777,6 +777,10 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
                 case ftBoolean:
                     row.cols.push_back( IntToString( (int)(Qry.FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                   break;
+                case ftDate:
+                case ftTime:
+                    row.cols.push_back( DateTimeToStr(Qry.FieldAsDateTime(vecFieldIdx[ j ]), ServerFormatDateTimeAsString) );
+                  break;
                 default:
                   if (i->ElemCategory!=cecNone)
                   {

@@ -328,6 +328,7 @@ namespace PgOra
                 "HIST_PAY_CLIENTS", "HIST_POS_TERM_SETS"
         }},
         { "SP_PG_GROUP_VALIDATOR_TYPES", {"VALIDATOR_TYPES","HIST_VALIDATOR_TYPES"} },
+        { "SP_PG_GROUP_PLACE_CALC", {"PLACE_CALC","HIST_PLACE_CALC"} },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
