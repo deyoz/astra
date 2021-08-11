@@ -75,6 +75,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CITIES")              return new CacheTable::Cities;
   if (cacheCode=="TRIP_TYPES")          return new CacheTable::TripTypes;
 #endif //ENABLE_ORACLE
+  if (cacheCode=="COMP_REM_TYPES")      return new CacheTable::CompRemTypes;
+  if (cacheCode=="CKIN_REM_TYPES")      return new CacheTable::CkinRemTypes;
   if (cacheCode=="CRS_SET")          return new CacheTable::CrsSet;
   return nullptr;
 }
@@ -2718,6 +2720,133 @@ void CompSubclsSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                              const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("comp_subcls_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//CompRemTypes
+
+bool CompRemTypes::userDependence() const {
+  return false;
+}
+std::string CompRemTypes::selectSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, pr_comp AS priority, tid, pr_del "
+         "FROM comp_rem_types "
+         "ORDER BY code";
+}
+std::string CompRemTypes::refreshSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, pr_comp AS priority, tid, pr_del "
+         "FROM comp_rem_types "
+         "WHERE tid>:tid "
+         "ORDER BY code";
+}
+std::string CompRemTypes::insertSqlOnApplyingChanges() const {
+  return "INSERT INTO comp_rem_types(code, code_lat, name, name_lat, pr_comp, id, tid, pr_del) "
+         "VALUES(:code, :code_lat, :name, :name_lat, :priority, :id, :tid, :pr_del)";
+}
+std::string CompRemTypes::updateSqlOnApplyingChanges() const {
+  return "UPDATE comp_rem_types "
+         "SET code=:code, code_lat=:code_lat, name=:name, name_lat=:name_lat, pr_comp=:priority, tid=:tid, pr_del=:pr_del "
+         "WHERE id=:id";
+}
+std::string CompRemTypes::deleteSqlOnApplyingChanges() const {
+  return "DELETE FROM comp_rem_types WHERE id=:id";
+}
+std::list<std::string> CompRemTypes::dbSessionObjectNamesForRead() const {
+  return {"COMP_REM_TYPES"};
+}
+std::string CompRemTypes::tableName() const {
+  return "comp_rem_types";
+}
+std::string CompRemTypes::idFieldName() const {
+  return "id";
+}
+
+void CompRemTypes::bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const
+{
+  cur.stb()
+     .bind(":code",     row.getAsString("code"))
+     .bind(":code_lat", row.getAsString("code_lat"))
+     .bind(":name",     row.getAsString("name"))
+     .bind(":name_lat", row.getAsString("name_lat"))
+     .bind(":priority", row.getAsInteger_ThrowOnEmpty("priority"));
+}
+
+std::optional<RowId_t> CompRemTypes::getRowIdBeforeInsert(const CacheTable::Row& row) const
+{
+  auto cur=make_db_curs("SELECT id FROM comp_rem_types WHERE code=:code AND pr_del<>0 FOR UPDATE",
+                        PgOra::getRWSession("COMP_REM_TYPES"));
+  int id;
+  cur.stb()
+     .def(id)
+     .bind(":code", row.getAsString_ThrowOnEmpty("code"))
+     .EXfet();
+
+  if (cur.err() != DbCpp::ResultCode::NoDataFound) return RowId_t(id);
+
+  return std::nullopt;
+}
+
+//CkinRemTypes
+
+bool CkinRemTypes::userDependence() const {
+  return false;
+}
+std::string CkinRemTypes::selectSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, grp_id, grp_id AS grp, is_iata, tid, pr_del "
+         "FROM ckin_rem_types "
+         "ORDER BY code";
+}
+std::string CkinRemTypes::refreshSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, grp_id, grp_id AS grp, is_iata, tid, pr_del "
+         "FROM ckin_rem_types "
+         "WHERE tid>:tid "
+         "ORDER BY code";
+}
+std::string CkinRemTypes::insertSqlOnApplyingChanges() const {
+  return "INSERT INTO ckin_rem_types(code, code_lat, name, name_lat, grp_id, is_iata, id, tid, pr_del) "
+         "VALUES(:code, :code_lat, :name, :name_lat, :grp_id, :is_iata, :id, :tid, :pr_del)";
+}
+std::string CkinRemTypes::updateSqlOnApplyingChanges() const {
+  return "UPDATE ckin_rem_types "
+         "SET code=:code, code_lat=:code_lat, name=:name, name_lat=:name_lat, grp_id=:grp_id, is_iata=:is_iata, tid=:tid, pr_del=:pr_del "
+         "WHERE id=:id";
+}
+std::string CkinRemTypes::deleteSqlOnApplyingChanges() const {
+  return "DELETE FROM ckin_rem_types WHERE id=:id";
+}
+std::list<std::string> CkinRemTypes::dbSessionObjectNamesForRead() const {
+  return {"CKIN_REM_TYPES"};
+}
+std::string CkinRemTypes::tableName() const {
+  return "ckin_rem_types";
+}
+std::string CkinRemTypes::idFieldName() const {
+  return "id";
+}
+
+void CkinRemTypes::bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const
+{
+  cur.stb()
+     .bind(":code",     row.getAsString("code"))
+     .bind(":code_lat", row.getAsString("code_lat"))
+     .bind(":name",     row.getAsString("name"))
+     .bind(":name_lat", row.getAsString("name_lat"))
+     .bind(":grp_id",   row.getAsInteger_ThrowOnEmpty("grp_id"))
+     .bind(":is_iata",  row.getAsBoolean_ThrowOnEmpty("is_iata"));
+}
+
+std::optional<RowId_t> CkinRemTypes::getRowIdBeforeInsert(const CacheTable::Row& row) const
+{
+  auto cur=make_db_curs("SELECT id FROM ckin_rem_types WHERE code=:code AND pr_del<>0 FOR UPDATE",
+                        PgOra::getRWSession("CKIN_REM_TYPES"));
+  int id;
+  cur.stb()
+     .def(id)
+     .bind(":code", row.getAsString_ThrowOnEmpty("code"))
+     .EXfet();
+
+  if (cur.err() != DbCpp::ResultCode::NoDataFound) return RowId_t(id);
+
+  return std::nullopt;
 }
 
 } //namespace CacheTables

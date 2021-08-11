@@ -2128,6 +2128,22 @@ boost::optional<int> CacheTableTermRequest::getInterfaceVersion(const std::strin
   return result;
 }
 
+boost::optional<int> CacheTableTermRequest::getDataVersion(const std::string& tableName)
+{
+  boost::optional<int> result;
+
+  auto cur = make_db_curs("SELECT MAX(tid) FROM " + tableName,
+                          PgOra::getROSession(StrUtils::ToUpper(tableName)));
+  int tid;
+  cur.stb()
+     .defNull(tid, NoExists)
+     .EXfet();
+
+  if(cur.err() != DbCpp::ResultCode::NoDataFound && tid != NoExists) result=tid;
+
+  return result;
+}
+
 std::string CacheTableTermRequest::getSQLParamXml(const std::vector<std::string> &par)
 {
   ASSERT(par.size() == 3);

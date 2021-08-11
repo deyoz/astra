@@ -324,6 +324,7 @@ class CacheTableTermRequest : public TCacheTable
     std::string getXml() const;
 
     static boost::optional<int> getInterfaceVersion(const std::string& cacheCode);
+    static boost::optional<int> getDataVersion(const std::string& tableName);
     static std::string getSQLParamXml(const std::vector<std::string> &par);
 
 };

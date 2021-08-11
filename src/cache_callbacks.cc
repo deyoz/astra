@@ -213,6 +213,17 @@ bool notEmptyParamAsBoolean(const std::string& name, const TParams &SQLParams)
   return result!=0;
 }
 
+RowId_t newRowId()
+{
+  return RowId_t(PgOra::getSeqNextVal("id__seq"));
+}
+
+int GeneratedTid::get() const
+{
+  if (!tid) tid=PgOra::getSeqNextVal("tid__seq");
+
+  return tid.value();
+}
 
 namespace CacheTable
 {
@@ -586,21 +597,93 @@ void setRowId(const std::string& fieldName,
               std::optional<CacheTable::Row>& newRow)
 {
   if (status==usInserted)
-    newRow.value().setFromInteger(fieldName, PgOra::getSeqNextVal("id__seq"));
+    newRow.value().setFromInteger(fieldName, newRowId().get());
 }
 
 RowId_t getRowId(const std::string& fieldName,
                  const std::optional<CacheTable::Row>& oldRow,
                  const std::optional<CacheTable::Row>& newRow)
 {
-  return RowId_t((oldRow?oldRow.value():newRow.value()).getAsInteger(fieldName).value());
+  return RowId_t((oldRow?oldRow.value():newRow.value()).getAsInteger_ThrowOnEmpty(fieldName));
 }
 
 
 } //namespace CacheTable
 
-CacheTableCallbacks::~CacheTableCallbacks()
-{
+CacheTableCallbacks::~CacheTableCallbacks() {}
 
+//CacheTableKeepDeletedRows
+
+void CacheTableKeepDeletedRows::bindAndExec(const RowId_t& rowId, const CacheTable::Row& row,
+                                            const bool deleted, DbCpp::CursCtl& cur) const
+{
+  bind(row, cur);
+
+  cur.stb()
+     .bind(":tid",      generatedTid.get())
+     .bind(":pr_del",   deleted)
+     .bind(":id",       rowId.get())
+     .exec();
+}
+
+void CacheTableKeepDeletedRows::insert(const RowId_t& rowId, const CacheTable::Row& row,
+                                       const bool deletedAfterInsert) const
+{
+  auto cur=make_db_curs(insertSqlOnApplyingChanges(),
+                        PgOra::getRWSession(upperc(tableName())));
+
+  bindAndExec(rowId, row, deletedAfterInsert, cur);
+}
+
+void CacheTableKeepDeletedRows::update(const RowId_t& rowId, const CacheTable::Row& row,
+                                       const bool deletedBeforeUpdate) const
+{
+  auto cur=make_db_curs(updateSqlOnApplyingChanges() + (deletedBeforeUpdate?" AND pr_del<>0":" AND pr_del=0"),
+                        PgOra::getRWSession(upperc(tableName())));
+
+  bindAndExec(rowId, row, false, cur);
+}
+
+void CacheTableKeepDeletedRows::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                                     const std::optional<CacheTable::Row>& oldRow,
+                                                     const std::optional<CacheTable::Row>& newRow) const
+{
+  std::optional<RowId_t> rowId;
+
+  if (status==usInserted)
+  {
+    rowId=getRowIdBeforeInsert(newRow.value());
+    if (!rowId)
+    {
+      rowId=newRowId();
+      insert(rowId.value(), newRow.value(), false);
+    }
+    else
+    {
+      update(rowId.value(), newRow.value(), true);
+    }
+  }
+
+  if (status==usModified)
+  {
+    rowId=getRowId(idFieldName(), oldRow, std::nullopt);
+    update(rowId.value(), newRow.value(), false);
+  }
+
+  if (status==usDeleted)
+  {
+    rowId=getRowId(idFieldName(), oldRow, std::nullopt);
+
+    auto cur=make_db_curs(deleteSqlOnApplyingChanges() + " AND pr_del=0",
+                          PgOra::getRWSession(upperc(tableName())));
+    cur.stb()
+       .bind(":id", rowId.value().get())
+       .exec();
+
+    if (cur.rowcount()>0)
+      insert(rowId.value(), oldRow.value(), true);
+  }
+
+  if (rowId) HistoryTable(lowerc(tableName())).synchronize(rowId.value());
 }
 

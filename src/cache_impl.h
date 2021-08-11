@@ -677,5 +677,37 @@ class CompSubclsSets : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class CompRemTypes : public CacheTableKeepDeletedRows
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string refreshSql() const override;
+    std::string insertSqlOnApplyingChanges() const override;
+    std::string updateSqlOnApplyingChanges() const override;
+    std::string deleteSqlOnApplyingChanges() const override;
+    std::list<std::string> dbSessionObjectNamesForRead() const override;
+    std::string tableName() const override;
+    std::string idFieldName() const override;
+    void bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const override;
+    std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const override;
+};
+
+class CkinRemTypes : public CacheTableKeepDeletedRows
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string refreshSql() const override;
+    std::string insertSqlOnApplyingChanges() const override;
+    std::string updateSqlOnApplyingChanges() const override;
+    std::string deleteSqlOnApplyingChanges() const override;
+    std::list<std::string> dbSessionObjectNamesForRead() const override;
+    std::string tableName() const override;
+    std::string idFieldName() const override;
+    void bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const override;
+    std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const override;
+};
+
 }
 

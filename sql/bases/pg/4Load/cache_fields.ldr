@@ -1471,14 +1471,6 @@ BEGINDATA
 "BALANCE_SETS"|7|"BORT"|"Борт"||"U"||"S"|10||1|0|0|||||
 "BALANCE_SETS"|8|"BALANCE_TYPE"|"Тип"||||"S"|5||0|0|0|"BALANCE_TYPES"|"CODE"|||
 "BALANCE_SETS"|9|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
-"REMARKS"|1|"CODE"|"Код"||"U"||"S"|4||0|1|1|||||
-"REMARKS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|4||0|0|1|||||
-"REMARKS"|3|"GRP_ID"||0|||"NU"|9||1|0|1|"REM_GRP"|"ID"|1||1
-"REMARKS"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||1|0|1|"REM_GRP"|"NAME_LAT/NAME"|1||
-"REMARKS"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||1|0|1|"REM_GRP"|"NAME/NAME_LAT"|1|"RU"|
-"REMARKS"|5|"NAME"|"Ремарка"|60|||"S"|200||0|0|1|||||
-"REMARKS"|6|"NAME_LAT"|"Ремарка (лат.)"|60|||"S"|200||1|0|1|||||
-"REMARKS"|7|"PR_COMP"||0|||"NU"|2||1|0|1|||||
 "REM_GRP"|1|"ID"||0|||"NU"|2||0|1|1|||||
 "REM_GRP"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
 "REM_GRP"|3|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||

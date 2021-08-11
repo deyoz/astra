@@ -232,7 +232,6 @@ $(LOAD_CACHE PROFILED_RIGHTS_LIST)
 $(LOAD_CACHE RATE_COLORS)
 $(LOAD_CACHE RCPT_DOC_TYPES)
 $(LOAD_CACHE REFUSE)
-$(LOAD_CACHE REMARKS)
 $(LOAD_CACHE REM_EVENT_SETS)
 $(LOAD_CACHE REM_GRP)
 $(LOAD_CACHE REM_TXT_SETS)
@@ -1782,5 +1781,337 @@ $(cache VLAD EN PLACE_CALC $(cache_iface_ver PLACE_CALC) ""
       <rows tid='-1'/>
     </data>
 
+%%
 
+### test 10
+### COMP_REM_TYPES, CKIN_REM_TYPES
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE RU COMP_REM_TYPES $(cache_iface_ver COMP_REM_TYPES) ""
+  insert code:РЕМ0 code_lat:CMP0 {name:Ремарка компоновки 0} {name_lat:Comp rem 0} priority:0
+  insert code:РЕМ2 code_lat:CMP2 {name:Ремарка компоновки 2} {name_lat:Comp rem 2} priority:2
+  insert code:РЕМ5 code_lat:CMP5 {name:Ремарка компоновки 5} {name_lat:Comp rem 5} priority:5
+  insert code:РЕМ6 code_lat:CMP6 {name:Ремарка компоновки 6} {name_lat:Comp rem 6} priority:6
+  insert code:РЕМ7 code_lat:CMP7 {name:Ремарка компоновки 7} {name_lat:Comp rem 7} priority:7
+  insert code:РЕМ8 code_lat:CMP8 {name:Ремарка компоновки 8} {name_lat:Comp rem 8} priority:8)
+
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+$(set id_comp_rem1 $(last_history_row_id comp_rem_types -05))
+$(set id_comp_rem2 $(last_history_row_id comp_rem_types -04))
+$(set id_comp_rem5 $(last_history_row_id comp_rem_types -03))
+$(set id_comp_rem6 $(last_history_row_id comp_rem_types -02))
+$(set id_comp_rem7 $(last_history_row_id comp_rem_types -01))
+$(set id_comp_rem8 $(last_history_row_id comp_rem_types -00))
+
+!! capture=on
+$(cache PIKE RU CKIN_REM_TYPES $(cache_iface_ver CKIN_REM_TYPES) ""
+  insert code:РЕМ9 code_lat:CKN9 {name:Ремарка регистрации 9} {name_lat:Ckin rem 9} grp_id:9 is_iata:1
+  insert code:РЕМ4 code_lat:CKN4 {name:Ремарка регистрации 4} {name_lat:Ckin rem 4} grp_id:4 is_iata:1
+  insert code:РЕМ5 code_lat:CKN5 {name:Ремарка регистрации 5} {name_lat:Ckin rem 5} grp_id:5 is_iata:0
+  insert code:РЕМ6 code_lat:CKN6 {name:Ремарка регистрации 6} {name_lat:Ckin rem 6} grp_id:6 is_iata:1
+  insert code:РЕМ7 code_lat:CKN7 {name:Ремарка регистрации 7} {name_lat:Ckin rem 7} grp_id:7 is_iata:0
+  insert code:РЕМ8 code_lat:CKN8 {name:Ремарка регистрации 8} {name_lat:Ckin rem 8} grp_id:8 is_iata:1)
+
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+$(set id_ckin_rem3 $(last_history_row_id ckin_rem_types -05))
+$(set id_ckin_rem4 $(last_history_row_id ckin_rem_types -04))
+$(set id_ckin_rem5 $(last_history_row_id ckin_rem_types -03))
+$(set id_ckin_rem6 $(last_history_row_id ckin_rem_types -02))
+$(set id_ckin_rem7 $(last_history_row_id ckin_rem_types -01))
+$(set id_ckin_rem8 $(last_history_row_id ckin_rem_types -00))
+
+### изменяем и удаляем строки в comp_rem_types, ckin_rem_types и подгружаем изменения
+
+!! capture=on
+$(cache PIKE RU COMP_REM_TYPES $(cache_iface_ver COMP_REM_TYPES) $(cache_data_ver comp_rem_types)
+  update old_code:РЕМ0 old_code_lat:CMP0 {old_name:Ремарка компоновки 0} {old_name_lat:Comp rem 0} old_priority:0 old_id:$(get id_comp_rem1)
+             code:РЕМ1     code_lat:CMP1     {name:Ремарка компоновки 1}     {name_lat:Comp rem 1}     priority:1     id:$(get id_comp_rem1)
+  delete old_code:РЕМ2 old_code_lat:CMP2 {old_name:Ремарка компоновки 2} {old_name_lat:Comp rem 2} old_priority:2 old_id:$(get id_comp_rem2)
+  delete old_code:РЕМ7 old_code_lat:CMP7 {old_name:Ремарка компоновки 7} {old_name_lat:Comp rem 7} old_priority:7 old_id:$(get id_comp_rem7)
+  delete old_code:РЕМ8 old_code_lat:CMP8 {old_name:Ремарка компоновки 8} {old_name_lat:Comp rem 8} old_priority:8 old_id:$(get id_comp_rem8))
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>COMP_REM_TYPES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='$(cache_data_ver comp_rem_types)'>
+        <row pr_del='0'>
+          <col>РЕМ1</col>
+          <col>CMP1</col>
+          <col>Ремарка компоновки 1</col>
+          <col>Comp rem 1</col>
+          <col>1</col>
+          <col>$(get id_comp_rem1)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ2</col>
+          <col>CMP2</col>
+          <col>Ремарка компоновки 2</col>
+          <col>Comp rem 2</col>
+          <col>2</col>
+          <col>$(get id_comp_rem2)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ7</col>
+          <col>CMP7</col>
+          <col>Ремарка компоновки 7</col>
+          <col>Comp rem 7</col>
+          <col>7</col>
+          <col>$(get id_comp_rem7)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ8</col>
+          <col>CMP8</col>
+          <col>Ремарка компоновки 8</col>
+          <col>Comp rem 8</col>
+          <col>8</col>
+          <col>$(get id_comp_rem8)</col>
+        </row>
+      </rows>
+    </data>
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+  </answer>
+</term>
+
+!! capture=on
+$(cache PIKE RU CKIN_REM_TYPES $(cache_iface_ver CKIN_REM_TYPES) $(cache_data_ver ckin_rem_types)
+  update old_code:РЕМ9 old_code_lat:CKN9 {old_name:Ремарка регистрации 9} {old_name_lat:Ckin rem 9} old_grp_id:9 old_is_iata:1 old_id:$(get id_ckin_rem3)
+             code:РЕМ3     code_lat:CKN3     {name:Ремарка регистрации 3}     {name_lat:Ckin rem 3}     grp_id:3     is_iata:0     id:$(get id_ckin_rem3)
+  delete old_code:РЕМ4 old_code_lat:CKN4 {old_name:Ремарка регистрации 4} {old_name_lat:Ckin rem 4} old_grp_id:4 old_is_iata:1 old_id:$(get id_ckin_rem4)
+  delete old_code:РЕМ6 old_code_lat:CKN6 {old_name:Ремарка регистрации 6} {old_name_lat:Ckin rem 6} old_grp_id:6 old_is_iata:1 old_id:$(get id_ckin_rem6)
+  delete old_code:РЕМ8 old_code_lat:CKN8 {old_name:Ремарка регистрации 8} {old_name_lat:Ckin rem 8} old_grp_id:8 old_is_iata:1 old_id:$(get id_ckin_rem8))
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>CKIN_REM_TYPES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='$(cache_data_ver ckin_rem_types)'>
+        <row pr_del='0'>
+          <col>РЕМ3</col>
+          <col>CKN3</col>
+          <col>3</col>
+          <col>Спецпитание</col>
+          <col>Ремарка регистрации 3</col>
+          <col>Ckin rem 3</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem3)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ4</col>
+          <col>CKN4</col>
+          <col>4</col>
+          <col>Доп. помощь</col>
+          <col>Ремарка регистрации 4</col>
+          <col>Ckin rem 4</col>
+          <col>1</col>
+          <col>$(get id_ckin_rem4)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ6</col>
+          <col>CKN6</col>
+          <col>6</col>
+          <col>Статус пассажира</col>
+          <col>Ремарка регистрации 6</col>
+          <col>Ckin rem 6</col>
+          <col>1</col>
+          <col>$(get id_ckin_rem6)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ8</col>
+          <col>CKN8</col>
+          <col>8</col>
+          <col>Кислород</col>
+          <col>Ремарка регистрации 8</col>
+          <col>Ckin rem 8</col>
+          <col>1</col>
+          <col>$(get id_ckin_rem8)</col>
+        </row>
+      </rows>
+    </data>
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+  </answer>
+</term>
+
+### добавляем строки в comp_rem_types, ckin_rem_types, которые по ключу с признаком удаления и подгружаем изменения
+
+!! capture=on
+$(cache PIKE RU COMP_REM_TYPES $(cache_iface_ver COMP_REM_TYPES) $(cache_data_ver comp_rem_types)
+  insert code:РЕМ2 code_lat:CMP0 {name:Ремарка компоновки 0} {name_lat:Comp rem 0} priority:0)
+
+>> lines=auto
+      <rows tid='$(cache_data_ver comp_rem_types)'>
+        <row pr_del='0'>
+          <col>РЕМ2</col>
+          <col>CMP0</col>
+          <col>Ремарка компоновки 0</col>
+          <col>Comp rem 0</col>
+          <col>0</col>
+          <col>$(get id_comp_rem2)</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE RU CKIN_REM_TYPES $(cache_iface_ver CKIN_REM_TYPES) $(cache_data_ver ckin_rem_types)
+  insert code:РЕМ4 code_lat:CKN9 {name:Ремарка регистрации 9} {name_lat:Ckin rem 9} grp_id:9 is_iata:0)
+
+>> lines=auto
+      <rows tid='$(cache_data_ver ckin_rem_types)'>
+        <row pr_del='0'>
+          <col>РЕМ4</col>
+          <col>CKN9</col>
+          <col>9</col>
+          <col>Разное</col>
+          <col>Ремарка регистрации 9</col>
+          <col>Ckin rem 9</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem4)</col>
+        </row>
+      </rows>
+
+### а теперь просто подгружаем полностью comp_rem_types, ckin_rem_types
+
+!! capture=on
+$(cache PIKE EN COMP_REM_TYPES $(cache_iface_ver COMP_REM_TYPES) "")
+
+>> lines=auto
+      <rows tid='...'>
+        <row pr_del='0'>
+          <col>РЕМ1</col>
+          <col>CMP1</col>
+          <col>Ремарка компоновки 1</col>
+          <col>Comp rem 1</col>
+          <col>1</col>
+          <col>$(get id_comp_rem1)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ2</col>
+          <col>CMP0</col>
+          <col>Ремарка компоновки 0</col>
+          <col>Comp rem 0</col>
+          <col>0</col>
+          <col>$(get id_comp_rem2)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ5</col>
+          <col>CMP5</col>
+          <col>Ремарка компоновки 5</col>
+          <col>Comp rem 5</col>
+          <col>5</col>
+          <col>$(get id_comp_rem5)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ6</col>
+          <col>CMP6</col>
+          <col>Ремарка компоновки 6</col>
+          <col>Comp rem 6</col>
+          <col>6</col>
+          <col>$(get id_comp_rem6)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ7</col>
+          <col>CMP7</col>
+          <col>Ремарка компоновки 7</col>
+          <col>Comp rem 7</col>
+          <col>7</col>
+          <col>$(get id_comp_rem7)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ8</col>
+          <col>CMP8</col>
+          <col>Ремарка компоновки 8</col>
+          <col>Comp rem 8</col>
+          <col>8</col>
+          <col>$(get id_comp_rem8)</col>
+        </row>
+      </rows>
+
+!! capture=on
+$(cache PIKE EN CKIN_REM_TYPES $(cache_iface_ver CKIN_REM_TYPES) "")
+
+>> lines=auto
+      <rows tid='...'>
+        <row pr_del='0'>
+          <col>РЕМ3</col>
+          <col>CKN3</col>
+          <col>3</col>
+          <col>Special meal</col>
+          <col>Ремарка регистрации 3</col>
+          <col>Ckin rem 3</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem3)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ4</col>
+          <col>CKN9</col>
+          <col>9</col>
+          <col>More</col>
+          <col>Ремарка регистрации 9</col>
+          <col>Ckin rem 9</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem4)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ5</col>
+          <col>CKN5</col>
+          <col>5</col>
+          <col>Seats in the compartment</col>
+          <col>Ремарка регистрации 5</col>
+          <col>Ckin rem 5</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem5)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ6</col>
+          <col>CKN6</col>
+          <col>6</col>
+          <col>Passenger status</col>
+          <col>Ремарка регистрации 6</col>
+          <col>Ckin rem 6</col>
+          <col>1</col>
+          <col>$(get id_ckin_rem6)</col>
+        </row>
+        <row pr_del='0'>
+          <col>РЕМ7</col>
+          <col>CKN7</col>
+          <col>7</col>
+          <col>Bonus program</col>
+          <col>Ремарка регистрации 7</col>
+          <col>Ckin rem 7</col>
+          <col>0</col>
+          <col>$(get id_ckin_rem7)</col>
+        </row>
+        <row pr_del='1'>
+          <col>РЕМ8</col>
+          <col>CKN8</col>
+          <col>8</col>
+          <col>Oxygen</col>
+          <col>Ремарка регистрации 8</col>
+          <col>Ckin rem 8</col>
+          <col>1</col>
+          <col>$(get id_ckin_rem8)</col>
+        </row>
+      </rows>
 

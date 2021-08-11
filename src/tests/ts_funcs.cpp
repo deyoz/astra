@@ -1391,6 +1391,16 @@ static std::string FP_getCacheIfaceVer(const std::vector<std::string> &par)
   return "";
 }
 
+static std::string FP_getCacheDataVer(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() == 1);
+  boost::optional<int> dataVersion=CacheTableTermRequest::getDataVersion(par[0]);
+
+  if (dataVersion) return std::to_string(dataVersion.get());
+
+  return "";
+}
+
 static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
 {
   return CacheTableTermRequest::getSQLParamXml(par);
@@ -1613,6 +1623,7 @@ FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
+FP_REGISTER("cache_data_ver", FP_getCacheDataVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
 FP_REGISTER("last_history_row_id", FP_lastHistoryRowId);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);

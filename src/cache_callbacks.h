@@ -8,6 +8,8 @@
 #include "db_tquery.h"
 #include "hist.h"
 
+#include <serverlib/dbcpp_cursctl.h>
+
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 
 std::ostream & operator <<(std::ostream& os, TCacheConvertType value);
@@ -53,6 +55,15 @@ std::string notEmptyParamAsString(const std::string& name, const TParams &SQLPar
 int notEmptyParamAsInteger(const std::string& name, const TParams &SQLParams);
 bool notEmptyParamAsBoolean(const std::string& name, const TParams &SQLParams);
 
+RowId_t newRowId();
+
+class GeneratedTid
+{
+  private:
+    mutable std::optional<int> tid;
+  public:
+    int get() const;
+};
 
 namespace CacheTable
 {
@@ -239,6 +250,7 @@ class CacheTableWritable : public CacheTableCallbacks
 class CacheTableWritableHandmade : public CacheTableCallbacks
 {
   public:
+    GeneratedTid generatedTid;
     std::string refreshSql() const { return ""; }
     std::string insertSql() const { return ""; }
     std::string updateSql() const { return ""; }
@@ -252,4 +264,29 @@ class CacheTableWritableHandmade : public CacheTableCallbacks
                                  const std::optional<CacheTable::Row>& newRow) const {}
 };
 
+class CacheTableKeepDeletedRows : public CacheTableWritableHandmade
+{
+  private:
+    void bindAndExec(const RowId_t& rowId, const CacheTable::Row& row,
+                     const bool deleted, DbCpp::CursCtl& cur) const;
+    void insert(const RowId_t& rowId, const CacheTable::Row& row,
+                const bool deletedAfterInsert) const;
+    void update(const RowId_t& rowId, const CacheTable::Row& row,
+                const bool deletedBeforeUpdate) const;
+  public:
+    bool insertImplemented() const override { return true; }
+    bool updateImplemented() const override { return true; }
+    bool deleteImplemented() const override { return true; }
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const override {}
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const override;
 
+    virtual std::string insertSqlOnApplyingChanges() const = 0;
+    virtual std::string updateSqlOnApplyingChanges() const = 0;
+    virtual std::string deleteSqlOnApplyingChanges() const = 0;
+    virtual std::string tableName() const = 0;
+    virtual std::string idFieldName() const = 0;
+    virtual void bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const = 0;
+    virtual std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const = 0;
+};

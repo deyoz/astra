@@ -1,0 +1,23 @@
+LOAD DATA
+INFILE *
+INTO TABLE rem_grp
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,name
+,name_lat
+,priority
+)
+BEGINDATA
+1|"Спецбагаж"|"Special baggage"|4
+2|"Инф. о пассажире"|"Passenger data"|8
+3|"Спецпитание"|"Special meal"|5
+4|"Доп. помощь"|"Extra assistance"|1
+5|"Места в салоне"|"Seats in the compartment"|6
+6|"Статус пассажира"|"Passenger status"|2
+7|"Бонусная программа"|"Bonus program"|3
+8|"Кислород"|"Oxygen"|7
+9|"Разное"|"More"|9
+10|"Интерактивный APIS"|"Interactive APIS"|10
