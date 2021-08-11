@@ -1047,8 +1047,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "      type IN (:evtPax,:evtPay) AND "
         "      screen <> 'ASTRASERV.EXE' and "
         "      id1=:point_id AND "
-        "      (id2 IS NULL OR id2=:reg_no) AND "
-        "      (id3 IS NULL OR id3=:grp_id) "
+        "      id2=:reg_no AND "
+        "      id3=:grp_id "
         "ORDER BY ev_order";
 
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
