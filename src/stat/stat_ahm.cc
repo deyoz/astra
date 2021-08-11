@@ -25,7 +25,7 @@ void StatInterface::AHM(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     curNode = NodeAsNodeFast("ParamsPnl", curNode)->children;
     if(curNode) {
         FirstDate = NodeAsDateTimeFast("FirstDate", curNode);
-        LastDate = NodeAsDateTimeFast("LastDate", curNode);
+        LastDate = NodeAsDateTimeFast("LastDate", curNode) + 1;
         TElemFmt fmt;
         airline = ElemToElemId(etAirline, NodeAsStringFast("Airline", curNode, ""), fmt);
         category = NodeAsStringFast("AHMCategory", curNode, "");
@@ -34,8 +34,6 @@ void StatInterface::AHM(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
         throw Exception("wrong req");
     if(FirstDate > LastDate)
         throw UserException("MSG.INVALID_RANGE");
-    if(FirstDate == LastDate)
-        LastDate += 1;
 
     QParams QryParams;
     QryParams
