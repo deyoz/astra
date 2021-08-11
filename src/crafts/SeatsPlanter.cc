@@ -286,7 +286,7 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       LogTrace(TRACE5) << "answer " << XMLTreeToText(resNode->doc);
       ReseatPaxRFISCServiceChanger r(reqNode);
       std::string value;
-      AstraContext::GetContext(getContextName(), 0, value);
+      AstraContext::GetContext(getContextName(), r.pax_id, value);
       LogTrace(TRACE5) << value;
       XMLDoc doc = createXmlDoc(value);
       r.fromXML(doc.docPtr()->children);
@@ -294,19 +294,19 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       r.toXML(doc.docPtr()->children);
       LogTrace(TRACE5) <<  doc.text();
       LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
-      AstraContext::ClearContext(getContextName(),0);
-      AstraContext::SetContext(getContextName(),0,doc.text());
+      AstraContext::ClearContext(getContextName(),r.pax_id);
+      AstraContext::SetContext(getContextName(),r.pax_id,doc.text());
       return CheckInInterface::SavePax(emulChngNode, externalSysResNode, nullptr);
     }
 
     bool reseat( xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode ) {
       LogTrace(TRACE5) << __func__;
       std::string value;
-      AstraContext::GetContext(getContextName(), 0, value);
+      AstraContext::GetContext(getContextName(), pax_id, value);
       XMLDoc doc = createXmlDoc(value);
       toXML( doc.docPtr()->children );
-      AstraContext::ClearContext(getContextName(),0);
-      AstraContext::SetContext(getContextName(),0,doc.text());
+      AstraContext::ClearContext(getContextName(),pax_id);
+      AstraContext::SetContext(getContextName(),pax_id,doc.text());
       return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode );
     }
 
@@ -1327,9 +1327,9 @@ public:
     }
     XMLDoc doc("reseat");
     xmlNodePtr emulResNode = NewTextChild(doc.docPtr()->children,"answer");
-    AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
+    AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id);
     tst();
-    AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
+    AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
     tst();
     MessageSaver savePaxMessage;
 
@@ -1400,10 +1400,10 @@ public:
     CopyNode(resNode,GetNode("data",emulResNode),true); //копируем все кроме сообщений
 //    LogTrace(TRACE5) << doc.text();
 //    LogTrace(TRACE5) << XMLTreeToText(resNode->doc);
-    AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
+    AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id);
     if ( isDoomedToWait() ) {
       LogTrace(TRACE5) << __func__ << " isDoomedToWait return";
-      AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());
+      AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id,doc.text());
       return _resPropsSets;
     }
     if (_resPropsSets.isFlag(propChangeRFISCService)) { //надо добавить ответ от SavePax
@@ -1476,16 +1476,16 @@ void SitDownPlease( xmlNodePtr reqNode,
 void AfterRefreshEMD(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   LogTrace(TRACE5) << XMLTreeToText( resNode->doc );
-  LogTrace(TRACE5) << XMLTreeToText( reqNode->doc );
+  ReseatPaxRFISCServiceChanger r(reqNode);
   std::string value;
-  AstraContext::GetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,value);
+  AstraContext::GetContext(ReseatPaxRFISCServiceChanger::getContextName(),r.pax_id,value);
   LogTrace(TRACE5) << value;
   XMLDoc doc = createXmlDoc(value);
   int front_grp_id,front_pax_id;
-  ReseatPaxRFISCServiceChanger(reqNode).getFirstPaxIds(front_grp_id,front_pax_id);
+  r.getFirstPaxIds(front_grp_id,front_pax_id);
   CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( resNode, "SavePax"), true);
   LogTrace(TRACE5) << XMLTreeToText( resNode->doc );
-  AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
+  AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),r.pax_id);
   //xmlDocPtr d = resNode->doc;
   //RemoveNode( resNode );
   //CopyNode( d->children, GetNode( "answer", doc.docPtr()->children), true );
