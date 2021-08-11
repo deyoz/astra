@@ -38,3 +38,7 @@ DECL_RIP_RANGED(CrsPriority_t, int,    0, 9);
 DECL_RIP_RANGED(FlightNumber_t, int, 1, 99999);
 DECL_RIP_LENGTH(FlightSuffix_t, std::string, 0, 1);
 
+DECL_RIP(DeskGrpId_t,      int);
+DECL_RIP_LENGTH(DeskCode_t, std::string, 6, 6);
+
+

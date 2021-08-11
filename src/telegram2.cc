@@ -667,7 +667,7 @@ int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
             "   type = :type and "
             "   addr = :addr and "
             "   pr_lat = :pr_lat ",
-            QryParams
+            QryParams, STDLOG
             );
 
     Qry.get().Execute();
@@ -2613,7 +2613,7 @@ struct TExtraSeatName {
         LogTrace(TRACE6) << __func__
                          << ": pax_id=" << pax_id
                          << ", pr_crs=" << pr_crs;
-        DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"));
+        DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"), STDLOG);
         string SQLText = (string)
             "select distinct "
             "   rem_code "
@@ -8363,7 +8363,8 @@ int PNL(TypeB::TDetailCreateInfo &info)
 
   TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
                    QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
-                             << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
+                             << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num),
+                   STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) throw Exception("%s: forwarded telegram not found", __FUNCTION__);
 

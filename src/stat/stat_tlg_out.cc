@@ -64,7 +64,7 @@ void ArxRunTlgOutStat(const TStatParams &params,
                    TPrintAirline &prn_airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_TLG_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_TLG_STAT"), STDLOG);
     string SQLText =
         "SELECT \n"
         "  arx_tlg_stat.sender_sita_addr, \n"
@@ -184,7 +184,7 @@ void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
                    TPrintAirline &prn_airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("TLG_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("TLG_STAT"), STDLOG);
     string SQLText =
         "SELECT \n"
         "  tlg_stat.sender_sita_addr, \n"

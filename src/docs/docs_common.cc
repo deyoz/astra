@@ -768,7 +768,7 @@ string get_hall_list(string airp, TRptParams &rpt_params)
 void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
 {
     xmlNodePtr variablesNode = STAT::getVariablesNode(resNode);
-    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"));
+    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"), STDLOG);
     Qry.SQLText = "select * from trip_rpt_person where point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
@@ -781,56 +781,111 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
     NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
 }
 
-string get_report_version(string name)
+std::string get_report_version(const std::string& name)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("FR_FORMS2"), STDLOG);
     Qry.SQLText = "select version from fr_forms2 where name = :name and version <= :version order by version desc";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateVariable("version", otString, TReqInfo::Instance()->desk.version);
     Qry.Execute();
-    string result;
+    std::string result;
     if(!Qry.Eof)
         result = Qry.FieldAsString("version");
     return result;
 }
 
-void get_report_form(const string name, xmlNodePtr resNode)
+namespace {
+    struct FrForm
+    {
+        std::string form;
+        int         pr_locale;
+    };
+
+    boost::optional<FrForm> get_report_form_pg(const std::string& name,
+                                               const std::string& version)
+    {
+        FrForm frForm = {};
+        auto cur = make_db_curs(
+"select FORM, PR_LOCALE from FR_FORMS2 where NAME = :name and VERSION = :version",
+                    PgOra::getROSession("FR_FORMS2"));
+        cur
+                .def(frForm.form)
+                .def(frForm.pr_locale)
+                .bind(":name",    name)
+                .bind(":version", version);
+
+        if(cur.exfet() == DbCpp::ResultCode::NoDataFound) {
+            return {};
+        }
+
+        return frForm;
+    }
+
+    boost::optional<FrForm> get_report_form_ora(const std::string& name,
+                                                const std::string& version)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
+        Qry.CreateVariable("version", otString, version);
+        Qry.CreateVariable("name", otString, name);
+        Qry.Execute();
+        if(Qry.Eof) {
+            return {};
+        }
+
+        std::string form;
+
+        int len = Qry.GetSizeLongField("form");
+        boost::shared_array<char> data (new char[len]);
+        Qry.FieldAsLong("form", data.get());
+        form.clear();
+        form.append(data.get(), len);
+
+        int pr_locale = Qry.FieldAsInteger("pr_locale");
+        return FrForm{form, pr_locale};
+    }
+
+
+    boost::optional<FrForm> get_report_form(const std::string& name,
+                                            const std::string& version)
+    {
+        if(PgOra::supportsPg("FR_FORMS2")) {
+            return get_report_form_pg(name, version);
+        } else {
+            return get_report_form_ora(name, version);
+        }
+    }
+
+}//namespace
+
+void get_report_form(const string& name, xmlNodePtr resNode)
 {
-    string form;
-    string version;
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
-    version = get_report_version(name);
-    Qry.CreateVariable("version", otString, version);
-    Qry.CreateVariable("name", otString, name);
-    Qry.Execute();
-    if(Qry.Eof) {
+    const std::string version = get_report_version(name);
+    auto frForm = get_report_form(name, version);
+
+    if(!frForm) {
         NewTextChild(resNode, "FormNotExists", name);
         SetProp(NewTextChild(resNode, "form"), "name", name);
         return;
     }
     // положим в ответ шаблон отчета
-    int len = Qry.GetSizeLongField("form");
-    boost::shared_array<char> data (new char[len]);
-    Qry.FieldAsLong("form", data.get());
-    form.clear();
-    form.append(data.get(), len);
 
-    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
+
+    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", frForm->form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
-    if (Qry.FieldAsInteger("pr_locale") != 0)
+    if(frForm->pr_locale != 0)
         SetProp(formNode, "pr_locale");
 }
 
-void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+void get_new_report_form(const string& name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(GetNode("LoadForm", reqNode) == NULL)
         return;
     get_report_form(name, resNode);
 }
 
-void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+void get_compatible_report_form(const string& name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     get_new_report_form(name, reqNode, resNode);
 }

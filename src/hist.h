@@ -1,48 +1,60 @@
-#ifndef HIST_H
-#define HIST_H
+#pragma once
 
 #include <string>
-#include "cache.h"
-#include "xml_unit.h"
-#include "exceptions.h"
+#include <serverlib/rip.h>
+#include <serverlib/rip_validators.h>
+#include <serverlib/dates.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-enum { OpenTimeShift, OpenUserShift, OpenDeskShift, CloseTimeShift, CloseUserShift, CloseDeskShift, InfoLength };
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
 
-struct QryInfo {
-  std::string fields, conditions, source;
-};
+DECL_RIP_RANGED(RowId_t, int, 1, 999999999);
 
-struct HistTableInfo {
-  std::string table_name, ident_fld, table_id, pseudo_name;
-};
-
-struct HistParams {
-  std::vector<HistTableInfo> tables_info;
-  std::vector<std::string> flds_no_show;
-};
-
-class THistCacheTable : public TCacheTable {
-
-    QryInfo info;
-    HistParams params;
-    bool search_by_id;
-    bool search_by_dates;
-
-    void initFields();
-    void makeSelectQuery(std::string& select_sql);
-    bool parseSelectStmt(const std::string& select_sql);
-    void prepareQry(std::string& select_sql);
-    void eraseFlds();
-    bool getHistInfo();
-    std::string simpleQry();
-    std::string multipleQry();
-    std::string exclusionQry();
-
-    bool sameBase(TTable::iterator previos, TTable::iterator next, const int num_cols) const;
-
+class HistoryEventId
+{
+  private:
+    int order_;
+    Dates::DateTime_t time_;
   public:
-    void Init(xmlNodePtr cacheNode);
-    void DoAfter();
+    HistoryEventId(const int order, const Dates::DateTime_t& time) :
+      order_(order), time_(time) {}
+    HistoryEventId();
+
+    int order() const { return order_; }
+    Dates::DateTime_t time() const { return time_; }
 };
 
-#endif // HIST_H
+class HistoryTable
+{
+  private:
+    int tableId_;
+    std::string tableName_;
+    std::string identField_;
+    std::string historyFields_;
+
+    bool lockRow(const RowId_t& rowId);
+    std::optional<HistoryEventId> addRow(const RowId_t& rowId);
+    std::optional<HistoryEventId> getLastEventId(const RowId_t& rowId);
+    void closeLastEvent(const RowId_t& rowId,
+                        const std::optional<HistoryEventId>& nextEventId);
+    void openNextEvent(const RowId_t& rowId,
+                       const HistoryEventId& nextEventId);
+
+    static const Dates::DateTime_t& upperBoundTime()
+    {
+      static Dates::DateTime_t upperBoundTime_=Dates::time_from_string("2099-01-01 00:00:00");
+      return upperBoundTime_;
+    }
+  public:
+    HistoryTable(const std::string& tableName);
+    void synchronize(const RowId_t& rowId);
+
+#ifdef XP_TESTING
+    std::vector<RowId_t> getLastEventRowIds() const;
+#endif/*XP_TESTING*/
+
+};
+
+

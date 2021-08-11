@@ -302,6 +302,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxTknItem& fromXML(xmlNodePtr node);
     const TPaxTknItem& toDB(TQuery &Qry) const;
     TPaxTknItem& fromDB(TQuery &Qry);
+    TPaxTknItem& fromDB(DB::TQuery &Qry);
 
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiTkn; }
@@ -779,6 +780,7 @@ class TSimplePaxItem
     }
 
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
+    static ASTRA::TGender::Enum genderFromDB(DB::TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
     static const std::string& origClassFromCrsSQL();
     static const std::string& origSubclassFromCrsSQL();
@@ -789,6 +791,7 @@ class TSimplePaxItem
     TSimplePaxItem& fromPax(const dbo::PAX &pax);
     TSimplePaxItem& fromPax(const dbo::ARX_PAX &arx_pax);
     TSimplePaxItem& fromDB(TQuery &Qry);
+    TSimplePaxItem& fromDB(DB::TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     TSimplePaxItem& fromDBCrs(DB::TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
@@ -1018,6 +1021,7 @@ class TSimplePnrItem
       cl.clear();
       cabin_cl.clear();
       status.clear();
+      point_id_tlg=ASTRA::NoExists;
     }
 
     TSimplePnrItem& fromDB(TQuery &Qry);

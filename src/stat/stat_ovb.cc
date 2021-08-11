@@ -102,7 +102,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
         << QParam("from_date", otDate, from)
         << QParam("to_date", otDate, to)
         << QParam("airp", otString, "’‹—");
-    DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), pointsSQL, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), pointsSQL, QryParams, STDLOG);
     Qry.get().Execute();
     int flights = 0;
     int pax_count = 0;
@@ -113,7 +113,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
         TDateTime part_key = Qry.get().FieldAsDateTime("part_key");
         grpParams << QParam("part_key", otDate, part_key);
 
-        DB::TCachedQuery grpQry(PgOra::getROSession("ARX_PAX_GRP"), grpSQL, grpParams);
+        DB::TCachedQuery grpQry(PgOra::getROSession("ARX_PAX_GRP"), grpSQL, grpParams, STDLOG);
         grpQry.get().Execute();
         for(; not grpQry.get().Eof; grpQry.get().Next()) {
             int grp_id = grpQry.get().FieldAsInteger("grp_id");
@@ -128,7 +128,7 @@ void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
             paxParams << QParam("grp_id", otInteger, grp_id);
             paxParams << QParam("part_key", otDate, part_key);
 
-            DB::TCachedQuery paxQry(PgOra::getROSession("ARX_PAX"), paxSQL, paxParams);
+            DB::TCachedQuery paxQry(PgOra::getROSession("ARX_PAX"), paxSQL, paxParams, STDLOG);
             paxQry.get().Execute();
             for(; not paxQry.get().Eof; paxQry.get().Next()) {
                 int pax_id = paxQry.get().FieldAsInteger("pax_id");

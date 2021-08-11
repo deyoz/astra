@@ -1,5 +1,7 @@
 #include <string>
 #include <stdio.h>
+#include <optional>
+#include <sstream>
 #include "tclmon/mespro_crypt.h"
 #include "serverlib/mespro_api.h"
 #include "tclmon/tclmon.h"
@@ -7,7 +9,9 @@
 #include "serverlib/msg_const.h"
 #include "serverlib/levc_callbacks.h"
 #include "serverlib/sirena_queue.h"
-#include "serverlib/string_cast.h"
+#include <serverlib/str_utils.h>
+#include <serverlib/dbcpp_session.h>
+#include <serverlib/pg_cursctl.h>
 #include "crypt.h"
 #include "oralib.h"
 #include "date_time.h"
@@ -18,6 +22,10 @@
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "tclmon/tcl_utils.h"
+#include "cache.h"
+
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -275,38 +283,71 @@ void GetError( const string &func_name, int err )
 }
 #endif //USE_MESPRO
 
+struct RawBuffer final {
+
+    void* buffer;
+    size_t capacity;
+
+    RawBuffer() noexcept : buffer{nullptr}, capacity{0} {}
+
+    ~RawBuffer() noexcept {
+        free(buffer);
+    }
+
+    void increaseCapacity(size_t newCapacity) {
+        if (capacity < newCapacity) {
+            free(buffer);
+            buffer = malloc(newCapacity);
+            if (nullptr == buffer) {
+                throw Exception("Ошибка Программы");
+            }
+            capacity = newCapacity;
+        }
+    }
+};
+
 // определяет ошибку режима шифрования и возвращает признак шифрования для группы
 // за основу определения шифрования по группе или пульту берем эту ф-цию
-bool GetCryptGrp( TQuery &Qry, const std::string &desk, int &grp_id, bool &pr_grp )
+bool GetCryptGrp(const std::string& desk, int& grp_id, bool& pr_grp)
 {
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id, crypt_sets.desk "
-    "FROM desks,desk_grp,crypt_sets "
-    "WHERE desks.code = UPPER(:desk) AND "
-    "      desks.grp_id = desk_grp.grp_id AND "
-    "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
-    "ORDER BY desk ASC ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  if ( !Qry.Eof ) {
-     grp_id = Qry.FieldAsInteger( "grp_id" );
-     pr_grp = Qry.FieldIsNULL( "desk" );
-  }
-  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ); //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+    std::string deskUpper = StrUtils::ToUpper(desk);
+
+    std::optional<int> group = getDeskGroupByCode(deskUpper);
+
+    if (!group.has_value()) {
+        return false;
+    }
+
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
+    Qry.SQLText =
+       "SELECT pr_crypt, desk_grp_id, desk "
+       "FROM crypt_sets "
+       "WHERE desk IS NULL OR desk = :deskUpper "
+       "ORDER BY desk";
+
+    Qry.CreateVariable( "deskUpper", otString, deskUpper );
+    Qry.Execute();
+
+    if (!Qry.Eof) {
+        grp_id = Qry.FieldAsInteger( "desk_grp_id" );
+        pr_grp = Qry.FieldIsNULL( "desk" );
+
+        return Qry.FieldAsInteger( "pr_crypt" ) != 0;
+    }
+    return false; //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
 }
 
 //сертификат выбираем по след. правилам:
 //1. сортировка по пульту, доступу и времени начала действия сертификата
 //2. pr_grp - определяет какой сертификат изпользовать (для пульта или групповой)
-bool GetClientCertificate( TQuery &Qry, int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
+bool GetClientCertificate( int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
 {
   pkcs_id = -1;
   certificate.clear();
-  Qry.Clear();
+  TDateTime nowLocal = Now();
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"), STDLOG);
   Qry.SQLText =
-    "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
+    "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date FROM crypt_term_cert "
     " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
     " ORDER BY desk ASC, pr_denial ASC, first_date ASC, id ASC";
   Qry.CreateVariable( "grp_id", otInteger, grp_id );
@@ -320,10 +361,10 @@ bool GetClientCertificate( TQuery &Qry, int grp_id, bool pr_grp, const std::stri
           continue;
         }
     if ( Qry.FieldAsInteger( "pr_denial" ) == 0 && // разрешен
-         Qry.FieldAsDateTime( "now" ) > Qry.FieldAsDateTime( "first_date" ) ) // начал выполняться
+         nowLocal > Qry.FieldAsDateTime( "first_date" ) ) // начал выполняться
         pr_exists = true; // значит сертификат есть, но возможно он просрочен
-    if ( Qry.FieldAsDateTime( "now" ) < Qry.FieldAsDateTime( "first_date" ) || // не начал выполняться
-         Qry.FieldAsDateTime( "now" ) > Qry.FieldAsDateTime( "last_date" ) ) { // закончил выполняться
+    if ( nowLocal < Qry.FieldAsDateTime( "first_date" ) || // не начал выполняться
+         nowLocal > Qry.FieldAsDateTime( "last_date" ) ) { // закончил выполняться
       Qry.Next();
       continue;
     }
@@ -345,6 +386,9 @@ bool GetClientCertificate( TQuery &Qry, int grp_id, bool pr_grp, const std::stri
 #ifdef USE_MESPRO
 bool isRightCert( const std::string& cert )
 {
+#ifdef XP_TESTING
+  return true;
+#else
   std::string algo;
   char *buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer( (char*)cert.c_str(), cert.size() );
   if ( buf == nullptr ) {
@@ -355,16 +399,18 @@ bool isRightCert( const std::string& cert )
   MESPRO_API::FreeBuffer( buf );
   return ( (!isMespro_V1() && (std::string(MP_KEY_ALG_NAME_GOST_12_256) == algo)) ||
            (isMespro_V1() && (std::string(MP_KEY_ALG_NAME_GOST_12_256) != algo)) );
+#endif // XP_TESTING
 }
 
-void GetServerCertificate( TQuery &Qry, std::string &ca, std::string &pk, std::string &server )
+void GetServerCertificate( std::string &ca, std::string &pk, std::string &server )
 {
   tst();
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_SERVER"), STDLOG);
   Qry.SQLText =
     "SELECT id,certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
-    " WHERE pr_denial=0 AND system.UTCSYSDATE BETWEEN first_date AND last_date "
+    " WHERE pr_denial=0 AND :nowutc BETWEEN first_date AND last_date "
     " ORDER BY id DESC";
+  Qry.CreateVariable("nowutc", otDate, NowUTC());
   Qry.Execute();
 
   while ( !Qry.Eof ) {
@@ -404,17 +450,16 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
 
   using namespace std;
   string desk = string(head+45,6);
-  TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-  if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+  if ( !GetCryptGrp( desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
     *error=WRONG_TERM_CRYPT_MODE;
     return;
   }
   TCertRequest req;
   GetCertRequestInfo( desk, pr_grp, req, true );
   MESPRO_API::setLibNameFromAlgo( req.Algo );
-  GetServerCertificate( Qry, params.CA, params.PKey, params.server_cert );
+  GetServerCertificate( params.CA, params.PKey, params.server_cert );
   if ( params.PKey.empty() ) {
     *error = UNKNOWN_KEY;
     return;
@@ -429,7 +474,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   }
 
   int pkcs_id;
-  bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, params.client_cert, pkcs_id );
+  bool pr_exists = GetClientCertificate( grp_id, pr_grp, desk, params.client_cert, pkcs_id );
   if ( params.client_cert.empty() ) {
     if ( pr_exists )
       *error = EXPIRED_KEY;
@@ -449,7 +494,7 @@ void TCrypt::Init( const std::string &desk )
   TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-  if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) )
+  if ( !GetCryptGrp( desk, grp_id, pr_grp ) )
     return;
   ProgTrace( TRACE5, "grp_id=%d,pr_grp=%d", grp_id, pr_grp );
   TCertRequest req;
@@ -457,11 +502,11 @@ void TCrypt::Init( const std::string &desk )
   MESPRO_API::setLibNameFromAlgo( req.Algo );
 
   string pk;
-  GetServerCertificate( Qry, ca_cert, pk, server_cert );
+  GetServerCertificate( ca_cert, pk, server_cert );
   if ( ca_cert.empty() || server_cert.empty() )
     throw Exception("ca or server certificate not found");
 
-  bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, client_cert, pkcs_id );
+  bool pr_exists = GetClientCertificate( grp_id, pr_grp, desk, client_cert, pkcs_id );
   if ( client_cert.empty() ) {
     if ( !pr_exists )
       AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
@@ -470,6 +515,92 @@ void TCrypt::Init( const std::string &desk )
     throw UserException2();
   }
   #endif //USE_MESPRO
+}
+
+void convertDataToHex(char* dest, const char* src, size_t len)
+{
+    static const char hexTable[16] = {
+       '0', '1', '2', '3', '4', '5', '6', '7',
+       '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+    };
+
+    const unsigned char* bound = reinterpret_cast<const unsigned char*>(src + len);
+    const unsigned char*    it = reinterpret_cast<const unsigned char*>(src);
+          unsigned char* dstIt = reinterpret_cast<      unsigned char*>(dest);
+
+    while (it != bound) {
+        *(dstIt++) = hexTable[*it >> 4];
+        *(dstIt++) = hexTable[*it & 15];
+        ++it;
+    }
+
+    *dstIt = 0;
+}
+
+void fillNodeWithFilesOra(xmlNodePtr node, int pkcs_id) {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+       "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id";
+    Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+    Qry.Execute();
+
+    if (Qry.Eof) {
+        return;
+    }
+
+    node = NewTextChild( node, "files" );
+
+    RawBuffer rawBuffer;
+
+    while ( !Qry.Eof ) {
+        size_t len = Qry.GetSizeLongField( "data" );
+
+        // len - это куда запишут нам данные
+        // 2 len - это займет hex представление данных
+        // +1 - это null для того что бы hex был cstring.
+        rawBuffer.increaseCapacity(len * 6 + 1);
+
+        const char* data       = (const char*)rawBuffer.buffer;
+        const char* hex_buffer = data + len;
+
+        Qry.FieldAsLong( "data", rawBuffer.buffer );
+        convertDataToHex(const_cast<char*>(hex_buffer), data, len);
+        xmlNodePtr fnode = NewTextChild(node, "file", hex_buffer);
+        SetProp(fnode, "filename", Qry.FieldAsString("name"));
+        Qry.Next();
+    }
+}
+
+void fillNodeWithFiles(xmlNodePtr node, int pkcs_id) {
+
+    std::string data;
+    std::string name;
+
+    PgCpp::BinaryDefHelper<std::string> defdata{data};
+
+    PgCpp::CursCtl cur = DbCpp::mainPgReadOnlySession(STDLOG)
+       .createPgCursor(STDLOG,
+       "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id",
+        true
+    );
+
+    cur.bind(":pkcs_id", pkcs_id)
+       .def(name)
+       .def(defdata)
+       .exec();
+
+    if (0 == cur.rowcount()) {
+        return;
+    }
+
+    node = NewTextChild(node, "files");
+
+    while (!cur.fen()) {
+        std::string hex;
+        StringToHex(data, hex);
+        xmlNodePtr fnode = NewTextChild(node, "file", hex.c_str());
+        SetProp(fnode, "filename", name);
+    }
 }
 
 void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -498,7 +629,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   NewTextChild( node, "MIN_DAYS_CERT_WARRNING", MIN_DAYS_CERT_WARRNING );
   //проверка на режим инициализации шифрования с клиента
   if ( Crypt.pkcs_id >= 0 ) {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"), STDLOG);
     Qry.SQLText =
       "SELECT keyname, certname, password, desk, desk_grp_id, send_count "
       " FROM crypt_file_params "
@@ -514,41 +645,11 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
       SetProp( node, "common_dir" );
     SetProp( node, "key_filename", Qry.FieldAsString( "keyname" ) );
     SetProp( node, "cert_filename", Qry.FieldAsString( "certname" ) );
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id";
-    Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
-    Qry.Execute();
-    if ( !Qry.Eof )
-        node = NewTextChild( node, "files" );
-    xmlNodePtr fnode;
-    void *data = nullptr;
-    int len = 0;
-    string hexstr;
-    try {
-      while ( !Qry.Eof ) {
-        len = Qry.GetSizeLongField( "data" );
-        if ( data == nullptr )
-          data = malloc( len );
-        else
-          data = realloc( data, len );
-        if ( data == nullptr )
-          throw Exception( "Ошибка программы" );
-        Qry.FieldAsLong( "data", data );
-        StringToHex( string((char*)data, len), hexstr );
-        fnode = NewTextChild( node, "file", hexstr.c_str() );
-        SetProp( fnode, "filename", Qry.FieldAsString( "name" ) );
-        Qry.Next();
-      }
-    }
-    catch( ... ) {
-      if ( data != nullptr ) {
-        free( data );
-      }
-      throw;
-    }
-    if ( data != nullptr  ) {
-      free( data );
+
+    if (PgOra::supportsPg("CRYPT_FILES")) {
+        fillNodeWithFiles(node, Crypt.pkcs_id);
+    } else {
+        fillNodeWithFilesOra(node, Crypt.pkcs_id);
     }
   }
 }
@@ -562,30 +663,31 @@ void CryptInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, bool ignoreException )
 {
   ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT system.UTCSYSDATE udate FROM dual";
-  Qry.Execute();
-  TDateTime udate = Qry.FieldAsDateTime( "udate" );
-  Qry.Clear();
-  if ( pr_grp )
+  TDateTime udate = NowUTC();
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_REQ_DATA"), STDLOG);
+  if ( pr_grp ) {
+    std::optional<int> group = getDeskGroupByCode(desk);
+    if (!group.has_value()) {
+      throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+    }
     Qry.SQLText =
-      "SELECT country,state,crypt_req_data.city,organization,organizational_unit,title,"
-      "       user_name,email,key_algo,keyslength "
-      " FROM crypt_req_data, desks, desk_grp "
-      " WHERE desks.code = :desk AND "
-      "       desks.grp_id = desk_grp.grp_id AND "
-      "       crypt_req_data.desk_grp_id=desk_grp.grp_id AND "
-      "       crypt_req_data.desk IS NULL AND "
-      "       crypt_req_data.pr_denial=0 "
-      " ORDER BY desk ASC ";
-  else
+      "SELECT   country, state, city, organization, organizational_unit, "
+               "title, user_name, email, key_algo, keyslength "
+      "FROM     crypt_req_data "
+      "WHERE    desk_grp_id =: group "
+           "AND desk IS NULL "
+           "AND pr_denial = 0 "
+      "ORDER BY desk";
+    Qry.CreateVariable( "group", otString, *group );
+  } else {
     Qry.SQLText =
-      "SELECT country,state,crypt_req_data.city,organization,organizational_unit,title,"
-      "       user_name,email,key_algo,keyslength "
-      " FROM crypt_req_data "
-      " WHERE desk = :desk AND "
-      "       crypt_req_data.pr_denial=0 ";
-  Qry.CreateVariable( "desk", otString, desk );
+      "SELECT   country, state, city, organization, organizational_unit, "
+               "title, user_name, email, key_algo, keyslength "
+      "FROM     crypt_req_data "
+      "WHERE    desk = :desk "
+           "AND pr_denial = 0";
+    Qry.CreateVariable( "desk", otString, desk );
+  }
   Qry.Execute();
   if ( Qry.Eof ) {
     if ( ignoreException ) return;
@@ -616,48 +718,69 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, boo
 
 void ValidateCertificateRequest( const string &desk, bool pr_grp )
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT crypt_term_req.desk_grp_id grp_id, crypt_term_req.desk desk "
-    " FROM crypt_term_req, desks, desk_grp"
-    " WHERE desks.code = :desk AND "
-    "       desks.grp_id = desk_grp.grp_id AND "
-    "       crypt_term_req.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_term_req.desk IS NULL OR crypt_term_req.desk=desks.code )"
-    " ORDER BY desk ASC, grp_id ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
+    std::optional<int> group = getDeskGroupByCode(desk);
 
-  while ( !Qry.Eof ) {
-    if ( (Qry.FieldIsNULL( "desk" ) && pr_grp) ||
-         (!Qry.FieldIsNULL( "desk" ) && !pr_grp) )
-      throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
-    Qry.Next();
-  }
+    if (!group.has_value()) {
+        return;
+    }
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT desk "
+       "FROM crypt_term_req "
+       "WHERE desk_grp_id = :grp_id "
+       "AND (desk IS NULL OR desk = :desk) "
+       "ORDER BY desk",
+        PgOra::getROSession("CRYPT_TERM_REQ")
+    );
+
+    std::string filteredDesk;
+
+    cur.stb()
+       .defNull(filteredDesk, "")
+       .bind(":grp_id", *group)
+       .bind(":desk", desk)
+       .exec();
+
+    while (!cur.fen()) {
+        if ((filteredDesk.empty() && pr_grp) || (!filteredDesk.empty() && !pr_grp)) {
+            throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
+        }
+    }
 }
 
 // запрос может быть подписан и сертификат залит в БД, но пока это не отправлено на клиент - выполнения заново цикла откладывается!
 void ValidatePKCSData( const string &desk, bool pr_grp )
 {
-  tst();
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT crypt_file_params.desk_grp_id grp_id, crypt_file_params.desk desk "
-    " FROM crypt_file_params, desks, desk_grp"
-    " WHERE send_count = 0 AND "
-    "       desks.code = :desk AND "
-    "       desks.grp_id = desk_grp.grp_id AND "
-    "       crypt_file_params.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_file_params.desk IS NULL OR crypt_file_params.desk=desks.code )"
-    " ORDER BY desk ASC, grp_id ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-        if ( (Qry.FieldIsNULL( "desk" ) && pr_grp) ||
-                   (!Qry.FieldIsNULL( "desk" ) && !pr_grp) )
-          throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_CREATED_EARLIER.NOT_PROCESSED_YET" );
-        Qry.Next();
-  }
+    tst();
+
+    std::optional<int> group = getDeskGroupByCode(desk);
+
+    if (!group.has_value()) {
+        return;
+    }
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT desk "
+       "FROM crypt_file_params "
+       "WHERE send_count = 0 "
+       "AND desk_grp_id = :grp_id "
+       "AND (desk IS NULL OR desk = :desk) "
+       "ORDER BY desk",
+        PgOra::getROSession("CRYPT_FILE_PARAMS")
+    );
+
+    std::string filteredDesk;
+
+    cur.stb()
+       .defNull(filteredDesk, "")
+       .bind(":grp_id", *group)
+       .bind(":desk", desk)
+       .exec();
+
+    while (!cur.fen()) {
+        if ((filteredDesk.empty() && pr_grp) || (!filteredDesk.empty() && !pr_grp)) {
+            throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_CREATED_EARLIER.NOT_PROCESSED_YET" );
+        }
+    }
 }
 
 void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -699,19 +822,38 @@ void CryptInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr req
 
 void IntPutRequestCertificate( const string &request, const string &desk, bool pr_grp, int pkcs_id )
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "INSERT INTO crypt_term_req(id,desk_grp_id,desk,request,pkcs_id) "
-    " SELECT id__seq.nextval,grp_id,DECODE(:pr_grp,0,:desk,NULL),:request, :pkcs_id FROM desks "
-    "  WHERE code=:desk";
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "request", otString, ConvertCodepage( request,  "UTF-8", "CP866" ) ); //request to db CP866
-  if ( pkcs_id != NoExists )
-    Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  else
-    Qry.CreateVariable( "pkcs_id", otInteger, FNull );
-  Qry.Execute();
+    int id = PgOra::getSeqNextVal_int("ID__SEQ");
+    std::optional<int> group = getDeskGroupByCode(desk);
+
+    if (!group.has_value()) {
+        // что в этом случае мы должны сделать?
+        LogTrace(TRACE5) << "Desk group for desk: " << desk << " not found";
+        return;
+    }
+
+    DB::TQuery Qry(PgOra::getRWSession("CRYPT_TERM_REQ"), STDLOG);
+    Qry.SQLText =
+       "INSERT INTO crypt_term_req( id,  desk_grp_id,  desk,  request,  pkcs_id) "
+       "VALUES "                 "(:id, :desk_grp_id, :desk, :request, :pkcs_id)";
+
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("desk_grp_id", otInteger, *group);
+
+    if (pr_grp) {
+        Qry.CreateVariable("desk", otString, FNull);
+    } else {
+        Qry.CreateVariable("desk", otString, desk);
+    }
+
+    Qry.CreateVariable("request", otString, ConvertCodepage(request, "UTF-8", "CP866")); //request to db CP866
+
+    if (NoExists == pkcs_id) {
+        Qry.CreateVariable("pkcs_id", otInteger, FNull);
+    } else {
+        Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    }
+
+    Qry.Execute();
 }
 
 void CryptInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -719,6 +861,45 @@ void CryptInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   bool pr_grp = GetNode( "pr_grp", reqNode );
   string request = NodeAsString( "request_certificate", reqNode );
   IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
+}
+
+std::string composeGroupName(const int groupId)
+{
+    std::string descr;
+    std::string city;
+    std::string airline;
+    std::string airp;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT descr, city, airline, airp "
+       "FROM desk_grp "
+       "WHERE grp_id=:grp_id",
+        PgOra::getRWSession("DESK_GRP")
+    );
+
+    cur.stb()
+       .bind(":grp_id", groupId)
+       .defNull(descr, "")
+       .defNull(city, "")
+       .defNull(airline, "")
+       .defNull(airp, "")
+       .EXfet();
+
+    std::string result = descr;
+    result += ' ';
+    result += city;
+
+    if (!airline.empty() || !airp.empty()) {
+        result += '(';
+        result += airline;
+        if (!airline.empty() && !airp.empty()) {
+            result += ',';
+        }
+        result += airp;
+        result += ')';
+    }
+
+    return result;
 }
 
 struct TSearchData {
@@ -731,75 +912,70 @@ struct TSearchData {
         int pr_denial;
 };
 
-void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void CryptInterface::GetRequestsCertificate(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  bool pr_search = GetNode( "search", reqNode );
-  TQuery Qry(&OraSession);
-  if ( GetNode( "id", reqNode ) ) {
-    Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,request FROM crypt_term_req, desk_grp "
-      " WHERE crypt_term_req.desk_grp_id = desk_grp.grp_id AND crypt_term_req.id=:id";
-    Qry.CreateVariable( "id", otInteger, NodeAsInteger( "id", reqNode ) );
-  }
-  else {
-    Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,request FROM crypt_term_req, desk_grp "
-      " WHERE crypt_term_req.desk_grp_id = desk_grp.grp_id";
-  }
-  Qry.Execute();
-  if ( Qry.Eof )
-        throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERT_QRYS" );
-  vector<TSearchData> reqs;
-  string grp_name;
-  xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
-  while ( !Qry.Eof ) {
+    bool pr_search = GetNode("search", reqNode);
+
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_REQ"), STDLOG);
+
+    if (GetNode("id", reqNode)) {
+        Qry.SQLText =
+           "SELECT id, desk, desk_grp_id, request "
+           "FROM crypt_term_req "
+           "WHERE id=:id";
+        Qry.CreateVariable("id", otInteger, NodeAsInteger("id", reqNode));
+    } else {
+        Qry.SQLText =
+           "SELECT id, desk, desk_grp_id, request "
+           "FROM crypt_term_req";
+    }
+
+    Qry.Execute();
+
+    if (Qry.Eof) {
+        throw AstraLocale::UserException("MSG.MESSAGEPRO.NO_CERT_QRYS");
+    }
+
+    vector<TSearchData> reqs;
+    xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
+
+    while (!Qry.Eof) {
         TSearchData req_search;
-    req_search.id = Qry.FieldAsInteger( "id" );
-          if ( !Qry.FieldIsNULL( "desk" ) ) {
-                if ( pr_search && !desksNode )
-                  desksNode = NewTextChild( resNode, "desks" );
-        req_search.desk = Qry.FieldAsString( "desk" );
-    }
-    if ( Qry.FieldIsNULL( "desk" ) ) {
-        if ( pr_search && !grpsNode )
-          grpsNode = NewTextChild( resNode, "grps" );
-        grp_name = Qry.FieldAsString( "descr" );
-        grp_name += string(" ") + Qry.FieldAsString( "city" );
-
-        if ( !Qry.FieldIsNULL( "airline" ) || !Qry.FieldIsNULL( "airp" ) ) {
-                grp_name += "(";
-                grp_name += Qry.FieldAsString( "airline" );
-                if ( !Qry.FieldIsNULL( "airline" ) && !Qry.FieldIsNULL( "airp" ) )
-                        grp_name += ",";
-                grp_name += Qry.FieldAsString( "airp" );
-                grp_name += ")";
+        req_search.id = Qry.FieldAsInteger("id");
+        if (!Qry.FieldIsNULL("desk")) {
+            if (pr_search && !desksNode) {
+                desksNode = NewTextChild(resNode, "desks");
+            }
+            req_search.desk = Qry.FieldAsString("desk");
         }
-        req_search.grp = grp_name;
-    }
-    req_search.data = Qry.FieldAsString( "request" );
-        reqs.push_back( req_search );
+        if (Qry.FieldIsNULL("desk")) {
+            if (pr_search && !grpsNode) {
+                grpsNode = NewTextChild(resNode, "grps");
+            }
+            req_search.grp = composeGroupName(Qry.FieldAsInteger("desk_grp_id"));
+        }
+        req_search.data = Qry.FieldAsString("request");
+        reqs.push_back(req_search);
         Qry.Next();
-  }
+    }
 
-  for( vector<TSearchData>::iterator i=reqs.begin(); i!=reqs.end(); i++ ) {
-        if ( pr_search ) {
-                xmlNodePtr dNode;
-                if ( !i->desk.empty() )
-                        dNode = NewTextChild( desksNode, "desk", i->desk );
-                else
-                        dNode = NewTextChild( grpsNode, "grp", i->grp );
-                SetProp( dNode, "id", i->id );
+    for (vector<TSearchData>::iterator i = reqs.begin(); i != reqs.end(); i++) {
+        if (pr_search) {
+            xmlNodePtr dNode = !i->desk.empty()
+              ? NewTextChild(desksNode, "desk", i->desk)
+              : NewTextChild(grpsNode, "grp", i->grp);
+            SetProp(dNode, "id", i->id);
+        } else {
+            if (!reqsNode) {
+                reqsNode = NewTextChild(resNode, "cert_requests");
+            }
+            xmlNodePtr n = NewTextChild(reqsNode, "request");
+            NewTextChild(n, "id", i->id);
+            NewTextChild(n, "desk", i->desk);
+            NewTextChild(n, "grp", i->grp);
+            NewTextChild(n, "data", i->data);
         }
-        else {
-                if ( !reqsNode )
-                        reqsNode = NewTextChild( resNode, "cert_requests" );
-                xmlNodePtr n = NewTextChild( reqsNode, "request" );
-                NewTextChild( n, "id", i->id );
-                NewTextChild( n, "desk", i->desk );
-                NewTextChild( n, "grp", i->grp );
-                NewTextChild( n, "data", i->data );
-        }
-  }
+    }
 }
 
 struct TRequest {
@@ -875,75 +1051,155 @@ void writePSEFile( const string &dirname, TPSEFile &pse_file )
   };
 }
 
-void WritePSEFiles( const TPKCS &pkcs, const string &desk, bool pr_grp )
+void deleteCryptFiles(int pkcs_id)
 {
-  TQuery Qry(&OraSession);
-  std::string certificate;
-  int pkcs_id;
-  Qry.SQLText =
-   "SELECT grp_id FROM desks WHERE code=:code";
-  Qry.CreateVariable( "code", otString, desk );
-  Qry.Execute();
-  if ( Qry.Eof )
-    throw Exception( "invalid desk: %s", desk.c_str() );
-  int grp_id = Qry.FieldAsInteger( "grp_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pkcs_id FROM crypt_file_params "
-    " WHERE desk_grp_id=:grp_id AND ( :pr_grp!=0 AND desk IS NULL OR :pr_grp=0 AND desk=:desk )";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.Execute();
-  ProgTrace( TRACE5, "grp_id=%d, desk=%s, pr_grp=%d, Qry.Eof=%d", grp_id, desk.c_str(), pr_grp, Qry.Eof );
-  if ( !Qry.Eof ) {
-    pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
-    ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
-    Qry.Clear(); //!!! удаляем
+    make_db_curs(
+       "UPDATE crypt_term_cert SET pkcs_id = NULL WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_TERM_CERT"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+
+    make_db_curs(
+       "DELETE FROM crypt_files WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_FILES"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+
+    make_db_curs(
+       "DELETE FROM crypt_file_params WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_FILE_PARAMS"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+}
+
+void updatePkcsDataOra(int pkcs_id, const std::string& name, const std::string& data)
+{
+    TQuery Qry(&OraSession);
     Qry.SQLText =
-            "BEGIN "
-      " UPDATE crypt_term_cert SET pkcs_id=NULL WHERE pkcs_id=:pkcs_id;"
-            " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
-            " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
-            "END;";
-          Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-          Qry.Execute();
-  }
-        Qry.Clear();
-  Qry.SQLText =
-    "SELECT id__seq.nextval pkcs_id FROM dual";
-  Qry.Execute();
-  pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO crypt_file_params(pkcs_id,keyname,certname,password,desk,desk_grp_id,send_count)"
-    " SELECT :pkcs_id,:keyname,:certname,:password,DECODE(:pr_grp,0,:desk,NULL),grp_id,0 FROM desks"
-    "  WHERE code=:desk";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.CreateVariable( "keyname", otString, pkcs.key_filename );
-  Qry.CreateVariable( "certname", otString, pkcs.cert_filename );
-  Qry.CreateVariable( "password", otString, pkcs.password );
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO crypt_files(pkcs_id,name,data) VALUES(:pkcs_id,:name,:data)";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "data", otLongRaw );
-  vector<TPSEFile>::const_iterator ireq;
-  for ( vector<TPSEFile>::const_iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
-        if ( i->filename == pkcs.cert_filename ) {
-                ireq = i;
-                continue;
-    }
-    Qry.SetVariable( "name", i->filename );
-    Qry.SetLongVariable( "data", (void*)i->data.c_str(), i->data.size() );
+       "UPDATE crypt_files "
+       "SET data =: data "
+       "WHERE pkcs_id =: pkcs_id "
+       "AND name =: name";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("name", otString, name);
+    Qry.DeclareVariable("data", otLongRaw);
+    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
     Qry.Execute();
-  }
-  // записываем запрос на сертификат
-  IntPutRequestCertificate( ireq->data, desk, pr_grp, pkcs_id );
+}
+
+void updatePkcsData(int pkcs_id, const std::string& name, const std::string& data)
+{
+    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
+       "UPDATE crypt_files "
+       "SET data = :data "
+       "WHERE pkcs_id = :pkcs_id "
+       "AND name = :name",
+       true
+    );
+
+    cur.stb()
+       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
+       .bind(":pkcs_id", pkcs_id)
+       .bind(":name", name)
+       .exec();
+}
+
+void addCryptFileOra(const int pkcs_id, const string& name, const string& data)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+       "INSERT INTO crypt_files(pkcs_id, name, data) "
+       "VALUES(:pkcs_id, :name, :data)";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("name", otString, name);
+    Qry.DeclareVariable("data", otLongRaw);
+    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
+    Qry.Execute();
+}
+
+void addCryptFile(const int pkcs_id, const string& name, const string& data)
+{
+    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
+       "INSERT INTO crypt_files(pkcs_id, name, data) "
+                       "VALUES(:pkcs_id, :name, :data)",
+       true
+    );
+
+    cur.stb()
+       .bind(":pkcs_id", pkcs_id)
+       .bind(":name", name)
+       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
+       .exec();
+}
+
+int addCryptFileParams(
+    const std::string& key_filename,
+    const std::string& cert_filename,
+    const std::string& password,
+    const int grp_id,
+    const std::string& desk,
+    const bool pr_grp)
+{
+    const int pkcs_id = PgOra::getSeqNextVal_int("ID__SEQ");
+    DB::TQuery Qry(PgOra::getRWSession("CRYPT_FILE_PARAMS"), STDLOG);
+    Qry.SQLText = pr_grp
+     ? "INSERT INTO crypt_file_params(pkcs_id, keyname, certname, password, desk, desk_grp_id, send_count)"
+                             "VALUES(:pkcs_id,:keyname,:certname,:password, NULL,:grp_id, 0)"
+     : "INSERT INTO crypt_file_params(pkcs_id, keyname, certname, password, desk, desk_grp_id, send_count)"
+                             "VALUES(:pkcs_id,:keyname,:certname,:password,:desk,:grp_id, 0)";
+
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("keyname", otString, key_filename);
+    Qry.CreateVariable("certname", otString, cert_filename);
+    Qry.CreateVariable("password", otString, password);
+    if (!pr_grp) {
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+    }
+    Qry.CreateVariable("desk", otString, desk);
+    Qry.Execute();
+
+    return pkcs_id;
+}
+
+void WritePSEFiles(const TPKCS& pkcs, const string& desk, bool pr_grp)
+{
+    std::optional<int> grp_id = getDeskGroupByCode(desk);
+
+    if (!grp_id.has_value()) {
+        throw Exception("invalid desk: %s", desk.c_str());
+    }
+
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"), STDLOG);
+    Qry.SQLText = pr_grp
+     ? "SELECT pkcs_id FROM crypt_file_params "
+       "WHERE desk_grp_id = :grp_id AND desk IS NULL"
+     : "SELECT pkcs_id FROM crypt_file_params "
+       "WHERE desk_grp_id = :grp_id AND desk = :desk";
+
+    Qry.CreateVariable("grp_id", otInteger, *grp_id);
+    if (!pr_grp) {
+        Qry.CreateVariable("desk", otString, desk);
+    }
+    Qry.Execute();
+
+    LogTrace(TRACE5) << "grp_id=" << *grp_id << ", desk=" << desk << ", pr_grp=" << pr_grp << ", Qry.Eof=" << Qry.Eof;
+    if (!Qry.Eof) {
+        int pkcs_id = Qry.FieldAsInteger("pkcs_id");
+        ProgTrace(TRACE5, "pkcs_id=%d", pkcs_id);
+        deleteCryptFiles(pkcs_id);
+    }
+
+    const int pkcs_id = addCryptFileParams(pkcs.key_filename, pkcs.cert_filename, pkcs.password, *grp_id, desk, pr_grp);
+
+    vector<TPSEFile>::const_iterator ireq;
+    for (vector<TPSEFile>::const_iterator i = pkcs.pse_files.begin(); i != pkcs.pse_files.end(); i++) {
+        if (i->filename == pkcs.cert_filename) {
+            ireq = i;
+            continue;
+        }
+        PgOra::supportsPg("CRYPT_FILES")
+          ? addCryptFile(pkcs_id, i->filename, i->data)
+          : addCryptFileOra(pkcs_id, i->filename, i->data);
+    }
+    // записываем запрос на сертификат
+    IntPutRequestCertificate(ireq->data, desk, pr_grp, pkcs_id);
 }
 
 string getPassword( )
@@ -1055,148 +1311,194 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 }
 
 #ifdef USE_MESPRO
-void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+std::string getCertificate(int pkcs_id)
 {
-   //пришло подтверждение авторизации - удаление из БД всей информации по PSE
-  tst(); //!!!проверить
-  MESPRO_API::setLibNameFromAlgo( MP_KEY_ALG_NAME_GOST_12_256 );
-  TQuery Qry(&OraSession);
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT certificate "
+       "FROM crypt_term_cert "
+       "WHERE pkcs_id=:pkcs_id",
+        PgOra::getRWSession("CRYPT_TERM_CERT")
+    );
 
-  int pkcs_id = NodeAsInteger( "pkcs_id", reqNode );
-  ProgTrace( TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id );
-  //!!! изменение пароля на новый
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT name, data FROM crypt_files "
-    " WHERE pkcs_id=:pkcs_id";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.Execute();
-  void *pkeydata = NULL;
-  int len = 0;
-  TPKCS pkcs;
-  bool pr_GOST;
-  try {
-    while ( !Qry.Eof ) {
-      len = Qry.GetSizeLongField( "data" );
-      if ( pkeydata == NULL )
-        pkeydata = malloc( len );
-      else
-        pkeydata = realloc( pkeydata, len );
-      if ( pkeydata == NULL )
-        throw Exception( "Ошибка программы" );
-      Qry.FieldAsLong( "data", pkeydata );
-      TPSEFile psefile;
-      psefile.filename = Qry.FieldAsString( "name" );
-      ProgTrace( TRACE5, "psefile.filename=%s", psefile.filename.c_str() );
-      psefile.data = string( (char*)pkeydata, len );
-      pkcs.pse_files.push_back( psefile );
-      Qry.Next();
+    std::string certificate;
+
+    cur.stb()
+       .bind(":pkcs_id", pkcs_id)
+       .def(certificate)
+       .EXfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        throw Exception("CryptValidateServerKey: cert not found");
     }
-    Qry.Clear();
+
+    return certificate;
+}
+
+void fillTpkcsWithFilesOra(TPKCS& pkcs, int pkcs_id)
+{
+    TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT certificate FROM crypt_term_cert WHERE pkcs_id=:pkcs_id";
-    Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+       "SELECT name, data "
+       "FROM crypt_files "
+       "WHERE pkcs_id=:pkcs_id";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
     Qry.Execute();
-    if ( Qry.Eof )
-      throw Exception( "CryptValidateServerKey: cert not found" );
-    string cert = Qry.FieldAsString( "certificate" );
-    char *buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer( (char*)cert.c_str(), cert.size() );
-    if ( buf == nullptr)
-      throw Exception( "Ошибка программы" );
+
+    RawBuffer pkey;
+
+    while (!Qry.Eof) {
+        size_t len = Qry.GetSizeLongField("data");
+
+        pkey.increaseCapacity(len * 2);
+
+        Qry.FieldAsLong("data", pkey.buffer);
+        TPSEFile psefile;
+        psefile.filename = Qry.FieldAsString("name");
+        ProgTrace(TRACE5, "psefile.filename=%s", psefile.filename.c_str());
+        psefile.data = string((char*)pkey.buffer, len);
+        pkcs.pse_files.push_back(psefile);
+        Qry.Next();
+    }
+
+    if (pkcs.pse_files.empty()) {
+        throw Exception("CryptValidateServerKey: keys not found");
+    }
+}
+
+void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
+{
+    std::string data;
+    std::string name;
+
+    PgCpp::BinaryDefHelper<std::string> defdata{data};
+
+    PgCpp::CursCtl cur = DbCpp::mainPgReadOnlySession(STDLOG)
+       .createPgCursor(STDLOG,
+       "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id",
+        true
+    );
+
+    cur.bind(":pkcs_id", pkcs_id)
+       .def(name)
+       .def(defdata)
+       .exec();
+
+    if (0 == cur.rowcount()) {
+        throw Exception("CryptValidateServerKey: keys not found");
+    }
+
+    while (!cur.fen()) {
+        TPSEFile psefile;
+        psefile.filename = name;
+        ProgTrace(TRACE5, "psefile.filename=%s", psefile.filename.c_str());
+        psefile.data = data;
+        pkcs.pse_files.push_back(psefile);
+    }
+}
+
+void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    //пришло подтверждение авторизации - удаление из БД всей информации по PSE
+    tst(); //!!!проверить
+    MESPRO_API::setLibNameFromAlgo(MP_KEY_ALG_NAME_GOST_12_256);
+
+    int pkcs_id = NodeAsInteger("pkcs_id", reqNode);
+    ProgTrace(TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id);
+    //!!! изменение пароля на новый
+
+    TPKCS pkcs;
+    bool pr_GOST;
+
+    PgOra::supportsPg("CRYPT_FILES")
+     ? fillTpkcsWithFiles(pkcs, pkcs_id)
+     : fillTpkcsWithFilesOra(pkcs, pkcs_id);
+
+    string cert = getCertificate(pkcs_id);
+    char* buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer((char*)cert.c_str(), cert.size());
+    if (buf == nullptr) {
+        throw Exception("Ошибка программы");
+    }
     string algo = buf;
-    MESPRO_API::FreeBuffer( buf );
-    pr_GOST = ( algo != MP_KEY_ALG_NAME_RSA && algo != MP_KEY_ALG_NAME_DSA );
-    ProgTrace( TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str() );
-  }
-  catch(...) {
-    if ( pkeydata )
-      free( pkeydata );
-    throw;
-  }
-  if ( pkeydata )
-    free( pkeydata );
-  if ( pkcs.pse_files.empty() )
-    throw Exception( "CryptValidateServerKey: keys not found" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT keyname,certname,password FROM crypt_file_params "
-    " WHERE pkcs_id=:pkcs_id";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.Execute();
-  if ( Qry.Eof )
-    throw Exception( "CryptValidateServerKey: keys not found" );
-  pkcs.key_filename = Qry.FieldAsString( "keyname" );
-  pkcs.cert_filename = Qry.FieldAsString( "certname" );
-  pkcs.password = Qry.FieldAsString( "password" );
-  string PSEpath = MESPRO_API::getPSEPath();
-  PSEpath += "/pses";
-  mkdir( PSEpath.c_str(), 0777 );
-  int i = 1;
-  while ( i < 100 && mkdir( string( PSEpath + "/" + IntToString(i) ).c_str(), 0777 )) i++;
-  if ( i == 100 )
-    throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
-  ProgTrace( TRACE5, "i=%d", i );
-  PSEpath += "/" + IntToString(i);
-  ProgTrace( TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str() );
-  pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
-  MESPRO_API::SetRandInitCallbackFun(init_rand_callback);
-  GetError( "PKCS7Init", MESPRO_API::PKCS7Init( 0, 0 ) );
-  MESPRO_API::setInitLib( true );
-  try {
+    MESPRO_API::FreeBuffer(buf);
+    pr_GOST = (algo != MP_KEY_ALG_NAME_RSA && algo != MP_KEY_ALG_NAME_DSA);
+    ProgTrace(TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str());
+
+    DB::TQuery Qry(PgOra::getROSession("crypt_file_params"), STDLOG);
+    Qry.SQLText = "SELECT keyname,certname,password FROM crypt_file_params "
+                  " WHERE pkcs_id=:pkcs_id";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.Execute();
+    if (Qry.Eof) {
+        throw Exception("CryptValidateServerKey: keys not found");
+    }
+    pkcs.key_filename = Qry.FieldAsString("keyname");
+    pkcs.cert_filename = Qry.FieldAsString("certname");
+    pkcs.password = Qry.FieldAsString("password");
+    string PSEpath = MESPRO_API::getPSEPath();
+    PSEpath += "/pses";
+    mkdir(PSEpath.c_str(), 0777);
+    int i = 1;
+    while (i < 100 && mkdir(string(PSEpath + "/" + IntToString(i)).c_str(), 0777))
+        i++;
+    if (i == 100)
+        throw Exception("Can't create dir=" + string(PSEpath + "/" + IntToString(i)) + ", error=" + IntToString(errno));
+    ProgTrace(TRACE5, "i=%d", i);
+    PSEpath += "/" + IntToString(i);
+    ProgTrace(TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str());
+    pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
+    MESPRO_API::SetRandInitCallbackFun(init_rand_callback);
+    GetError("PKCS7Init", MESPRO_API::PKCS7Init(0, 0));
+    MESPRO_API::setInitLib(true);
     try {
-      for ( vector<TPSEFile>::iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
-        ProgTrace( TRACE5, "filename=%s", i->filename.c_str() );
-        writePSEFile( PSEpath + "/", *i );
+        try {
+            for (vector<TPSEFile>::iterator i = pkcs.pse_files.begin(); i != pkcs.pse_files.end(); i++) {
+                ProgTrace(TRACE5, "filename=%s", i->filename.c_str());
+                writePSEFile(PSEpath + "/", *i);
+                tst();
+            }
+            string newpassword = getPassword();
+            ProgTrace(TRACE5, "oldpassword=%s, newpassword=%s, keyfile=%s", pkcs.password.c_str(), newpassword.c_str(), pkcs.key_filename.c_str());
+            if (pr_GOST)
+                GetError("ChangePrivateKeyPasswordEx",
+                    MESPRO_API::ChangePrivateKeyPasswordEx((char*)PSEpath.c_str(), NULL, (char*)pkcs.key_filename.c_str(),
+                        (char*)pkcs.password.c_str(), (char*)newpassword.c_str()));
+            else
+                GetError("ChangePrivateKeyPassword",
+                    MESPRO_API::ChangePrivateKeyPassword((char*)PSEpath.c_str(), (char*)pkcs.password.c_str(), (char*)newpassword.c_str()));
+            tst();
+            for (vector<TPSEFile>::iterator i = pkcs.pse_files.begin(); i != pkcs.pse_files.end(); i++) {
+                TPSEFile pse_file;
+                readPSEFile(PSEpath + "/" + i->filename, i->filename, *i);
+
+                PgOra::supportsPg("CRYPT_FILES")
+                 ? updatePkcsData(pkcs_id, i->filename, i->data)
+                 : updatePkcsDataOra(pkcs_id, i->filename, i->data);
+
+                LogTrace(TRACE5) << "filename=" << i->filename;
+            }
+            tst();
+            pkcs.password = newpassword;
+            make_db_curs(
+                "UPDATE crypt_file_params SET password=:password, send_count=send_count+1 WHERE pkcs_id=:pkcs_id",
+                PgOra::getRWSession("CRYPT_FILES"))
+                .stb()
+                .bind(":password", pkcs.password)
+                .bind(":pkcs_id", pkcs_id)
+                .exec();
+            tst();
+        } catch (...) {
+            DeletePSE(PSEpath, pkcs.key_filename, "");
+            throw;
+        }
         tst();
-      }
-      string newpassword = getPassword( );
-      ProgTrace( TRACE5, "oldpassword=%s, newpassword=%s, keyfile=%s", pkcs.password.c_str(), newpassword.c_str(), pkcs.key_filename.c_str() );
-      if ( pr_GOST )
-        GetError( "ChangePrivateKeyPasswordEx",
-                  MESPRO_API::ChangePrivateKeyPasswordEx( (char*)PSEpath.c_str(), NULL, (char*)pkcs.key_filename.c_str(),
-                                                          (char*)pkcs.password.c_str(), (char*)newpassword.c_str() ) );
-      else
-        GetError( "ChangePrivateKeyPassword",
-                  MESPRO_API::ChangePrivateKeyPassword( (char*)PSEpath.c_str(), (char*)pkcs.password.c_str(), (char*)newpassword.c_str() ) );
-      tst();
-      pkcs.password = newpassword;
-      Qry.Clear();
-      Qry.SQLText =
-        "UPDATE crypt_files SET data=:data WHERE pkcs_id=:pkcs_id AND name=:name";
-      Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-      Qry.DeclareVariable( "name", otString );
-      Qry.DeclareVariable( "data", otLongRaw );
-      for ( vector<TPSEFile>::iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
-        TPSEFile pse_file;
-        readPSEFile( PSEpath + "/" + i->filename, i->filename, *i );
-        Qry.SetVariable( "name", i->filename );
-        Qry.SetLongVariable( "data", (void*)i->data.c_str(), i->data.size() );
-        ProgTrace( TRACE5, "filename=%s", i->filename.c_str() );
-        Qry.Execute();
-      }
-      tst();
-      Qry.Clear();
-      Qry.SQLText =
-        "UPDATE crypt_file_params SET password=:password, send_count=send_count+1 WHERE pkcs_id=:pkcs_id";
-      Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-      Qry.CreateVariable( "password", otString, pkcs.password );
-      Qry.Execute();
-      tst();
+        DeletePSE(PSEpath, pkcs.key_filename, "");
+    } catch (...) {
+        MESPRO_API::PKCS7Final();
+        MESPRO_API::setInitLib(false);
+        throw;
     }
-    catch(...) {
-      DeletePSE( PSEpath, pkcs.key_filename, "" );
-      throw;
-    }
-    tst();
-    DeletePSE( PSEpath, pkcs.key_filename, "" );
-  }
-  catch( ... ) {
     MESPRO_API::PKCS7Final();
-    MESPRO_API::setInitLib( false );
-    throw;
-  }
-  MESPRO_API::PKCS7Final();
-  tst();
+    tst();
 }
 
 #endif /*USE MESPRO*/
@@ -1209,6 +1511,81 @@ void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage( "MSG.MESSAGE_PRO.KEY_AND_REQUEST_OK" );
 }
 
+std::vector<TRequest> getRequests()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT id, request FROM crypt_term_req",
+        PgOra::getROSession("CRYPT_TERM_REQ")
+    );
+
+    TRequest request;
+
+    cur.def(request.id)
+       .def(request.cert)
+       .exec();
+
+    std::vector<TRequest> result;
+
+    while (!cur.fen()) {
+        result.push_back(request);
+    }
+
+    LogTrace(TRACE5) << "requests count=" << result.size();
+
+    return result;
+}
+
+boost::posix_time::ptime convertTime(const char* certificate_date)
+{
+    static std::stringstream iss;
+    static auto locale = std::locale(std::locale::classic(), new boost::posix_time::time_input_facet("%d.%m.%Y %H:%M:%S"));
+
+    iss.clear();
+    iss.imbue(locale);
+
+    iss << certificate_date;
+
+    boost::posix_time::ptime time;
+
+    iss >> time;
+
+    if (time.is_not_a_date_time()) {
+        throw Exception( "Invalid Certificate date=%s", certificate_date );
+    }
+
+    return time;
+}
+
+void addCertificate(const int reqId, const std::string& certificate, const boost::posix_time::ptime firstDate, const boost::posix_time::ptime lastDate)
+{
+    const int certId = PgOra::getSeqNextVal_int("ID__SEQ");
+
+    make_db_curs(
+       "INSERT INTO crypt_term_cert"
+           "(id, desk_grp_id, desk, certificate, first_date, last_date, pr_denial, pkcs_id) "
+       "SELECT :certId, desk_grp_id, desk, :certificate, :first_date, :last_date, 0, pkcs_id "
+           "FROM crypt_term_req "
+           "WHERE id = :reqId",
+        PgOra::getRWSession("SP_PG_GROUP_CRYPT"))
+       .stb()
+       .bind(":certId", certId)
+       .bind(":certificate", certificate)
+       .bind(":first_date", firstDate)
+       .bind(":last_date", lastDate)
+       .bind(":reqId", reqId)
+       .exec();
+}
+
+void deleteTermRequest(const int id)
+{
+    make_db_curs(
+       "DELETE FROM crypt_term_req WHERE id=:id",
+        PgOra::getRWSession("CRYPT_TERM_REQ"))
+       .stb()
+       .bind(":id", id)
+       .exec();
+}
+
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   tst();
@@ -1219,48 +1596,25 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   MESPRO_API::setLibNameFromAlgo( MP_KEY_ALG_NAME_GOST_12_256 );
   GetError( "PKCS7Init", MESPRO_API::PKCS7Init( 0, 0 ) );
   MESPRO_API::setInitLib( true );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT id, request FROM crypt_term_req";
-  Qry.Execute();
-  vector<TRequest> requests;
-  while ( !Qry.Eof ) {
-    TRequest r;
-    r.id = Qry.FieldAsInteger( "id" );
-    r.cert = Qry.FieldAsString( "request" );
-    requests.push_back( r );
-    Qry.Next();
-  }
-  ProgTrace( TRACE5, "requests count=%zu", requests.size() );
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "
-    " INSERT INTO crypt_term_cert(id,desk_grp_id,desk,certificate,first_date,last_date,pr_denial,pkcs_id) "
-    " SELECT id__seq.nextval,desk_grp_id,desk,:certificate,:first_date,:last_date,0,pkcs_id FROM crypt_term_req "
-    "  WHERE id=:id; "
-    " DELETE crypt_term_req WHERE id=:id; "
-    "END;";
-  Qry.DeclareVariable( "id", otInteger );
-  Qry.DeclareVariable( "certificate", otString );
-  Qry.DeclareVariable( "first_date", otDate );
-  Qry.DeclareVariable( "last_date", otDate );
-  string cert;
+  std::vector<TRequest> requests = getRequests();
   try {
     node = GetNode( "certificate", node );
     while ( node ) {
-      cert = NodeAsString( node );
-      ProgTrace( TRACE5, "certificate=%s, requests count=%zu", cert.c_str(), requests.size() );
+      const std::string cert = NodeAsString( node );
+      LogTrace(TRACE5) << "certificate=" << cert << ", requests count=" << requests.size();
       for ( vector<TRequest>::iterator i=requests.begin(); i!=requests.end(); i++ ) {
         int err = MESPRO_API::CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
         if ( err ) {
           CERTIFICATE_INFO info;
           GetError( "GetCertificateInfoBufferEx", MESPRO_API::GetCertificateInfoBufferEx( (char*)cert.data(), cert.size(), &info ) );
           try {
-            Qry.SetVariable( "id", i->id );
-            Qry.SetVariable( "certificate", cert );
-            Qry.SetVariable( "first_date", ConvertCertificateDate( info.NotBefore ) );
-            Qry.SetVariable( "last_date", ConvertCertificateDate( info.NotAfter ) );
-            Qry.Execute();
+            addCertificate(
+              i->id,
+              cert,
+              convertTime(info.NotBefore),
+              convertTime(info.NotAfter)
+            );
+            deleteTermRequest(i->id);
           }
           catch( ... ) {
             MESPRO_API::FreeCertificateInfo( &info );
@@ -1282,81 +1636,460 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   #endif /*USE MESPRO*/
 }
 
-void CryptInterface::CertificatesInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void CryptInterface::CertificatesInfo(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  bool pr_search = GetNode( "search", reqNode );
-  TQuery Qry(&OraSession);
-  if ( GetNode( "id", reqNode ) ) {
-    Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date, crypt_term_cert.pr_denial "
-      " FROM crypt_term_cert, desk_grp "
-      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.pr_denial=0 AND crypt_term_cert.id=:id";
-    Qry.CreateVariable( "id", otInteger, NodeAsInteger( "id", reqNode ) );
-  }
-  else {
-    Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date, crypt_term_cert.pr_denial "
-      "  FROM crypt_term_cert, desk_grp "
-      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.last_date>=system.UTCSYSDATE";
-  }
-  Qry.Execute();
-  if ( Qry.Eof )
-        throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERTS" );
-  vector<TSearchData> certs;
-  string grp_name;
-  xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
-  while ( !Qry.Eof ) {
-    TSearchData cert_search;
-    cert_search.id = Qry.FieldAsInteger( "id" );
-    if ( !Qry.FieldIsNULL( "desk" ) ) {
-      if ( pr_search && !desksNode )
-        desksNode = NewTextChild( resNode, "desks" );
-      cert_search.desk = Qry.FieldAsString( "desk" );
-    }
-    if ( Qry.FieldIsNULL( "desk" ) ) {
-        if ( pr_search && !grpsNode )
-          grpsNode = NewTextChild( resNode, "grps" );
-        grp_name = Qry.FieldAsString( "descr" );
-        grp_name += string(" ") + Qry.FieldAsString( "city" );
+    bool pr_search = GetNode("search", reqNode);
 
-        if ( !Qry.FieldIsNULL( "airline" ) || !Qry.FieldIsNULL( "airp" ) ) {
-                grp_name += "(";
-                grp_name += Qry.FieldAsString( "airline" );
-                if ( !Qry.FieldIsNULL( "airline" ) && !Qry.FieldIsNULL( "airp" ) )
-                        grp_name += ",";
-                grp_name += Qry.FieldAsString( "airp" );
-                grp_name += ")";
-        }
-        cert_search.grp = grp_name;
-    }
-    cert_search.data = Qry.FieldAsString( "certificate" );
-    cert_search.first_date = Qry.FieldAsDateTime( "first_date" );
-    cert_search.last_date = Qry.FieldAsDateTime( "last_date" );
-    cert_search.pr_denial = Qry.FieldAsInteger( "pr_denial" );
-    certs.push_back( cert_search );
-    Qry.Next();
-  }
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"), STDLOG);
 
-  for( vector<TSearchData>::iterator i=certs.begin(); i!=certs.end(); i++ ) {
-        if ( pr_search ) {
-                xmlNodePtr dNode;
-                if ( !i->desk.empty() )
-                        dNode = NewTextChild( desksNode, "desk", i->desk );
-                else
-                        dNode = NewTextChild( grpsNode, "grp", i->grp );
-                SetProp( dNode, "id", i->id );
+    if (GetNode("id", reqNode)) {
+        Qry.SQLText =
+           "SELECT id, desk, desk_grp_id, certificate, first_date, last_date, pr_denial "
+           "FROM crypt_term_cert "
+           "WHERE pr_denial = 0 AND id=:id";
+        Qry.CreateVariable("id", otInteger, NodeAsInteger("id", reqNode));
+    } else {
+        TDateTime nowutc = NowUTC();
+        Qry.SQLText =
+           "SELECT id, desk, desk_grp_id, certificate, first_date, last_date, pr_denial "
+           "FROM crypt_term_cert "
+           "WHERE last_date >= :nowutc";
+        Qry.CreateVariable("nowutc", otDate, nowutc);
+    }
+
+    Qry.Execute();
+
+    if (Qry.Eof) {
+        throw AstraLocale::UserException("MSG.MESSAGEPRO.NO_CERTS");
+    }
+
+    vector<TSearchData> certs;
+    xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
+
+    while (!Qry.Eof) {
+        TSearchData cert_search;
+        cert_search.id = Qry.FieldAsInteger("id");
+        if (!Qry.FieldIsNULL("desk")) {
+            if (pr_search && !desksNode) {
+                desksNode = NewTextChild(resNode, "desks");
+            }
+            cert_search.desk = Qry.FieldAsString("desk");
         }
-        else {
-                if ( !reqsNode )
-                        reqsNode = NewTextChild( resNode, "certificates" );
-                xmlNodePtr n = NewTextChild( reqsNode, "request" );
-                NewTextChild( n, "id", i->id );
-                NewTextChild( n, "desk", i->desk );
-                NewTextChild( n, "grp", i->grp );
-                NewTextChild( n, "data", i->data );
-                NewTextChild( n, "first_date", DateTimeToStr( i->first_date, ServerFormatDateTimeAsString ) );
-                NewTextChild( n, "last_date", DateTimeToStr( i->last_date, ServerFormatDateTimeAsString ) );
-                NewTextChild( n, "pr_denial", i->pr_denial );
+        if (Qry.FieldIsNULL("desk")) {
+            if (pr_search && !grpsNode) {
+                grpsNode = NewTextChild(resNode, "grps");
+            }
+            cert_search.grp = composeGroupName(Qry.FieldAsInteger("desk_grp_id"));
         }
-  }
+        cert_search.data = Qry.FieldAsString("certificate");
+        cert_search.first_date = Qry.FieldAsDateTime("first_date");
+        cert_search.last_date = Qry.FieldAsDateTime("last_date");
+        cert_search.pr_denial = Qry.FieldAsInteger("pr_denial");
+        certs.push_back(cert_search);
+        Qry.Next();
+    }
+
+    for (vector<TSearchData>::iterator i = certs.begin(); i != certs.end(); i++) {
+        if (pr_search) {
+            xmlNodePtr dNode = !i->desk.empty()
+                ? NewTextChild(desksNode, "desk", i->desk)
+                : NewTextChild(grpsNode, "grp", i->grp);
+            SetProp(dNode, "id", i->id);
+        } else {
+            if (!reqsNode) {
+                reqsNode = NewTextChild(resNode, "certificates");
+            }
+            xmlNodePtr n = NewTextChild(reqsNode, "request");
+            NewTextChild(n, "id", i->id);
+            NewTextChild(n, "desk", i->desk);
+            NewTextChild(n, "grp", i->grp);
+            NewTextChild(n, "data", i->data);
+            NewTextChild(n, "first_date", DateTimeToStr(i->first_date, ServerFormatDateTimeAsString));
+            NewTextChild(n, "last_date", DateTimeToStr(i->last_date, ServerFormatDateTimeAsString));
+            NewTextChild(n, "pr_denial", i->pr_denial);
+        }
+    }
 }
+
+#ifdef XP_TESTING
+
+#include "xp_testing.h"
+#include <utility>
+#include <vector>
+#include <string>
+
+template <class Error, class Func, class ...Params>
+bool expectToThrow(Func func, Params... params) {
+  try {
+    func(params...);
+  } catch (Error& e) {
+    return true;
+  }
+  return false;
+}
+
+void fill_desk_grp() {
+    make_db_curs("INSERT INTO desk_grp(city, descr, grp_id) VALUES ('МОВ', 'DESCR', 123001)",  PgOra::getRWSession("DESK_GRP")).exec();
+    make_db_curs("INSERT INTO desk_grp(city, descr, grp_id) VALUES ('МОВ', 'DESCR', 123002)",  PgOra::getRWSession("DESK_GRP")).exec();
+    make_db_curs("INSERT INTO desk_grp(city, descr, grp_id) VALUES ('МОВ', 'DESCR', 123003)",  PgOra::getRWSession("DESK_GRP")).exec();
+}
+
+void fill_desks() {
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK1G1', 'РУБ', 123001, 456001)", PgOra::getRWSession("DESKS")).exec();
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK2G1', 'РУБ', 123001, 456002)", PgOra::getRWSession("DESKS")).exec();
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK1G2', 'РУБ', 123002, 456003)", PgOra::getRWSession("DESKS")).exec();
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK2G2', 'РУБ', 123002, 456004)", PgOra::getRWSession("DESKS")).exec();
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK1G3', 'РУБ', 123003, 456005)", PgOra::getRWSession("DESKS")).exec();
+    make_db_curs("INSERT INTO desks(code, currency, grp_id, id) VALUES ('DSK2G3', 'РУБ', 123003, 456006)", PgOra::getRWSession("DESKS")).exec();
+}
+
+void fill_crypt_file_params() {
+    make_db_curs("INSERT INTO crypt_file_params(certname, desk, desk_grp_id, keyname, password, pkcs_id, send_count) "
+       "VALUES ('CFP_01', 'DSK1G1', 123001, 'CFP_01_KEY', 'CFP_01_PWD', 789001, 0)", PgOra::getRWSession("CRYPT_FILE_PARAMS")).exec();
+    make_db_curs("INSERT INTO crypt_file_params(certname, desk, desk_grp_id, keyname, password, pkcs_id, send_count) "
+       "VALUES ('CFP_02', 'DSK2G1', 123001, 'CFP_02_KEY', 'CFP_02_PWD', 789002, 0)", PgOra::getRWSession("CRYPT_FILE_PARAMS")).exec();
+    make_db_curs("INSERT INTO crypt_file_params(certname, desk, desk_grp_id, keyname, password, pkcs_id, send_count) "
+       "VALUES ('CFP_03', 'DSK1G2', 123002, 'CFP_03_KEY', 'CFP_03_PWD', 789003, 0)", PgOra::getRWSession("CRYPT_FILE_PARAMS")).exec();
+    make_db_curs("INSERT INTO crypt_file_params(certname, desk, desk_grp_id, keyname, password, pkcs_id, send_count) "
+       "VALUES ('CFP_04',     NULL, 123002, 'CFP_04_KEY', 'CFP_04_PWD', 789004, 0)", PgOra::getRWSession("CRYPT_FILE_PARAMS")).exec();
+    make_db_curs("INSERT INTO crypt_file_params(certname, desk, desk_grp_id, keyname, password, pkcs_id, send_count) "
+       "VALUES ('CFP_05',     NULL, 123003, 'CFP_05_KEY', 'CFP_05_PWD', 789005, 0)", PgOra::getRWSession("CRYPT_FILE_PARAMS")).exec();
+}
+
+void fill_crypt_term_req() {
+    make_db_curs("INSERT INTO crypt_term_req(desk, desk_grp_id, id, request) "
+       "VALUES ('DSK1G1', 123001, 567001, 'REQUEST1G1')", PgOra::getRWSession("crypt_term_req")).exec();
+    make_db_curs("INSERT INTO crypt_term_req(desk, desk_grp_id, id, request) "
+       "VALUES ('DSK2G1', 123001, 567002, 'REQUEST2G1')", PgOra::getRWSession("crypt_term_req")).exec();
+    make_db_curs("INSERT INTO crypt_term_req(desk, desk_grp_id, id, request) "
+       "VALUES ('DSK1G2', 123002, 567003, 'REQUEST1G2')", PgOra::getRWSession("crypt_term_req")).exec();
+    make_db_curs("INSERT INTO crypt_term_req(desk, desk_grp_id, id, request) "
+       "VALUES (    NULL, 123002, 567004, 'REQUEST2G2')", PgOra::getRWSession("crypt_term_req")).exec();
+    make_db_curs("INSERT INTO crypt_term_req(desk, desk_grp_id, id, request) "
+       "VALUES (    NULL, 123003, 567005, 'REQUEST1G3')", PgOra::getRWSession("crypt_term_req")).exec();
+}
+
+void fill_crypt_term_cert() {
+    const boost::posix_time::ptime     today = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::ptime yesterday = today - boost::gregorian::days(1);
+    const boost::posix_time::ptime  tomorrow = today + boost::gregorian::days(1);
+
+    make_db_curs("INSERT INTO crypt_term_cert(id, desk_grp_id, desk, pkcs_id, certificate, pr_denial, first_date, last_date) "
+       "VALUES (777001, 123001, 'DSK1G1', 789001, 'Certificate 1', 0, :yesterday, :tomorrow)", PgOra::getRWSession("CRYPT_TERM_CERT")).bind(":yesterday", yesterday).bind(":tomorrow", tomorrow).exec();
+    make_db_curs("INSERT INTO crypt_term_cert(id, desk_grp_id, desk, pkcs_id, certificate, pr_denial, first_date, last_date) "
+       "VALUES (777002, 123003,     NULL, 789005, 'Certificate 2', 0, :yesterday, :tomorrow)", PgOra::getRWSession("CRYPT_TERM_CERT")).bind(":yesterday", yesterday).bind(":tomorrow", tomorrow).exec();
+}
+
+void fill_crypt_sets() {
+    make_db_curs("INSERT INTO crypt_sets(id, pr_crypt, desk_grp_id, desk) "
+       "VALUES (800001, 1, 123001, 'DSK1G1')", PgOra::getRWSession("CRYPT_SETS")).exec();
+    make_db_curs("INSERT INTO crypt_sets(id, pr_crypt, desk_grp_id, desk) "
+       "VALUES (800002, 1, 123001, 'DSK2G1')", PgOra::getRWSession("CRYPT_SETS")).exec();
+    make_db_curs("INSERT INTO crypt_sets(id, pr_crypt, desk_grp_id, desk) "
+       "VALUES (800003, 1, 123002, 'DSK1G2')", PgOra::getRWSession("CRYPT_SETS")).exec();
+    make_db_curs("INSERT INTO crypt_sets(id, pr_crypt, desk_grp_id, desk) "
+       "VALUES (800004, 1, 123002, 'DSK2G2')", PgOra::getRWSession("CRYPT_SETS")).exec();
+    make_db_curs("INSERT INTO crypt_sets(id, pr_crypt, desk_grp_id, desk) "
+       "VALUES (800005, 1, 123003, 'DSK1G3')", PgOra::getRWSession("CRYPT_SETS")).exec();
+}
+
+
+START_TEST(check_ValidatePKCSData)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_file_params();
+
+    ValidatePKCSData("DSK1G1", true);
+    ValidatePKCSData("DSK2G1", true);
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK1G2", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK2G2", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK1G3", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK2G3", true)));
+    ValidatePKCSData("NODESK", true);
+    ValidatePKCSData("", true);
+
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK1G1", false)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK2G1", false)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidatePKCSData), std::string, bool>(ValidatePKCSData, "DSK1G2", false)));
+    ValidatePKCSData("DSK2G2", false);
+    ValidatePKCSData("DSK1G3", false);
+    ValidatePKCSData("DSK2G3", false);
+    ValidatePKCSData("NODESK", false);
+    ValidatePKCSData("", false);
+}
+END_TEST
+
+START_TEST(check_ValidateCertificateRequest)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_term_req();
+
+    ValidateCertificateRequest("DSK1G1", true);
+    ValidateCertificateRequest("DSK2G1", true);
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK1G2", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK2G2", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK1G3", true)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK2G3", true)));
+    ValidateCertificateRequest("NODESK", true);
+    ValidateCertificateRequest("", true);
+
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK1G1", false)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK2G1", false)));
+    fail_unless((expectToThrow<AstraLocale::UserException, decltype(ValidateCertificateRequest), std::string, bool>(ValidateCertificateRequest, "DSK1G2", false)));
+    ValidateCertificateRequest("DSK2G2", false);
+    ValidateCertificateRequest("DSK1G3", false);
+    ValidateCertificateRequest("DSK2G3", false);
+    ValidateCertificateRequest("NODESK", false);
+    ValidateCertificateRequest("", false);
+}
+END_TEST
+
+std::string getDeskByRequest(const std::string& request) {
+    std::string desk;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT desk FROM crypt_term_req "
+       "WHERE request = :request",
+       PgOra::getROSession("CRYPT_TERM_REQ")
+    );
+    cur.bind(":request", request)
+       .defNull(desk, "(null)")
+       .exfet();
+
+    return desk;
+}
+
+struct RequestCertificateData {
+    int desk_grp_id;
+    std::string desk;
+    std::string request;
+    int pkcs_id;
+    bool pr_grp;
+    std::string answerDesk;
+};
+
+bool checkIntPutRequestCertificate(const RequestCertificateData& requestData) {
+    IntPutRequestCertificate(requestData.request, requestData.desk, requestData.pr_grp, requestData.pkcs_id);
+    return requestData.answerDesk == getDeskByRequest(requestData.request);
+}
+
+START_TEST(check_IntPutRequestCertificate)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_file_params();
+
+    RequestCertificateData firstTestData {
+        123001,
+       "DSK1G1",
+       "FirstTestRequest",
+        789001,
+        false,
+       "DSK1G1"
+    };
+
+    fail_unless(checkIntPutRequestCertificate(firstTestData));
+
+    RequestCertificateData secondTestData {
+        123003,
+       "DSK1G3",
+       "SecondTestRequest",
+        789005,
+        true,
+       "(null)"
+    };
+
+    fail_unless(checkIntPutRequestCertificate(secondTestData));
+}
+END_TEST
+
+#ifdef USE_MESPRO
+START_TEST(check_GetServerCertificate)
+{
+    const boost::posix_time::ptime     today = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::ptime yesterday = today - boost::gregorian::days(1);
+    const boost::posix_time::ptime  tomorrow = today + boost::gregorian::days(1);
+
+    std::string ca;
+    std::string pk;
+    std::string server;
+
+    make_db_curs("INSERT INTO crypt_server(id, certificate, private_key, first_date, last_date, pr_ca, pr_denial) "
+       "VALUES (777, 'Certificate', 'Private Key', :yesterday, :tomorrow, 0, 0)", PgOra::getRWSession("CRYPT_SERVER"))
+       .bind(":yesterday", yesterday)
+       .bind(":tomorrow", tomorrow)
+       .exec();
+
+    GetServerCertificate(ca, pk, server);
+
+    fail_unless(ca.empty() && pk == "Private Key" && server == "Certificate");
+
+    make_db_curs("UPDATE crypt_server SET pr_ca = 1 WHERE id = 777", PgOra::getRWSession("CRYPT_SERVER")).exec();
+    ca = "";
+    pk = "";
+    server = "";
+
+    GetServerCertificate(ca, pk, server);
+    fail_unless(ca == "Certificate" && pk.empty() && server.empty());
+}
+END_TEST
+#endif //USE_MESPRO
+
+START_TEST(check_GetClientCertificate)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_file_params();
+    fill_crypt_term_cert();
+
+    std::string certificate;
+    int pkcs_id = -1;
+
+    fail_unless(GetClientCertificate(123001, 0, "DSK1G1", certificate, pkcs_id));
+    fail_unless(certificate == "Certificate 1" && pkcs_id == 789001);
+
+    fail_unless(GetClientCertificate(123003, 1, "DSK1G3", certificate, pkcs_id));
+    fail_unless(certificate == "Certificate 2" && pkcs_id == 789005);
+}
+END_TEST
+
+START_TEST(check_GetCryptGrp)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_file_params();
+    fill_crypt_sets();
+
+    int grp_id  = -1;
+    bool pr_grp = -1;
+    fail_unless(GetCryptGrp("DSK1G1", grp_id, pr_grp));
+    fail_unless(grp_id == 123001 && pr_grp == 0);
+    fail_unless(GetCryptGrp("DSK2G1", grp_id, pr_grp));
+    fail_unless(grp_id == 123001 && pr_grp == 0);
+    fail_unless(GetCryptGrp("DSK1G2", grp_id, pr_grp));
+    fail_unless(grp_id == 123002 && pr_grp == 0);
+    fail_unless(GetCryptGrp("DSK2G2", grp_id, pr_grp));
+    fail_unless(grp_id == 123002 && pr_grp == 0);
+    fail_unless(GetCryptGrp("DSK1G3", grp_id, pr_grp));
+    fail_unless(grp_id == 123003 && pr_grp == 0);
+
+    fail_if(GetCryptGrp("UNKNWN", grp_id, pr_grp));
+}
+END_TEST
+
+START_TEST(check_addCertificate)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_term_req();
+
+    const int reqId = 567001;
+    const std::string certificate = "CERTIFICATE1G1";
+    boost::posix_time::ptime firstDate = boost::posix_time::second_clock::universal_time();
+    boost::posix_time::ptime lastDate = boost::posix_time::second_clock::local_time();
+    addCertificate(reqId, certificate, firstDate, lastDate);
+
+    boost::posix_time::ptime first;
+    boost::posix_time::ptime last;
+
+    auto cur = make_db_curs(
+       "SELECT first_date, last_date "
+       "FROM crypt_term_cert "
+       "WHERE certificate = 'CERTIFICATE1G1'",
+        PgOra::getROSession("CRYPT_TERM_CERT"));
+
+    cur.def(first)
+       .def(last)
+       .exec();
+
+    fail_unless(!cur.fen());
+    fail_unless(firstDate == first);
+    fail_unless(lastDate == last);
+
+    convertTime("11.12.1973 23:32:59");
+    fail_unless((expectToThrow<Exception, decltype(convertTime), const char*>(convertTime, "11.12.1973 a3:32:59")));
+
+    deleteTermRequest(reqId);
+
+    int pkcs_id = addCryptFileParams("key_filename", "cert_filename", "password", 123001, "DSK1G1", false);
+
+    PgOra::supportsPg("CRYPT_FILES")
+      ? addCryptFile(pkcs_id, "readme.md", "some data")
+      : addCryptFileOra(pkcs_id, "readme.md", "some data");
+
+    PgOra::supportsPg("CRYPT_FILES")
+      ? updatePkcsData(pkcs_id, "readme.md", "some new data")
+      : updatePkcsDataOra(pkcs_id, "readme.md", "some new data");
+
+    deleteCryptFiles(pkcs_id);
+}
+END_TEST
+
+void checkNode(xmlNodePtr node, size_t otstup = 0) {
+    std::cout << std::string(otstup, ' ') << "Node: " << node->name << " contains: [" << NodeAsString(node) << "]" << std::endl;
+    for (xmlNodePtr child = node->children; child; child = child->next) {
+        checkNode(child, otstup + 4);
+    }
+}
+
+void findNode(xmlNodePtr node, size_t otstup = 0) {
+    std::cout << std::string(otstup, ' ') << "Node: " << NodeAsString(node) << std::endl;
+    for (xmlNodePtr child = node->children; child; child = child->next) {
+        checkNode(child, otstup + 4);
+    }
+}
+
+void printIfExists(xmlNodePtr node) {
+    if (nullptr != node) {
+        std::cout << "Found node: " << node->name << " contains: [" << NodeAsString(node) << "]" << std::endl;
+    }
+}
+
+START_TEST(check_fillNodeWithFiles)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_file_params();
+
+    make_db_curs(
+        PgOra::supportsPg("CRYPT_FILES")
+         ? "INSERT INTO crypt_files(pkcs_id, name, data) VALUES (789001, 'readme.md', '\\x000102030405060708090A0B0C0D0E0FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0F')"
+         : "INSERT INTO crypt_files(pkcs_id, name, data) VALUES (789001, 'readme.md', '000102030405060708090A0B0C0D0E0FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0F')",
+        PgOra::getRWSession("CRYPT_FILES")).exec();
+
+    int pkcs_id = 789001;
+
+    xmlNodePtr root = xmlNewNode(nullptr, (const xmlChar*)"root");
+    xmlNodePtr node = NewTextChild(root, "pkcs", pkcs_id);
+
+    if (PgOra::supportsPg("CRYPT_FILES")) {
+        fillNodeWithFiles(node, pkcs_id);
+    } else {
+        fillNodeWithFilesOra(node, pkcs_id);
+    }
+
+    fail_unless(789001 == NodeAsInteger(node->children));
+    fail_unless(0 == strcmp("000102030405060708090A0B0C0D0E0FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0F", NodeAsString(node->children->next->children)));
+}
+END_TEST
+
+#define SUITENAME "crypt"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_ValidatePKCSData);
+    ADD_TEST(check_ValidateCertificateRequest);
+    ADD_TEST(check_IntPutRequestCertificate);
+    #ifdef USE_MESPRO
+    ADD_TEST(check_GetServerCertificate);
+    #endif //USE_MESPRO
+    ADD_TEST(check_GetClientCertificate);
+    ADD_TEST(check_GetCryptGrp);
+    ADD_TEST(check_fillNodeWithFiles);
+    ADD_TEST(check_addCertificate)
+}
+TCASEFINISH;
+#undef SUITENAME // "crypt"
+
+#endif // XP_TESTING

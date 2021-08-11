@@ -300,7 +300,7 @@ int arx_ego_stat(int argc,char **argv)
     if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
         return 1;
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     int processed=0;
 
     const string delim = ";";
@@ -323,7 +323,7 @@ int arx_ego_stat(int argc,char **argv)
             SQLText += "   ,part_key ";
         SQLText += "FROM arx_points "
                    "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND pr_reg<>0 AND pr_del>=0";
-        Qry.Clear();
+        Qry.ClearParams();
         Qry.SQLText= SQLText;
         Qry.CreateVariable("FirstDate", otDate, FirstDate);
         Qry.CreateVariable("LastDate", otDate, LastDate);
@@ -344,7 +344,7 @@ int arx_ego_stat(int argc,char **argv)
                         );
         }
 
-        Qry.Clear();
+        Qry.ClearParams();
         SQLText =
                 "SELECT "
                 "   arx_pax.surname, "

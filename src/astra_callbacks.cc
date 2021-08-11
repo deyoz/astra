@@ -403,8 +403,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
                 AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
                 break;
             default:
-              ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
-              ProgError(STDLOG,"SQL: %s",orae->SQLText());
+              orae->showProgError();
               if (TReqInfo::Instance()->isSelfCkinClientType())
                 AstraLocale::showProgError("WRAP.QRY_HANDLER_ERR",
                                            AstraLocale::LParams() << AstraLocale::LParam("text", orae->what()));

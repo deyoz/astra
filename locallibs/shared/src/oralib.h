@@ -11,6 +11,7 @@
 #define HDA_SIZE 256
 #include <stdio.h>
 #include <map>
+#include <set>
 
 //#define SQL_COUNTERS
 
@@ -68,6 +69,9 @@ class TVariableData {
     std::string name;
     bool bufown;
     TMemoryManager *MM;
+    const char* nick;
+    const char* file;
+    int line;
  public:
    OCIBind *bindhp; //OCIBind
    otFieldType buftype;
@@ -79,7 +83,7 @@ class TVariableData {
    int cbuf_len;
    const char *GetName( );
    void SetName( const char *Value );
-   TVariableData( TMemoryManager *AMM );
+   TVariableData( TMemoryManager *AMM, STDLOG_SIGNATURE );
    ~TVariableData();
    void SetOwnBuffer( bool Value );
    bool IsOwnBuffer( );
@@ -88,6 +92,9 @@ class TVariableData {
 
 class TFieldData {
  private:
+  const char* nick;
+  const char* file;
+  int line;
    std::string name;
  public:
    TMemoryManager *MM;
@@ -102,7 +109,7 @@ class TFieldData {
    int cache;
    char *cbuffer;
    int cbuf_len;
-   TFieldData( TMemoryManager *AMM );
+   TFieldData( TMemoryManager *AMM, STDLOG_SIGNATURE );
    ~TFieldData();
    TLongItems *LongValue;
    sb2 *arind;
@@ -115,13 +122,16 @@ class TFieldData {
 
 class TFields {
  private:
+   const char* nick;
+   const char* file;
+   int line;
    std::vector<TFieldData*> FFields;
    TMemoryManager *MM;
  public:
-   TFields( TMemoryManager *AMM );
+   TFields( TMemoryManager *AMM, STDLOG_SIGNATURE );
    ~TFields( );
    void PreSetFieldsCount( int AColCount );
-   TFieldData *CreateFieldData( TMemoryManager *AMM );
+   TFieldData *CreateFieldData( TMemoryManager *AMM, STDLOG_SIGNATURE );
    TFieldData *GetFieldData( int Index );
    int GetFieldsCount();
    void Clear( );
@@ -129,12 +139,15 @@ class TFields {
 
 class TVariables {
  private:
+   const char* nick;
+   const char* file;
+   int line;
    std::vector<TVariableData*> FVariables;
    TMemoryManager *MM;
  public:
-   TVariables( TMemoryManager *AMM );
+   TVariables( TMemoryManager *AMM, STDLOG_SIGNATURE );
    ~TVariables( );
-   TVariableData *CreateVariable( );
+   TVariableData *CreateVariable( STDLOG_SIGNATURE );
    int GetVariablesCount( );
    TVariableData *GetVariableData( int Index );
    int FindVariable( const char *name );
@@ -147,6 +160,9 @@ class TSession;
 
 class TQuery {
  private:
+  const char* nick;
+  const char* file;
+  int line;
    OCIError *errhp, *secerrhp;
    OCIStmt *stmthp;
    OCIDefine *defhp;
@@ -181,6 +197,7 @@ class TQuery {
  public:
    TSQLText SQLText;
    TQuery( TSession *ASession );
+   TQuery( TSession *ASession, STDLOG_SIGNATURE );
    ~TQuery( );
    TFields *Fields;
    TVariables *Variables;
@@ -338,28 +355,53 @@ class EOracleError:public EXCEPTIONS::Exception
   private:
     std::string sqlText;
   public:
+    const char* Nick;
+    const char* File;
+    int Line;
     int Code;
-    EOracleError( const char *msg, long code, const char *sql ):EXCEPTIONS::Exception( msg )
+
+    EOracleError( const char *msg, long code, const char *sql )
+      : EXCEPTIONS::Exception( msg ), Nick(nullptr), File(nullptr), Line(0)
     {
         Code = code;
         sqlText = sql;
     }
-    EOracleError( const char *msg, long code ):EXCEPTIONS::Exception( msg )
+
+    EOracleError( const char *msg, long code )
+      : EXCEPTIONS::Exception( msg ), Nick(nullptr), File(nullptr), Line(0)
     {
         Code = code;
         sqlText = "";
     }
-    ~EOracleError() throw() {};
-    const char* SQLText() const throw()
+
+    EOracleError( const char *msg, long code, const char *sql, STDLOG_SIGNATURE )
+      : EXCEPTIONS::Exception( msg ), Nick(nick), File(file), Line(line)
+    {
+        Code = code;
+        sqlText = sql;
+    }
+
+    EOracleError( const char *msg, long code, STDLOG_SIGNATURE )
+      : EXCEPTIONS::Exception( msg ), Nick(nick), File(file), Line(line)
+    {
+        Code = code;
+        sqlText = "";
+    }
+
+    ~EOracleError() noexcept {}
+
+    const char* SQLText() const noexcept
     {
       return sqlText.c_str();
-    };
+    }
+
+    void showProgError() const noexcept;
 };
 
 int ConvertORACLEDate_TO_DateTime( void *Value, TDateTime &VDateTime );
 int ConvertORACLEDate_TO_Str( void *Data, char *Value );
 int ConvertDateTime_TO_ORACLEDate( const TDateTime &VDateTime, void *Value );
-void FindVariables( const std::string &SQL, bool IncludeDuplicates, std::vector<std::string> &vars );
+std::set<std::string> getSQLVariables(const std::string &SQL);
 
 extern TSession OraSession;
 

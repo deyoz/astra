@@ -84,8 +84,8 @@ int putMail( const string &receiver,
   if ( params.find( PARAM_FILE_NAME ) == params.end() )
     throw Exception( "Can't find param FileName" );
   filename = params[ PARAM_FILE_NAME ];
-  TQuery FilesQry(&OraSession);
-  FilesQry.Clear();
+
+  DB::TQuery FilesQry(PgOra::getROSession("FILE_SETS"), STDLOG);
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "
@@ -95,13 +95,11 @@ int putMail( const string &receiver,
   if ( FilesQry.Eof )
     throw Exception( "Can't find file type in file_sets" );
   filename = string( FilesQry.FieldAsString( "dir" ) ) + filename;
+
   f.open( filename.c_str() );
   if (!f.is_open()) throw Exception( "Can't open file '%s'", filename.c_str() );
   try {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT tlgs_id.nextval id FROM dual";
-    Qry.Execute();
-    file_id = Qry.FieldAsInteger( "id" );
+    file_id = PgOra::getSeqNextVal("TLGS_ID");
     f << file_data;
     f << ENDL;
     f.close();
@@ -400,32 +398,32 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
     JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
     int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
     ProgTrace( TRACE5, "get prior_id=%d", prior_id );
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
+    DB::TQuery QryFile(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
+    QryFile.SQLText =
      "SELECT type,airline,param_name,param_value FROM file_param_sets "
      " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send "
      " ORDER BY type,airline ";
-    Qry.CreateVariable( "point_addr", otString, client_canon_name );
-    Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-    Qry.CreateVariable( "send", otInteger, 0 );
-    Qry.Execute();
-  if ( Qry.Eof )
+    QryFile.CreateVariable( "point_addr", otString, client_canon_name );
+    QryFile.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+    QryFile.CreateVariable( "send", otInteger, 0 );
+    QryFile.Execute();
+  if ( QryFile.Eof )
         return;
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     map<string,string> fileparams, first_fileparams;
     string airline, first_airline;
     int new_id = -1, first_new_id = -1;
     int id=0;
-    while ( !Qry.Eof ) {
+    while ( !QryFile.Eof ) {
         ProgTrace( TRACE5, "new_id=%d", id );
         if ( fileparams.find( PARAM_FILE_TYPE ) == fileparams.end() ) {
-          fileparams[ PARAM_FILE_TYPE ] = Qry.FieldAsString( "type" );
-            airline = Qry.FieldAsString( "airline" );
+          fileparams[ PARAM_FILE_TYPE ] = QryFile.FieldAsString( "type" );
+            airline = QryFile.FieldAsString( "airline" );
             new_id = id;
             ProgTrace( TRACE5, "new_id=%d", new_id  );
         }
-        if ( fileparams[ PARAM_FILE_TYPE ] != Qry.FieldAsString( "type" ) ||
-               airline != Qry.FieldAsString( "airline" ) ) {
+        if ( fileparams[ PARAM_FILE_TYPE ] != QryFile.FieldAsString( "type" ) ||
+               airline != QryFile.FieldAsString( "airline" ) ) {
             //next type or airline
             if ( first_fileparams.empty() ) {
                 first_fileparams = fileparams;
@@ -445,15 +443,15 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
           }
         }
         else {
-        fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
+        fileparams[ QryFile.FieldAsString( "param_name" ) ] = QryFile.FieldAsString( "param_value" );
         tst();
       }
       id++;
-        Qry.Next();
+        QryFile.Next();
     }
     tst();
     ProgTrace( TRACE5, "new_id=%d", new_id );
-    if ( Qry.Eof ) // next find from first row
+    if ( QryFile.Eof ) // next find from first row
         new_id = -1;
     ProgTrace( TRACE5, "new_id=%d", new_id );
 
@@ -465,7 +463,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 
   if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {
     sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 );
-    if ( Qry.RowCount() )
+    if ( QryFile.RowCount() )
       ProgError( STDLOG, "AstraService Exception: invalid value of table file_params_sets, param LOADDIR not found" );
     return;
   }
@@ -483,7 +481,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
       TDateTime d = UTCToLocal( NowUTC(), region );
       string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
       fileparams[ PARAM_FILE_NAME ] = filename;
-      Qry.Clear();
+      TQuery Qry(&OraSession);
       Qry.SQLText =
        "BEGIN "
        " SELECT rec_no INTO :rec_no FROM aodb_spp_files "
@@ -1095,6 +1093,32 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   registerHookAfter(sendCmdParseAODB);
 }
 
+static int update_file_sets(const std::string &code, const std::string &airp, int interval)
+{
+  DB::TQuery QryFileSets(PgOra::getRWSession("FILE_SETS"), STDLOG);
+  if (PgOra::supportsPg("FILE_SETS"))
+  {
+    QryFileSets.SQLText =
+        "UPDATE file_sets SET last_create=:utc"
+        " WHERE code=:code AND pr_denial=0 AND airp=:airp "
+        " AND COALESCE(last_create + :interval * interval '1 minute', :utc) <= :utc";
+  }
+  else
+  {
+    QryFileSets.SQLText =
+        "UPDATE file_sets SET last_create=:utc"
+        " WHERE code=:code AND pr_denial=0 AND airp=:airp "
+        " AND NVL(last_create+:interval/(24*60),:utc)<=:utc";
+  }
+  QryFileSets.CreateVariable("code", otString, code);
+  QryFileSets.CreateVariable("airp", otString, airp);
+  QryFileSets.CreateVariable("interval", otInteger, interval);
+  QryFileSets.CreateVariable("utc", otDate, NowUTC());
+  QryFileSets.Execute();
+
+  return QryFileSets.RowsProcessed();
+}
+
 class TCheckinDataPointAddr: public TPointAddr {
   TQuery *StagesQry;
 public:
@@ -1121,16 +1145,10 @@ public:
         ProgError( STDLOG, "createCheckinDataFiles: mail interval not set, default = 30 min" );
       }
       ProgTrace( TRACE5, "TCheckinDataPointAddr->validateParams: interval=%d", interval );
-      TQuery QryFileSets( &OraSession );
-      QryFileSets.SQLText =
-        "UPDATE file_sets SET last_create=system.UTCSYSDATE"
-        " WHERE code=:code AND pr_denial=0 AND airp=:airp AND NVL(last_create+:interval/(24*60),system.UTCSYSDATE)<=system.UTCSYSDATE";
-      QryFileSets.CreateVariable( "code", otString, FILE_CHECKINDATA_TYPE );
-      QryFileSets.CreateVariable( "airp", otString, *airps.begin() );
-      QryFileSets.CreateVariable( "interval", otInteger, interval );
-      QryFileSets.Execute();
-      ProgTrace( TRACE5, "TCheckinDataPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
-      return QryFileSets.RowsProcessed();
+
+      const int rows = update_file_sets(FILE_CHECKINDATA_TYPE, *airps.begin(), interval);
+      ProgTrace(TRACE5, "TCheckinDataPointAddr->validateParams return %d", rows);
+      return rows;
     }
     return true;
   }
@@ -1527,7 +1545,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     DB::TCachedQuery updQry(
             PgOra::getRWSession("UTG_PRL"),
             "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
-            QryParams);
+            QryParams,
+            STDLOG);
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger);
@@ -1535,8 +1554,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
             PgOra::getRWSession("UTG_PRL"), // RW á¯¥æ¨ «ì­® ¨§-§  update-  ¢ëè¥
             "select last_flt_change_tid from utg_prl where point_id = :point_id and "
             "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
-            QryParams
-            );
+            QryParams,
+            STDLOG);
 
     TTripInfo flt;
     flt.Init(fltQry.get());
@@ -1594,7 +1613,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    DB::TQuery Qry( PgOra::getROSession("FILE_TYPES") );
+    DB::TQuery Qry( PgOra::getROSession("FILE_TYPES"), STDLOG );
     Qry.SQLText = "SELECT code, name from file_types";
     Qry.Execute();
     xmlNodePtr node = NewTextChild( resNode, "file_types" );
@@ -1605,7 +1624,7 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
         Qry.Next();
     }
 
-    DB::TQuery Qry2( PgOra::getROSession("FILES"));
+    DB::TQuery Qry2( PgOra::getROSession("FILES"), STDLOG );
 
     Qry2.SQLText = "SELECT DISTINCT type, receiver FROM files";
     Qry2.Execute();
@@ -1637,16 +1656,9 @@ public:
         ProgError( STDLOG, "TFidsPointAddr: mail interval not set, default = 5 min" );
       }
       ProgTrace( TRACE5, "TFidsPointAddr->validateParams: interval=%d", interval );
-      TQuery QryFileSets( &OraSession );
-      QryFileSets.SQLText =
-        "UPDATE file_sets SET last_create=system.UTCSYSDATE"
-        " WHERE code=:code AND pr_denial=0 AND airp=:airp AND NVL(last_create+:interval/(24*60),system.UTCSYSDATE)<=system.UTCSYSDATE";
-      QryFileSets.CreateVariable( "code", otString, FILE_FIDS_TYPE );
-      QryFileSets.CreateVariable( "airp", otString, *airps.begin() );
-      QryFileSets.CreateVariable( "interval", otInteger, interval );
-      QryFileSets.Execute();
-      ProgTrace( TRACE5, "TFidsPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
-      return QryFileSets.RowsProcessed();
+      int rows = update_file_sets(FILE_FIDS_TYPE, *airps.begin(), interval);
+      ProgTrace(TRACE5, "TFidsPointAddr->validateParams return %d", rows);
+      return rows;
     }
     return true;
   }
@@ -1671,7 +1683,8 @@ void sync_fids_data( )
   cond_dates.dates.insert( make_pair( "day1", currdate ) );
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
-};
+}
+
 inline void TimeToXML(xmlNodePtr node, const std::string& tag,
                       const TDateTime &time, const std::string& region,
                       bool setUTCTime)
@@ -1787,7 +1800,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     TDateTime first_day = NodeAsDateTime( "first_day", reqNode );
     TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
     ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
-    DB::TQuery Qry(PgOra::getROSession("FILES"));
+    DB::TQuery Qry(PgOra::getROSession("FILES"), STDLOG);
     Qry.SQLText =
     "SELECT id, time FROM files "
     " WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day";
@@ -1813,7 +1826,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   int file_id = NodeAsInteger( "file_id", reqNode );
-  DB::TQuery Qry( PgOra::getROSession("FILES") );
+  DB::TQuery Qry( PgOra::getROSession("FILES"), STDLOG );
   Qry.SQLText = "SELECT type, receiver, error FROM files WHERE id=:file_id";
   Qry.CreateVariable( "file_id", otInteger, file_id );
   Qry.Execute();
@@ -1988,3 +2001,31 @@ void putUTG(
         }
     }
 }
+
+
+#ifdef XP_TESTING
+#include "xp_testing.h"
+
+START_TEST(check_file_set_update)
+{
+  make_db_curs(
+    "insert into file_sets (airp, code, dir, name, num, pr_denial) "
+    "values ('‘Ž—', 'THE_CODE', 'DIR/', 'SOMENAME', 1, 0)",
+    PgOra::getRWSession("FILE_SETS")).exec();
+
+  fail_unless(update_file_sets("THE_CODE", "‘Ž—", 10) == 1);
+  fail_unless(update_file_sets("THE_CODE", "‘Ž—", 10) == 0);
+  fail_unless(update_file_sets("THE_CODE", "‘Ž—", 0) == 1);
+  fail_unless(update_file_sets("THE_CODE2", "‘Ž—", 0) == 0);
+}
+END_TEST;
+
+#define SUITENAME "file_sets"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+  ADD_TEST(check_file_set_update);
+}
+TCASEFINISH;
+#undef SUITENAME
+
+#endif

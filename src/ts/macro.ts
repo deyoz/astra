@@ -2470,6 +2470,7 @@ $(defmacro GET_ARX_EVENTS
     <point_id>$(point_id)</point_id>
     <part_key>$(part_key) 09:00:00</part_key>
     <EventsTypes>
+      <type>ДИС</type>
       <type>РЕЙ</type>
       <type>ГРФ</type>
       <type>ПАС</type>
@@ -2562,6 +2563,23 @@ $(defmacro WRITE_DESTS
 
 
 #########################################################################################
+
+#########################################################################################
+$(defmacro READ_DESTS
+    move_id
+    part_key
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <ReadDests>
+      <move_id>$(move_id)</move_id>
+      <part_key>$(part_key) 09:00:00</part_key>
+    </ReadDests>
+  </query>
+</term>}
+
+}) #end-of-macro READ_DESTS
+###########################################################################################
 
 $(defmacro ET_DISP_61_UT_REQS
 {
@@ -3792,8 +3810,8 @@ $(defmacro RUN_SYSTEM_LOG
         <offset>20</offset>
         <top>0</top>
       </prnParams>
-      <FirstDate>$(first_date) 00:00:00</FirstDate>
-      <LastDate>$(last_date) 00:00:00</LastDate>
+      <FirstDate>$(first_date)</FirstDate>
+      <LastDate>$(last_date)</LastDate>
       <evtFlt>РЕЙ</evtFlt>
       <evtPax>ПАС</evtPax>
       <evtPay>ОПЛ</evtPay>
@@ -4086,4 +4104,13 @@ $(defmacro MESSAGE_TAG
     </command>}
 )
 
+$(defmacro CHECK_DUMP
+    tablename
+    textdump=""
+{
+    $(dump_table $(tablename) display="on")
+    >> lines=auto
+    textdump
+}
+)
 

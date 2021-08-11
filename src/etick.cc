@@ -497,7 +497,7 @@ static bool insertDisplayTlg(const TETickItem& item)
             << (item.ediPnr?QParam("tlg_type", otInteger, (int)item.ediPnr.get().ediType()):
                             QParam("tlg_type", otInteger, FNull))
             << QParam("last_display", otDate, NowUTC());
-  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams);
+  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams, STDLOG);
   longToDB(Qry.get(), "tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
 
   LogTrace(TRACE6) << __func__
@@ -3880,7 +3880,7 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
   bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckinGrpIds, emdProps, confirmed_emd);
 
   for(const GrpId_t& grpId : tckinGrpIds)
-    deleteAlarmByGrpId(grpId.get(), Alarm::SyncEmds);
+    deleteAlarmByGrpId(grpId, Alarm::SyncEmds);
 
   if (enlargedServicePayment || checkinServicesAuto)
   {

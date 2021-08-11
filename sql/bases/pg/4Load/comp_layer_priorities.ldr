@@ -1,0 +1,13 @@
+LOAD DATA
+INFILE *
+INTO TABLE comp_layer_priorities
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airline
+,layer_type
+,priority
+)
+BEGINDATA
+"”‚"|"PROT_CKIN"|41

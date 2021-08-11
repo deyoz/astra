@@ -48,7 +48,7 @@ static bool SyncPaxASVC(int pax_id)
   if (CheckIn::AddPaxASVC(pax_id, false)) result=true;
   if (result)
   {
-      addAlarmByPaxId(pax_id, {Alarm::SyncEmds}, {paxCheckIn});
+      addAlarmByPaxId(PaxId_t(pax_id), {Alarm::SyncEmds}, {paxCheckIn});
       TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
       TPaxAlarmHook::set(Alarm::SyncCustomAlarms, pax_id);
   }

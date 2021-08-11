@@ -104,7 +104,7 @@ static std::vector<TTripInfo> getFlights(const AirlineCode_t& airline,
 {
   std::vector<TTripInfo> result;
 
-  DB::TQuery Qry(PgOra::getROSession("POINTS"));
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
 
   Qry.SQLText="SELECT " + TTripInfo::selectedFields() + " FROM points "
               "WHERE airline=:airline AND scd_out>=:min_scd_out AND scd_out<:max_scd_out AND pr_del>=0";
@@ -128,7 +128,7 @@ static void dumpTypeBOut(const string& dir,
                          const string& tlgType,
                          const std::vector<TTripInfo>& flts)
 {
-  DB::TQuery Qry(PgOra::getROSession("TLG_OUT"));
+  DB::TQuery Qry(PgOra::getROSession("TLG_OUT"), STDLOG);
   Qry.SQLText="SELECT id, num, addr, origin, heading, body, ending FROM tlg_out WHERE point_id=:point_id AND type=:type";
   Qry.DeclareVariable("point_id", otInteger);
   Qry.CreateVariable("type", otString, tlgType);

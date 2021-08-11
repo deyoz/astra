@@ -17,7 +17,7 @@ namespace DB {
 class TQuery
 {
 public:
-    TQuery(DbCpp::Session& sess);
+    TQuery(DbCpp::Session& sess, STDLOG_SIGNATURE);
     ~TQuery();
 
     std::string SQLText;
@@ -26,7 +26,7 @@ public:
     void Close();
     void Execute();
     void Next();
-    void Clear();
+    void ClearParams();
 
     int RowsProcessed();
     int RowCount();
@@ -80,17 +80,19 @@ private:
 class TCachedQuery
 {
 public:
-    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& p);
-    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText);
+    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& p, STDLOG_SIGNATURE);
+    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, STDLOG_SIGNATURE);
     ~TCachedQuery() {}
 
     TQuery& get();
 
 protected:
-    void init(DbCpp::Session& sess, const std::string& sqlText, const QParams& p);
+    void init(DbCpp::Session& sess, const std::string& sqlText, const QParams& p, STDLOG_SIGNATURE);
 
 private:
     std::shared_ptr<TQuery> m_qry;
 };
+
+bool concurrentSave(TQuery& qryUpd, TQuery& qryIns);
 
 }//namespace DB

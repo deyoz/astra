@@ -41,7 +41,7 @@ struct TBagInfo
     int rkWeight = 0; //NUMBER(6)
 };
 
-TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+std::optional<TBagInfo> get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                        std::optional<int> bag_pool_num);
 std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                     std::optional<int> bag_pool_num);
@@ -72,10 +72,10 @@ bool test_arx_daily(const Dates::DateTime_t &utcdate, int step);
 
 class TArxMove
 {
-  protected:
+protected:
     int proc_count;
     Dates::DateTime_t utcdate;
-  public:
+public:
     TArxMove(const Dates::DateTime_t& utc_date);
     virtual ~TArxMove() = default;
     virtual void BeforeProc() { proc_count=0; }
@@ -86,12 +86,12 @@ class TArxMove
 
 class TArxMoveFlt : public TArxMove
 {
-  private:
+private:
     std::map<MoveId_t, Dates::time_period> move_ids;
-  protected:
+protected:
     void LockAndCollectStat(const MoveId_t& move_id);
     void readMoveIds(size_t max_rows);
-  public:
+public:
     TArxMoveFlt(const Dates::DateTime_t& utc_date);
     virtual ~TArxMoveFlt() = default;
     virtual bool Next(size_t max_rows, int duration);
@@ -101,7 +101,10 @@ class TArxMoveFlt : public TArxMove
 
 class TArxTypeBIn : public TArxMove
 {
-  public:
+private:
+    std::map<int, Dates::DateTime_t> tlg_ids;
+    void readTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows);
+public:
     TArxTypeBIn(const Dates::DateTime_t& utc_date);
     virtual ~TArxTypeBIn() = default;
     virtual bool Next(size_t max_rows, int duration);
@@ -113,8 +116,9 @@ class TArxTlgTrips : public TArxMove
 {
   private:
     int point_ids_count;
+    std::vector<PointIdTlg_t> tlg_trip_points;
+    void readTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
   public:
-    std::vector<PointIdTlg_t> getTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
     TArxTlgTrips(const Dates::DateTime_t& utc_date);
     virtual bool Next(size_t max_rows, int duration);
     virtual std::string TraceCaption();

@@ -62,8 +62,6 @@ $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT
 
 $(run_arch_step $(ddmmyy +151))
 
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
 
 !! capture=on
 $(RUN_TRFER_PAX_STAT $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21))
@@ -208,8 +206,6 @@ $(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 1004 TU5 $(date_format %d.%m.%Y +12) $(date_
 $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
-
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 
 $(run_arch_step $(ddmmyy +387))
 
@@ -451,12 +447,6 @@ $(set grp_id $(get_single_grp_id $(get point_dep_UT_298) OZ OFER))
 
 $(run_arch_step $(ddmmyy +151))
 
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
-
-$(dump_table arx_pax_grp)
-$(dump_table arx_pax)
-$(dump_table arx_points)
 
 !! capture=on
 $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
@@ -545,15 +535,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
-
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_PAX)
-$(are_tables_equal ARX_PAX_GRP)
-$(are_tables_equal ARX_STAT_AD)
-$(are_tables_equal ARX_STAT_SERVICES)
-$(are_tables_equal ARX_POINTS)
 
 !! capture=on
 $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -713,13 +695,8 @@ $(CHECKIN_PAX $(get pax_id_BURYAKOV) $(get point_dep_UT_100) $(get point_arv_UT_
 
 $(KICK_IN_SILENT)
 
-$(dump_table rfisc_list_items)
-$(dump_table pax_services_auto)
-$(dump_table points)
 
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_STAT_SERVICES)
 
 !!capture = on
 $(RUN_SERVICES_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -809,11 +786,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal MOVE_ARX_EXT)
 
 $(nosir_departed_flt $(yyyymmdd +10) $(yyyymmdd +30))
 
@@ -853,14 +826,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
-$(dump_table airlines)
-
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal ARX_TRIP_CLASSES)
-#$(are_tables_equal ARX_EVENTS order="ev_order, lang")
 
 !!capture = on
 $(READ_ARX_TRIPS $(date_format %d.%m.%Y +20))
@@ -1012,11 +978,12 @@ $(run_arch_step $(ddmmyy +141))
 
 $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 
+#-3h потому что utc время
 ??
-$(dump_table basel_stat display="on")
->> lines=auto
-[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [...] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
-
+$(check_dump basel_stat)
+>>
+[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(date_format %d.%m.%Y -3h)] [NULL] [NULL] [0] [NULL] [1] [$(date_format %d.%m.%Y -3h)] [ЭКОНОМ] [NULL] [$(date_format %d.%m.%Y +20)] [$(date_format %d.%m.%Y +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
+$()
 
 %%
 #########################################################################################
@@ -1074,13 +1041,6 @@ $(set grp_id2 $(get_single_grp_id $(get point_dep_UT_190) OZ OFER))
 $(set grp_id3 $(get_single_grp_id $(get point_dep_UT_450) OZ OFER))
 
 $(run_arch_step $(ddmmyy +151))
-
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
-
-$(dump_table arx_pax_grp)
-$(dump_table arx_pax)
-$(dump_table arx_points)
 
 !! capture=on
 $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
@@ -1215,9 +1175,7 @@ $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
@@ -1292,9 +1250,7 @@ $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
@@ -1495,9 +1451,7 @@ $(make_spp $(ddmmyy +265))
 $(set point_dep_300 $(get_dep_point_id АМС ЮТ 300 $(yymmdd +1)))
 $(set point_dep_100 $(get_dep_point_id СОЧ ЮТ 100 $(yymmdd +265)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_CBOX_DROP_DOWN $(date_format %d.%m.%Y ) $(date_format %d.%m.%Y +266))
@@ -1555,11 +1509,7 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table PAX)
-
 $(run_arch_step $(ddmmyy +150))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_LOG_RUN $(get point_dep) $(get grp_id) $(date_format %d.%m.%Y +20) 1)
@@ -1648,8 +1598,6 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table PAX)
 
 $(run_arch_step $(ddmmyy +150))
 
@@ -1716,16 +1664,15 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-
-$(dump_table EVENTS_BILINGUAL order="ev_order, lang")
-
 $(run_arch_step $(ddmmyy +140))
 
-$(dump_table ARX_EVENTS order="ev_order, lang")
+$(set first_date "$(date_format %d.%m.%Y +0) $(date_format %H:%M:%S -4h)")
+$(set last_date "$(date_format %d.%m.%Y +1) $(date_format %H:%M:%S -4h)")
+
+$(db_dump_table ARX_EVENTS)
 
 !! capture=on
-$(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
+$(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
 >>
 <?xml version='1.0' encoding='CP866'?>
 <term>
@@ -2089,13 +2036,271 @@ $(db_dump_table POINTS)
 $(run_arch_step $(ddmmyy +1))
 
 ??
-$(dump_table POINTS display="on")
->> lines=auto
-[NULL] [NULL] [ЮТ] [0] [СОЧ] [0] [NULL] [ТУ5] [1] [NULL] [NULL] [NULL] [100] [NULL] [...] [NULL] [NULL] [...] [0] [0] [1] [0] [NULL] [NULL] [$(yymmdd +1)] [NULL] [NULL] [...] [NULL] [$(yymmdd +1)] [п] $()
-[NULL] [NULL] [NULL] [NULL] [ЛХР] [0] [NULL] [NULL] [NULL] [NULL] [NULL] [...] [NULL] [NULL] [...] [NULL] [NULL] [...] [1] [0] [0] [0] [NULL] [NULL] [NULL] [NULL] [NULL] [...] [000101] [000101] [NULL] $()
+$(check_dump POINTS)
+>>
+[...] [...] [0] [СОЧ] [0] [NULL] [ЮТ] [100] [NULL] [ТУ5] [NULL] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [п] [NULL] [NULL] [NULL] [NULL] [1] [0] [0] [0] [1] [NULL] [...] $()
+[...] [...] [1] [ЛХР] [0] [...] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [01.01.1900] [01.01.1900] [NULL] [NULL] [NULL] [NULL] [NULL] [0] [0] [0] [NULL] [NULL] [NULL] [...] $()
+$()
 
 $(run_arch_step $(ddmmyy +122))
 ??
-$(dump_table POINTS)
+$(check_dump POINTS)
 >>
 $()
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №17
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_general.cc
+###
+#########################################################################################
+
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'ВНК', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'СОЧ', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'РОЩ', id__seq.nextval)")
+
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ЮТ', id__seq.nextval)")
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'СУ', id__seq.nextval)")
+
+$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ЮТ', 'СОЧ', 'ТЕСТ', sysdate-30, null, id__seq.nextval)")
+
+$(login)
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
+$(make_spp $(ddmmyy +20))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +20 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+
+$(run_arch_step $(ddmmyy +150))
+
+$(defmacro RUN_GENERAL_STAT_AK
+    first_date
+    last_date
+    stat_mode
+    stat_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>$(stat_mode)</stat_mode>
+      <stat_type>$(stat_type)</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak>ЮТ</ak>
+      <ap/>
+      <flt_no/>
+      <Seance>АК</Seance>
+      <seance>АК</seance>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+})  #end_of_macro
+
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Договор)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Бизнес приглашения")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ваучеры)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Факт. вылет")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Репринт)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Услуги)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ремарки)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Изменения салона")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №18
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_general.cc
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'ВНК', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'СОЧ', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'РОЩ', id__seq.nextval)")
+
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ЮТ', id__seq.nextval)")
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'СУ', id__seq.nextval)")
+
+$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ЮТ', 'СОЧ', 'ТЕСТ', sysdate-30, null, id__seq.nextval)")
+
+$(login)
+
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
+$(make_spp $(ddmmyy +20))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +20 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+
+$(run_arch_step $(ddmmyy +150))
+
+$(defmacro RUN_GENERAL_STAT_AP
+    first_date
+    last_date
+    stat_mode
+    stat_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>$(stat_mode)</stat_mode>
+      <stat_type>$(stat_type)</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak/>
+      <ap>СОЧ</ap>
+      <flt_no/>
+      <Seance>АП</Seance>
+      <seance>АП</seance>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+})  #end_of_macro
+
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Договор)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Бизнес приглашения")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ваучеры)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Факт. вылет")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Репринт)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Услуги)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ремарки)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Изменения салона")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
+
+%%
+#########################################################################################
+###
+#   Тест №19
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из sopp.cc ReadDests -> arx_internal_ReadDests
+#
+###
+#########################################################################################
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
+$(init_apps ЮТ ГБ APPS_21 closeout=false inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME ЮТ СОЧ ЛХР 100  -1 TU5 $(date_format %d.%m.%Y +0) $(date_format %d.%m.%Y +5))
+
+$(make_spp $(ddmmyy +1))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+
+$(INB_PNL_UT AER LHR 100 $(ddmon +1 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(auto_set_craft $(get point_dep))
+
+$(db_dump_table POINTS)
+
+$(run_arch_step $(ddmmyy +1))
+
+$(READ_DESTS $(get move_id) $(date_format %d.%m.%Y +1))

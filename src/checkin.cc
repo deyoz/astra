@@ -64,6 +64,8 @@
 #include "service_eval.h"
 #include "base_callbacks.h"
 #include "pax_calc_data.h"
+#include "grp_db.h"
+#include "check_grp_unification.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -4042,14 +4044,37 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
 
 static void doCheckGrp(int grp_id)
 {
-    auto cur = make_curs(
-        "BEGIN "
-        "  ckin.check_grp(:grp_id); "
-        "END;");
-    cur.bind(":grp_id", grp_id);
-    cur.exec();
+    checkGroupUnification(GrpId_t(grp_id));
 }
 
+static bool saveCrsPaxRefuse(PaxId_t pax_id, const std::string& client_type)
+{
+  CheckIn::TSimplePaxItem crsPax;
+  const bool crsPaxFound = crsPax.getCrsByPaxId(pax_id);
+  if (not crsPaxFound) {
+    return false;
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", client_type=" << client_type;
+
+  auto cur = make_db_curs(
+        "INSERT INTO crs_pax_refuse( "
+        "pax_id, client_type, time "
+        ") VALUES ( "
+        ":pax_id, :client_type, :time "
+        ") ",
+        PgOra::getRWSession("CRS_PAX_REFUSE"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":client_type", client_type)
+      .bind(":time", DateTimeToBoost(NowUTC()))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
@@ -5393,14 +5418,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
                 {
                   //веб и киоск регистрация
-                  Qry.Clear();
-                  Qry.SQLText=
-                    "INSERT INTO crs_pax_refuse(pax_id, client_type, time) "
-                    "SELECT pax_id, :client_type, SYSTEM.UTCSYSDATE "
-                    "FROM crs_pax WHERE pax_id=:pax_id";
-                  Qry.CreateVariable("pax_id", otInteger, pax.id);
-                  Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
-                  Qry.Execute();
+                  saveCrsPaxRefuse(PaxId_t(pax.id), EncodeClientType(reqInfo->client_type));
                 }
               }
               else
@@ -6012,8 +6030,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               "INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
               "VALUES (:point_id, NULL, :last_flt_change_tid) ";
 
-          DB::TCachedQuery UpdQry(PgOra::getRWSession("UTG_PRL"), UpdSql, QryParams);
-          DB::TCachedQuery InsQry(PgOra::getRWSession("UTG_PRL"), InsSql, QryParams);
+          DB::TCachedQuery UpdQry(PgOra::getRWSession("UTG_PRL"), UpdSql, QryParams, STDLOG);
+          DB::TCachedQuery InsQry(PgOra::getRWSession("UTG_PRL"), InsSql, QryParams, STDLOG);
 
           UpdQry.get().Execute();
           if(UpdQry.get().RowsProcessed() == 0) {
@@ -7238,25 +7256,18 @@ void CheckInInterface::SaveTransfer(int grp_id,
   CheckIn::TTransferList::const_iterator firstTrfer=trfer.begin();
   for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
 
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "BEGIN "
-    "  :rows:=ckin.delete_grp_trfer(:grp_id); "
-    "END;";
-  TrferQry.CreateVariable("rows",otInteger,0);
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.Execute();
+  const bool transfer_deleted = deleteTransfers(GrpId_t(grp_id));
 
   if (firstTrfer==trfer.end()) //ничего не записываем в базу
   {
-    if (TrferQry.GetVariableAsInteger("rows")>0) {
+    if (transfer_deleted) {
         tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_CANCEL";
         return;
     }
     else return;
   }
 
+  TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
     "DECLARE "

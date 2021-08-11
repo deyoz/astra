@@ -18,24 +18,24 @@
 #include "alarms.h"
 #include "xml_unit.h"
 #include "pg_session.h"
+#include "stat/stat_main.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/apps_handler.h"
-#include "arx_daily.h"
 #include "arx_daily_pg.h"
 #include "dbostructures.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
-#include "cache.h"
 #include "PgOraConfig.h"
 #include "cr_lf.h"
+#include "cache.h"
 #include "timer.h"
 #include "stat/stat_departed.h"
 #include "basel_aero.h"
 #include "passenger.h"
 #include "trip_tasks.h"
-#include "stat/stat_main.h"
+#include "hist.h"
 
 #include <queue>
 #include <fstream>
@@ -169,13 +169,13 @@ static void executeRequest(
               pos+=4;
               if (reply.compare(pos, 15, "<!doctype html>")==0)
               {
-                //это html
+                //я┐╜я┐╜я┐╜ html
                 reply = CRLF2LF(reply);
                 reply = UTF8toCP866(reply);
               }
               if (reply.compare(pos, 6, "<?xml ")==0)
               {
-                //это xml
+                //я┐╜я┐╜я┐╜ xml
                 reply = CRLF2LF(reply);
                 reply = UTF8toCP866(reply);
                 reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
@@ -521,12 +521,12 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
                          "FROM pax_grp, pax "
                          "WHERE pax_grp.grp_id=pax.grp_id AND "
                          "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
-                         "ORDER BY pax.pax_id");  //может быть РМ с рег. номером взрослого
+                         "ORDER BY pax.pax_id");  //я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜ рег. я┐╜я┐╜я┐╜я┐╜ром я┐╜я┐╜я┐╜я┐╜слоя┐╜я┐╜
     int pax_id;
     cur.def(pax_id)
        .bind(":point_dep", pointDep)
        .bind(":reg_no", regNo)
-       .exfet(); //может быть РМ с рег. номером взрослого (дублирование regNo)
+       .exfet(); //я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜ рег. я┐╜я┐╜я┐╜я┐╜ром я┐╜я┐╜я┐╜я┐╜слоя┐╜я┐╜ (я┐╜убля┐╜ровя┐╜я┐╜я┐╜я┐╜ regNo)
 
     if(cur.err() == NO_DATA_FOUND) return "";
 
@@ -919,20 +919,6 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
     return "";
 }
 
-void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
-{
-    //LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
-    auto cur = make_curs(
-               "update APPS_MESSAGES "
-               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
-               "where MSG_ID = :msg_id ");
-    cur
-        .bind(":send_attempts", send_attempts)
-        .bind(":send_time", send_time)
-        .bind(":msg_id", msg_id)
-        .exec();
-}
-
 static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 3);
@@ -943,7 +929,7 @@ static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
     Dates::DateTime_t send_time = Dates::second_clock::universal_time() - seconds(send_time_after);
 
     LogTrace(TRACE5) << __FUNCTION__ << " time: " << HelpCpp::string_cast(send_time, "%H%M%S");
-    updateAppsMsg(msg_id, send_time, send_attempts);
+    APPS::updateAppsMsg(msg_id, send_time, send_attempts);
     return "";
 }
 
@@ -1014,25 +1000,16 @@ static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
     return "";
 }
 
-static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
-{
-    std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
-    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = dbo::Session(dbo::Postgres).query<dbo::ARX_AGENT_STAT>();
-    ASSERT(ora_arx_agents_stat == pg_arx_agents_stats);
-    return "";
-}
 
-static std::string FP_tables_equal(const std::vector<tok::Param>& params)
+static std::string FP_check_dump(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
     std::string tableName = params[0].value;
-    std::string connect, fields, where, order;
+    std::string fields, where, order;
     bool display = false;
 
     for (size_t i = 1; i < params.size(); ++i) {
-        if (params[i].name == "connect") {
-            connect = params[i].value;
-        } else if (params[i].name == "fields") {
+        if (params[i].name == "fields") {
             fields = params[i].value;
         } else if (params[i].name == "where") {
             where = params[i].value;
@@ -1051,23 +1028,16 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
     if(!order.empty()) {
         resultQuery += " order by " + order;
     }
-    dbo::Session session;
-    std::string postgresDump = session.dump("pg", tableName, {}, resultQuery);
-    std::string oracleDump =  session.dump("ora", tableName, {}, resultQuery);
-//    LogTrace(TRACE5) << __FUNCTION__ << " :" << postgresDump;
-//    LogTrace(TRACE5) << __FUNCTION__ << " :" << oracleDump;
-    if(oracleDump != postgresDump) {
-        ProgTrace(TRACE5,"tables %s are not equal",tableName.c_str());
-    }
-    ASSERT(oracleDump == postgresDump);
-    return "";
+    return dbo::Session().dump(tableName, {}, resultQuery);
 }
+
 
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
     std::string alarm;
-    auto cur = make_curs(
-"select ALARM_TYPE from "+table_name+" where PAX_ID=:pax_id");
+    auto cur = make_db_curs(
+          "select ALARM_TYPE from "+table_name+" where PAX_ID=:pax_id",
+          PgOra::getROSession(table_name));
     cur.def(alarm)
        .bind(":pax_id",pax_id)
        .exec();
@@ -1153,7 +1123,7 @@ static std::string FP_descTest(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     std::cout << "Test #" << par.at(0) << std::endl;
     return "";
-}          
+}
 
 static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
 {
@@ -1194,7 +1164,6 @@ static std::string FP_runArchStep(const std::vector<std::string>& par)
     //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
 
     PG_ARX::test_arx_daily(date, step);
-    test_arx_daily(BoostToDateTime(date), step);
 
     return "";
 }
@@ -1204,7 +1173,6 @@ static std::string FP_runArch(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
     bool resultPg = PG_ARX::arx_daily(date);
-    bool result = arx_daily(BoostToDateTime(date));
     return "";
 }
 
@@ -1213,6 +1181,20 @@ static std::string FP_collectFlightStat(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     PointId_t point_id(std::stoi(par.at(0)));
     get_flight_stat(point_id.get(), true);
+    return "";
+}
+
+static std::string FP_db_sql(const std::vector<std::string> &args)
+{
+    assert(args.size() > 1);
+
+    std::string tableName = args.at(0);
+
+    std::string sqlStr;
+    for (size_t i = 1; i < args.size(); ++i)
+      sqlStr += args.at(i);
+
+    make_db_curs(sqlStr, PgOra::getRWSession(tableName)).exec();
     return "";
 }
 
@@ -1258,6 +1240,24 @@ static std::string FP_getCacheIfaceVer(const std::vector<std::string> &par)
 static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
 {
   return CacheTableTermRequest::getSQLParamXml(par);
+}
+
+static std::string FP_lastHistoryRowId(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 1);
+
+  int idx=0;
+  if (par.size() > 1) idx=std::stoi(par.at(1));
+
+  ASSERT(idx<=0);
+
+  idx=-idx;
+
+  vector<RowId_t> rowIds=HistoryTable(par.at(0)).getLastEventRowIds();
+
+  if (idx<rowIds.size()) return std::to_string(rowIds.at(idx).get());
+
+  return "";
 }
 
 static std::string FP_runEtFltTask(const std::vector<std::string> &par)
@@ -1407,14 +1407,14 @@ FP_REGISTER("run_arch_step", FP_runArchStep);
 FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("db_dump_table", FP_dump_table_astra);
 // FP_REGISTER("dump_db_table", FP_dump_db_table);
-FP_REGISTER("are_tables_equal", FP_tables_equal);
-FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
+FP_REGISTER("db_sql", FP_db_sql);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
+FP_REGISTER("last_history_row_id", FP_lastHistoryRowId);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 FP_REGISTER("clean_old_records", FP_cleanOldRecords);
 FP_REGISTER("last_tlg_id", FP_lastTlgId);
@@ -1422,6 +1422,7 @@ FP_REGISTER("last_tlg_num", FP_lastTlgNum);
 FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
 FP_REGISTER("nosir_departed_flt", FP_departedFlt);
 FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
+FP_REGISTER("check_dump", FP_check_dump);
 
 #include "xp_testing.h"
 

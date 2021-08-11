@@ -129,14 +129,16 @@ std::set<PnrId_t> loadPnrIdSet(const PointIdTlg_t& point_id, const std::string& 
   return result;
 }
 
-
 namespace {
 
-bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id)
+
+bool deleteByPaxId(const std::string& table_name, const PaxId_t& pax_id, STDLOG_SIGNATURE)
 {
   LogTrace(TRACE6) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
+                   << ": table_name=" << table_name
+                   << ", pax_id=" << pax_id
+                   << ", called from " << file << ":" << line;
+  auto cur = DbCpp::make_curs_(STDLOG_VARIABLE,
         "DELETE FROM " + table_name + " "
         "WHERE pax_id=:pax_id ",
         PgOra::getRWSession(table_name));
@@ -196,82 +198,100 @@ bool deleteByPointId(const std::string& table_name, const PointIdTlg_t& point_id
 
 bool deleteCrsSeatsBlocking(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_SEATS_BLOCKING", pax_id);
+  return deleteByPaxId("CRS_SEATS_BLOCKING", pax_id, STDLOG);
 }
 
 bool deleteCrsInf(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_INF", pax_id);
+  return deleteByPaxId("CRS_INF", pax_id, STDLOG);
 }
 
 bool deleteCrsInfDeleted(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_INF_DELETED", pax_id);
+  return deleteByPaxId("CRS_INF_DELETED", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxRem(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_REM", pax_id);
+  return deleteByPaxId("CRS_PAX_REM", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoc(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOC", pax_id);
+  return deleteByPaxId("CRS_PAX_DOC", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoco(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOCO", pax_id);
+  return deleteByPaxId("CRS_PAX_DOCO", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoca(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOCA", pax_id);
+  return deleteByPaxId("CRS_PAX_DOCA", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxTkn(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_TKN", pax_id);
+  return deleteByPaxId("CRS_PAX_TKN", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxFqt(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_FQT", pax_id);
+  return deleteByPaxId("CRS_PAX_FQT", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxChkd(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_CHKD", pax_id);
+  return deleteByPaxId("CRS_PAX_CHKD", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxAsvc(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_ASVC", pax_id);
+  return deleteByPaxId("CRS_PAX_ASVC", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxRefuse(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_REFUSE", pax_id);
+  return deleteByPaxId("CRS_PAX_REFUSE", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxAlarms(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_ALARMS", pax_id);
+  return deleteByPaxId("CRS_PAX_ALARMS", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxContext(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_CONTEXT", pax_id);
+  return deleteByPaxId("CRS_PAX_CONTEXT", pax_id, STDLOG);
+}
+
+bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "DELETE FROM CRS_PAX_CONTEXT "
+        "WHERE pax_id=:pax_id ",
+        PgOra::getRWSession("CRS_PAX_CONTEXT"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":key", key)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
 }
 
 bool deleteDcsBag(PaxId_t pax_id)
 {
-  return deleteByPaxId("DCS_BAG", pax_id);
+  return deleteByPaxId("DCS_BAG", pax_id, STDLOG);
 }
 
 bool deleteDcsTags(PaxId_t pax_id)
 {
-  return deleteByPaxId("DCS_TAGS", pax_id);
+  return deleteByPaxId("DCS_TAGS", pax_id, STDLOG);
 }
 
 bool deleteTripCompLayers(PaxId_t pax_id)
@@ -377,6 +397,23 @@ bool deletePaxCalcData(PaxId_t pax_id)
   return cur.rowcount() > 0;
 }
 
+bool deleteCrsDataStat(PointIdTlg_t point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "DELETE FROM crs_data_stat "
+        "WHERE point_id=:point_id ",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 bool deletePnrAddrs(const PnrId_t& pnr_id)
 {
   return deleteByPnrId("PNR_ADDRS", pnr_id);
@@ -423,8 +460,8 @@ bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system,
                      bool delete_trip_comp_layers)
 {
   int result = 0;
-  const std::set<PaxId_t> paxIdSet = loadPaxIdSet(point_id, system, sender);
-  for (PaxId_t pax_id: paxIdSet) {
+  const std::set<PaxId_t> pax_id_set = loadPaxIdSet(point_id, system, sender);
+  for (const PaxId_t& pax_id: pax_id_set) {
       result += deleteCrsSeatsBlocking(pax_id) ? 1 : 0;
       result += deleteCrsInf(pax_id) ? 1 : 0;
       result += deleteCrsInfDeleted(pax_id) ? 1 : 0;

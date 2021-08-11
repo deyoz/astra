@@ -246,11 +246,6 @@ public:
     template<typename C>
     void init();
     std::string columnsStr(const std::string &table = "") const;
-    inline size_t columnsCount() const
-    {
-        return m_fields.size();
-    }
-    std::string stringColumns(const std::vector<std::string> &m_fields = {}) const;
     std::string insertColumns() const;
     const std::type_info& getType() const
     {
@@ -262,13 +257,17 @@ public:
     const std::string tableName() const {
         return m_tableName;
     }
+    std::vector<std::string> columns() const;
+    const std::vector<FieldInfo>& fields() const
+    {
+        return m_fields;
+    }
 private:
     const std::type_info& m_type;
     std::string m_tableName;
     std::vector<FieldInfo> m_fields;
     bool m_initialized = false;
 
-    std::vector<std::string> columns() const;
 };
 
 class DefineClass
@@ -376,7 +375,7 @@ public:
         short null = -1, nnull = 0;
         for(const auto & [name, value] : bindedVars) {
             std::visit([&](const auto &v) {
-                cur_.bind(str_tolower(name), v, isNotNull(v) ? &nnull : &null);
+                cur_.bind(name, v, isNotNull(v) ? &nnull : &null);
             }, value);
         }
         return *this;
@@ -546,8 +545,7 @@ public:
         cur.bindAll(obj).exec();
     }
 
-    std::string dump(const std::string& db, const std::string& tableName,
-                     const std::vector<std::string>& tokens, const std::string& query);
+    std::string dump(const std::string& tableName, const std::vector<std::string>& tokens, const std::string& query);
 
     template <class Result>
     Query<Result> query(std::string selectQuery = "")

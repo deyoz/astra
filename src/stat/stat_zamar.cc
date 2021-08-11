@@ -85,7 +85,7 @@ void ArxRunZamarStat(
     SQLText += "   arx_stat_zamar.part_key >= :FirstDate AND arx_stat_zamar.part_key < :LastDate and \n"
                "   arx_stat_zamar.time >= :FirstDate AND arx_stat_zamar.time < :LastDate and "
                "   arx_stat_zamar.sbdo_type = :sbdo_type ";
-    DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_ZAMAR"), SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_ZAMAR"), SQLText, QryParams, STDLOG);
 
     Qry.get().Execute();
     if(not Qry.get().Eof) {

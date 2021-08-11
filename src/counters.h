@@ -97,8 +97,8 @@ class TCrsCountersKey
              cl==key.cl;
     }
 
-    const TCrsCountersKey& toDB(TQuery &Qry) const;
-    TCrsCountersKey& fromDB(TQuery &Qry);
+    const TCrsCountersKey& toDB(DB::TQuery &Qry) const;
+    TCrsCountersKey& fromDB(DB::TQuery &Qry);
 };
 
 class TCountersKey
@@ -126,8 +126,8 @@ class TCountersKey
       return cl<key.cl;
     }
 
-    const TCountersKey& toDB(TQuery &Qry) const;
-    TCountersKey& fromDB(TQuery &Qry);
+    const TCountersKey& toDB(DB::TQuery &Qry) const;
+    TCountersKey& fromDB(DB::TQuery &Qry);
 };
 
 class TCrsCountersData
@@ -149,8 +149,8 @@ class TCrsCountersData
              ok==data.ok;
     }
 
-    const TCrsCountersData& toDB(TQuery &Qry) const;
-    TCrsCountersData& fromDB(TQuery &Qry);
+    const TCrsCountersData& toDB(DB::TQuery &Qry) const;
+    TCrsCountersData& fromDB(DB::TQuery &Qry);
 };
 
 class TRegCountersData
@@ -186,26 +186,29 @@ class TRegCountersData
       return operator ==(TRegCountersData());
     }
 
-    const TRegCountersData& toDB(TQuery &Qry) const;
-    TRegCountersData& fromDB(TQuery &Qry);
+    const TRegCountersData& toDB(DB::TQuery &Qry) const;
+    TRegCountersData& fromDB(DB::TQuery &Qry);
 };
+
+std::optional<CrsPriority_t> getCrsPriority(const CrsSender_t& sender,
+                                            const AirlineCode_t& airline,
+                                            int flt_no,
+                                            const AirportCode_t& airp_dep);
 
 class TCrsCountersMap : public std::map<TCrsCountersKey, TCrsCountersData>
 {
   public:
-    TCrsCountersMap(const TAdvTripInfo &flt) : _flt(flt) {}
+    TCrsCountersMap() {}
 
-    boost::optional<int> getMaxCrsPriority() const;
+    std::optional<CrsPriority_t> getMaxCrsPriority(const TAdvTripInfo& flt) const;
 
-    void loadCrsDataOnly();
-    void loadSummary();
-    void loadCrsCountersOnly();
+    void loadCrsDataOnly(const TAdvTripInfo& flt);
+    void loadTripDataOnly(const PointId_t& point_id, bool need_clear = true);
+    void loadCrsCountersOnly(const PointId_t& point_id, bool need_clear = true);
+    void loadSummary(const PointId_t& point_id);
     void saveCrsCountersOnly(const PointId_t& point_id) const;
 
     static void deleteCrsCountersOnly(const PointId_t& point_id);
-
-  private:
-    TAdvTripInfo _flt;
 };
 
 class TCrsFieldsMap : public std::map<TCountersKey, TCrsCountersData>
@@ -310,5 +313,28 @@ class Points : public std::map<Point, Intervals>
 
 } //namespace Timing
 
+struct CrsDataKey
+{
+  CrsSender_t sender;
+  AirportCode_t airp_arv;
+  Class_t cls;
+};
 
+struct CrsDataValue
+{
+  int tranzit;
+  int resa;
+  int cfg;
+};
 
+typedef std::pair<CrsDataKey, CrsDataValue> CrsData;
+
+std::vector<CrsData> loadCrsData(const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                 const std::string& system,
+                                 const std::optional<std::string>& by_airp_arv,
+                                 const std::optional<std::string>& except_airp_arv,
+                                 bool skipNullSums);
+
+void sum_nullable(int& sum, int value);
+
+int get_crs_ok(const PointId_t& point_id);

@@ -2988,6 +2988,68 @@ struct ARX_PAY_SERVICES : public PAY_SERVICES
     }
 };
 
+struct BASEL_STAT
+{
+    std::string airp;
+    int pax_id 	;
+    int point_id;
+    Dates::DateTime_t time_create;
+    std::string viewbagnorms;
+    Dates::DateTime_t viewboardingtime;
+    int viewcarryon;
+    Dates::DateTime_t viewcheckinduration;
+    int viewcheckinno;
+    Dates::DateTime_t viewcheckintime;
+    std::string viewclass;
+    std::string viewclienttype;
+    Dates::DateTime_t viewdate;
+    Dates::DateTime_t viewdepartureplantime;
+    Dates::DateTime_t viewdeparturerealtime;
+    std::string viewflight;
+    int viewgroup;
+    std::string viewname;
+    int viewpayweight;
+    int viewpct;
+    std::string viewpctweightpaidbytype;
+    std::string viewstation;
+    std::string viewstatus;
+    std::string viewtag;
+    std::string viewuncheckin;
+    int viewweight;
+
+    template<typename Action>
+    void persist(Action & a) {
+        dbo::field(a,airp,"airp", dbo::NotNull);
+        dbo::field(a,pax_id,"pax_id");
+        dbo::field(a,point_id,"point_id", dbo::NotNull);
+        dbo::field(a,time_create,"time_create", dbo::NotNull);
+        dbo::field(a,viewbagnorms,"viewbagnorms");
+        dbo::field(a,viewboardingtime,"viewboardingtime");
+        dbo::field(a,viewcarryon,"viewcarryon");
+        dbo::field(a,viewcheckinduration,"viewcheckinduration");
+        dbo::field(a,viewcheckinno,"viewcheckinno");
+        dbo::field(a,viewcheckintime,"viewcheckintime");
+        dbo::field(a,viewclass,"viewclass");
+        dbo::field(a,viewclienttype,"viewclienttype");
+        dbo::field(a,viewdate,"viewdate");
+        dbo::field(a,viewdepartureplantime,"viewdepartureplantime");
+        dbo::field(a,viewdeparturerealtime,"viewdeparturerealtime");
+        dbo::field(a,viewflight,"viewflight");
+        dbo::field(a,viewgroup,"viewgroup");
+        dbo::field(a,viewname,"viewname");
+        dbo::field(a,viewpayweight,"viewpayweight");
+        dbo::field(a,viewpct,"viewpct");
+        dbo::field(a,viewpctweightpaidbytype,"viewpctweightpaidbytype");
+        dbo::field(a,viewstation,"viewstation");
+        dbo::field(a,viewstatus,"viewstatus");
+        dbo::field(a,viewtag, "viewtag");
+        dbo::field(a,viewuncheckin, "viewuncheckin");
+        dbo::field(a,viewweight,"viewweight");
+    }
+};
+
+
+
 }   //end namespace dbo
 
 

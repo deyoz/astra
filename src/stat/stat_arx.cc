@@ -131,18 +131,13 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
           int pr_lat =  TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
           std::string seat_no = Qry.FieldAsString(col_seat_no);
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
-          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key, grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key, grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,  grp_id, pax_id, bag_pool_num).value_or(0));
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc),
-            TBagKilos(PG_ARX::get_excess_wt(b_part_key, grp_id, pax_id, excess_wt,
-                                            excess, bag_refuse).value_or(0)));
-          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, pax_id,
-                                                           bag_pool_num, pr_lat).value_or(""));
+          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc), TBagKilos(PG_ARX::get_excess_wt(
+                             b_part_key, grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, pax_id, bag_pool_num, pr_lat).value_or(""));
           NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
       } else {
           int col_bag_amount = Qry.FieldIndex("bag_amount");
@@ -161,15 +156,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
                                                 TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-
-//          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-//          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-//          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-
-//          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-//                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
-//          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-//          NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
       }
 
       NewTextChild(paxNode, "grp_id", grp_id);
@@ -307,7 +293,6 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
 
-
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
@@ -321,7 +306,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
             throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
     }
     {
-        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
         Qry.SQLText =
             "select airline from arx_points "
             "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
@@ -348,7 +333,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     TPerfTimer tm;
     tm.Init();
     xmlNodePtr rowsNode = NULL;
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     Qry.SQLText = SQLQuery;
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -400,7 +385,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
             string screen = Qry.FieldAsString(col_screen);
             if(screen.size()) {
                 if(screen_map.find(screen) == screen_map.end()) {
-                    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+                    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
                     Qry.SQLText = "select name from screen where exe = :exe";
                     Qry.CreateVariable("exe", otString, screen);
                     Qry.Execute();
@@ -558,7 +543,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал операций рейса"));
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
@@ -572,7 +557,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         if(ARX_EVENTS_DISABLED()) {
             throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         }
-        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
         Qry.SQLText =
             "select move_id, airline from arx_points "
             "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
@@ -617,7 +602,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tm.Init();
     xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
-        Qry.Clear();
+        Qry.ClearParams();
         if(i == 0) {
             Qry.SQLText = qry1;
             Qry.CreateVariable("point_id", otInteger, point_id);
@@ -684,7 +669,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
                 string screen = Qry.FieldAsString(col_screen);
                 if(screen.size()) {
                     if(screen_map.find(screen) == screen_map.end()) {
-                        DB::TQuery Qry(PgOra::getROSession("SCREEN"));
+                        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
                         Qry.SQLText = "select name from screen where exe = :exe";
                         Qry.CreateVariable("exe", otString, screen);
                         Qry.Execute();
@@ -891,7 +876,7 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // Для совместимости со старой версией терминала
-    DB::TQuery AirlineQry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery AirlineQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
 
     if(ARX_EVENTS_DISABLED())
@@ -899,7 +884,7 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
     AirlineQry.CreateVariable("part_key", otDate, part_key);
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     Qry.SQLText =
         "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
         "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num "
@@ -1124,7 +1109,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
@@ -1258,7 +1243,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
             if(!Qry.FieldIsNULL(col_point_id)) {
                 int point_id = Qry.FieldAsInteger(col_point_id);
                 if(TripItems.find(point_id) == TripItems.end()) {
-                    DB::TQuery tripQry(PgOra::getROSession("ARX_POINTS"));
+                    DB::TQuery tripQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
                     string SQLText =
                         "select " + TTripInfo::selectedFields() +
                         " from arx_points "
@@ -1605,23 +1590,18 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
           int bag_refuse = Qry.FieldAsInteger("bag_refuse");
           int pr_lat = TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
-                  TBagKilos(PG_ARX::get_excess_wt(b_part_key,
-                            grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
-          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key,
-                                            grp_id, std::nullopt, 0, pr_lat).value_or(""));
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key, grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key, grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,  grp_id, std::nullopt, 0).value_or(0));
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)), TBagKilos(PG_ARX::get_excess_wt(
+                              b_part_key,grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, std::nullopt, 0, pr_lat).value_or(""));
       } else {
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
+
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")), TBagKilos(Qry.FieldAsInteger("excess_wt")));
           NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
       }
       NewTextChild(paxNode, "grp_id", grp_id);
@@ -1657,9 +1637,8 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
-    string SQLText;
-    SQLText =
+    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
+    string sql_text =
         "SELECT "
         "   arx_points.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
@@ -1694,19 +1673,19 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     TReqInfo &info = *(TReqInfo::Instance());
     if (!info.user.access.airps().elems().empty()) {
         if (info.user.access.airps().elems_permit())
-            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
+            sql_text += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
         else
-            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
+            sql_text += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
     }
     if (!info.user.access.airlines().elems().empty()) {
         if (info.user.access.airlines().elems_permit())
-            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
+            sql_text += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
         else
-            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
+            sql_text += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
     }
     Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
 
-    Qry.SQLText = SQLText;
+    Qry.SQLText = sql_text;
     Qry.CreateVariable("point_id", otInteger, point_id);
     //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
 
@@ -1722,14 +1701,18 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
     //несопровождаемый багаж
-    Qry.SQLText=
+    DB::TQuery QryUnac(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
+    std::string SQLText=
         "SELECT "
         "  arx_pax_grp.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
         "  arx_pax_grp.airp_arv, "
         "  arx_pax_grp.excess_pc, "
         "  arx_pax_grp.grp_id, "
-        "  arx_pax_grp.hall "
+        "  arx_pax_grp.hall, "
+        "  arx_pax_grp.excess_wt, "
+        "  arx_pax_grp.excess, "
+        "  arx_pax_grp.bag_refuse "
         "FROM arx_pax_grp, arx_points "
         "WHERE point_dep=:point_id AND class IS NULL and "
         "   arx_pax_grp.status NOT IN ('E') AND "
@@ -1748,9 +1731,12 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
         else
             SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
     }
-    Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
-    Qry.Execute();
-    UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, true);
+    QryUnac.CreateVariable("point_id", otInteger, point_id);
+    QryUnac.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
+    QryUnac.SQLText = SQLText;
+    QryUnac.Execute();
+    LogTrace5 << " Qry SQL TEXT: " << QryUnac.SQLText;
+    UnaccompListToXML(QryUnac, resNode, excessNodeList, false, 0, count, true);
 
     xmlNodePtr paxListNode = GetNode("paxList", resNode);
     if(paxListNode!=NULL) { // для совместимости со старой версией терминала
@@ -1929,7 +1915,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
-        DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+        DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
         string SQLText;
         if(part_key == NoExists)  {
             SQLText =
@@ -2084,7 +2070,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     //Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -2160,28 +2146,32 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
         };
         sql << "WHERE \n";
         if (pass==1) {
-          sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key <:arx_trip_date_range AND \n";
+          sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key <:arx_trip_date_range \n";
         }
         if (pass==2) {
-          sql << " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
+          sql << " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id \n";
         }
-        sql << " arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
-               " arx_points.part_key = arx_pax_grp.part_key AND \n"
-               " arx_points.point_id = arx_pax_grp.point_dep AND \n"
-               " arx_pax_grp.part_key= arx_pax.part_key AND \n"
-               " arx_pax_grp.grp_id  = arx_pax.grp_id AND \n"
-               " arx_points.pr_del>=0 \n";
+        sql << " AND arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate \n"
+               " AND arx_points.part_key = arx_pax_grp.part_key \n"
+               " AND arx_points.point_id = arx_pax_grp.point_dep \n"
+               " AND arx_pax_grp.part_key= arx_pax.part_key \n"
+               " AND arx_pax_grp.grp_id  = arx_pax.grp_id \n"
+               " AND arx_points.pr_del>=0 \n"
+               " AND arx_pax_grp.part_key >= :FirstDate AND arx_pax_grp.part_key <:arx_trip_date_range \n"
+               " AND arx_pax.part_key >= :FirstDate AND arx_pax.part_key <:arx_trip_date_range \n";
         if(!document.empty())
         {
           sql << " AND arx_pax.part_key = arx_pax_doc.part_key \n"
                  " AND arx_pax.pax_id   = arx_pax_doc.pax_id \n"
-                 " AND arx_pax_doc.no like '%'||:document||'%' \n";
+                 " AND arx_pax_doc.no like '%'||:document||'%' \n"
+                 " AND arx_pax_doc.part_key >= :FirstDate AND arx_pax_doc.part_key <:arx_trip_date_range \n";
         };
         if(!tag_no.empty())
         {
           sql << " AND arx_pax_grp.part_key = arx_bag_tags.part_key \n"
                  " AND arx_pax_grp.grp_id = arx_bag_tags.grp_id \n"
-                 " AND arx_bag_tags.no like '%'||:tag_no \n";
+                 " AND CAST(arx_bag_tags.no AS VARCHAR) like '%'||:tag_no \n"
+                 " AND arx_bag_tags.part_key >= :FirstDate AND arx_bag_tags.part_key <:arx_trip_date_range \n";
         };
 
         fillSqlSrcRunQuery(sql, info, airline, city, surname, flt_no, ticket_no,
@@ -2190,6 +2180,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
 
         //ProgTrace(TRACE5, "PaxSrcRun: pass=%d SQL=\n%s", pass, sql.str().c_str());
         Qry.SQLText = sql.str().c_str();
+        LogTrace5 << __func__ << "SQL TEXT: " << Qry.SQLText;
         try {
             tm.Init();
             Qry.Execute();
@@ -2221,12 +2212,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
     params.insert( make_pair("lang", TReqInfo::Instance()->desk.lang) );
-    
+
     xmlNodePtr paramNode = reqNode->children;
     string airline = NodeAsStringFast("airline", paramNode, "");
     if(!airline.empty()) {

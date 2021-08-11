@@ -29,19 +29,26 @@ namespace PgOra
     static const GroupsType sGroups {
         { "SP_PG_GROUP_JXTCONT", {"CONT"} },
         { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES", "FILE_PARAMS"} },
+        { "SP_PG_CONVERT_TABS", {"CONVERT_AIRLINES", "CONVERT_AIRPS", "CONVERT_CRAFTS", "CONVERT_LITERS"} },
+        { "SP_PG_GROUP_FILE2", {"FILE_SETS"} },
         { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_TYPES"} },
+        { "SP_PG_GROUP_PP_TRIP_TASK", {"POSTPONED_TRIP_TASK"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
-        { "SP_PG_GROUP_APPS",  { "APPS_MESSAGES", "APPS_PAX_DATA", "APPS_MANIFEST_DATA"}},
+        { "SP_PG_GROUP_APPS",  { "APPS_MESSAGES", "APPS_PAX_DATA", "APPS_MANIFEST_DATA", "APPS_MSG_ID__SEQ"}},
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
         { "SP_PG_GROUP_ET",    { "ETICKETS", "ETICKS_DISPLAY", "ETICKS_DISPLAY_TLGS" } },
         { "SP_PG_GROUP_EMD",   { "EMDOCS", "EMDOCS_DISPLAY" } },
         { "SP_PG_GROUP_CRS_SVC",{ "CRS_PAX_ASVC", "CRS_PAX_REM" } },
         { "SP_PG_GROUP_CRS_DOC",{ "CRS_PAX_DOC", "CRS_PAX_DOCA", "CRS_PAX_DOCO" } },
+        { "SP_PG_GROUP_PAX_ALARMS",{ "PAX_ALARMS", "CRS_PAX_ALARMS" } },
+        { "SP_PG_GROUP_CRS_PAX_1", { "CRS_PAX_FQT", "CRS_PAX_REFUSE", "CRS_PAX_CONTEXT" } },
+        { "SP_PG_GROUP_CRS_DATA", { "CRS_DATA", "CRS_DATA_STAT", "CRS_COUNTERS", "TRIP_DATA" } },
+        { "SP_PG_GROUP_DCS_BAG", { "DCS_BAG", "DCS_TAGS" } },
+        { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
-        { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
         { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
         { "SP_PG_GROUP_ARX", {"ARX_AGENT_STAT"    , "ARX_BAG_RATES"      , "ARX_GRP_NORMS"  , "ARX_PAX_DOC"         , "ARX_RFISC_STAT"    , "ARX_STAT"            , "ARX_TRANSFER_SUBCLS"   ,
@@ -51,7 +58,22 @@ namespace PgOra
                               "ARX_BAG_NORMS"     , "ARX_CRS_DISPLACE2"  , "ARX_PAID_BAG"   , "ARX_PAX"             , "ARX_STAT_REM"      , "ARX_TLG_OUT"         , "ARX_TRIP_DELAYS"       ,
                               "ARX_BAG_PAY_TYPES" , "ARX_EVENTS"         , "ARX_PAX_DOCA"   , "ARX_PFS_STAT"        , "ARX_STAT_REPRINT"  , "ARX_TLG_STAT"        , "ARX_TRIP_LOAD"         ,
                               "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
-                              "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" }}
+                              "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" } },
+        { "SP_PG_GROUP_HTML", { "HTML_PAGES", "HTML_PAGES_TEXT" } },
+        { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
+        { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
+        { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
+        { "SP_PG_GROUP_COMP", {
+            "COMPARE_COMP_LAYERS",
+            "COMP_LAYER_TYPES",
+            "COMP_LAYER_PRIORITIES",
+            "COMPART_DESC_TYPES",
+            "COMPART_DESC_SETS",
+            "COMP_LAYER_RULES",
+            "COMP_TARIFF_COLORS",
+            "COMP_ELEM_TYPES"} },
+        { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES"   , "CRYPT_REQ_DATA"     , "CRYPT_SERVER"   , "CRYPT_SETS",
+                                 "CRYPT_TERM_CERT"  , "CRYPT_TERM_REQ", "HIST_CRYPT_REQ_DATA", "HIST_CRYPT_SETS" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -147,6 +169,66 @@ namespace PgOra
         return *get_main_ora_sess(STDLOG);
     }
 
+    bool areROSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getROSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getROSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool areRWSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getRWSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getRWSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool areAutoSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getAutoSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getAutoSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areROSessionsEqual(objectList));
+        return getROSession(objectList.front());
+    }
+
+    DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areRWSessionsEqual(objectList));
+        return getRWSession(objectList.front());
+    }
+
+    DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areAutoSessionsEqual(objectList));
+        return getAutoSession(objectList.front());
+    }
+
     std::string makeSeqNextVal(const std::string& sequenceName)
     {
         if (supportsPg(sequenceName)) {
@@ -207,7 +289,7 @@ namespace PgOra
 
     int getSeqCurrVal_int(const std::string& sequenceName)
     {
-        return getSeqNextValInner<int>(sequenceName);
+        return getSeqCurrValInner<int>(sequenceName);
     }
 
     unsigned long getSeqCurrVal_ul(const std::string& sequenceName)
@@ -216,3 +298,31 @@ namespace PgOra
     }
 
 } // namespace PgOra
+
+#include "stdio.h"
+#include <serverlib/cursctl.h>
+
+static int count_ora_tabs()
+{
+    int cnt=0;
+    auto cur = make_curs("select count(*) from user_tables");
+    cur.def(cnt).EXfet();
+    return cnt;
+}
+
+int print_pg_tables(int argc, char **argv)
+{
+    int tab_cnt = 0;
+    std::vector<std::string> tabs;
+    for(const auto &gr: PgOra::sGroups) {
+        for(const auto &tab: gr.second) {
+            tabs.push_back(tab);
+            tab_cnt ++;
+        }
+    }
+    const auto tab_ora_count = count_ora_tabs();
+    std::cout << "total tabs in pg: " << tab_cnt
+              << ", total in ora: " << tab_ora_count
+              << " " << ((1.0 * tab_cnt)/tab_ora_count)*100 << "% moved." << std::endl;
+    return 0;
+}

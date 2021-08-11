@@ -6,15 +6,15 @@
 #include "date_time.h"
 #include "astra_context.h"
 #include "flt_settings.h"
+#include "PgOraConfig.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_results.h"
 #include "tlg/request_params.h"
-#include "PgOraConfig.h"
+
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/internal_msgid.h>
 #include <serverlib/ehelpsig.h>
 #include <serverlib/posthooks.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/testmode.h>
@@ -22,9 +22,6 @@
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
 #include <edilib/edilib_db_callbacks.h>
-#include "db_tquery.h"
-
-#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -739,25 +736,28 @@ void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
 {
     ASSERT(reqCtxtId != ASTRA::NoExists);
     LogTrace(TRACE1) << __FUNCTION__ << " ctxt_id=" << reqCtxtId << "; msg_id=" << tnum;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "
-"values (:msg_id, :req_ctxt_id)");
+"values (:msg_id, :req_ctxt_id)",
+                PgOra::getRWSession("POSTPONED_TLG_CONTEXT"));
 
-    cur.bind(":msg_id",      tnum.num)
-       .bind(":req_ctxt_id", reqCtxtId)
-       .exec();
+    cur
+            .bind(":msg_id",      tnum.num.get())
+            .bind(":req_ctxt_id", reqCtxtId)
+            .exec();
 }
 
 int ReadPostponedContext(tlgnum_t tnum, bool clear)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select REQ_CTXT_ID from POSTPONED_TLG_CONTEXT "
-"where MSG_ID=:msg_id");
+    auto cur = make_db_curs(
+"select REQ_CTXT_ID from POSTPONED_TLG_CONTEXT where MSG_ID = :msg_id",
+                PgOra::getROSession("POSTPONED_TLG_CONTEXT"));
 
     int reqCtxtId = 0;
-    cur.bind(":msg_id", tnum.num)
-       .def(reqCtxtId)
-       .exfet();
+    cur
+            .def(reqCtxtId)
+            .bind(":msg_id", tnum.num.get())
+            .exfet();
 
     if(clear) {
         ClearPostponedContext(tnum);
@@ -768,12 +768,12 @@ int ReadPostponedContext(tlgnum_t tnum, bool clear)
 
 void ClearPostponedContext(tlgnum_t tnum)
 {
-    LogTrace(TRACE1) << __FUNCTION__ << ". msg_id=" << tnum;
-    make_curs(
-"delete from POSTPONED_TLG_CONTEXT "
-"where MSG_ID=:msg_id")
-       .bind(":msg_id", tnum.num)
-       .exec();
+    LogTrace(TRACE1) << __FUNCTION__ << " msg_id=" << tnum;
+    make_db_curs(
+"delete from POSTPONED_TLG_CONTEXT where MSG_ID = :msg_id",
+                PgOra::getRWSession("POSTPONED_TLG_CONTEXT"))
+            .bind(":msg_id", tnum.num.get())
+            .exec();
 }
 
 void TOriginCtxt::toXML(xmlNodePtr node)

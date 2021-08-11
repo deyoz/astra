@@ -911,8 +911,7 @@ void collectStatTask(const TTripTaskKey &task)
     get_flight_stat(task.point_id, false);
   }
   catch(const EOracleError &E) {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-    ProgError(STDLOG,"SQL: %s",E.SQLText());
+    E.showProgError();
   }
   catch(std::exception &E)
   {

@@ -65,18 +65,6 @@ FUNCTION get_excess_pc(vgrp_id         IN pax.grp_id%TYPE,
                        vpax_id         IN pax.pax_id%TYPE,
                        include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER;
 
-FUNCTION get_crs_priority(vcrs           IN crs_set.crs%TYPE,
-                          vairline       IN crs_set.airline%TYPE,
-                          vflt_no        IN crs_set.flt_no%TYPE,
-                          vairp_dep      IN crs_set.airp_dep%TYPE) RETURN NUMBER;
-PRAGMA RESTRICT_REFERENCES (get_crs_priority, WNDS, WNPS, RNPS);
-
-FUNCTION get_crs_ok(vpoint_id	IN points.point_id%TYPE) RETURN NUMBER;
-
-FUNCTION delete_grp_trfer(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
-FUNCTION delete_grp_tckin_segs(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
-PROCEDURE check_grp(vgrp_id     pax_grp.grp_id%TYPE);
-
 FUNCTION get_main_pax_id2(vgrp_id IN pax_grp.grp_id%TYPE,
                           include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE;
 FUNCTION get_bag_pool_pax_id(vgrp_id       IN pax.grp_id%TYPE,
@@ -96,11 +84,6 @@ FUNCTION bag_pool_boarded(vgrp_id       IN bag2.grp_id%TYPE,
 FUNCTION excess_boarded(vgrp_id       IN pax_grp.grp_id%TYPE,
                         vclass        IN pax_grp.class%TYPE,
                         vbag_refuse   IN pax_grp.bag_refuse%TYPE) RETURN NUMBER;
-
-PROCEDURE delete_typeb_data(vpoint_id  tlg_trips.point_id%TYPE,
-                            vsystem    typeb_sender_systems.system%TYPE,
-                            vsender    typeb_sender_systems.sender%TYPE,
-                            delete_trip_comp_layers BOOLEAN);
 
 TYPE birks_cursor_ref IS REF CURSOR;
 

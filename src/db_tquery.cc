@@ -20,6 +20,7 @@
 #define NICKNAME "ANTON"
 #include <serverlib/slogger.h>
 
+#include "dbcpp_nosir_check.h"
 
 namespace DB {
 
@@ -82,7 +83,7 @@ public:
     virtual void Close() = 0;
     virtual void Execute() = 0;
     virtual void Next() = 0;
-    virtual void Clear() = 0;
+    virtual void ClearParams() = 0;
     virtual int RowsProcessed() = 0;
     virtual int RowCount() = 0;
     virtual int FieldsCount() = 0;
@@ -136,14 +137,17 @@ private:
     std::string &m_sqlText;
     int &m_eof;
     std::map<std::string, Variable> m_variables;
+    const char* m_nick;
+    const char* m_file;
+    int m_line;
 
 public:
-    TQueryIfaceDbCppImpl(DbCpp::Session& sess, std::string& sqlText, int& eof);
+    TQueryIfaceDbCppImpl(DbCpp::Session& sess, std::string& sqlText, int& eof, STDLOG_SIGNATURE);
 
     virtual void Close() override;
     virtual void Execute() override;
     virtual void Next() override;
-    virtual void Clear() override;
+    virtual void ClearParams() override;
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
     virtual int FieldsCount() override;
@@ -194,10 +198,14 @@ protected:
 
 TQueryIfaceDbCppImpl::TQueryIfaceDbCppImpl(DbCpp::Session& sess,
                                            std::string& sqlText,
-                                           int& eof)
+                                           int& eof,
+                                           STDLOG_SIGNATURE)
     : m_sess(sess),
       m_sqlText(sqlText),
-      m_eof(eof)
+      m_eof(eof),
+      m_nick(nick),
+      m_file(file),
+      m_line(line)
 {
 }
 
@@ -214,13 +222,17 @@ void TQueryIfaceDbCppImpl::Execute()
     bool isSelect = isSelectQuery(m_sqlText);
     try {
         if(!isSelect) {
-            make_db_curs_no_cache("savepoint BEFORE_INNER_CURSCTL_EXEC", m_sess)
+            DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
+                                       "savepoint BEFORE_INNER_CURSCTL_EXEC",
+                                       m_sess)
                     .exec();
         }
         m_cur->exec();
     } catch(PgCpp::PgException& e) {
         if(!isSelect) {
-            make_db_curs_no_cache("rollback to savepoint BEFORE_INNER_CURSCTL_EXEC", m_sess)
+            DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
+                                       "rollback to savepoint BEFORE_INNER_CURSCTL_EXEC",
+                                       m_sess)
                     .exec();
         }
         if(auto oraErr = oraErrorCodeMapper(e.errCode())) {
@@ -250,7 +262,7 @@ void TQueryIfaceDbCppImpl::Next()
     }
 }
 
-void TQueryIfaceDbCppImpl::Clear()
+void TQueryIfaceDbCppImpl::ClearParams()
 {
     m_variables.clear();
     m_sqlText.clear();
@@ -591,8 +603,10 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
 {
     auto sql = StrUtils::trim(m_sqlText);
-    LogTrace(TRACE3) << "About to create CursCtl for sql='" << sql << "'";
-    m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess, STDLOG, sql.c_str()));
+    LogTrace(TRACE7) << "About to create CursCtl for sql='" << sql << "'";
+    m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess,
+                                                            m_nick, m_file, m_line,
+                                                            sql.c_str()));
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()
@@ -677,12 +691,12 @@ std::optional<TQueryIfaceDbCppImpl::Variable> TQueryIfaceDbCppImpl::findVariable
 class TQueryIfaceNativeImpl final: public TQueryIfaceImpl
 {
 public:
-    TQueryIfaceNativeImpl(std::string& sqlText, int& eof);
+    TQueryIfaceNativeImpl(std::string& sqlText, int& eof, STDLOG_SIGNATURE);
 
     virtual void Close() override;
     virtual void Execute() override;
     virtual void Next() override;
-    virtual void Clear() override;
+    virtual void ClearParams() override;
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
     virtual int FieldsCount() override;
@@ -752,11 +766,11 @@ private:
 
 //
 
-TQueryIfaceNativeImpl::TQueryIfaceNativeImpl(std::string& sqlText, int& eof)
+TQueryIfaceNativeImpl::TQueryIfaceNativeImpl(std::string& sqlText, int& eof, STDLOG_SIGNATURE)
     : m_sqlText(sqlText),
       m_eof(eof)
 {
-    m_qry.reset(new ::TQuery(&OraSession));
+    m_qry.reset(new ::TQuery(&OraSession, STDLOG_VARIABLE));
 }
 
 void TQueryIfaceNativeImpl::Close()
@@ -774,7 +788,7 @@ void TQueryIfaceNativeImpl::Next()
     __NATIVE_CALL_WITHOUT_ARGS__(Next);
 }
 
-void TQueryIfaceNativeImpl::Clear()
+void TQueryIfaceNativeImpl::ClearParams()
 {
     __NATIVE_CALL_WITHOUT_ARGS__(Clear);
 }
@@ -960,13 +974,13 @@ void TQueryIfaceNativeImpl::afterNativeCall()
 
 //---------------------------------------------------------------------------------------
 
-TQuery::TQuery(DbCpp::Session& sess)
+TQuery::TQuery(DbCpp::Session& sess, STDLOG_SIGNATURE)
       : Eof(0)
 {
     if(sess.getType() == DbCpp::DbType::Oracle) {
-        m_impl.reset(new TQueryIfaceNativeImpl(SQLText, Eof));
+      m_impl.reset(new TQueryIfaceNativeImpl(SQLText, Eof, STDLOG_VARIABLE));
     } else {
-        m_impl.reset(new TQueryIfaceDbCppImpl(sess, SQLText, Eof));
+      m_impl.reset(new TQueryIfaceDbCppImpl(sess, SQLText, Eof, STDLOG_VARIABLE));
     }
 }
 
@@ -977,7 +991,7 @@ TQuery::~TQuery()
 void TQuery::Close() { m_impl->Close(); }
 void TQuery::Execute() { m_impl->Execute(); }
 void TQuery::Next() { m_impl->Next(); }
-void TQuery::Clear() { m_impl->Clear(); }
+void TQuery::ClearParams() { m_impl->ClearParams(); }
 
 int TQuery::RowsProcessed() { return m_impl->RowsProcessed(); }
 int TQuery::RowCount() { return m_impl->RowCount(); }
@@ -1038,19 +1052,19 @@ void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVar
 
 //---------------------------------------------------------------------------------------
 
-TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params, STDLOG_SIGNATURE)
 {
-    init(sess, sqlText, params);
+    init(sess, sqlText, params, STDLOG_VARIABLE);
 }
 
-TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText)
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, STDLOG_SIGNATURE)
 {
-    init(sess, sqlText, QParams());
+    init(sess, sqlText, QParams(), STDLOG_VARIABLE);
 }
 
-void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
+void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const QParams& params, STDLOG_SIGNATURE)
 {
-    m_qry.reset(new TQuery(sess));
+    m_qry.reset(new TQuery(sess, STDLOG_VARIABLE));
     m_qry->SQLText = sqlText;
 
     for(const QParam& p: params) {
@@ -1074,7 +1088,26 @@ void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const 
 
 TQuery& TCachedQuery::get()
 {
-    return *m_qry.get();
+  return *m_qry.get();
+}
+
+bool concurrentSave(TQuery& qryUpd, TQuery& qryIns)
+{
+  for (int step = 1; step <= 2; ++step) {
+    qryUpd.Execute();
+    if (qryUpd.RowsProcessed() > 0) {
+      return true;
+    }
+    try {
+      qryIns.Execute();
+      return (qryIns.RowsProcessed() > 0);
+    } catch (EOracleError &error) {
+        if (step > 1 || error.Code != CERR_U_CONSTRAINT) {
+          throw;
+        }
+    }
+  }
+  return false;
 }
 
 }//namespace DB
@@ -1107,7 +1140,7 @@ START_TEST(common_usage)
     get_pg_curs_autocommit("drop table if exists TEST_TQUERY").exec();
     get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer)").exec();
 
-    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
+    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG), STDLOG);
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2, FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
     Qry.DeclareVariable("fld1", otInteger);
     Qry.SetVariable("fld1", intval);
@@ -1129,7 +1162,7 @@ START_TEST(common_usage)
 
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
 
     Qry.SQLText = "select FLD1, FLD2, FLD3, FLD4, 3.14159 as FLD5 from TEST_TQUERY where FLD1=:fld1 and FLD2=:fld2 and FLD3=:fld3";
 
@@ -1179,19 +1212,19 @@ START_TEST(common_usage)
         fail_unless(Qry.FieldName(4) == "FLD5", "FieldName failed");
     }
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
     Qry.CreateVariable("fld1", otInteger, 101);
     Qry.CreateVariable("fld3", otString,  "");
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
     Qry.CreateVariable("fld1", otInteger, 102);
     Qry.CreateVariable("fld3", otString,  FNull);
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > 100";
     Qry.Execute();
     std::vector<int> ids1, ids2;
@@ -1205,7 +1238,8 @@ START_TEST(common_usage)
 
     auto sql = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > :fld1";
     DB::TCachedQuery cachedQry(*get_main_pg_rw_sess(STDLOG), sql,
-                               QParams() << QParam("fld1", otInteger, 100));
+                               QParams() << QParam("fld1", otInteger, 100),
+                               STDLOG);
     cachedQry.get().Execute();
     for(; not cachedQry.get().Eof; cachedQry.get().Next()) {
         LogTrace(TRACE3) << "Value of field FLD1=" << cachedQry.get().FieldAsInteger("FLD1");
@@ -1231,7 +1265,7 @@ START_TEST(rowcount_rowsprocessed_eof)
     get_pg_curs_autocommit("create table TEST_PG_ROWCOUNT(ID integer)").exec();
 
     // Ora
-    DB::TQuery OraQry(*get_main_ora_sess(STDLOG));
+    DB::TQuery OraQry(*get_main_ora_sess(STDLOG), STDLOG);
     OraQry.SQLText = "insert into TEST_ORA_ROWCOUNT(ID) values(:id)";
     OraQry.CreateVariable("id", otInteger, 10);
     OraQry.Execute();
@@ -1251,13 +1285,13 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << OraQry.RowCount();
     }
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "delete from TEST_ORA_ROWCOUNT where ID < 15";
     OraQry.Execute();
     int oraRp2 = OraQry.RowsProcessed();
     int oraRc2 = OraQry.RowCount();
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT";
     OraQry.Execute();
     int oraRp3 = OraQry.RowsProcessed();
@@ -1274,14 +1308,14 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << OraQry.RowCount();
     }
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "update TEST_ORA_ROWCOUNT set ID=100 where ID=9999";
     OraQry.Execute();
     fail_unless(OraQry.RowsProcessed() == 0);
 
 
     // Pg
-    DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG));
+    DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG), STDLOG);
     PgQry.SQLText = "insert into TEST_PG_ROWCOUNT(ID) values(:id)";
     PgQry.CreateVariable("id", otInteger, 10);
     PgQry.Execute();
@@ -1303,13 +1337,13 @@ START_TEST(rowcount_rowsprocessed_eof)
 
     }
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "delete from TEST_PG_ROWCOUNT where ID < 15";
     PgQry.Execute();
     int pgRp2 = PgQry.RowsProcessed();
     int pgRc2 = PgQry.RowCount();
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT";
     PgQry.Execute();
     int pgRp3 = PgQry.RowsProcessed();
@@ -1326,7 +1360,7 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << PgQry.RowCount();
     }
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "update TEST_PG_ROWCOUNT set ID=100 where ID=9999";
     PgQry.Execute();
     fail_unless(PgQry.RowsProcessed() == 0);
@@ -1346,12 +1380,12 @@ START_TEST(rowcount_rowsprocessed_eof)
     fail_unless(OraRpVec2 == PgRpVec2);
     fail_unless(OraRcVec2 == PgRcVec2);
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT where ID=16";
     OraQry.Execute();
     int OraEof = OraQry.Eof;
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT where ID=16";
     PgQry.Execute();
     int PgEof = PgQry.Eof;
@@ -1421,7 +1455,7 @@ START_TEST(compare_empty_string_behavior)
         fail_unless(fld2 == "is_null");
     }
 
-    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
+    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG), STDLOG);
     Qry.SQLText = "insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)";
     Qry.CreateVariable("fld1", otString, "tquery");
     Qry.CreateVariable("fld2", otString, "");
@@ -1430,7 +1464,7 @@ START_TEST(compare_empty_string_behavior)
     Qry.SetVariable("fld2", nullCharStar);
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "select FLD1, FLD2 from TEST_EMPTY_STRING";
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
@@ -1447,7 +1481,7 @@ START_TEST(throw_errors)
     get_pg_curs_autocommit("create table TEST_THROW_ERRORS ( FLD1 varchar(1) not null );").exec();
     get_pg_curs_autocommit("Create unique index TEST_THROW_ERRORS_FLD1 on TEST_THROW_ERRORS (FLD1);").exec();
 
-    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
+    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG), STDLOG);
     Qry.SQLText = "insert into TEST_THROW_ERRORS(FLD1) VALUES ('1')";
     // 1-st insert
     Qry.Execute();
@@ -1459,7 +1493,7 @@ START_TEST(throw_errors)
         fail_unless(e.Code == 1, "Invalid EOracleError error code!");
     }
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "delete from TEST_THROW_ERRORS";
     // any query after exception
     Qry.Execute();
@@ -1474,7 +1508,7 @@ START_TEST(sqltext_with_spaces)
 
     get_pg_curs_autocommit("insert into TEST_SQLTEXT_WITH_SPACES(FLD1) VALUES ('1')").exec();
 
-    DB::TQuery Qry(*get_main_pg_ro_sess(STDLOG));
+    DB::TQuery Qry(*get_main_pg_ro_sess(STDLOG), STDLOG);
     Qry.SQLText = " select FLD1 from TEST_SQLTEXT_WITH_SPACES ";
     Qry.Execute();
 
@@ -1549,7 +1583,7 @@ END_TEST;
 START_TEST(cast_to_integer)
 {
     // Ora
-    DB::TQuery OraQry(*get_main_ora_sess(STDLOG));
+    DB::TQuery OraQry(*get_main_ora_sess(STDLOG), STDLOG);
     OraQry.SQLText = "select 11 as INT_FLD, '11' as STR_FLD, 'bad' as BAD_FLD from DUAL";
     OraQry.Execute();
     fail_unless(OraQry.FieldAsInteger("INT_FLD") == 11);
@@ -1561,7 +1595,7 @@ START_TEST(cast_to_integer)
     }
 
     // Pg
-    DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG));
+    DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG), STDLOG);
     PgQry.SQLText = "select 11 as INT_FLD, '11' as STR_FLD, 'bad' as BAD_FLD";
     PgQry.Execute();
     fail_unless(PgQry.FieldAsInteger("INT_FLD") == 11);
@@ -1574,6 +1608,19 @@ START_TEST(cast_to_integer)
 }
 END_TEST;
 
+START_TEST(sessions_load_save_consistency)
+{
+  auto res = DbCpp::check_autonomous_sessions_load_save_consistency();
+
+  for(auto const& i : res)
+  {
+    void fail_unless__(bool expr,const char *file, int line,
+      const std::string &what,const std::string &custom_what="");
+
+    fail_unless(false,i.file,i.line,i.text_error);
+  }
+}
+END_TEST;
 
 #define SUITENAME "db_tquery"
 TCASEREGISTER(testInitDB, testShutDBConnection)
@@ -1582,6 +1629,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(compare_empty_string_behavior);
     ADD_TEST(throw_errors);
     ADD_TEST(sqltext_with_spaces);
+    ADD_TEST(sessions_load_save_consistency);
 }
 TCASEFINISH;
 #undef SUITENAME

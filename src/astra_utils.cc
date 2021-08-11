@@ -39,6 +39,8 @@
 #include <string>
 #include <string.h>
 
+#include "PgOraConfig.h"
+
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
 
@@ -49,6 +51,40 @@ using namespace EXCEPTIONS;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 using namespace AstraLocale;
+
+#ifdef XP_TESTING
+namespace xp_testing {
+    bool isSelfCheckinRequestOnJxtGrp(const std::string& login)
+    {
+        //добавляйте в WebLogins только те, которые отрабатывают как grp3_jxt, но при этом должны иметь client_type=ctWeb/ctKiosk/ctMobile
+        //не добавляйте сюда логины для входящих http! Используйте, например, $(CREATE_USER)+$(CREATE_DESK)+$(ADD_HTTP_CLIENT) и вызов "!! req_type=http"
+        static const std::vector<std::string> WebLogins { "KIOSK2" };
+        LogTrace(TRACE3) << __func__ << " called for login: " << login;
+        return algo::contains(WebLogins, login);
+    }
+}//namespace xp_testing
+#endif//XP_TESTING
+
+std::optional<int> getDeskGroupByCode(const std::string& desk)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT grp_id FROM desks WHERE code = :code",
+        PgOra::getROSession("DESKS")
+    );
+
+    int group;
+
+    cur.stb()
+       .def(group)
+       .bind(":code", desk)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return std::nullopt;
+    }
+
+    return group;
+}
 
 string AlignString(string str, int len, string align)
 {
@@ -153,23 +189,25 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   else
     desk.lang=AstraLocale::LANG_RU;
 
-  TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d, desk.lang=%s",
             InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web, desk.lang.c_str() );
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
-  if ( InitData.checkCrypt && !InitData.duplicate ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
-    Qry.Clear();
+  std::string deskUpper = StrUtils::ToUpper(InitData.pult);
+  std::optional<int> deskGroup = getDeskGroupByCode(deskUpper);
+
+  if (InitData.checkCrypt
+   && !InitData.duplicate
+   && deskGroup.has_value()) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
     Qry.SQLText =
-      "SELECT pr_crypt "
-      "FROM desks,desk_grp,crypt_sets "
-      "WHERE desks.code = UPPER(:desk) AND "
-      "      desks.grp_id = desk_grp.grp_id AND "
-      "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
-      "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
-      "ORDER BY desk ASC ";
-    Qry.CreateVariable( "desk", otString, InitData.pult );
+     "SELECT pr_crypt FROM crypt_sets "
+     "WHERE desk_grp_id = :grp_id "
+       "AND (desk = :desk OR desk IS NULL) "
+     "ORDER BY desk";
+    Qry.CreateVariable( "desk", otString, deskUpper );
+    Qry.CreateVariable( "grp_id", otInteger, *deskGroup );
     Qry.Execute();
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
       XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -185,6 +223,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   string sql;
 
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText = "SELECT id,pr_logon FROM screen WHERE exe = :exe";
   Qry.DeclareVariable( "exe", otString );
@@ -201,9 +240,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     "       desks.currency, desks.term_id, "
     "       desk_grp.grp_id, desk_grp.city, desk_grp.airp, desk_grp.airline "
     "FROM desks,desk_grp "
-    "WHERE desks.grp_id = desk_grp.grp_id AND desks.code = UPPER(:pult)";
+    "WHERE desks.grp_id = desk_grp.grp_id AND desks.code = :pult";
   Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", InitData.pult );
+  Qry.SetVariable( "pult", deskUpper );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw AstraLocale::UserException( "MSG.PULT_NOT_REGISTERED");
@@ -252,8 +291,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
       "FROM users2 "
-      "WHERE desk = UPPER(:pult) ";
-    Qry.CreateVariable( "pult", otString, InitData.pult );
+      "WHERE desk = :pult ";
+    Qry.CreateVariable( "pult", otString, deskUpper );
     Qry.Execute();
     if (Qry.Eof)
       throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
@@ -272,11 +311,17 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.login = Qry.FieldAsString( "login" );
 
 
+#ifdef XP_TESTING
+      if(inTestMode()) {
+           InitData.pr_web = InitData.pr_web || xp_testing::isSelfCheckinRequestOnJxtGrp(user.login);
+      }
+#endif//XP_TESTING
+
   Qry.Clear();
   Qry.SQLText =
     "SELECT client_type FROM web_clients "
-    "WHERE desk=UPPER(:desk) OR user_id=:user_id";
-  Qry.CreateVariable( "desk", otString, InitData.pult );
+    "WHERE desk=:desk OR user_id=:user_id";
+  Qry.CreateVariable( "desk", otString, deskUpper );
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
   Qry.Execute();
   if ( (!Qry.Eof && !InitData.pr_web) ||
@@ -1870,7 +1915,7 @@ void afterSoftError()
 
 tlgnum_t make_tlgnum(int n)
 {
-  return tlgnum_t(boost::lexical_cast<std::string>(n));
+  return tlgnum_t(std::to_string(n));
 }
 
 XMLDoc createXmlDoc(const std::string& xml)

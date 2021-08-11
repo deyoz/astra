@@ -6,6 +6,8 @@
 #include "oralib.h"
 #include "astra_elems.h"
 #include "astra_utils.h"
+#include "db_tquery.h"
+#include "cache_callbacks.h"
 
 #include "jxtlib/JxtInterface.h"
 
@@ -23,7 +25,7 @@ public:
 
   void LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
 #define TAG_REFRESH_DATA        "DATA_VER"
@@ -33,8 +35,6 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList,
                       ftUnknown, NumFieldType};
-enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
-enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
     cecNone,
@@ -42,9 +42,7 @@ enum TCacheElemCategory {
     cecNameShort,
     cecName,
     cecRoleName,
-    cecUserName,
-    cecUserPerms,
-    cecProfileName
+    cecUserName
 };
 
 extern const char * CacheFieldTypeS[NumFieldType];
@@ -149,7 +147,7 @@ struct TCacheField2 {
     std::string ReferName;
     int ReferLevel;
     int ReferIdent;
-    int VarIdx[2];
+    std::vector<std::string> varNames[2];
     int num;
     TCacheElemCategory ElemCategory;
     TElemType ElemType;
@@ -163,67 +161,54 @@ struct TCacheField2 {
         ReadOnly = true;
         ReferLevel = 0;
         ReferIdent = -1;
-        VarIdx[0] = -1;
-        VarIdx[1] = -1;
         ElemCategory = cecNone;
     }
-};
 
-struct TParam {
-    std::string Value;
-    TCacheConvertType DataType;
-    TParam() { DataType = ctString; };
-};
-
-typedef std::map<std::string, TParam> TParams;
-
-class TParams1 : public  std::map<std::string, TParam>
-{
-    private:
-    public:
-        void getParams(xmlNodePtr paramNode);
-        void setSQL(TQuery *Qry);
+    TCacheConvertType cacheConvertType() const;
 };
 
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
-/*    std::vector<std::string> new_cols; */
     TCacheUpdateStatus status;
     TParams params;
-    int index;
 } TRow;
 
 typedef std::vector<TRow> TTable;
 
 class TCacheTable;
 
-typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
-typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
-typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeRefreshEvent)(TCacheTable &, DB::TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, const TCacheQueryType);
+typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
 typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
-enum TUpdateDataType {upNone, upExists, upClearAll};
-
 class TCacheTable {
     protected:
-        TQuery *Qry;
+        std::unique_ptr<CacheTableCallbacks> callbacks;
         TParams Params, SQLParams;
         std::string Title;
+
         std::string SelectSQL;
         std::string RefreshSQL;
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
+        std::list<std::string> dbSessionObjectNames;
+
+        bool insertImplemented;
+        bool updateImplemented;
+        bool deleteImplemented;
+
         ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;
         bool KeepDeletedRows;
-        int SelectRight;
-        int InsertRight;
-        int UpdateRight;
-        int DeleteRight;
+        std::optional<int> SelectRight;
+        std::optional<int> InsertRight;
+        std::optional<int> UpdateRight;
+        std::optional<int> DeleteRight;
         bool Forbidden, ReadOnly;
         std::vector<TCacheChildTable> FChildTables;
         std::vector<TCacheField2> FFields;
@@ -231,24 +216,44 @@ class TCacheTable {
         int curVerIface;
         int clientVerIface;
         TTable table;
-        std::vector<std::string> vars;
+        std::optional<CacheTable::SelectedRows> selectedRows;
 
         void getPerms( );
         bool pr_irefresh, pr_dconst;
-        TUpdateDataType refresh_data_type;
+        CacheTable::RefreshStatus refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
-        TUpdateDataType refreshData();
+        CacheTable::RefreshStatus refreshData();
+        CacheTable::RefreshStatus refreshDataIndividual();
+        CacheTable::RefreshStatus refreshDataCommon();
         virtual void initChildTables();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareSysVariables(std::vector<std::string> &vars, TQuery *Qry);
-        void DeclareVariables(const std::vector<std::string> &vars);
-        void SetVariables(TRow &row, const std::vector<std::string> &vars);
+        bool VariableExists(const std::string& name, const std::set<std::string> &vars);
+        void CreateSysVariable(const std::string& name, const int value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariable(const std::string& name, const std::string& value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariables(std::set<std::string> &vars, DB::TQuery& Qry,
+                                FieldsForLogging& fieldsForLogging);
+        void DeclareVariables(const std::set<std::string> &vars, DB::TQuery& Qry);
+        void PrepareRows(const TRow &row,
+                         const TCacheUpdateStatus status,
+                         std::optional<CacheTable::Row>& oldRow,
+                         std::optional<CacheTable::Row>& newRow);
+        void SetVariables(const std::optional<CacheTable::Row>& oldRow,
+                          const std::optional<CacheTable::Row>& newRow,
+                          DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
+        void SetVariables(const TRow &row, const std::set<std::string> &vars,
+                          DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
-        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus );
+        void OnLogging(const TRow &row, TCacheUpdateStatus UpdateStatus,
+                       const std::set<std::string> &vars,
+                       const FieldsForLogging& fieldsForLogging);
         void Clear();
     public:
         TBeforeRefreshEvent OnBeforeRefresh;
@@ -259,8 +264,11 @@ class TCacheTable {
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
+        void ApplyUpdatesHandmade(const TCacheUpdateStatus status);
+        void HandleDBErrors(const EOracleError &e);
         bool changeIfaceVer();
         std::string code();
+        std::optional<int> dataVersion() const;
         std::string getSelectSql() { return SelectSQL; }
         int FieldIndex( const std::string name );
         std::string FieldValue( const std::string name, const TRow &row );
@@ -274,13 +282,10 @@ class TCacheTable {
           OnAfterApply = NULL;
         };
         virtual void Init(xmlNodePtr cacheNode);
-        virtual ~TCacheTable();
+        virtual ~TCacheTable() {};
 };
 
-std::string get_role_name(int role_id, TQuery &Qry);
-std::string get_user_descr(int user_id,
-                      TQuery &Qry, TQuery &Qry1, TQuery &Qry2,
-                      bool only_airlines_airps);
+std::string get_role_name(int role_id);
 
 inline bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
 {

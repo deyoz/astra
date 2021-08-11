@@ -28,6 +28,7 @@
 ### при применении изменений важно, чтобы версия интерфейса совпадала с текущей
 ###
 ### имена кэшей и полей изменения case insensitive
+### для указания "старого" значения поля при изменениях update/delete необходимо перед именем поля указывать префикс OLD_ (case insensitive)
 #######################################################################################################################################
 
 $(defmacro combine_brd_with_reg
@@ -235,3 +236,53 @@ $(sql {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
        VALUES('$(client_id)', '$(http_user)', '$(http_pswd)', '$(exchange_type)')})
 
 })
+
+$(defmacro UPDATE_USER_PIKE
+  user_type
+  airp1
+  airp2
+  airp3
+  airl1
+  airl2
+  airl3
+{
+
+$(init_jxt_pult МОВВЛА)
+$(login VLAD GHJHSD)
+
+$(UPDATE_USER PIKE "КОВАЛЕВ Р.А." $(user_type)
+{\
+$(if $(eq {$(airp1)$(airp2)$(airp3)} "") ""
+{          <airps>\
+$(if $(eq $(airp1) "") "" {
+            <item>$(airp1)</item>})\
+$(if $(eq $(airp2) "") "" {
+            <item>$(airp2)</item>})\
+$(if $(eq $(airp3) "") "" {
+            <item>$(airp3)</item>})
+          </airps>})}
+{\
+$(if $(eq {$(airl1)$(airl2)$(airl3)} "") ""
+{          <airlines>\
+$(if $(eq $(airl1) "") "" {
+            <item>$(airl1)</item>})\
+$(if $(eq $(airl2) "") "" {
+            <item>$(airl2)</item>})\
+$(if $(eq $(airl3) "") "" {
+            <item>$(airl3)</item>})
+          </airlines>})}
+ opr=VLAD)
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+})
+
+$(defmacro SUPPORT_USER_PIKE airp1 airp2 airp3 airl1 airl2 airl3
+{$(UPDATE_USER_PIKE 0 $(airp1) $(airp2) $(airp3) $(airl1) $(airl2) $(airl3))})
+
+$(defmacro AIRPORT_USER_PIKE airp1 airp2 airp3 airl1 airl2 airl3
+{$(UPDATE_USER_PIKE 1 $(airp1) $(airp2) $(airp3) $(airl1) $(airl2) $(airl3))})
+
+$(defmacro AIRLINE_USER_PIKE airp1 airp2 airp3 airl1 airl2 airl3
+{$(UPDATE_USER_PIKE 2 $(airp1) $(airp2) $(airp3) $(airl1) $(airl2) $(airl3))})

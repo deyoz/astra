@@ -114,7 +114,7 @@ void ArxRunBIStat(
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText += "   arx_bi_stat.scd_out >= :FirstDate AND arx_bi_stat.scd_out < :LastDate ";
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_BI_STAT"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_BI_STAT"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");

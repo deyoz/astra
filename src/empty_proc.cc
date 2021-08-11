@@ -3,7 +3,6 @@
 #include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "arx_daily.h"
 #include "checkin.h"
 #include "passenger.h"
 #include "telegram.h"

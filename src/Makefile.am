@@ -46,7 +46,7 @@ astra_SOURCES = \
   apis_tools.cc \
   apis_utils.cc \
   apps_interaction.cc \
-  arx_daily.cc \
+  arx_daily_pg.cpp \
   astra_callbacks.cc \
   astra_calls.cc \
   astra_consts.cc \
@@ -73,10 +73,14 @@ astra_SOURCES = \
   bi_rules.cpp \
   brd.cc \
   cache.cc \
+  cache_access.cc \
+  cache_callbacks.cc \
+  cache_impl.cc \
   cent.cc \
   checkin.cc \
   checkin_segments.cc \
   checkin_utils.cc \
+  check_grp_unification.cc \
   ckin_search.cc \
   code_convert.cc \
   comp_layers.cc \
@@ -121,6 +125,7 @@ astra_SOURCES = \
   pax_calc_data.cc \
   pax_confirmations.cc \
   pax_db.cc \
+  grp_db.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -214,13 +219,13 @@ astra_SOURCES = \
   pg_session.cc \
   db_tquery.cc \
   db_savepoint.cc \
+  dbcpp_nosir_check.cc \
   base_callbacks.cpp \
   hooked_session.cc \
   PgOraConfig.cc \
   wb_messages.cc \
   dbo.cpp \
-  dbostructures.cpp \
-  arx_daily_pg.cpp
+  dbostructures.cpp
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -269,7 +274,7 @@ noinst_HEADERS = \
   apis_settings.h \
   apis_tools.h \
   apps_interaction.h \
-  arx_daily.h \
+  arx_daily_pg.h \
   astra_callbacks.h \
   astra_calls.h \
   astra_consts.h \
@@ -299,10 +304,14 @@ noinst_HEADERS = \
   bi_rules.h \
   brd.h \
   cache.h \
+  cache_access.h \
+  cache_callbacks.h \
+  cache_impl.h \
   cent.h \
   checkin.h \
   checkin_segments.h \
   checkin_utils.h \
+  check_grp_unification.h \
   ckin_search.h \
   code_convert.h \
   comp_layers.h \
@@ -327,7 +336,6 @@ noinst_HEADERS = \
   flt_settings.h \
   file_queue.h \
   hist.h \
-  hist_interface.h \
   http_io.h \
   http_main.h \
   httpClient.h \
@@ -338,13 +346,14 @@ noinst_HEADERS = \
   maindcs.h \
   meridian.h \
   mob_payment.h \
-  MPSExchangeIface.h \  
+  MPSExchangeIface.h \
   obrnosir.h \
   passenger.h \
   passenger_callbacks.h \
   pax_calc_data.h \
   pax_confirmations.h \
   pax_db.h \
+  grp_db.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -434,12 +443,10 @@ noinst_HEADERS = \
   pg_session.h \
   db_tquery.h \
   db_savepoint.h \
+  dbcpp_nosir_check.h \
   base_callbacks.h \
   hooked_session.h \
   PgOraConfig.h \
   wb_messages.h \
   dbo.h \
-  dbostructures.h \
-  arx_daily_pg.h
-
-  
+  dbostructures.h

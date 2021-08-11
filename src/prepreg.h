@@ -28,6 +28,5 @@ public:
   static void readTripData( int point_id, xmlNodePtr dataNode );
 };
 
-
 #endif /*_PREPREG_H_*/
 

@@ -6,11 +6,16 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "astra_utils.h"
-#include "serverlib/str_utils.h"
 #include "xml_unit.h"
 #include "md5_sum.h"
 #include "stl_utils.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 #include <boost/regex.hpp>
+
+#include <serverlib/dbcpp_cursctl.h>
+#include <serverlib/dates_io.h>
+#include <serverlib/str_utils.h>
 
 #define NICKNAME "KOSHKIN"
 #include "serverlib/slogger.h"
@@ -57,28 +62,51 @@ string file_to_string(const string& full_path)
 void file_to_db(const string& init_path, const string& file_path)
 {
     string file_data =  file_to_string(init_path + file_path);
-    TCachedQuery Qry1(
-        "begin "
-        "   delete from HTML_PAGES_TEXT where id = (select id from HTML_PAGES where name = :name); "
-        "   delete from HTML_PAGES where name = :name; "
-        "   insert into HTML_PAGES(id, name, etag, last_modified) values(tid__seq.nextval, :name, :etag, :last_modified) returning id into :id; "
-        "end; ",
+
+    int existingId = 0;
+    auto cur = make_db_curs(
+"select ID from HTML_PAGES where name = :name",
+                PgOra::getRWSession("HTML_PAGES"));
+
+    cur
+            .def(existingId)
+            .bind(":name", file_path)
+            .exec();
+
+    while(!cur.fen()) {
+        make_db_curs(
+"delete from HTML_PAGES_TEXT where ID = :id",
+                    PgOra::getRWSession("HTML_PAGES_TEXT"))
+                .bind(":id", existingId)
+                .exec();
+    }
+
+    make_db_curs(
+"delete from HTML_PAGES where name = :name",
+                PgOra::getRWSession("HTML_PAGES"))
+            .bind(":name", file_path)
+            .exec();
+
+    int id = PgOra::getSeqNextVal_int("TID__SEQ");
+    make_db_curs(
+"insert into HTML_PAGES(id, name, etag, last_modified) values(:id, :name, :etag, :last_modified)",
+                PgOra::getRWSession("HTML_PAGES"))
+            .stb()
+            .bind(":id",            id)
+            .bind(":name",          file_path)
+            .bind(":etag",          md5_sum(file_data))
+            .bind(":last_modified", boost::posix_time::second_clock::universal_time())
+            .exec();
+
+    DB::TCachedQuery Qry(PgOra::getRWSession("HTML_PAGES_TEXT"),
+ "insert into HTML_PAGES_TEXT(id, page_no, text) values(:id, :page_no, :text)",
         QParams()
-        << QParam("name", otString, file_path)
-        << QParam("id", otInteger)
-        << QParam("etag", otString, md5_sum(file_data))
-        << QParam("last_modified", otDate, NowUTC())
+            << QParam("id",      otInteger, id)
+            << QParam("page_no", otInteger)
+            << QParam("text",    otString),
+        STDLOG
     );
-    Qry1.get().Execute();
-    int id = Qry1.get().GetVariableAsInteger("id");
-    TCachedQuery Qry2(
-        "insert into HTML_PAGES_TEXT(id, page_no, text) values(:id, :page_no, :text)",
-        QParams()
-        << QParam("id", otInteger, id)
-        << QParam("page_no", otInteger)
-        << QParam("text", otString)
-    );
-    longToDB(Qry2.get(), "text", file_data);
+    longToDB(Qry.get(), "text", file_data);
 }
 
 //  --------------------------------
@@ -111,12 +139,13 @@ int html_from_db(int argc, char **argv)
             throw Exception("Must provide path");
         string init_path(argv[1]);
         while (init_path.size() > 1 and *init_path.rbegin() == '/') init_path.erase(init_path.size() - 1);
-        TCachedQuery Qry1(
+        DB::TCachedQuery Qry1(PgOra::getROSession("SP_PG_GROUP_HTML"),
             "select name, text from HTML_PAGES, HTML_PAGES_TEXT "
             "where "
             "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
             "order by "
-            "   name, page_no"
+            "   name, page_no",
+            STDLOG
         );
         Qry1.get().Execute();
         map<string, string> pages;
@@ -160,10 +189,12 @@ struct THTMLResource {
 
 string THTMLResource::get_last_modified()
 {
-    TCachedQuery Qry("select to_char(:last_modified, 'Dy, dd Mon yyyy hh24:mm:ss', 'NLS_DATE_LANGUAGE = American')||' GMT' from dual",
-            QParams() << QParam("last_modified", otDate, last_modified));
-    Qry.get().Execute();
-    return Qry.get().FieldAsString(0);
+    //select to_char(:last_modified, 'Dy, dd Mon yyyy hh24:mi:ss', 'NLS_DATE_LANGUAGE = American')||' GMT' from dual
+    auto lm = DateTimeToBoost(last_modified);
+    std::ostringstream os;
+    os << lm.date().day_of_week() << ", "
+       << HelpCpp::string_cast(lm, "%d %b %Y %H:%M:%S GMT");
+    return os.str();
 }
 
 void THTMLResource::Clear()
@@ -177,15 +208,15 @@ void THTMLResource::Clear()
 void THTMLResource::get(const string &aname)
 {
     Clear();
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession("SP_PG_GROUP_HTML"),
             "select etag, last_modified, text from HTML_PAGES, HTML_PAGES_TEXT "
             "where "
             "   HTML_PAGES.name = :name and "
             "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
             "order by "
             "   page_no",
-            QParams()
-            << QParam("name", otString, aname)
+            QParams() << QParam("name", otString, aname),
+            STDLOG
             );
     Qry.get().Execute();
     if(not Qry.get().Eof) {

@@ -69,7 +69,7 @@ std::string TFileQueue::getFileData(int id)
 
 static std::vector<TQueueItem> getFileQueue(const TFilterQueue &filter)
 {
-  DB::TQuery Qry( PgOra::getROSession("FILE_QUEUE") );
+  DB::TQuery Qry( PgOra::getROSession("FILE_QUEUE"), STDLOG );
 
   string sql;
   sql = "SELECT id, time, type, status "
@@ -127,7 +127,7 @@ static std::vector<TQueueItem> getFileQueue(const TFilterQueue &filter)
 
 std::string TFileQueue::getstatus( int id )
 {
-  DB::TQuery Qry(PgOra::getROSession("FILE_QUEUE"));
+  DB::TQuery Qry(PgOra::getROSession("FILE_QUEUE"), STDLOG);
   Qry.SQLText =
     "SELECT status FROM file_queue "
     " WHERE id=:id";
@@ -142,7 +142,7 @@ std::string TFileQueue::getstatus( int id )
 
 std::string TFileQueue::gettype( int id )
 {
-  DB::TQuery Qry(PgOra::getROSession("FILE_QUEUE"));
+  DB::TQuery Qry(PgOra::getROSession("FILE_QUEUE"), STDLOG);
   Qry.SQLText =
     "SELECT type FROM file_queue "
     " WHERE id=:id";
@@ -157,7 +157,7 @@ std::string TFileQueue::gettype( int id )
 
 std::pair<TDateTime, TDateTime> TFileQueue::getwait_time(int id)
 {
-  DB::TQuery Qry( PgOra::getROSession("FILES") );
+  DB::TQuery Qry( PgOra::getROSession("FILES"), STDLOG );
   Qry.SQLText =
     "SELECT time AS puttime FROM files "
     " WHERE files.id=:id";
@@ -174,7 +174,7 @@ std::pair<TDateTime, TDateTime> TFileQueue::getwait_time(int id)
 bool TFileQueue::getparam_value( int id, const std::string &param_name, std::string &param_value )
 {
   param_value.clear();
-  DB::TQuery Qry( PgOra::getROSession("FILE_PARAMS") );
+  DB::TQuery Qry( PgOra::getROSession("FILE_PARAMS"), STDLOG );
   Qry.SQLText =
     "SELECT value FROM file_params WHERE id=:id AND name=:name";
   Qry.CreateVariable( "id", otInteger, id );
@@ -320,7 +320,7 @@ void TFileQueue::get( const TFilterQueue &filter,
 
 bool TFileQueue::in_order( int id )
 {
-	DB::TQuery Qry(PgOra::getROSession("FILES"));
+    DB::TQuery Qry(PgOra::getROSession("FILES"), STDLOG);
 	Qry.SQLText =
 	 "SELECT type FROM files "
 	 " WHERE id=:id";
@@ -331,7 +331,7 @@ bool TFileQueue::in_order( int id )
 
 bool TFileQueue::in_order( const std::string &type )
 {
-	DB::TQuery Qry(PgOra::getROSession("FILE_TYPES"));
+    DB::TQuery Qry(PgOra::getROSession("FILE_TYPES"), STDLOG);
 	Qry.SQLText =
 	 "SELECT in_order FROM file_types "
 	 " WHERE code=:type";
@@ -345,7 +345,7 @@ std::string TFileQueue::getEncoding( const std::string &type,
                                      bool pr_send )
 {
 	string res;
-  DB::TQuery Qry( PgOra::getROSession("FILE_ENCODING") );
+  DB::TQuery Qry( PgOra::getROSession("FILE_ENCODING"), STDLOG );
   Qry.SQLText =
     "SELECT encoding "
     " FROM file_encoding "
@@ -368,7 +368,7 @@ bool TFileQueue::errorFile( int id, const std::string &msg )
 {
   if ( !in_order( id ) && deleteFile( id ) ) {
     const auto systime = BoostToDateTime(Dates::second_clock::universal_time());
-	  DB::TQuery Qry(PgOra::getRWSession("FILES"));
+      DB::TQuery Qry(PgOra::getRWSession("FILES"), STDLOG);
     Qry.SQLText =
      "UPDATE files SET error=:error,time=:time WHERE id=:id ";
     Qry.CreateVariable( "error", otString, "ERR" );
@@ -392,7 +392,7 @@ bool TFileQueue::errorFile( int id, const std::string &msg )
 bool TFileQueue::sendFile( int id )
 {
   const auto systime = BoostToDateTime(Dates::second_clock::universal_time());
-  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"));
+  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"), STDLOG);
   Qry.SQLText =
     "UPDATE file_queue SET status='SEND', time=:time WHERE id= :id";
   Qry.CreateVariable("id",otInteger,id);
@@ -408,7 +408,7 @@ bool TFileQueue::sendFile( int id )
 bool TFileQueue::unsendFile( int id )
 {
   const auto systime = BoostToDateTime(Dates::second_clock::universal_time());
-  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"));
+  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"), STDLOG);
   Qry.SQLText = "UPDATE file_queue SET status='PUT', time=:time WHERE id= :id";
   Qry.CreateVariable("id", otInteger, id);
   Qry.CreateVariable("time", otDate, systime);
@@ -425,7 +425,7 @@ bool TFileQueue::doneFile( int id )
 {
   if ( deleteFile( id ) ) {
     const auto systime = BoostToDateTime(Dates::second_clock::universal_time());
-    DB::TQuery Qry(PgOra::getRWSession("FILES"));
+    DB::TQuery Qry(PgOra::getRWSession("FILES"), STDLOG);
     Qry.SQLText =
       "UPDATE files SET time=:time WHERE id=:id";
     Qry.CreateVariable("id",otInteger,id);
@@ -650,7 +650,7 @@ END_TEST;
 
 static void sleep_filequeue(int id1, int id2, int id3)
 {
-  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"));
+  DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"), STDLOG);
   if (PgOra::supportsPg("FILE_QUEUE"))
   {
     Qry.SQLText = "update file_queue set time = time - interval '2 seconds' where id in (:id1, :id2, :id3)";
@@ -676,7 +676,7 @@ static void sleep_filequeue(int id1, int id2, int id3)
 START_TEST(check_old_tests_file_queue)
 {
    int res = 0;
-   DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"));
+   DB::TQuery Qry(PgOra::getRWSession("FILE_QUEUE"), STDLOG);
    Qry.SQLText =
      "DELETE from file_queue";
    Qry.Execute();

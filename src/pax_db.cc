@@ -9,12 +9,13 @@
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
 
-static bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id)
+static bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id, STDLOG_SIGNATURE)
 {
   LogTrace(TRACE6) << __func__
                    << ": table_name=" << table_name
-                   << ", pax_id=" << pax_id;
-  auto cur = make_db_curs(
+                   << ", pax_id=" << pax_id
+                   << ", called from " << file << ":" << line;
+  auto cur = DbCpp::make_curs_(STDLOG_VARIABLE,
         "DELETE FROM " + table_name + " "
         "WHERE pax_id=:pax_id ",
         PgOra::getRWSession(table_name));
@@ -82,147 +83,147 @@ bool deleteAnnulTags(PaxId_t pax_id)
 
 bool deleteAnnulBag(PaxId_t pax_id)
 {
-  return deleteByPaxId("ANNUL_BAG", pax_id);
+  return deleteByPaxId("ANNUL_BAG", pax_id, STDLOG);
 }
 
 bool deletePaxEvents(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_EVENTS", pax_id);
+  return deleteByPaxId("PAX_EVENTS", pax_id, STDLOG);
 }
 
 bool deleteStatAd(PaxId_t pax_id)
 {
-  return deleteByPaxId("STAT_AD", pax_id);
+  return deleteByPaxId("STAT_AD", pax_id, STDLOG);
 }
 
 bool deleteStatServices(PaxId_t pax_id)
 {
-  return deleteByPaxId("STAT_SERVICES", pax_id);
+  return deleteByPaxId("STAT_SERVICES", pax_id, STDLOG);
 }
 
 bool deleteConfirmPrint(PaxId_t pax_id)
 {
-  return deleteByPaxId("CONFIRM_PRINT", pax_id);
+  return deleteByPaxId("CONFIRM_PRINT", pax_id, STDLOG);
 }
 
 bool deletePaxDOC(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_DOC", pax_id);
+  return deleteByPaxId("PAX_DOC", pax_id, STDLOG);
 }
 
 bool deletePaxDOCO(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_DOCO", pax_id);
+  return deleteByPaxId("PAX_DOCO", pax_id, STDLOG);
 }
 
 bool deletePaxDOCA(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_DOCA", pax_id);
+  return deleteByPaxId("PAX_DOCA", pax_id, STDLOG);
 }
 
 bool deletePaxFQT(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_FQT", pax_id);
+  return deleteByPaxId("PAX_FQT", pax_id, STDLOG);
 }
 
 bool deletePaxASVC(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_ASVC", pax_id);
+  return deleteByPaxId("PAX_ASVC", pax_id, STDLOG);
 }
 
 bool deletePaxEmd(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_EMD", pax_id);
+  return deleteByPaxId("PAX_EMD", pax_id, STDLOG);
 }
 
 bool deletePaxNorms(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_NORMS", pax_id);
+  return deleteByPaxId("PAX_NORMS", pax_id, STDLOG);
 }
 
 bool deletePaxBrands(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_BRANDS", pax_id);
+  return deleteByPaxId("PAX_BRANDS", pax_id, STDLOG);
 }
 
 bool deletePaxRem(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_REM", pax_id);
+  return deleteByPaxId("PAX_REM", pax_id, STDLOG);
 }
 
 bool deletePaxRemOrigin(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_REM_ORIGIN", pax_id);
+  return deleteByPaxId("PAX_REM_ORIGIN", pax_id, STDLOG);
 }
 
 bool deletePaxSeats(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_SEATS", pax_id);
+  return deleteByPaxId("PAX_SEATS", pax_id, STDLOG);
 }
 
 bool deleteRozysk(PaxId_t pax_id)
 {
-  return deleteByPaxId("ROZYSK", pax_id);
+  return deleteByPaxId("ROZYSK", pax_id, STDLOG);
 }
 
 bool deleteTransferSubcls(PaxId_t pax_id)
 {
-  return deleteByPaxId("TRANSFER_SUBCLS", pax_id);
+  return deleteByPaxId("TRANSFER_SUBCLS", pax_id, STDLOG);
 }
 
 bool deleteTripCompLayers(PaxId_t pax_id)
 {
-  return deleteByPaxId("TRIP_COMP_LAYERS", pax_id);
+  return deleteByPaxId("TRIP_COMP_LAYERS", pax_id, STDLOG);
 }
 
 bool deletePaxAlarms(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_ALARMS", pax_id);
+  return deleteByPaxId("PAX_ALARMS", pax_id, STDLOG);
 }
 
 bool deletePaxCustomAlarms(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_CUSTOM_ALARMS", pax_id);
+  return deleteByPaxId("PAX_CUSTOM_ALARMS", pax_id, STDLOG);
 }
 
 bool deletePaxServiceLists(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_SERVICE_LISTS", pax_id);
+  return deleteByPaxId("PAX_SERVICE_LISTS", pax_id, STDLOG);
 }
 
 bool deletePaxServices(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_SERVICES", pax_id);
+  return deleteByPaxId("PAX_SERVICES", pax_id, STDLOG);
 }
 
 bool deletePaxServicesAuto(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_SERVICES_AUTO", pax_id);
+  return deleteByPaxId("PAX_SERVICES_AUTO", pax_id, STDLOG);
 }
 
 bool deletePaidRfisc(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAID_RFISC", pax_id);
+  return deleteByPaxId("PAID_RFISC", pax_id, STDLOG);
 }
 
 bool deletePaxNormsText(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_NORMS_TEXT", pax_id);
+  return deleteByPaxId("PAX_NORMS_TEXT", pax_id, STDLOG);
 }
 
 bool deleteTrferPaxStat(PaxId_t pax_id)
 {
-  return deleteByPaxId("TRFER_PAX_STAT", pax_id);
+  return deleteByPaxId("TRFER_PAX_STAT", pax_id, STDLOG);
 }
 
 bool deleteBiStat(PaxId_t pax_id)
 {
-  return deleteByPaxId("BI_STAT", pax_id);
+  return deleteByPaxId("BI_STAT", pax_id, STDLOG);
 }
 
 bool deleteSBDOTagsGenerated(PaxId_t pax_id)
 {
-  return deleteByPaxId("SBDO_TAGS_GENERATED", pax_id);
+  return deleteByPaxId("SBDO_TAGS_GENERATED", pax_id, STDLOG);
 }
 
 bool deletePaxCalcData(PaxId_t pax_id)
@@ -245,12 +246,12 @@ bool deletePaxCalcData(PaxId_t pax_id)
 
 bool deletePaxConfirmations(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX_CONFIRMATIONS", pax_id);
+  return deleteByPaxId("PAX_CONFIRMATIONS", pax_id, STDLOG);
 }
 
 bool deletePax(PaxId_t pax_id)
 {
-  return deleteByPaxId("PAX", pax_id);
+  return deleteByPaxId("PAX", pax_id, STDLOG);
 }
 
 bool clearServicePaymentPaxId(PaxId_t pax_id)

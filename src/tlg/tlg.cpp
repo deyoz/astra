@@ -228,7 +228,7 @@ int saveTlg(const char * receiver,
 
   int tlg_num = PgOra::getSeqNextVal("TLGS_ID");
 
-  DB::TQuery Qry(PgOra::getRWSession("TLGS"));
+  DB::TQuery Qry(PgOra::getRWSession("TLGS"), STDLOG);
 
   Qry.SQLText=
     "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
@@ -311,7 +311,8 @@ void putTlgText(int tlg_id, const string &tlg_text)
   DB::TCachedQuery TextQry(
       PgOra::getRWSession("TLGS_TEXT"),
      "INSERT INTO tlgs_text(id, page_no, text) VALUES(:id, :page_no, :text)",
-      QryParams
+      QryParams,
+      STDLOG
   );
 
   longToDB(TextQry.get(), "text", tlg_text);
@@ -328,7 +329,8 @@ std::string getTlgText(int tlg_id)
     DB::TCachedQuery TextQry(
         session,
        "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no",
-        QryParams
+        QryParams,
+        STDLOG
     );
 
     TextQry.get().Execute();
@@ -360,7 +362,7 @@ static void LogTlgOutTypeB(const std::string& text)
 }
 
 static void LogTlgOutTypeAPP(const std::string& text)
-{   
+{
     const size_t stxPos = text.find(0x02);
     LogTlg() << StrUtils::replaceSubstrCopy(text.substr(0, stxPos), "\r", "\\") << "\n"
              << APPS::appsTextAsHumanReadable(text.substr(stxPos + 1));
@@ -412,7 +414,7 @@ static void putTlg2OutQueue(const std::string& receiver,
                             int ttl)
 {
     TDateTime nowUTC=NowUTC();
-    DB::TQuery Qry(PgOra::getRWSession("TLG_QUEUE"));
+    DB::TQuery Qry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     Qry.SQLText=
       "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
       "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL) ";
@@ -589,7 +591,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
         TDateTime nowUTC=NowUTC();
         int tlg_id = PgOra::getSeqNextVal("TLGS_ID");
 
-        DB::TQuery Qry(PgOra::getRWSession("SP_PG_GROUP_TLG_QUE"));
+        DB::TQuery Qry(PgOra::getRWSession("SP_PG_GROUP_TLG_QUE"), STDLOG);
         Qry.SQLText=
           "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
           "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
@@ -660,8 +662,7 @@ bool deleteTlg(int tlg_id)
     LogTrace(TRACE3) << "del tlg by num: " << tlg_id;
   try
   {
-    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
-    TlgQry.Clear();
+    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     TlgQry.SQLText=
            "DELETE FROM tlg_queue WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
@@ -685,10 +686,9 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
   try
   {
     deleteTlg(tlg_id);
-    DB::TQuery TlgQry(PgOra::getRWSession("TLG_ERROR"));
     if (!msg.empty())
     {
-      TlgQry.Clear();
+      DB::TQuery TlgQry(PgOra::getRWSession("TLG_ERROR"), STDLOG);
       TlgQry.SQLText = PgOra::supportsPg("TLG_ERROR")
         ? "INSERT INTO tlg_error(id, msg) VALUES(:id, :msg) "
           "ON CONFLICT(id) DO UPDATE SET msg=:msg;"
@@ -702,7 +702,8 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
       TlgQry.CreateVariable("id",otInteger,tlg_id);
       TlgQry.Execute();
     };
-    TlgQry.Clear();
+
+    DB::TQuery TlgQry(PgOra::getRWSession("TLGS"), STDLOG);
     TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
     TlgQry.CreateVariable("error",otString,type.substr(0,4));
     TlgQry.CreateVariable("id",otInteger,tlg_id);
@@ -823,8 +824,7 @@ bool procTlg(int tlg_id)
 {
   try
   {
-    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
-    TlgQry.Clear();
+    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     TlgQry.SQLText=
            "UPDATE tlg_queue SET proc_attempt=COALESCE(proc_attempt,0)+1 WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);

@@ -40,7 +40,7 @@ TBaselAeroAirps *TBaselAeroAirps::Instance()
 
 TBaselAeroAirps::TBaselAeroAirps()
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("FILE_SETS"), STDLOG);
   Qry.SQLText =
     "SELECT airp, dir FROM file_sets WHERE code=:code AND pr_denial=0";
   Qry.CreateVariable( "code", otString, BASEL_AERO );
@@ -112,16 +112,19 @@ void sych_basel_aero_stat( TDateTime utcdate )
   TripSetsQry.SQLText =
     "UPDATE trip_sets SET pr_basel_stat=1 WHERE point_id=:point_id";
   TripSetsQry.DeclareVariable( "point_id", otInteger );
-  TQuery ReWriteQry(&OraSession);
+
+  DB::TQuery ReWriteQry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   ReWriteQry.SQLText =
     "SELECT last_create FROM file_sets WHERE airp=:airp AND code=:code";
   ReWriteQry.DeclareVariable( "airp", otString );
   ReWriteQry.CreateVariable( "code", otString, BASEL_AERO );
+
   TQuery DeleteQry(&OraSession);
   DeleteQry.SQLText =
     "DELETE basel_stat WHERE airp=:airp AND rownum <= 10000";
   DeleteQry.DeclareVariable( "airp", otString );
-  TQuery FileSetsQry(&OraSession);
+
+  DB::TQuery FileSetsQry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   FileSetsQry.SQLText =
     "UPDATE file_sets SET last_create=:vdate WHERE code=:code AND airp=:airp";
   FileSetsQry.CreateVariable( "vdate", otDate, utcdate );
@@ -565,7 +568,6 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
        .bind(":point_id", point_id)
        .exec();
     while(!cur.fen()) {
-        PG_ARX::TBagInfo bag_info = PG_ARX::get_bagInfo2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num);
         int arch_excess_wt = PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0);
         std::string tags  = PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num,"RU").value_or("");
         TBaselStat stat;
@@ -583,9 +585,9 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
         else
           stat.viewName = "€ƒ€† …‡ ‘ŽŽ‚Ž†„…ˆŸ";
         stat.viewName = stat.viewName.substr(0,130);
-        stat.viewPCT = bag_info.bagAmount;
-        stat.viewWeight = bag_info.bagWeight;
-        stat.viewCarryon = bag_info.rkWeight;
+        stat.viewPCT = PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
+        stat.viewWeight = PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
+        stat.viewCarryon = PG_ARX::get_rkWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
         stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
         stat.viewTag = tags.substr(0,100);
         pair<TDateTime, TDateTime> times(NoExists, NoExists);

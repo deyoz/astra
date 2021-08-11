@@ -53,16 +53,6 @@ const TTripTaskKey& TTripTaskKey::toDB(TQuery &Qry) const
   return *this;
 }
 
-TTripTaskKey& TTripTaskKey::fromDB(TQuery &Qry)
-{
-  point_id=Qry.FieldIsNULL("point_id")?
-             ASTRA::NoExists:
-             Qry.FieldAsInteger("point_id");
-  name=Qry.FieldAsString("name");
-  params=Qry.FieldAsString("params");
-  return *this;
-}
-
 std::string TTripTaskKey::traceStr() const
 {
   std::ostringstream s;

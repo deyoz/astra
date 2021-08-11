@@ -48,7 +48,7 @@ std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryO
     if(ops.for_update) {
         res << " for update";
     }
-    return StrUtils::ToLower(res.str());
+    return res.str();
 }
 
 std::string firstTableFrom(const std::string& from)
@@ -81,6 +81,22 @@ DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& map
     else if(db==Oracle) {session = get_main_ora_sess(STDLOG);}
     return session;
 }
+
+Transaction Session::transactPolicy(DbCpp::Session &session)
+{
+    if(!session.isOracle() && !_ignoreErrors.empty()) {
+        return Transaction(session, Transaction::Policy::Managed);
+    }
+    return Transaction(session, Transaction::Policy::AutoCommit);
+}
+
+std::vector<DbCpp::ResultCode> Session::moveErrors()
+{
+    auto ret = std::move(_ignoreErrors);
+    _ignoreErrors.clear();
+    return ret;
+}
+
 
 std::string Cursor::dump(size_t fields_size)
 {
@@ -146,15 +162,11 @@ std::string MappingInfo::insertColumns() const
     return st.str();
 }
 
-std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
+std::string dumpColumns(shared_ptr<MappingInfo>& mapInfo, const vector<std::string>& fields)
 {
     std::string result;
-    vector<std::string> get_fields = fields;
-    if (get_fields.empty()) {
-        get_fields = columns();
-    }
-    for(const std::string & field: get_fields) {
-        std::optional<FieldInfo> optField = algo::find_opt_if<std::optional>(m_fields,
+    for(const std::string & field: fields) {
+        std::optional<FieldInfo> optField = algo::find_opt_if<std::optional>(mapInfo->fields(),
                       [&field](const FieldInfo & f) { return f.name() == StrUtils::ToLower(field);} );
         if(!optField) {
             throw EXCEPTIONS::Exception(" Not such field :" + field);
@@ -172,49 +184,24 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     return  result;
 }
 
-Transaction Session::transactPolicy(DbCpp::Session &session)
-{
-    if(!session.isOracle() && !_ignoreErrors.empty()) {
-        return Transaction(session, Transaction::Policy::Managed);
-    }
-    return Transaction(session, Transaction::Policy::AutoCommit);
-}
-
-std::vector<DbCpp::ResultCode> Session::moveErrors()
-{
-    auto ret = std::move(_ignoreErrors);
-    _ignoreErrors.clear();
-    return ret;
-}
-
-std::string Session::dump(const string &db, const std::string &tableName, const vector<std::string> &tokens,
+std::string Session::dump(const std::string &tableName, const vector<std::string> &tokens,
                           const std::string &query)
 {
-    std::string result_query;
+    //std::string result_query;
     std::string tblName = StrUtils::ToLower(tableName);
     shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tblName);
     if(!mapInfo) {
         throw EXCEPTIONS::Exception("Unknown table name: " + tblName);
     }
+    auto fields = tokens.empty() ? mapInfo->columns() : tokens;
+    std::string select_query = "select " + dumpColumns(mapInfo, fields);
+    std::string from_query = " from " + tableName + " " + query;
 
-    size_t size = tokens.empty() ? mapInfo->columnsCount() : tokens.size();
-    result_query = "select " + mapInfo->stringColumns(tokens);
-    result_query += " from " + tableName + " " + query;
-
-    DbCpp::Session* session = nullptr;
-    std::string DB;
-    if(StrUtils::ToLower(db) == "pg") {
-        session = (PgOra::getGroup(tableName)=="SP_PG_GROUP_ARX") ? get_arx_pg_rw_sess(STDLOG)
-                                                                  : get_main_pg_rw_sess(STDLOG);
-        DB = "POSTGRES";
-    } else {
-        DB = "ORACLE";
-        session = get_main_ora_sess(STDLOG);
-    }
-    LogTrace(TRACE6) << "---------------- " << tableName << " " << DB << " DUMP ----------------------";
-    LogTrace(TRACE5) << result_query;
-    Cursor cur(session->createCursor(STDLOG, result_query), Transaction(*session));
-    std::string dump = cur.dump(size);
+    DbCpp::Session& session = PgOra::getROSession(tableName);
+    LogTrace(TRACE6) << "---------------- " << tableName << " " << " DUMP ----------------------";
+    LogTrace(TRACE6) << StrUtils::join(',', fields);
+    Cursor cur(session.createCursor(STDLOG, select_query + from_query), Transaction(session));
+    std::string dump = cur.dump(fields.size());
     LogTrace(TRACE6) << dump;
     return dump;
 }

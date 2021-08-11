@@ -157,7 +157,7 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(const EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
+    E.showProgError();
   }
   catch(const std::exception &E)
   {
@@ -221,7 +221,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(const EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
+    E.showProgError();
   }
   catch(const std::exception &E)
   {
@@ -357,11 +357,10 @@ bool handle_tlg(void)
 
   TMemoryManager mem(STDLOG);
 
-  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
   if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
-    TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "

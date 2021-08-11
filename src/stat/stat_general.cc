@@ -61,7 +61,7 @@ std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime 
 "          (last_date IS NULL OR change_point<last_date) AND \n"
 "          airline IS NULL) periods \n"
 "  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-" ) periods \n", PgOra::getROSession("PACTS"));
+") \n", PgOra::getROSession("PACTS"));
 
     cur.stb()
        .def(period_first)
@@ -96,7 +96,7 @@ const string AIRLINE_PERIODS =
 "          change_point>=first_date AND  \n"
 "          (last_date IS NULL OR change_point<last_date)) periods \n"
 "  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-" ) periods \n";
+") periods \n";
 
 std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTime lastDate,
                                                  const std::string& airline)
@@ -123,7 +123,7 @@ std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTi
 "          change_point>=first_date AND  \n"
 "          (last_date IS NULL OR change_point<last_date)) periods \n"
 "  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-" ) periods \n", PgOra::getROSession("PACTS"));
+") \n", PgOra::getROSession("PACTS"));
 
     cur.stb()
        .def(period_first)
@@ -147,7 +147,7 @@ const string AIRLINE_LIST =
 "        (last_date IS NULL OR periods.period_first_date<last_date) AND \n"
 "        airline IS NOT NULL) \n";
 
-std::vector<std::string> read_airline_list(const Dates::time_period & period)
+std::vector<std::string> read_airline_list(const Dates::time_period & period, const std::string& airp)
 {
     std::string airline;
     auto cur = make_db_curs(" (SELECT airline  \n"
@@ -158,6 +158,7 @@ std::vector<std::string> read_airline_list(const Dates::time_period & period)
                             "        airline IS NOT NULL) \n", PgOra::getROSession("PACTS"));
     cur.stb()
        .defNull(airline, "")
+       .bind(":ap", airp)
        .bind(":period_first_date", period.begin())
        .exec();
     std::vector<std::string> airlines;
@@ -175,7 +176,7 @@ const string AIRP_LIST =
 "        first_date<=periods.period_first_date AND  \n"
 "        (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
 
-std::vector<std::string> read_airp_list(const Dates::time_period & period)
+std::vector<std::string> read_airp_list(const Dates::time_period & period, const std::string& airline)
 {
     std::string airp;
     auto cur = make_db_curs(" (SELECT airp  \n"
@@ -186,6 +187,7 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period)
                             PgOra::getROSession("PACTS"));
     cur.stb()
        .def(airp)
+       .bind(":ak", airline)
        .bind(":period_first_date", period.begin())
        .exec();
     std::vector<std::string> airps;
@@ -195,13 +197,8 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period)
     return airps;
 }
 
-std::string query_air_list(const std::vector<std::string> & list)
-{
-    return StrUtils::join(", ",list);
-}
-
-string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string& airline_list,
-                         const std::string& airp_list)
+string ArxGetStatSQLText(const TStatParams &params, int pass, const std::vector<std::string>& airline_list,
+                         const std::vector<std::string>& airp_list)
 {
     static const string sum_pax_by_client_type =
         " SUM(CASE WHEN client_type = :web     THEN (adult + child + baby) ELSE 0 END) web, \n"
@@ -307,12 +304,16 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
                  "         move_arx_ext.part_key <= :period_last_date + move_arx_ext.date_range AND \n";
       }
       sql << "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
-             "         arx_points.scd_out >= :period_first_date AND arx_points.scd_out < :period_last_date AND \n";
+             "         arx_points.scd_out >= :period_first_date AND arx_points.scd_out < :period_last_date \n";
 
-      if(params.seance==seanceAirport)
-        sql << "        arx_points.airline NOT IN " << airline_list << " \n";
-      if(params.seance==seanceAirline)
-        sql << "        arx_points.airp IN " << airp_list << " \n";
+      if(!airline_list.empty()) {
+          if(params.seance==seanceAirport)
+            sql << " AND  arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
+      }
+      if(!airp_list.empty()) {
+          if(params.seance==seanceAirline)
+            sql << " AND arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
+      }
       sql << "  ) arx_ext \n";
     };
   }
@@ -394,10 +395,14 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
 
   if (pass==1)
   {
-    if(params.seance==seanceAirport)
-      sql << " AND arx_points.airline NOT IN " << airline_list << " \n";
-    if(params.seance==seanceAirline)
-      sql << " AND arx_points.airp IN " << airp_list << " \n";
+    if(!airline_list.empty()) {
+        if(params.seance==seanceAirport)
+          sql << " AND arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
+    }
+    if(!airp_list.empty()) {
+        if(params.seance==seanceAirline)
+          sql << " AND arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
+    }
   };
 
   if (params.statType==statFull)
@@ -1527,7 +1532,7 @@ void ArxRunPactDetailStat(const vector<TPact>& result_pacts, const TStatParams &
                           TPrintAirline &prn_airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_STAT"), STDLOG);
     for(int pass = 1; pass<=2; pass++) {
         ostringstream sql;
         sql << "SELECT \n"
@@ -1667,7 +1672,7 @@ void RunPactDetailStat(const TStatParams &params,
     vector<TPact> pacts = readPacts(params);
 
     ostringstream sql;
-    DB::TQuery Qry(PgOra::getROSession("STAT"));
+    DB::TQuery Qry(PgOra::getROSession("STAT"), STDLOG);
     sql << "SELECT \n"
         " points.airline, \n"
         " points.airp, \n"
@@ -1717,23 +1722,26 @@ void ArxRunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
+
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
     Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
     if (params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)  Qry.CreateVariable("flt_no", otString, params.flt_no);
-    Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
+    //Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
-        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "").c_str();
+        Qry.SQLText = ArxGetStatSQLText(params,pass, {}, {}).c_str();
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        } else {
+            Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+            Qry.CreateVariable("LastDate", otDate, params.LastDate);
+            Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
         }
+
         if (params.seance==seanceAirline)
         {
           //цикл по компаниям
@@ -1742,17 +1750,13 @@ void ArxRunDetailStat(const TStatParams &params,
             for(const auto &airl : params.airlines.elems())
             {
               Qry.SetVariable("ak", airl);
-              auto periods = (params.seance==seanceAirline)
-                      ? get_airline_periods(params.FirstDate, params.LastDate, airl)
-                      : get_airp_periods(params.FirstDate, params.LastDate, airl);
+              auto periods =  get_airline_periods(params.FirstDate, params.LastDate, airl);
 
               for(auto & period : periods) {
-                  Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                  Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                  Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                  Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  std::string airline_list = query_air_list(read_airline_list(period));
-                  std::string airp_list = query_air_list(read_airp_list(period));
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, airp_list).c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass, {}, read_airp_list(period, airl)).c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1768,17 +1772,13 @@ void ArxRunDetailStat(const TStatParams &params,
             for(const auto &airp : params.airps.elems())
             {
               Qry.SetVariable("ap", airp);
-              auto periods = (params.seance==seanceAirline)
-                      ? get_airline_periods(params.FirstDate, params.LastDate, airp)
-                      : get_airp_periods(params.FirstDate, params.LastDate, airp);
+              auto periods = get_airp_periods(params.FirstDate, params.LastDate, airp);
 
               for(const auto & period : periods) {
-                  Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                  Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                  Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                  Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  std::string airline_list = query_air_list(read_airline_list(period));
-                  std::string airp_list = query_air_list(read_airp_list(period));
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, airp_list).c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass,read_airline_list(period, airp), {}).c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1794,7 +1794,7 @@ void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -1939,10 +1939,8 @@ void ArxRunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
+
     if (params.statType==statFull)
     {
       Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -1953,14 +1951,18 @@ void ArxRunFullStat(const TStatParams &params,
     if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otString, params.flt_no);
-    Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
-        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "");
+        Qry.SQLText = ArxGetStatSQLText(params,pass, {}, {});
             //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        } else {
+            Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+            Qry.CreateVariable("LastDate", otDate, params.LastDate);
+            Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
         }
+
         if (params.seance==seanceAirline)
         {
             //цикл по компаниям
@@ -1969,17 +1971,12 @@ void ArxRunFullStat(const TStatParams &params,
                 for(const auto &airl : params.airlines.elems())
                 {
                   Qry.SetVariable("ak", airl);
-                  auto periods = (params.seance==seanceAirline)
-                          ? get_airline_periods(params.FirstDate, params.LastDate, airl)
-                          : get_airp_periods(params.FirstDate, params.LastDate, airl);
+                  auto periods = get_airline_periods(params.FirstDate, params.LastDate, airl);
 
                   for(const auto & period : periods) {
-                      Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                      Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
-
-                      std::string airline_list = query_air_list(read_airline_list(period));
-                      std::string airp_list = query_air_list(read_airp_list(period));
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, airp_list).c_str();
+                      Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                      Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, {}, read_airp_list(period, airl)).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
@@ -1995,17 +1992,13 @@ void ArxRunFullStat(const TStatParams &params,
                 for(const auto &airp : params.airps.elems())
                 {
                   Qry.SetVariable("ap", airp);
-                  auto periods = (params.seance==seanceAirline)
-                          ? get_airline_periods(params.FirstDate, params.LastDate, airp)
-                          : get_airp_periods(params.FirstDate, params.LastDate, airp);
+                  auto periods = get_airp_periods(params.FirstDate, params.LastDate, airp);
 
                   for(const auto & period : periods) {
-                      Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                      Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                      Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                      Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                      std::string airline_list = query_air_list(read_airline_list(period));
-                      std::string airp_list = query_air_list(read_airp_list(period));
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, airp_list).c_str();
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, read_airline_list(period, airp), {}).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
@@ -2020,7 +2013,7 @@ void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     if (params.statType==statFull)

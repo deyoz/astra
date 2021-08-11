@@ -14,6 +14,11 @@ struct QParam {
     std::string name;
     otFieldType ft;
 
+    enum BindOption {
+      AsIs = 0,
+      NullOnEmpty = 1
+    };
+
     bool empty;
 
     int int_value;
@@ -30,19 +35,31 @@ struct QParam {
         void_value = value;
         void_size = size;
     }
-    QParam(const std::string &aname, otFieldType aft, int value)
+    QParam(const std::string &aname, otFieldType aft, int value, BindOption option = AsIs)
     {
-        empty = false;
-        name = aname;
-        ft = aft;
-        int_value = value;
+        if (option == NullOnEmpty && value == ASTRA::NoExists) {
+            empty = true;
+            name = aname;
+            ft = aft;
+        } else {
+            empty = false;
+            name = aname;
+            ft = aft;
+            int_value = value;
+        }
     }
-    QParam(const std::string &aname, otFieldType aft, double value)
+    QParam(const std::string &aname, otFieldType aft, double value, BindOption option = AsIs)
     {
-        empty = false;
-        name = aname;
-        ft = aft;
-        double_value = value;
+        if (option == NullOnEmpty && value == ASTRA::NoExists) {
+            empty = true;
+            name = aname;
+            ft = aft;
+        } else {
+            empty = false;
+            name = aname;
+            ft = aft;
+            double_value = value;
+        }
     }
     QParam(const std::string &aname, otFieldType aft, const std::string &value)
     {
@@ -78,6 +95,7 @@ struct TQry {
     size_t count;
     bool in_use;
     TQry(): Qry(&OraSession), count(0), in_use(false) {};
+    TQry(STDLOG_SIGNATURE): Qry(&OraSession, STDLOG_VARIABLE), count(0), in_use(false) {};
 };
 
 typedef std::tr1::shared_ptr<TQry> TQry_ptr;
@@ -89,6 +107,8 @@ class TCachedQuery {
         TQuery &get();
         TCachedQuery(const std::string &SQLText, const QParams &p);
         TCachedQuery(const std::string &SQLText);
+        TCachedQuery(const std::string &SQLText, const QParams &p, STDLOG_SIGNATURE);
+        TCachedQuery(const std::string &SQLText, STDLOG_SIGNATURE);
         ~TCachedQuery();
 };
 

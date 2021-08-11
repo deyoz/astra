@@ -831,7 +831,7 @@ void ArxRunRFISCStat(
         "    arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate and \n"
         "    arx_rfisc_stat.part_key >= :FirstDate AND arx_rfisc_stat.part_key < :LastDate \n";
 
-    DB::TCachedQuery Qry(PgOra::getROSession("ARX_RFISC_STAT"), SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("ARX_RFISC_STAT"), SQLText, QryParams, STDLOG);
 
     Qry.get().Execute();
     if(not Qry.get().Eof) {

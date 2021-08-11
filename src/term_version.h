@@ -38,8 +38,5 @@
 #define DOCO_CONFIRM_VERSION          "204000-0000000"
 #define LAYER_PROT_SELF_CKIN          "204000-0000000"
 
-
-
-
 #endif
 

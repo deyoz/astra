@@ -9,6 +9,7 @@
 #include "xml_unit.h"
 #include "astra_locale.h"
 #include "astra_types.h"
+#include "db_tquery.h"
 
 namespace CheckIn
 {
@@ -248,7 +249,7 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
              tier_level.empty();
     }
     const TPaxFQTItem& toDB(TQuery &Qry) const;
-    TPaxFQTItem& fromDB(TQuery &Qry);
+    TPaxFQTItem& fromDB(DB::TQuery &Qry);
     const TPaxFQTItem& toXML(xmlNodePtr node,
                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     TPaxFQTItem& fromXML(xmlNodePtr node);

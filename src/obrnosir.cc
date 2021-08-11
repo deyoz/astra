@@ -8,8 +8,12 @@
 #include "basel_aero.h"
 #include "ffp_sirena.h"
 #include "baggage_calc.h"
-#include "serverlib/query_runner.h"
-#include "edilib/edi_loading.h"
+#include "pg_session.h"
+
+#include <serverlib/query_runner.h>
+#include <serverlib/testmode.h>
+#include <edilib/edilib_dbpg_callbacks.h>
+#include <edilib/edi_loading.h>
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -26,6 +30,7 @@
 #include "stat/stat_seDCSAddReport.h"
 #include "stat/stat_departed.h"
 #include "stat/stat_ovb.h"
+#include "dbcpp_nosir_check.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -46,6 +51,52 @@ int stat_belgorod(int argc, char **argv);
 int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
+int print_pg_tables(int argc, char **argv);
+
+#ifdef XP_TESTING
+
+void NosirTrace(int l, const char *nickname, const char *filename,int line, const char *format,  ...)
+{
+  LogTrace(l,nickname,filename,line)<<"NosirTrace";
+  va_list ap;
+  va_start(ap, format);
+  if(inTestMode()) {
+    //LogTrace(l,nickname,filename,line)<<"inTestMode";
+  }
+  else {
+    //LogTrace(l,nickname,filename,line)<<"not inTestMode";
+    vfprintf(stdout,format,ap);
+    fputc('\n',stdout);
+  }
+  va_end(ap);
+}
+
+int pg_sessions_check(int argc,char **argv)
+{
+  NosirTrace(TRACE1,"\npg_sessions_check started..." );
+  {
+    NosirTrace(TRACE1,"check_autonomous_sessions_load_save_consistency started..." );
+    std::vector<DbCpp::TCheckSessionsLoadSaveConsistency> res
+          =DbCpp::check_autonomous_sessions_load_save_consistency();
+
+    if(!res.empty())
+    {
+      for(auto const& i : res)
+      {
+        NosirTrace(TRACE1,"  %s:%zi %s",i.file,i.line,i.text_error.c_str());
+      }
+      NosirTrace(TRACE1,"pg_autonomous_session_check process finished with error(s)...\n" );
+      return 1;
+    }
+    NosirTrace(TRACE1,"check_autonomous_sessions_load_save_consistency finished successfully" );
+  }
+
+  NosirTrace(TRACE1,"pg_sessions_check process finished successfully\n" );
+
+  return 0;
+}
+#endif
+
 
 const
   struct {
@@ -80,7 +131,6 @@ const
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
-    {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
     {"-departed",               nosir_departed,         NULL,                       NULL},
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
@@ -103,6 +153,11 @@ const
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
     {"-dump_typeb_out",         nosirDumpTypeBOut,      nosirDumpTypeBOutUsage,     NULL},
+    {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
+    {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
+#ifdef XP_TESTING
+    {"-pg_sessions_check", pg_sessions_check, NULL, "Check main PG session consistency for different methods of usage PG" },
+#endif
   };
 
 int nosir_test(int argc,char **argv)
@@ -167,7 +222,7 @@ int main_nosir_user(int argc,char **argv)
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    E.showProgError();
     puts("Bad error! Contact with developers!");
   }
   catch(std::exception &E)

@@ -134,9 +134,9 @@ std::vector<std::string> get_grp_zone_list(int point_id);
 void GetZoneList(int point_id, xmlNodePtr dataNode);
 std::string get_hall_list(std::string airp, TRptParams &rpt_params);
 void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params);
-void get_new_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
-void get_compatible_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
-std::string get_report_version(std::string name);
+void get_new_report_form(const std::string& name, xmlNodePtr reqNode, xmlNodePtr resNode);
+void get_compatible_report_form(const std::string& name, xmlNodePtr reqNode, xmlNodePtr resNode);
+std::string get_report_version(const std::string& name);
 
 struct t_tag_nos_row {
     int pr_liab_limit;

@@ -212,16 +212,17 @@ class TCrsPaxAlarmHook : public TSomeonesAlarmHook<TPaxAlarm>
     static void set(Alarm::Enum _type, const int& _id);
 };
 
-bool addAlarmByPaxId(const int paxId,
+bool addAlarmByPaxId(const PaxId_t paxId,
                      const std::initializer_list<Alarm::Enum>& alarms,
                      const std::initializer_list<PaxOrigin>& origins);
-bool deleteAlarmByPaxId(const int paxId,
+bool deleteAlarmByPaxId(const PaxId_t paxId,
                         const std::initializer_list<Alarm::Enum>& alarms,
                         const std::initializer_list<PaxOrigin>& origins);
-bool deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
-bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
-bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
-bool existsAlarmByPointId(const int pointId,
+bool deleteAlarmByGrpId(const GrpId_t grpId, const Alarm::Enum alarmType);
+bool existsAlarmByPaxId(const PaxId_t paxId, const Alarm::Enum alarmType,
+                        const PaxOrigin paxOrigin);
+bool existsAlarmByGrpId(const GrpId_t grpId, const Alarm::Enum alarmType);
+bool existsAlarmByPointId(const PointId_t pointId,
                           const std::initializer_list<Alarm::Enum>& alarms,
                           const std::initializer_list<PaxOrigin>& origins);
 std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,

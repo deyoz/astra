@@ -197,16 +197,30 @@ bool TTripInfo::getByCRSPaxId(const int pax_id)
   return true;
 }
 
-bool TTripInfo::getByPaxId ( const int pax_id )
+std::optional<PointId_t> getPointIdByPaxId(const PaxId_t pax_id)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
     TCachedQuery Qry(
-            "select point_dep from pax_grp, pax where "
+            "select point_dep from pax_grp, pax "
+            "where "
             "   pax.pax_id = :pax_id and "
             "   pax.grp_id = pax_grp.grp_id ",
-            QParams() << QParam("pax_id", otInteger, pax_id));
+            QParams() << QParam("pax_id", otInteger, pax_id.get()));
     Qry.get().Execute();
-    if(Qry.get().Eof) return false;
-    return getByPointId( Qry.get().FieldAsInteger( "point_dep" ) );
+    if(Qry.get().Eof) return {};
+    LogTrace(TRACE6) << __func__
+                     << ": result=" << Qry.get().FieldAsInteger("point_dep");
+    return PointId_t(Qry.get().FieldAsInteger("point_dep"));
+}
+
+bool TTripInfo::getByPaxId ( const int pax_id )
+{
+    const std::optional<PointId_t> point_id = getPointIdByPaxId(PaxId_t(pax_id));
+    if (!point_id) {
+      return false;
+    }
+    return getByPointId( point_id->get() );
 }
 
 bool TTripInfo::getByGrpId ( const int grp_id )
@@ -291,18 +305,47 @@ template<> std::string PnrFlightsCache::traceTitle()
 
 } //namespace ASTRA
 
-void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips)
+std::set<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp)
 {
-  trips.clear();
+  std::set<PointIdTlg_t> result;
+  TCachedQuery Qry("SELECT point_id_tlg "
+                   "FROM tlg_binding "
+                   "WHERE point_id_spp = :point_id ",
+                   QParams() << QParam("point_id", otInteger, point_id_spp.get()));
+  Qry.get().Execute();
+  for(;!Qry.get().Eof;Qry.get().Next()) {
+    result.insert(PointIdTlg_t(Qry.get().FieldAsInteger("point_id_tlg")));
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+std::optional<PointIdTlg_t> getPointIdTlgByPaxId(const PaxId_t pax_id, bool with_deleted)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
   TCachedQuery Qry("SELECT point_id "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id AND "
-                   "      crs_pnr.system='CRS' AND crs_pax.pr_del=0 ",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+                   "      crs_pnr.system='CRS' "
+                   + std::string(with_deleted ? "" : "AND crs_pax.pr_del=0 "),
+                   QParams() << QParam("pax_id", otInteger, pax_id.get()));
   Qry.get().Execute();
-  if(Qry.get().Eof) return;
+  if(Qry.get().Eof) return {};
 
-  getTripsByPointIdTlg(Qry.get().FieldAsInteger("point_id"), trips);
+  LogTrace(TRACE6) << __func__
+                   << ": result=" << Qry.get().FieldAsInteger("point_id");
+  return PointIdTlg_t(Qry.get().FieldAsInteger("point_id"));
+}
+
+void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips)
+{
+  trips.clear();
+  const std::optional<PointIdTlg_t> point_id_tlg = getPointIdTlgByPaxId(PaxId_t(pax_id), false /*with_deleted*/);
+  if(!point_id_tlg) return;
+
+  getTripsByPointIdTlg(point_id_tlg->get(), trips);
 }
 
 void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time) const
@@ -1176,7 +1219,7 @@ std::vector<GrpRoute> GrpRoute::load(int transfer_num,
                    << ", grp_id_src=" << grp_id_src
                    << ", grp_id_dest=" << grp_id_dest;
   std::vector<GrpRoute> result;
-  DB::TQuery Qry(PgOra::getROSession("PAX_GRP-TCKIN_PAX_GRP"));
+  DB::TQuery Qry(PgOra::getROSession("PAX_GRP-TCKIN_PAX_GRP"), STDLOG);
   Qry.SQLText = "(SELECT tckin_pax_grp.grp_id AS src_grp_id, "
                 "        pax_grp.point_dep AS src_point_id, "
                 "        tckin_pax_grp.tckin_id AS src_tckin_id, "
@@ -1230,7 +1273,7 @@ std::vector<PaxGrpRoute> PaxGrpRoute::load(const PaxId_t& pax_id,
                    << ", grp_id_src=" << grp_id_src
                    << ", grp_id_dest=" << grp_id_dest;
   std::vector<PaxGrpRoute> result;
-  DB::TQuery Qry(PgOra::getROSession("PAX-TCKIN_PAX_GRP"));
+  DB::TQuery Qry(PgOra::getROSession("PAX-TCKIN_PAX_GRP"), STDLOG);
   Qry.SQLText = "SELECT src.*, dest.* FROM "
                 "(SELECT pax.pax_id AS src_pax_id, "
                 "        tckin_pax_grp.grp_id AS src_grp_id, "
@@ -2191,20 +2234,23 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool
   return trip.str();
 }
 
-void GetCrsList(int point_id, std::vector<std::string> &crs)
+std::set<std::string> GetCrsList(const PointId_t& point_id)
 {
-  crs.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT DISTINCT crs FROM tlg_binding,crs_data_stat "
-    "WHERE tlg_binding.point_id_tlg=crs_data_stat.point_id AND "
-    "      tlg_binding.point_id_spp=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    crs.push_back(Qry.FieldAsString("crs"));
-};
+  std::set<std::string> result;
+  const std::set<PointIdTlg_t> point_id_tlgs = getPointIdTlgByPointIdsSpp(point_id);
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlgs) {
+    DB::TQuery Qry(PgOra::getROSession("CRS_DATA_STAT"), STDLOG);
+    Qry.SQLText=
+        "SELECT DISTINCT crs FROM crs_data_stat "
+        "WHERE point_id=:point_id_tlg";
+    Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg.get());
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next()) {
+      result.insert(Qry.FieldAsString("crs"));
+    }
+  }
+  return result;
+}
 
 //bt
 
@@ -2308,8 +2354,7 @@ bool is_sync_flights( int point_id )
 
 bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType )
 {
-  TQuery Qry( &OraSession );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
   Qry.SQLText =
       "SELECT id FROM file_param_sets "
       " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
@@ -2834,4 +2879,3 @@ void TInfantAdults::clear()
    parent_pax_id = NoExists;
    temp_parent_id = NoExists;
 }
-

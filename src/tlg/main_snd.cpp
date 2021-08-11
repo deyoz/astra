@@ -171,7 +171,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    E.showProgError();
   }
   catch(std::exception &E)
   {
@@ -215,7 +215,7 @@ bool scan_tlg(bool sendOutAStepByStep)
 {
   time_t time_start=time(NULL);
 
-  static DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
   if (TlgQry.SQLText.empty())
   {
     if (PgOra::supportsPg("TLG_QUEUE")) {
@@ -520,7 +520,7 @@ bool scan_tlg(bool sendOutAStepByStep)
 
 static long long scan_tlg_model_index()
 {
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
 
     if (TlgQry.SQLText.empty()) {
 
@@ -552,7 +552,7 @@ static long long scan_tlg_model_index()
 
 static long long scan_tlg_model_default()
 {
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
 
     if (TlgQry.SQLText.empty()) {
 

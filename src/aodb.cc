@@ -1687,8 +1687,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
   }
   catch(EOracleError &E)
   {
-    ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-    ProgError( STDLOG, "SQL: %s", E.SQLText());
+    E.showProgError();
     throw;
   }
   catch(Exception &E)
@@ -2083,8 +2082,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(EOracleError &E)
   {
-    ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-    ProgError( STDLOG, "SQL: %s", E.SQLText());
+    E.showProgError();
   }
   catch(std::exception &E)
   {

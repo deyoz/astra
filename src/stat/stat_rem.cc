@@ -126,7 +126,7 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
         auto& Users = UsersReader::Instance();
         Users.updateUsers();
 
-        DB::TCachedQuery Qry(PgOra::getROSession("arx_points"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("arx_points"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_point_id = Qry.get().GetFieldIndex("point_id");

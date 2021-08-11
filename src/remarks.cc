@@ -8,6 +8,7 @@
 #include "term_version.h"
 #include "date_time.h"
 #include "base_callbacks.h"
+#include "passenger.h"
 
 #include "iapi_interaction.h"
 #include "apps_interaction.h"
@@ -538,7 +539,7 @@ const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
+TPaxFQTItem& TPaxFQTItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   rem=Qry.FieldAsString("rem_code");
@@ -811,11 +812,12 @@ bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 {
   fqts.clear();
   const char* sql=
-    "SELECT crs_pax_fqt.*, DECODE(tier_level, NULL, NULL, 1) AS tier_level_confirm "
+    "SELECT crs_pax_fqt.*, "
+    "(CASE WHEN tier_level IS NULL THEN NULL ELSE 1 END) AS tier_level_confirm "
     "FROM crs_pax_fqt WHERE pax_id=:pax_id";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxFQTQry(sql, QryParams);
+  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("CRS_PAX_FQT"), sql, QryParams, STDLOG);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
     fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));
@@ -830,7 +832,7 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxFQTQry(sql, QryParams);
+  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("PAX_FQT"), sql, QryParams, STDLOG);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
     fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));

@@ -218,6 +218,8 @@ class TGrpMktFlight : public TSimpleMktFlight
     bool getByGrpId(int grp_id);
 };
 
+std::optional<PointId_t> getPointIdByPaxId(const PaxId_t pax_id);
+
 class TTripInfo
 {
   private:
@@ -338,7 +340,11 @@ class TTripInfo
     virtual void Init( TQuery &Qry )
     {
       init(Qry);
-    };
+    }
+    virtual void Init( DB::TQuery &Qry )
+    {
+      init(Qry);
+    }
   public:
     virtual bool getByPointId (const TDateTime part_key, const int point_id,
                                const FlightProps& props = FlightProps() );
@@ -404,13 +410,14 @@ class TAdvTripInfo : public TTripInfo
       first_point=ASTRA::NoExists;
       pr_tranzit=false;
     };
-    void init( TQuery &Qry )
+    template<typename Query>
+    void init( Query &Qry )
     {
       point_id = Qry.FieldAsInteger("point_id");
       point_num = Qry.FieldAsInteger("point_num");
       first_point = Qry.FieldIsNULL("first_point")?ASTRA::NoExists:Qry.FieldAsInteger("first_point");
       pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-    };
+    }
   public:
     static std::string selectedFields(const std::string& table_name="")
     {
@@ -432,7 +439,11 @@ class TAdvTripInfo : public TTripInfo
     TAdvTripInfo( TQuery &Qry ) : TTripInfo(Qry)
     {
       init(Qry);
-    };
+    }
+    TAdvTripInfo( DB::TQuery &Qry ) : TTripInfo(Qry)
+    {
+      init(Qry);
+    }
     TAdvTripInfo( const TTripInfo &info,
                   int p_point_id,
                   int p_point_num,
@@ -471,11 +482,12 @@ class TAdvTripInfo : public TTripInfo
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
 typedef ASTRA::Cache<int/*pnr_id*/, TAdvTripInfoList> PnrFlightsCache;
 
+std::set<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp);
+std::optional<PointIdTlg_t> getPointIdTlgByPaxId(const PaxId_t pax_id, bool with_deleted);
 void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
                                 std::set<PointId_t>& point_ids_spp,
                                 bool clear = true);
 std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg);
-
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips);
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips);
@@ -1059,7 +1071,7 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 //       время вылета в markFltInfo передается локальное относительно airp
 std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);  //!!!vlad переделать
 
-void GetCrsList(int point_id, std::vector<std::string> &crs);
+std::set<std::string> GetCrsList(const PointId_t& point_id);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
 

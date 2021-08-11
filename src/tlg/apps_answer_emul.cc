@@ -76,7 +76,7 @@ int main_apps_answer_emul_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    E.showProgError();
   }
   catch(std::exception &E)
   {
@@ -104,11 +104,10 @@ bool handle_tlg(void)
 
   time_t time_start=time(NULL);
 
-  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
   if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
-    TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "

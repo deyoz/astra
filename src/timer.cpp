@@ -21,7 +21,7 @@
 #include "astra_service.h"
 #include "file_queue.h"
 #include "telegram.h"
-#include "arx_daily.h"
+#include "arx_daily_pg.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "basel_aero.h"
@@ -156,12 +156,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         if ( name == "sync_mvd" ) sync_mvd();
         else
         if ( name == "arx_daily" ) {
-            if(ARX::WRITE_PG()) {
-                Result = arx_daily_pg(utcdate);
-            }
-            if(ARX::WRITE_ORA()) {
-                Result = arx_daily( utcdate );
-            }
+            Result = arx_daily_pg(utcdate);
         }
         else
         if ( name == "sync_aodb" ) sync_aodb( );
@@ -230,8 +225,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       catch( EOracleError &E )
     {
       try { ASTRA::rollbackAndCallRollbackHooks(); } catch(...) {};
-      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      E.showProgError();
       ProgError( STDLOG, "task name=%s", name.c_str() );
     }
     catch( std::exception &E )
