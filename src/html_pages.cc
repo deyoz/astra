@@ -87,7 +87,7 @@ void file_to_db(const string& init_path, const string& file_path)
             .bind(":name", file_path)
             .exec();
 
-    int id = PgOra::getSeqCurrVal_int("TID__SEQ");
+    int id = PgOra::getSeqNextVal_int("TID__SEQ");
     make_db_curs(
 "insert into HTML_PAGES(id, name, etag, last_modified) values(:id, :name, :etag, :last_modified)",
                 PgOra::getRWSession("HTML_PAGES"))

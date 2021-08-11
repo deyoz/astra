@@ -289,7 +289,7 @@ namespace PgOra
 
     int getSeqCurrVal_int(const std::string& sequenceName)
     {
-        return getSeqNextValInner<int>(sequenceName);
+        return getSeqCurrValInner<int>(sequenceName);
     }
 
     unsigned long getSeqCurrVal_ul(const std::string& sequenceName)
