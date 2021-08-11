@@ -417,8 +417,7 @@ public:
     _layer_type = (node=GetNode("layer", reqNode))?std::optional<TCompLayerType>(DecodeCompLayerType(NodeAsString(node))):std::nullopt;
     _seat.emplace(TSeat(NodeAsString( "yname", reqNode, "" ),
                         NodeAsString( "xname", reqNode, "" )));
-    LogTrace(TRACE5) << ( _seat != std::nullopt );
-    LogTrace(TRACE5) << _seat.value().toString();
+    LogTrace(TRACE5) << "_seat " << ( _seat != std::nullopt );
     fromXMLClientSets(WAITLIST_SET,reqNode);
     fromXMLClientSets(QUESTION_RESEAT_SET,reqNode);
   }
@@ -443,7 +442,7 @@ public:
       if ( !seats.empty() )
         currSeats.emplace( seats );
     }
-    if ( layerPrioritySeat.layerType() != cltUnknown ) {
+    if ( layerPrioritySeat.layerType() != cltUnknown ) { //пересадка или назначение места
       curr_layer_type.emplace( layerPrioritySeat.layerType() );
       //терминал не умеет делать пересадку платного слоя, поэтому здесь идет расчет на основе тек. слоя места пассажира
       if ( curr_layer_type.value() == cltProtAfterPay ||
@@ -458,10 +457,19 @@ public:
       if ( !_layer_type  ) //слой в запросе не задан - тот же, что и текущий
         _layer_type.emplace( curr_layer_type.value() );
     }
-
+    if ( !_layer_type  ) {// ЛО ?
+      grp = CheckIn::TSimplePaxGrpItem();
+      tst();
+      if ( grp.value().getByPaxId(_pax_id) )
+        _layer_type.emplace(grp.value().getCheckInLayerType());
+      else {
+        grp.reset();
+        LogError(STDLOG) << "reseat: layer type is not define!";
+      }
+    }
     LogTrace(TRACE5) << __func__ << " " <<_point_id << " " << _pax_id << " "
                      << EncodeCompLayerType(_layer_type.value())
-                     << " isCheckLayer " << isCheckLayer( _layer_type );
+                     << " isCheckInLayer " << isCheckLayer( _layer_type );
     CheckIn::LoadPaxRem( !isCheckLayer( _layer_type ) /*crs*/, _pax_id, rems );
     TRemGrp rg;
     rg.Load(retFORBIDDEN_FREE_SEAT, _point_id); //ремарки запрещенные к свободной рассадке);
@@ -991,10 +999,8 @@ private:
           isCheckLayer( _layer_type ) ) { // уже зарегистрированного
       if ( GetTripSets(tsReseatOnRFISC,fltInfo) ) {
         if (TReqInfo::Instance()->desk.compatible(RESEAT_QUESTION_VERSION) ) {
-          tst();
           xmlNodePtr dataNode = GetNode( "data", resNode );
           if (GetNode("confirmations/msg1",reqNode)==NULL) {
-            tst();
             if ( dataNode == nullptr ) {
               dataNode =  NewTextChild(resNode,"data");
             }
@@ -1347,24 +1353,26 @@ public:
       checkPreseatingAccess(); //проверка прав разметки слоем
       checkLayerNewSeats(); //проверка новых мест на слои
       if ( EnumSeatsProps::propNone != checkRFISC( reqNode, resNode ) ) //проверка RFISC | Tariff
-        return _resPropsSets;
+        throw UserException("return");
 
       if ( EnumSeatsProps::propNone != setProtLayerQuestion( reqNode, resNode ) ) //спросить при пересадке о том, уверен ли агент, что пересаживает со старого резервного или оплаченного места
-        return _resPropsSets;
+        throw UserException("return");
 
-      if ( EnumSeatsProps::propExit == checkChangeSeatsForPay() ) //проверка изменения места по оплате
-        return _resPropsSets;
+      if ( EnumSeatsProps::propExit == checkChangeSeatsForPay() )  //проверка изменения места по оплате
+        throw UserException("return");
+
       checkRequiredRfiscs();
       if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode,
-                                                                    resNode ) ) //началось добавление или удаление услуги
-        return _resPropsSets;
+                                                                    resNode ) )  //началось добавление или удаление услуги
+        throw UserException("return");
+
       savePaxMessage.fromXML(resNode);
       doChangeSeats(whence);
       salonList.JumpToLeg( SALONS2::TFilterRoutesSets( _point_id, ASTRA::NoExists ) );
       //формирование ответа
       if ( TReqInfo::Instance()->client_type != ctTerm ||
            resNode == NULL )
-          return _resPropsSets; // web-регистрация
+        throw UserException("return");
 /*      if ( _resPropsSets.isFlag(propRFISCQuestion) || //есть вопросы
            _resPropsSets.isFlag(propPriorProtLayerQuestion) )
         return _resPropsSets;*/
@@ -1382,13 +1390,18 @@ public:
     }
     catch( UserException& ue ) {
       tst();
+      AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),_pax_id);
+      if ( ue.getLexemaData().lexema_id == "return" ) {
+        tst();
+        return _resPropsSets;
+      }
       if ( (TReqInfo::Instance()->client_type != ctTerm &&
             ue.getLexemaData().lexema_id != "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH") ||
            resNode == NULL )
           throw;
       xmlNodePtr emulResNode = GetNode("answer",doc.docPtr()->children);
       if (!emulResNode) emulResNode = NewTextChild(doc.docPtr()->children,"answer");
-      FullUpdateToXML(reqNode,emulResNode);
+      FullUpdateToXML(reqNode,resNode);
       showErrorMessageAndRollback( ue.getLexemaData( ) );
     }
     MessageSaver currMessage;
