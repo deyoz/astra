@@ -225,7 +225,7 @@ bool TTripInfo::getByPaxId ( const int pax_id )
 
 bool TTripInfo::getByGrpId ( const int grp_id )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
   Qry.SQLText =
     "SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id", otInteger, grp_id);

@@ -2542,25 +2542,31 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     {
       if (!only_one)
       {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
+        std::string sql;
+        std::list<std::string> tables;
         switch (area)
         {
           case csaFlt:
-            Qry.SQLText=
+            tables.push_back("POINTS");
+            sql =
               "SELECT airline,flt_no,suffix,airp,scd_out "
               "FROM points "
               "WHERE point_id=:id";
             break;
           case csaGrp:
-            Qry.SQLText=
+            tables.push_back("POINTS");
+            tables.push_back("PAX_GRP");
+            sql =
               "SELECT airline,flt_no,suffix,airp,scd_out "
               "FROM points,pax_grp "
               "WHERE points.point_id=pax_grp.point_dep AND "
               "      grp_id=:id";
             break;
           case csaPax:
-            Qry.SQLText=
+            tables.push_back("POINTS");
+            tables.push_back("PAX_GRP");
+            tables.push_back("PAX");
+            sql =
               "SELECT airline,flt_no,suffix,airp,scd_out "
               "FROM points,pax_grp,pax "
               "WHERE points.point_id=pax_grp.point_dep AND "
@@ -2569,6 +2575,8 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
             break;
           default: throw;
         }
+        DB::TQuery Qry(PgOra::getROSession(tables), STDLOG);
+        Qry.SQLText=sql;
         Qry.CreateVariable("id",otInteger,*i);
         Qry.Execute();
         if (!Qry.Eof)

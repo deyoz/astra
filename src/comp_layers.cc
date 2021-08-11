@@ -38,29 +38,22 @@ void getPaxInfo(int crs_pax_id,
   crs_pax_name.clear();
   pers_type.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  if (curr_tid==NoExists)
-    Qry.SQLText="SELECT surname, name, pers_type, cycle_tid__seq.nextval AS tid FROM crs_pax WHERE pax_id=:pax_id";
-  else
-    Qry.SQLText="SELECT surname, name, pers_type FROM crs_pax WHERE pax_id=:pax_id";
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX"), STDLOG);
+  Qry.SQLText="SELECT surname, name, pers_type "
+              "FROM crs_pax "
+              "WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
   Qry.Execute();
   if (!Qry.Eof)
   {
-    crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                            Qry.FieldAsString("name"));
+    crs_pax_name=GetPaxName(Qry.FieldAsString("surname").c_str(),
+                            Qry.FieldAsString("name").c_str());
     pers_type = Qry.FieldAsString("pers_type");
   }
-  else if (curr_tid==NoExists)
-  {
-    Qry.Clear();
-    Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
-    Qry.Execute();
-  }
 
-  if (!Qry.Eof && curr_tid==NoExists)
-    curr_tid=Qry.FieldAsInteger("tid");
+  if (!Qry.Eof && curr_tid==NoExists) {
+    curr_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+  }
 }
 
 bool IsTlgCompLayer(TCompLayerType layer_type)

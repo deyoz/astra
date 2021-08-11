@@ -827,16 +827,18 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       {
         if (oldSetList.value<bool>(tsTransitReg) && !newSetList.value<bool>(tsTransitReg)) // отмена перерегистрации транзита
         {
-          TQuery DelQry( &OraSession );
-          DelQry.SQLText =
-              "SELECT grp_id  FROM pax_grp,points "
-              " WHERE points.point_id=:point_id AND "
-              "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
-              "       bag_refuse=0 AND status=:status AND rownum<2 ";
-          DelQry.CreateVariable( "point_id", otInteger, point_id );
-          DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
-          DelQry.Execute();
-          if ( !DelQry.Eof ) {
+          DB::TQuery GrpQry(PgOra::getROSession({"PAX_GRP","POINTS"}), STDLOG);
+          GrpQry.SQLText =
+              "SELECT grp_id "
+              "FROM pax_grp,points "
+              "WHERE points.point_id=:point_id AND "
+              "      point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+              "      bag_refuse=0 AND status=:status "
+              "FETCH FIRST 1 ROWS ONLY ";
+          GrpQry.CreateVariable( "point_id", otInteger, point_id );
+          GrpQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
+          GrpQry.Execute();
+          if ( !GrpQry.Eof ) {
             ProgTrace( TRACE5, "question=%d", question );
             if ( question ) {
               xmlNodePtr dataNode = NewTextChild( resNode, "data" );

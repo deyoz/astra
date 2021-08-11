@@ -2314,14 +2314,14 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     int count = 0;
     for(int pass = 0; pass < 1; pass++) {
         ostringstream sql;
-        sql << "SELECT NULL part_key, \n";
-        sql << TTripInfo::selectedFields("points") << ", \n"
-               " pax.reg_no, \n"
-               " pax_grp.airp_arv, \n"
-               " pax.surname||' '||pax.name full_name, \n";
+        sql << "SELECT NULL part_key, ";
+        sql << TTripInfo::selectedFields("points") << ", "
+               " pax.reg_no, "
+               " pax_grp.airp_arv, "
+               " pax.surname||' '||pax.name full_name, ";
         if(!DEMO_MODE()) {
             sql <<
-               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
+               " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, ";
         } else {
             TST();
             // ‚ „…ŒŽ-‚…‘ˆˆ … ŒŽ†…Œ Ž‹“—ˆ’œ ŽŒ… Œ…‘’€ „Ž ……‚Ž„€ ¯ ª¥â  SALONS ­  c++
@@ -2329,43 +2329,43 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " null, ";
         }
         sql <<
-               " pax_grp.grp_id, \n"
-               " pax.pr_brd, \n"
-               " pax.refuse, \n"
-               " pax.bag_pool_num, \n "
-               " pax_grp.class_grp, \n"
-               " COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, \n"
-               " pax_grp.hall, \n"
-               " pax.ticket_no, \n"
-               " pax.pax_id, \n"
-               " pax_grp.status, \n"
-               " pax_grp.excess_wt, pax_grp.excess_pc, pax_grp.bag_refuse \n"
-               "FROM pax_grp, pax, points \n";
+               " pax_grp.grp_id, "
+               " pax.pr_brd, "
+               " pax.refuse, "
+               " pax.bag_pool_num,  "
+               " pax_grp.class_grp, "
+               " COALESCE(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
+               " pax_grp.hall, "
+               " pax.ticket_no, "
+               " pax.pax_id, "
+               " pax_grp.status, "
+               " pax_grp.excess_wt, pax_grp.excess_pc, pax_grp.bag_refuse "
+               "FROM pax_grp, pax, points ";
         if(!document.empty())
         {
-            sql << " , pax_doc \n";
+            sql << " , pax_doc ";
         };
         if(!tag_no.empty())
         {
-            sql << " , bag_tags \n";
+            sql << " , bag_tags ";
         };
-        sql << "WHERE \n"
-               " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n"
-               " points.point_id = pax_grp.point_dep AND \n"
-               " pax_grp.grp_id=pax.grp_id AND \n"
-               " points.pr_del>=0 \n";
+        sql << "WHERE "
+               " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND "
+               " points.point_id = pax_grp.point_dep AND "
+               " pax_grp.grp_id=pax.grp_id AND "
+               " points.pr_del>=0 ";
         if(!document.empty())
         {
-          sql << " AND pax.pax_id = pax_doc.pax_id \n"
-                 " AND pax_doc.no like '%'||:document||'%' \n";
+          sql << " AND pax.pax_id = pax_doc.pax_id "
+                 " AND pax_doc.no like '%'||:document||'%' ";
         };
         if(!tag_no.empty())
         {
-          sql << " AND pax_grp.grp_id = bag_tags.grp_id \n";
+          sql << " AND pax_grp.grp_id = bag_tags.grp_id ";
           if(sess.isOracle()) {
-            sql << " AND bag_tags.no like '%'||:tag_no \n";
+            sql << " AND bag_tags.no like '%'||:tag_no ";
           } else {
-            sql << " AND CAST(bag_tags.no AS VARCHAR) like '%'||:tag_no \n";
+            sql << " AND CAST(bag_tags.no AS VARCHAR) like '%'||:tag_no ";
           }
         }
 

@@ -629,15 +629,18 @@ void RegNoGenerator::getUsedRegNo(std::set<UsedRegNo> &usedRegNo) const
 {
   usedRegNo.clear();
 
-  TQuery Qry(&OraSession);
-  if (_type==Negative)
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
+  if (_type==Negative) {
     Qry.SQLText=
-        "SELECT pax.reg_no, pax.grp_id, pax.seats FROM pax_grp, pax "
+        "SELECT pax.reg_no, pax.grp_id, pax.seats "
+        "FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_id ";
-  else
+  } else {
     Qry.SQLText=
-        "SELECT pax.reg_no, pax.grp_id, pax.seats FROM pax_grp, pax "
+        "SELECT pax.reg_no, pax.grp_id, pax.seats "
+        "FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_id ";
+  }
   Qry.CreateVariable("point_id", otInteger, _point_id);
   Qry.Execute();
 

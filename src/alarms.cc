@@ -231,7 +231,7 @@ bool calc_waitlist_alarm( int point_id )
   if ( SALONS2::isFreeSeating( point_id ) ) {
     return false;
   }
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG); // salons.is_waitlist
   Qry.SQLText =
     "SELECT pax.pax_id "
     "FROM pax_grp, pax "
@@ -239,12 +239,12 @@ bool calc_waitlist_alarm( int point_id )
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
     "      pax.pr_brd IS NOT NULL AND "
-    "      salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 AND "
-    "      rownum<2";
+    "      salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 "
+    "FETCH FIRST 1 ROWS ONLY";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   return !Qry.Eof;
-};
+}
 
 /* есть пассажиры, которые на листе ожидания */
 bool check_waitlist_alarm( int point_id )
@@ -260,23 +260,23 @@ bool check_brd_alarm( int point_id )
 {
     bool brd_alarm = false;
     if ( CheckStageACT(point_id, sCloseBoarding) ) {
-    TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP"}), STDLOG);
       Qry.SQLText =
-        "SELECT pax_id FROM pax, pax_grp "
-        " WHERE pax_grp.point_dep=:point_id AND "
-        "       pax_grp.grp_id=pax.grp_id AND "
-      "       pax_grp.status NOT IN ('E') AND "
-        "       pax.wl_type IS NULL AND "
-        "       pax.pr_brd = 0 AND "
-        "       rownum < 2 ";
+        "SELECT pax_id "
+        "FROM pax, pax_grp "
+        "WHERE pax_grp.point_dep=:point_id AND "
+        "      pax_grp.grp_id=pax.grp_id AND "
+        "      pax_grp.status NOT IN ('E') AND "
+        "      pax.wl_type IS NULL AND "
+        "      pax.pr_brd = 0 "
+        "FETCH FIRST 1 ROWS ONLY ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
       brd_alarm = !Qry.Eof;
     }
     set_alarm( point_id, Alarm::Brd, brd_alarm );
     return brd_alarm;
-};
+}
 
 /* есть ошибочные телеграммы, не скорректированные впоследствии */
 bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp м.б. NoExists
@@ -428,14 +428,14 @@ void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
 bool check_conflict_trfer_alarm(int point_id)
 {
   bool conflict_trfer_alarm = false;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
   Qry.SQLText =
     "SELECT grp_id "
     "FROM pax_grp "
     "WHERE point_dep = :point_id AND "
     "      status NOT IN ('E') AND "
-    "      trfer_conflict<>0 AND rownum<2 ";
+    "      trfer_conflict<>0 "
+    "FETCH FIRST 1 ROWS ONLY ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   conflict_trfer_alarm = !Qry.Eof;

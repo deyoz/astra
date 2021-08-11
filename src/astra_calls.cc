@@ -411,16 +411,16 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
       search_layers.insert( layer_type );
     }
   }
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  DB::TQuery QryPax(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
+  QryPax.SQLText =
     "SELECT "
     "       pax.pax_id,pax_grp.airp_arv,pax_grp.airp_dep, pax_grp.grp_id, bag_refuse, bag_pool_num, "
-    "       excess_wt, pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class "
+    "       excess_wt, pax_grp.class, COALESCE(pax.cabin_class, pax_grp.class) AS cabin_class "
     " FROM pax_grp, pax"
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=:pax_id AND "
     "       pax.wl_type IS NULL ";
-  Qry.DeclareVariable( "pax_id", otInteger );
+  QryPax.DeclareVariable( "pax_id", otInteger );
   SALONS2::TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
   SALONS2::TLayersSeats layerSeats;
@@ -457,8 +457,8 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr n = NewTextChild( seatsNode, "passenger" );
     SetProp( n, "pax_id", ilayer->first.getPaxId() );
     LogTrace(TRACE5) <<  paxs[ ilayer->first.getPaxId() ].pers_type;
-    Qry.SetVariable( "pax_id", ilayer->first.getPaxId() );
-    Qry.Execute();
+    QryPax.SetVariable( "pax_id", ilayer->first.getPaxId() );
+    QryPax.Execute();
     std::string gender;
     switch( paxs[ ilayer->first.getPaxId() ].pers_type ) {
       case ASTRA::adult:
@@ -491,15 +491,15 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     if ( paxs[ ilayer->first.getPaxId() ].crew_type != ASTRA::TCrewType::Unknown ) {
        NewTextChild( n, "crew", ASTRA::TCrewTypes().encode( paxs[ ilayer->first.getPaxId() ].crew_type ) );
     }
-    NewTextChild( n, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
-    NewTextChild( n, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
+    NewTextChild( n, "airp_dep", QryPax.FieldAsString( "airp_dep" ) );
+    NewTextChild( n, "airp_arv", QryPax.FieldAsString( "airp_arv" ) );
 
-    PaxId_t pax_id(Qry.FieldAsInteger("pax_id"));
-    GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
-    int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+    PaxId_t pax_id(QryPax.FieldAsInteger("pax_id"));
+    GrpId_t grp_id(QryPax.FieldAsInteger("grp_id"));
+    int bag_refuse = QryPax.FieldAsInteger("bag_refuse");
     std::optional<int> bag_pool_num = std::nullopt;
-    if(!Qry.FieldIsNULL("bag_pool_num")) {
-        bag_pool_num = Qry.FieldAsInteger("bag_pool_num");
+    if(!QryPax.FieldIsNULL("bag_pool_num")) {
+        bag_pool_num = QryPax.FieldAsInteger("bag_pool_num");
         viewEx.saveMainPax(grp_id, pax_id, bag_refuse!=0);
     }
 
@@ -515,12 +515,12 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     int rk_weight = bag_reader.rkWeight(grp_id, bag_pool_num);
     if (rk_amount) { NewTextChild( n, "rkamount", rk_amount); }
     if (rk_weight) { NewTextChild( n, "rkweight", rk_weight); }
-    NewTextChild( n, "class", Qry.FieldAsString( "class" ) );
-    int excess_wt_raw = Qry.FieldAsInteger("excess_wt");
-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].amount += bag_reader.bagAmount(grp_id, bag_pool_num);
-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].weight += bag_reader.bagWeight(grp_id, bag_pool_num);
-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_wt += TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt_raw));
-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(pax_id));
+    NewTextChild( n, "class", QryPax.FieldAsString( "class" ) );
+    int excess_wt_raw = QryPax.FieldAsInteger("excess_wt");
+    weights[QryPax.FieldAsString( "airp_arv" )][QryPax.FieldAsString( "class" )].amount += bag_reader.bagAmount(grp_id, bag_pool_num);
+    weights[QryPax.FieldAsString( "airp_arv" )][QryPax.FieldAsString( "class" )].weight += bag_reader.bagWeight(grp_id, bag_pool_num);
+    weights[QryPax.FieldAsString( "airp_arv" )][QryPax.FieldAsString( "class" )].excess_wt += TBagKilos(viewEx.excessWt(grp_id, pax_id, excess_wt_raw));
+    weights[QryPax.FieldAsString( "airp_arv" )][QryPax.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(pax_id));
 
 
     n = NewTextChild( n, "pax_seats" );
@@ -554,21 +554,21 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
       }
     }
   }
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryGrp(PgOra::getROSession("PAX_GRP"), STDLOG);
+  QryGrp.SQLText =
     "  SELECT airp_arv, grp_id "
     "  FROM pax_grp "
     "  WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
     "  ORDER BY airp_arv";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  QryGrp.CreateVariable( "point_id", otInteger, point_id );
+  QryGrp.Execute();
   xmlNodePtr unaccompNode = nullptr;
 
   std::map<std::string, t_bag_weights> airp_weights;
-  for( ;!Qry.Eof; Qry.Next() ) {
-      GrpId_t grp_id(Qry.FieldAsInteger("grp_id"));
-      airp_weights[Qry.FieldAsString("airp_arv")].bag_weight += bag_reader.bagWeightUnaccomp(grp_id);
-      airp_weights[Qry.FieldAsString("airp_arv")].rk_weight += bag_reader.rkWeightUnaccomp(grp_id);
+  for( ;!QryGrp.Eof; QryGrp.Next() ) {
+      GrpId_t grp_id(QryGrp.FieldAsInteger("grp_id"));
+      airp_weights[QryGrp.FieldAsString("airp_arv")].bag_weight += bag_reader.bagWeightUnaccomp(grp_id);
+      airp_weights[QryGrp.FieldAsString("airp_arv")].rk_weight += bag_reader.rkWeightUnaccomp(grp_id);
   }
   for(const auto &[airp_arv, weight] : airp_weights) {
       if ( !unaccompNode ) {

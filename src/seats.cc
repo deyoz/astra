@@ -299,7 +299,7 @@ bool TAllowedAttributesSeat::isWorkINFT( int vpoint_id ) {
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
   }
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -4185,50 +4185,55 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, TSeatRanges &s
                          int pax_id, int point_dep, int point_arv, TDateTime time_create )
 {
   if (seats.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  SELECT comp_layers__seq.nextval INTO :range_id FROM dual; "
-    "  INSERT INTO trip_comp_layers "
-    "    (range_id,point_id,point_dep,point_arv,layer_type, "
-    "     first_xname,last_xname,first_yname,last_yname,pax_id,time_create) "
-    "  VALUES "
-    "    (:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
-    "     :first_xname,:last_xname,:first_yname,:last_yname,:pax_id,:time_create); "
-    "  IF :pax_id IS NOT NULL THEN "
-    "    UPDATE pax SET wl_type=NULL WHERE pax_id=:pax_id; "
-    "  END IF; "
-    "END; ";
-  Qry.CreateVariable( "range_id", otInteger, FNull );
-  Qry.CreateVariable( "point_id", otInteger,point_id );
-  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+  DB::TQuery QryIns(PgOra::getROSession("TRIP_COMP_LAYERS"), STDLOG);
+  QryIns.SQLText =
+    "INSERT INTO trip_comp_layers "
+    "  (range_id,point_id,point_dep,point_arv,layer_type, "
+    "   first_xname,last_xname,first_yname,last_yname,pax_id,time_create) "
+    "VALUES "
+    "  (:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
+    "   :first_xname,:last_xname,:first_yname,:last_yname,:pax_id,:time_create) ";
+  QryIns.CreateVariable( "range_id", otInteger, FNull );
+  QryIns.CreateVariable( "point_id", otInteger,point_id );
+  QryIns.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
   if ( pax_id > 0 )
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    QryIns.CreateVariable( "pax_id", otInteger, pax_id );
   else
-    Qry.CreateVariable( "pax_id", otInteger, FNull );
+    QryIns.CreateVariable( "pax_id", otInteger, FNull );
   if ( point_dep > 0 )
-    Qry.CreateVariable( "point_dep", otInteger, point_dep );
+    QryIns.CreateVariable( "point_dep", otInteger, point_dep );
   else
-    Qry.CreateVariable( "point_dep", otInteger, FNull );
+    QryIns.CreateVariable( "point_dep", otInteger, FNull );
   if ( point_arv > 0 )
-    Qry.CreateVariable( "point_arv", otInteger, point_arv );
+    QryIns.CreateVariable( "point_arv", otInteger, point_arv );
   else
-    Qry.CreateVariable( "point_arv", otInteger, FNull );
-  Qry.DeclareVariable( "first_xname", otString );
-  Qry.DeclareVariable( "last_xname", otString );
-  Qry.DeclareVariable( "first_yname", otString );
-  Qry.DeclareVariable( "last_yname", otString );
-  Qry.CreateVariable( "time_create", otDate, time_create );
+    QryIns.CreateVariable( "point_arv", otInteger, FNull );
+  QryIns.DeclareVariable( "first_xname", otString );
+  QryIns.DeclareVariable( "last_xname", otString );
+  QryIns.DeclareVariable( "first_yname", otString );
+  QryIns.DeclareVariable( "last_yname", otString );
+  QryIns.CreateVariable( "time_create", otDate, time_create );
 
   for(TSeatRanges::iterator i=seats.begin();i!=seats.end();i++)
   {
-    Qry.SetVariable("first_xname",i->first.line);
-    Qry.SetVariable("last_xname",i->second.line);
-    Qry.SetVariable("first_yname",i->first.row);
-    Qry.SetVariable("last_yname",i->second.row);
-    Qry.Execute();
-  };
+    QryIns.SetVariable("first_xname",i->first.line);
+    QryIns.SetVariable("last_xname",i->second.line);
+    QryIns.SetVariable("first_yname",i->first.row);
+    QryIns.SetVariable("last_yname",i->second.row);
+    int range_id = PgOra::getSeqNextVal_int("COMP_LAYERS__SEQ");
+    QryIns.CreateVariable("range_id",otInteger,range_id);
+    QryIns.Execute();
+
+    if ( pax_id > 0 ) {
+      DB::TQuery QryUpd(PgOra::getROSession("PAX"), STDLOG);
+      QryUpd.SQLText =
+          "UPDATE pax "
+          "SET wl_type=NULL "
+          "WHERE pax_id=:pax_id ";
+      QryUpd.CreateVariable("pax_id", otInteger, pax_id);
+      QryUpd.Execute();
+    }
+  }
 }
 
 bool isINFT( int point_id, int pax_id ) {
@@ -4348,6 +4353,8 @@ void SyncPRSA( const string &airline_oper,
   RemQryIns.SQLText=
     "INSERT INTO pax_rem(pax_id,rem,rem_code) "
     "VALUES(:pax_id,:rem,:rem_code)";
+  RemQryIns.CreateVariable("pax_id",otInteger,pax_id);
+  RemQryIns.CreateVariable("rem_code",otString,"PRSA");
   RemQryIns.DeclareVariable("rem",otString);
 
   for ( vector<pair<TSeatRange,TRFISC> >::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
@@ -5316,18 +5323,19 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
     } //end class
   } //end point_arv
 
-  TQuery QryLayer( &OraSession );
-  TQuery QryUpd( &OraSession );
+  DB::TQuery QryLayer(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
   QryLayer.SQLText =
     "DELETE FROM trip_comp_layers "
-    " WHERE pax_id=:pax_id ";
+    "WHERE pax_id=:pax_id ";
   QryLayer.DeclareVariable( "pax_id", otInteger );
+  DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
   QryUpd.SQLText =
-    "UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id";
+    "UPDATE pax "
+    "SET tid=:new_tid "
+    "WHERE pax_id=:pax_id";
   QryUpd.DeclareVariable( "pax_id", otInteger );
   TDateTime time_create = NowUTC();
   int s = Passes.getCount();
-//  bool pr_is_sync_paxs = is_sync_paxs( salonList.getDepartureId() );
   for ( int i=0; i<s; i++ ) {
     TPassenger &pass = Passes.Get( i );
     ProgTrace( TRACE5, "pass.pax_id=%d, pass.isSeat=%d", pass.paxId, pass.isSeat );
@@ -5346,15 +5354,12 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
       QryLayer.Execute();
       SaveTripSeatRanges( salonList.getDepartureId(), pass.grp_status, seats, pass.paxId, salonList.getDepartureId(), pass.point_arv, time_create ); //???
       QryUpd.SetVariable( "pax_id", pass.paxId );
+      QryUpd.CreateVariable("new_tid", otInteger, PgOra::getSeqNextVal_int("CYCLE_TID__SEQ"));
       QryUpd.Execute();
     }
   }
   check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId(), __FUNCTION__ );
-/*  if ( pr_is_sync_paxs ) {
-    for ( vector<TPassenger>::iterator ipass=paxs.begin(); ipass!=paxs.end(); ipass++ ) {
-      update_pax_change( salonList.getDepartureId(), ipass->paxId, ipass->regNo, "" );
-    }
-  }*/
+
   ProgTrace( TRACE5, "passengers.count=%d", Passes.getCount() );
 }
 
@@ -5425,8 +5430,13 @@ bool TPassengers::existsNoSeats()
 
 bool isCheckinWOChoiceSeats( int point_id )
 {
-  TCachedQuery Qry("SELECT point_id,airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
-               QParams() << QParam("point_id", otInteger, point_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("POINTS"),
+        "SELECT point_id,airline, flt_no, suffix, airp, scd_out "
+        "FROM points "
+        "WHERE point_id=:point_id AND pr_del>=0",
+        QParams() << QParam("point_id", otInteger, point_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   TTripInfo info(Qry.get());

@@ -156,8 +156,10 @@ bool isReadonlyRem(const CheckIn::TPaxRemItem& rem)
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
     clear();
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select airline from points where point_id = :point_id";
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
+    Qry.SQLText = "SELECT airline "
+                  "FROM points "
+                  "WHERE point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof)
