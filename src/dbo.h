@@ -37,7 +37,7 @@ template<typename Result>
 class Query;
 class InitSchema;
 class MappingInfo;
-class CursorInterface;
+class Cursor;
 class DefineClass;
 class Binder;
 

@@ -1716,8 +1716,8 @@ $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
 $(run_arch_step $(ddmmyy +140))
 
-$(set first_date "$(date_format %d.%m.%Y +0) $(date_format %H:%M:%S -4h)")
-$(set last_date "$(date_format %d.%m.%Y +1) $(date_format %H:%M:%S -4h)")
+$(set first_date "$(date_format %d.%m.%Y +0 -3h) $(date_format %H:%M:%S -4h)")
+$(set last_date "$(date_format %d.%m.%Y +1 -3h) $(date_format %H:%M:%S -4h)")
 
 $(db_dump_table ARX_EVENTS)
 
@@ -1946,7 +1946,7 @@ $(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
         <row>
           <point_id>$(get point_dep)</point_id>
           <time>...</time>
-          <msg>Задача SYNC_ALL_CHKD &lt;&gt; создана; План. вр.: $(date_format %d.%m.%y +0) ... (UTC)</msg>
+          <msg>Задача SYNC_ALL_CHKD &lt;&gt; создана; План. вр.: $(date_format %d.%m.%y +0 -3h) ... (UTC)</msg>
           <ev_order>...</ev_order>
           <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>

@@ -265,7 +265,7 @@ END_TEST;
 
 START_TEST(test_bag_pay_types)
 {
-    LogTrace1 << " MY TEST LONG DOUBLE BAG PAY TYPES";
+    LogTrace1 << " MY TEST FLOAT BAG PAY TYPES";
     int num = 2;
     float pay_rate_sum = 1034.33;
     std::string pay_type = "ab";
@@ -301,7 +301,7 @@ END_TEST;
 
 START_TEST(test_bag_value)
 {
-    LogTrace1 << " MY TEST LONG DOUBLE BAG VALUE";
+    LogTrace1 << " MY TEST DOUBLE BAG VALUE";
     int grp_id = 5;
     int num = 2;
     float tax = 124.1;
@@ -331,7 +331,7 @@ START_TEST(test_bag_value)
     auto cur3 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,"delete from ARX_VALUE_BAG");
     cur3.exec();
     fail_unless(std::abs(124.1 - read_tax) < 0.0001, "failed: read_receipt_id=%lf expected near 124.1", read_tax);
-    fail_unless(std::abs(124.12 == read_value) < 0.0001, "failed: read_value=%lf expected near 124.12", read_value);
+    fail_unless(std::abs(124.12 - read_value) < 0.0001, "failed: read_value=%lf expected near 124.12", read_value);
 }
 END_TEST;
 
