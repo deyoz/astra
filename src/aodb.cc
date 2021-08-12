@@ -234,18 +234,6 @@ class TBagNamesItem
       clear();
     }
 
-    TBagNamesItem& fromDB(TQuery &Qry)
-    {
-      clear();
-      if (!Qry.FieldIsNULL("bag_type"))
-        bag_type=Qry.FieldAsInteger("bag_type");
-      rfisc=Qry.FieldAsString("rfisc");
-      airline=Qry.FieldAsString("airline");
-      code=Qry.FieldAsInteger("code");
-      name=Qry.FieldAsString("name");
-      return *this;
-    }
-
     TBagNamesItem& fromDB(DB::TQuery &Qry)
     {
       clear();
@@ -2252,35 +2240,49 @@ namespace AODB_POINTS {
 
 void recNoFltNext( int point_id, std::string point_addr )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-  "BEGIN "
-  " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
-  "  WHERE point_id=:point_id AND point_addr=:point_addr; "
-  "  IF SQL%NOTFOUND THEN "
-  "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del,scd_out_ext) "
-  "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0,NULL); "
-  "  END IF; "
-  "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.Execute();
+  QParams params;
+  params << QParam("point_id", otInteger, point_id)
+         << QParam("point_addr", otString, point_addr);
+  DB::TCachedQuery QryUpd(
+        PgOra::getRWSession("AODB_POINTS"),
+        "UPDATE aodb_points SET rec_no_flt=COALESCE(rec_no_flt,-1)+1 "
+        "WHERE point_id=:point_id AND point_addr=:point_addr ",
+        params,
+        STDLOG);
+  QryUpd.get().Execute();
+
+  if (QryUpd.get().RowsProcessed() == 0) {
+    DB::TCachedQuery QryIns(
+          PgOra::getRWSession("AODB_POINTS"),
+          "INSERT INTO aodb_points( "
+          "  point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del,scd_out_ext "
+          ") VALUES ( "
+          ":point_id,:point_addr,NULL,0,-1,-1,-1,0,NULL"
+          ") ",
+          params,
+          STDLOG);
+    QryIns.get().Execute();
+  }
 }
 
 void setDelete( double aodb_point_id )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getRWSession("AODB_POINTS"), STDLOG);
   Qry.SQLText =
-    "UPDATE aodb_points SET pr_del=1 WHERE aodb_point_id=:aodb_point_id";
+    "UPDATE aodb_points "
+    "SET pr_del=1 "
+    "WHERE aodb_point_id=:aodb_point_id";
   Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id  );
   Qry.Execute();
 }
 
 bool isDelete( int point_id )
 {
-  DB::TQuery Qry( PgOra::getROSession("AODB_POINTS"), STDLOG );
+  DB::TQuery Qry(PgOra::getROSession("AODB_POINTS"), STDLOG);
   Qry.SQLText =
-    "SELECT pr_del from aodb_points WHERE point_id=:point_id";
+    "SELECT pr_del "
+    "FROM aodb_points "
+    "WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   return ( !Qry.Eof && Qry.FieldAsInteger( "pr_del" ) );
@@ -2288,9 +2290,11 @@ bool isDelete( int point_id )
 
 void setSCD_OUT( double aodb_point_id, TDateTime aodb_scd_out )
 {
-  DB::TQuery Qry( PgOra::getRWSession("AODB_POINTS"), STDLOG );
+  DB::TQuery Qry(PgOra::getRWSession("AODB_POINTS"), STDLOG);
   Qry.SQLText =
-    "UPDATE aodb_points SET scd_out_ext=:scd_out_ext WHERE aodb_point_id=:aodb_point_id";
+    "UPDATE aodb_points "
+    "SET scd_out_ext=:scd_out_ext "
+    "WHERE aodb_point_id=:aodb_point_id";
   Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
   Qry.CreateVariable( "scd_out_ext", otDate, aodb_scd_out );
   Qry.Execute();
@@ -2417,20 +2421,23 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
 {
   tst();
   TFndFlts flts;
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT point_addr, aodb_point_id FROM aodb_points WHERE point_id=:point_id AND aodb_point_id IS NOT NULL FOR UPDATE";
-  Qry.DeclareVariable( "point_id", otInteger );
+  DB::TQuery QryLock(PgOra::getRWSession("AODB_POINTS"), STDLOG);
+  QryLock.SQLText =
+    "SELECT point_addr, aodb_point_id "
+    "FROM aodb_points "
+    "WHERE point_id=:point_id AND aodb_point_id IS NOT NULL "
+    "FOR UPDATE";
+  QryLock.DeclareVariable( "point_id", otInteger );
   if ( findFlt( airline, flt_no, suffix, locale_scd_out, airp, true, flts ) ) {
     map<string,double> aodb_point_ids;
     int point_id = NoExists;
     for ( TFndFlts::iterator i=flts.begin(); i!=flts.end(); i++ ) { //пробег по найденным рейсам
       ProgTrace( TRACE5, "bindingAODBFlt: i->point_id=%d, i->pr_del=%d", i->point_id, i->pr_del );
       if ( i->pr_del == -1 ) {
-        Qry.SetVariable( "point_id", i->point_id );
-        Qry.Execute();
-        if ( !Qry.Eof ) {
-          aodb_point_ids[ Qry.FieldAsString( "point_addr" ) ] = Qry.FieldAsFloat( "aodb_point_id" );
+        QryLock.SetVariable( "point_id", i->point_id );
+        QryLock.Execute();
+        if ( !QryLock.Eof ) {
+          aodb_point_ids[ QryLock.FieldAsString( "point_addr" ) ] = QryLock.FieldAsFloat( "aodb_point_id" );
         }
       }
       if ( i->pr_del != -1 && point_id == NoExists ) {
@@ -2440,16 +2447,28 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
     if ( point_id == NoExists )
       return;
     for ( map<string,double>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
-      Qry.Clear();
-      Qry.SQLText =
-          "BEGIN "
-          "DELETE aodb_points WHERE point_id=:point_id AND point_addr=:point_addr AND aodb_point_id!=:aodb_point_id;"
-          "UPDATE aodb_points SET point_id=:point_id, pr_del=0, scd_out_ext=NULL WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
-          "END;";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "point_addr", otString, i->first );
-      Qry.CreateVariable( "aodb_point_id", otFloat, i->second );
-      Qry.Execute();
+      QParams params;
+      params << QParam("point_id", otInteger, point_id)
+             << QParam("point_addr", otString, i->first)
+             << QParam("aodb_point_id", otFloat, i->second);
+      DB::TCachedQuery QryDel(
+            PgOra::getRWSession("AODB_POINTS"),
+            "DELETE aodb_points "
+            "WHERE point_id=:point_id "
+            "AND point_addr=:point_addr "
+            "AND aodb_point_id!=:aodb_point_id ",
+            params,
+            STDLOG);
+      QryDel.get().Execute();
+      DB::TCachedQuery QryUpd(
+            PgOra::getRWSession("AODB_POINTS"),
+            "UPDATE aodb_points "
+            "SET point_id=:point_id, pr_del=0, scd_out_ext=NULL "
+            "WHERE aodb_point_id=:aodb_point_id "
+            "AND point_addr=:point_addr",
+            params,
+            STDLOG);
+      QryUpd.get().Execute();
     }
   }
 }
