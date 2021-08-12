@@ -464,7 +464,7 @@ public:
         _layer_type.emplace(grp.value().getCheckInLayerType());
       else {
         grp.reset();
-        LogError(STDLOG) << "reseat: layer type is not define!";
+        LogError(STDLOG) << "reseat: _layer_type type is not define!";
       }
     }
     LogTrace(TRACE5) << __func__ << " " <<_point_id << " " << _pax_id << " "
@@ -484,11 +484,11 @@ public:
       case cltTCheckin:
         if ( !pax.getByPaxId(_pax_id) )
           throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
-        tst();
-        grp = CheckIn::TSimplePaxGrpItem();
-        tst();
-        grp.value().getByPaxId(_pax_id);
-        tst();
+        if ( !grp ) {
+          grp = CheckIn::TSimplePaxGrpItem();
+          tst();
+          grp.value().getByPaxId(_pax_id);
+        }
         break;
       case cltProtCkin:
       case cltProtBeforePay: //WEB ChangeProtPaidLayer
