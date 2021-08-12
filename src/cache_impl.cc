@@ -2299,8 +2299,7 @@ void SalePoints::beforeApplyingRowChanges(const TCacheUpdateStatus status,
   if (newRow)
   {
     std::string code=newRow.value().getAsString("code");
-    if (code.size()!=8 ||
-        !algo::all_of(code, [](const auto &c) { return IsUpperLetter(c) || IsDigit(c); }))
+    if (code.size()!=8 || !IsUpperLettersOrDigits(code))
       throw UserException("MSG.SALE_POINT_CONSISTS_OF_8_LET_DIG");
   }
 

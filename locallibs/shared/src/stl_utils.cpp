@@ -165,9 +165,32 @@ string lowerc(const string &value) {
 
 bool IsAscii7(const string &value)
 {
-  for(string::const_iterator i=value.begin(); i!=value.end(); ++i)
-    if (!IsAscii7(*i)) return false;
-  return true;
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsAscii7(c); });
+};
+
+bool IsUpperLetters(const string &value)
+{
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsUpperLetter(c); });
+};
+
+bool IsLatinUpperLetters(const string &value)
+{
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsAscii7(c) && IsUpperLetter(c); });
+};
+
+bool IsDigits(const string &value)
+{
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsDigit(c); });
+};
+
+bool IsUpperLettersOrDigits(const string &value)
+{
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsUpperLetter(c) || IsDigit(c); });
+};
+
+bool IsLatinUpperLettersOrDigits(const string &value)
+{
+  return std::all_of(value.begin(), value.end(), [](const auto &c) { return IsAscii7(c) && (IsUpperLetter(c) || IsDigit(c)); });
 };
 
 string IntToString(int val)

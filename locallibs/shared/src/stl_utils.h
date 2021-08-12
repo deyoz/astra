@@ -16,7 +16,14 @@ void StringToHex(const std::string& src, std::string& dest);
 bool HexToString(const std::string& src, std::string& dest);
 std::string upperc(const std::string &tabname);
 std::string lowerc(const std::string &tabname);
+
 bool IsAscii7(const std::string &value);
+bool IsUpperLetters(const std::string &value);
+bool IsLatinUpperLetters(const std::string &value);
+bool IsDigits(const std::string &value);
+bool IsUpperLettersOrDigits(const std::string &value);
+bool IsLatinUpperLettersOrDigits(const std::string &value);
+
 std::string IntToString(int val);
 std::string FloatToString( double val, int precision=-1 );
 int ToInt(const std::string val);
