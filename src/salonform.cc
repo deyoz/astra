@@ -1006,7 +1006,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
         "FROM crs_pnr "
         "JOIN (crs_pax "
         "    LEFT OUTER JOIN (pax "
-        "        LEFT OUTER pax_grp ON pax.grp_id = pax_grp.grp_id "
+        "        LEFT OUTER JOIN pax_grp ON pax.grp_id = pax_grp.grp_id "
         "    ) ON crs_pax.pax_id = pax.pax_id "
         ") ON crs_pnr.pnr_id = crs_pax.pnr_id "
         "WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 ";
