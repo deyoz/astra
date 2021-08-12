@@ -1691,7 +1691,6 @@ template <typename T>
 void PointsKeyTrip<T>::DoEvents( int move_id )
 {
   ProgTrace( TRACE5, "PointsKeyTrip:DoEvents" );
-  TQuery Qry(&OraSession);
   for ( int i=(int)teNewLand; i<=(int)tePoint_NumTakeoff; i++ ) {
     if ( this->events.isFlag( (TTripEvents)i ) ) {
       LEvntPrms params;
@@ -1874,10 +1873,11 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
 
 bool existsTranzitPassengers( int point_id ) // определение того, можно ли сделать из транзитного рейса не транзитный
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
   Qry.SQLText =
     "SELECT grp_id FROM pax_grp "
-    " WHERE point_dep=:point_dep AND point_arv=:point_arv AND bag_refuse=0 AND rownum<2 ";
+    "WHERE point_dep=:point_dep AND point_arv=:point_arv AND bag_refuse=0 "
+    "FETCH FIRST 1 ROWS ONLY";
   Qry.DeclareVariable( "point_dep", otInteger );
   Qry.DeclareVariable( "point_arv", otInteger );
   TTripRoute routes_before, routes_after;
@@ -2200,16 +2200,18 @@ void TPoints::Save( bool isShowMsg )
 
 bool TPoints::checkDeleteDest( int point_id )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","POINTS"}), STDLOG);
   Qry.SQLText =
     "SELECT COUNT(*) c FROM "
     "( SELECT 1 FROM pax_grp,points "
-    "   WHERE points.point_id=:point_id AND "
-    "         point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 "
+    "  WHERE points.point_id=:point_id AND "
+    "        point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
+    "  FETCH FIRST 1 ROWS ONLY "
     "  UNION "
-    " SELECT 2 FROM pax_grp,points "
-    "   WHERE points.point_id=:point_id AND "
-    "         point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ) ";
+    "  SELECT 2 FROM pax_grp,points "
+    "  WHERE points.point_id=:point_id AND "
+    "        point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
+    "  FETCH FIRST 1 ROWS ONLY) ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   return Qry.FieldAsInteger( "c" );

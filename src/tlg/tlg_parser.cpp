@@ -3892,7 +3892,7 @@ static bool existsCrsPaxId(const PaxId_t& paxId)
 
 boost::optional<PaxId_t> TPaxItem::getNotUsedSeatBlockingId(const PaxId_t& paxId)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText =
     "SELECT seat_id "
     "FROM crs_seats_blocking "

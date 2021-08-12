@@ -1169,17 +1169,19 @@ void get_stat(const PointId_t& point_id)
       "  client_type, "
       "  SUM(CASE WHEN bag_refuse=0 THEN excess_wt ELSE 0 END) AS excess_wt, "
       "  SUM(CASE WHEN bag_refuse=0 THEN excess_pc ELSE 0 END) AS excess_pc "
-      "FROM pax_grp, "
-      "     (SELECT bag2.grp_id,bag2.hall "
-      "      FROM bag2, "
-      "           (SELECT bag2.grp_id,MAX(bag2.num) AS num "
-      "            FROM pax_grp,bag2 "
-      "            WHERE pax_grp.grp_id=bag2.grp_id "
-      "            AND pax_grp.point_dep=:point_id AND " +
-      CKIN::bag_pool_not_refused_query() +
-      "            GROUP BY bag2.grp_id) last_bag "
-      "      WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 "
-      "WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=:point_id AND pax_grp.status NOT IN ('E') "
+      "FROM pax_grp "
+      "LEFT OUTER JOIN ( "
+      "    SELECT bag2.grp_id,bag2.hall "
+      "    FROM bag2, "
+      "        (SELECT bag2.grp_id,MAX(bag2.num) AS num "
+      "         FROM pax_grp,bag2 "
+      "         WHERE pax_grp.grp_id=bag2.grp_id "
+      "         AND pax_grp.point_dep=:point_id AND " + CKIN::bag_pool_not_refused_query() +
+      "         GROUP BY bag2.grp_id "
+      "        ) last_bag "
+      "    WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num "
+      ") bag2 ON pax_grp.grp_id = bag2.grp_id "
+      "WHERE point_dep=:point_id AND pax_grp.status NOT IN ('E') "
       "GROUP BY airp_arv,COALESCE(bag2.hall,pax_grp.hall),(CASE WHEN status='T' THEN 'T' ELSE 'N' END),client_type ";
   cur2.CreateVariable("point_id", otInteger, point_id.get());
   cur2.Execute();

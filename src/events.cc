@@ -580,9 +580,10 @@ void TGrpToLogInfo::setTermAgentSeatNo( const CheckIn::TPaxList &paxs )
 
 void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT NVL(pax_grp.piece_concept, 0) AS piece_concept FROM pax_grp WHERE grp_id=:grp_id";
+    DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
+    Qry.SQLText="SELECT COALESCE(pax_grp.piece_concept, 0) AS piece_concept "
+                "FROM pax_grp "
+                "WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if (Qry.Eof) return;

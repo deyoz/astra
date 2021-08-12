@@ -76,7 +76,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     SeatsQry.SQLText=
       "SELECT yname AS seat_row, xname AS seat_column "
       "FROM pax_seats "
-      "WHERE pax_id=:pax_id AND point_id=:point_id AND NVL(pr_wl,0)=0";
+      "WHERE pax_id=:pax_id AND point_id=:point_id AND COALESCE(pr_wl,0)=0";
     SeatsQry.CreateVariable("point_id",otInteger,point_id);
     SeatsQry.DeclareVariable("pax_id",otInteger);
 

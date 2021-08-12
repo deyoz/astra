@@ -8616,7 +8616,7 @@ struct TCKINPaxInfo {
                 "    pax.seats, "
                 "    pax.pers_type, "
                 "    COALESCE(pax.cabin_class, pax_grp.class) cls, "
-                "    COALESCE(nvl(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) subclass, "
+                "    COALESCE(COALESCE(pax.cabin_subclass, pax.subclass), COALESCE(pax.cabin_class, pax_grp.class)) subclass, "
                 "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
                 "    pax_grp.status "

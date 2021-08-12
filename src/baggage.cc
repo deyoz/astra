@@ -1775,7 +1775,9 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
     //старый терминал не поддерживает привязку багажа к разрегистрированным пассажирам
     //следовательно, мы должны убрать разрегистрированный багаж
     DB::TQuery BagQry(PgOra::getROSession("PAX_GRP"),STDLOG);
-    BagQry.SQLText="SELECT class, bag_refuse FROM pax_grp WHERE grp_id=:grp_id";
+    BagQry.SQLText="SELECT class, bag_refuse "
+                   "FROM pax_grp "
+                   "WHERE grp_id=:grp_id";
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();
     if (BagQry.Eof) return;

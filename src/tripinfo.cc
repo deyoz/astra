@@ -3169,9 +3169,11 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     "FROM tlg_trips WHERE point_id=:point_id ";
   TlgTripsQry.DeclareVariable("point_id",otInteger);
 
-  TQuery PointsQry( &OraSession );
+  DB::TQuery PointsQry(PgOra::getROSession("PAX_GRP"), STDLOG);
   PointsQry.SQLText=
-    "SELECT point_dep AS point_id FROM pax_grp WHERE grp_id=:grp_id";
+    "SELECT point_dep AS point_id "
+    "FROM pax_grp "
+    "WHERE grp_id=:grp_id";
   PointsQry.DeclareVariable("grp_id",otInteger);
 
   xmlNodePtr tripsNode = NewTextChild( dataNode, "tlg_trips" );

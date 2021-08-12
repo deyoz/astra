@@ -718,7 +718,7 @@ void TCkinPaxFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::lis
   {
     case paxCheckIn:
       conditions.push_back("pax_grp.grp_id=pax.grp_id");
-      conditions.push_back("NVL(pax.cabin_subclass, pax.subclass)=:subclass");
+      conditions.push_back("COALESCE(pax.cabin_subclass, pax.subclass)=:subclass");
       conditions.push_back("pax_grp.status IN (:checkin_status, :tcheckin_status)");
       break;
     case paxPnl:

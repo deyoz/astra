@@ -568,7 +568,7 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
                             "WHERE pax_grp.grp_id=pax.grp_id AND "
                             "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
                             "ORDER BY pax.pax_id",
-                            PgOra::getROSession("PAX")); //может быть РМ с рег. номером взрослого
+                            PgOra::getROSession({"PAX_GRP", "PAX"})); //может быть РМ с рег. номером взрослого
     int pax_id;
     cur
         .stb()
@@ -591,7 +591,8 @@ static std::string FP_getUnaccompId(const std::vector<std::string>& p)
 
   ASSERT(rowNumRequired>=1);
 
-  auto cur = make_db_curs("SELECT grp_id FROM pax_grp "
+  auto cur = make_db_curs("SELECT grp_id "
+                          "FROM pax_grp "
                           "WHERE point_dep=:point_dep AND class IS NULL AND status NOT IN ('E') "
                           "ORDER BY grp_id",
                           PgOra::getROSession("PAX_GRP"));

@@ -139,15 +139,15 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     std::list<std::string> involvedTables({"PAX_GRP","POINTS","BAG2","HALLS2","PAX"});
     string SQLText =
-        "select ";
+        "SELECT ";
     if(rpt_params.pr_trfer)
         SQLText +=
-            "    (CASE WHEN transfer.grp_id IS NOT NULL THEN 1 ELSE 0 END) pr_trfer, \n"
-            "    trfer_trips.airline trfer_airline, \n"
-            "    trfer_trips.flt_no trfer_flt_no, \n"
-            "    trfer_trips.suffix trfer_suffix, \n"
-            "    transfer.airp_arv trfer_airp_arv, \n"
-            "    trfer_trips.scd trfer_scd, \n";
+            "    (CASE WHEN transfer.grp_id IS NOT NULL THEN 1 ELSE 0 END) pr_trfer, "
+            "    trfer_trips.airline trfer_airline, "
+            "    trfer_trips.flt_no trfer_flt_no, "
+            "    trfer_trips.suffix trfer_suffix, "
+            "    transfer.airp_arv trfer_airp_arv, "
+            "    trfer_trips.scd trfer_scd, ";
     else
         SQLText +=
             "    0 pr_trfer, "
@@ -170,55 +170,52 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    bag2.weight, "
         "    bag2.pr_liab_limit, "
         "    bag2.to_ramp "
-        "from "
-        "    pax_grp, "
-        "    points, "
-        "    bag2, "
-        "    halls2, "
-        "    pax ";
+        "FROM pax_grp "
+        "JOIN points ON pax_grp.point_arv = points.point_id "
+        "JOIN (bag2 "
+        "    LEFT OUTER JOIN halls2 ON bag2.hall = halls2.id "
+        "    LEFT OUTER JOIN pax ON bag2.grp_id = pax.grp_id "
+        ") ON pax_grp.grp_id = bag2.grp_id ";
     if(rpt_params.pr_trfer)
     {
-        SQLText += ", transfer, trfer_trips ";
+        SQLText +=
+            "LEFT OUTER JOIN (transfer "
+            "    LEFT OUTER JOIN trfer_trips ON transfer.point_id_trfer = trfer_trips.point_id "
+            ") ON pax_grp.grp_id = transfer.grp_id AND transfer.pr_final <> 0 ";
         involvedTables.push_back("TRANSFER");
         involvedTables.push_back("TRFER_TRIPS");
     }
     if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All)
     {
-        SQLText += ", tckin_pax_grp \n";
+        SQLText += "LEFT OUTER JOIN tckin_pax_grp "
+                   "ON pax_grp.grp_id = tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num <> 0 ";
+        if(rpt_params.trzt_autoreg == TRptParams::TrztAutoreg::Auto) {
+          SQLText +=
+              "AND pax_grp.status IN ('T') "
+              "AND tckin_pax_grp.grp_id is NOT NULL ";
+        } else {
+          SQLText +=
+              "AND NOT (pax_grp.status IN ('T') "
+              "AND tckin_pax_grp.grp_id IS NOT NULL) ";
+        }
         involvedTables.push_back("TCKIN_PAX_GRP");
     }
     SQLText +=
-        "where "
-        "    points.pr_del>=0 AND "
-        "    pax_grp.point_dep = :point_id and "
-        "    pax_grp.point_arv = points.point_id and "
-        "    pax_grp.grp_id = bag2.grp_id and ";
+        "WHERE "
+        "    points.pr_del >= 0 AND "
+        "    pax_grp.point_dep = :point_id AND ";
 
-    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All) {
-        if(rpt_params.trzt_autoreg == TRptParams::TrztAutoreg::Auto)
-            SQLText +=
-                "   pax_grp.status IN ('T') and \n"
-                "   tckin_pax_grp.grp_id is not null and \n";
-        else
-            SQLText +=
-                "   not (pax_grp.status IN ('T') and \n"
-                "   tckin_pax_grp.grp_id is not null) and \n";
-        SQLText +=
-            "   tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND \n"
-            "   tckin_pax_grp.transit_num(+)<>0 and \n";
-    }
-
-    if (rpt_params.pr_brd)
+    if (rpt_params.pr_brd) {
       SQLText += CKIN::bag_pool_boarded_query();
-    else
+    } else {
       SQLText += CKIN::bag_pool_not_refused_query();
+    }
     SQLText +=
-        "    and bag2.pr_cabin = 0 and "
-        "    bag2.hall = halls2.id(+) ";
+        "    AND bag2.pr_cabin = 0 ";
 
     DB::TQuery Qry(PgOra::getROSession(involvedTables),STDLOG);
     if(!rpt_params.airp_arv.empty()) {
-        SQLText += " and pax_grp.airp_arv = :target ";
+        SQLText += " AND pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
@@ -226,11 +223,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "   and COALESCE(NULLIF(halls2.rpt_grp,''), ' ') = COALESCE(NULLIF(:zone,''), ' ') and bag2.hall IS NOT NULL ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
-            " transfer.pr_final(+) <> 0 and \n"
-            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
 
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
@@ -310,40 +302,42 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if(grps.find(cur_grp_id) == grps.end()) {
             grps.insert(cur_grp_id);
             // ищем непривязанные бирки для каждой группы
-            TQuery tagsQry(&OraSession);
+            std::list<std::string> tables;
             string SQLText =
-                "select "
+                "SELECT "
                 "   bag_tags.tag_type, "
                 "   bag_tags.color, "
-                "   to_char(bag_tags.no) no "
-                "from ";
-            if(rpt_params.ckin_zone != ALL_CKIN_ZONES)
-                SQLText += " halls2, pax_grp, ";
-            SQLText +=
-                "   bag_tags "
-                "where "
-                "   bag_tags.grp_id = :grp_id and "
-                "   bag_tags.bag_num is null";
+                "   bag_tags.no "
+                "FROM bag_tags ";
             if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-                SQLText +=
-                    "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL and "
-                    "   pax_grp.grp_id = bag_tags.grp_id and "
-                    "   pax_grp.hall = halls2.id(+) ";
-                tagsQry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+                tables.push_back("PAX_GRP");
+                tables.push_back("HALLS2");
+                SQLText += "JOIN (pax_grp "
+                           "      LEFT OUTER JOIN halls2 ON pax_grp.hall = halls2.id ";
+                           "      AND COALESCE(halls2.rpt_grp, ' ') = COALESCE(:zone, ' ') "
+                           ") ON pax_grp.grp_id = bag_tags.grp_id AND pax_grp.hall IS NOT NULL ";
             }
-            tagsQry.SQLText = SQLText;
-            tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
-            tagsQry.Execute();
-            for(; !tagsQry.Eof; tagsQry.Next()) {
+            SQLText +=
+                "WHERE "
+                "   bag_tags.grp_id = :grp_id AND "
+                "   bag_tags.bag_num IS NULL ";
+            DB::TQuery unlinkTagsQry(PgOra::getROSession(tables), STDLOG);
+            unlinkTagsQry.SQLText = SQLText;
+            if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+                unlinkTagsQry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+            }
+            unlinkTagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+            unlinkTagsQry.Execute();
+            for(; !unlinkTagsQry.Eof; unlinkTagsQry.Next()) {
                 bag_tags.push_back(bag_tag_row);
                 bag_tags.back().bag_num = -1;
                 bag_tags.back().amount = 0;
                 bag_tags.back().weight = 0;
                 bag_tags.back().bag_name_priority = -1;
                 bag_tags.back().bag_name = "";
-                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
-                bag_tags.back().color = tagsQry.FieldAsString("color");
-                bag_tags.back().no = tagsQry.FieldAsFloat("no");
+                bag_tags.back().tag_type = unlinkTagsQry.FieldAsString("tag_type");
+                bag_tags.back().color = unlinkTagsQry.FieldAsString("color");
+                bag_tags.back().no = unlinkTagsQry.FieldAsFloat("no");
             }
         }
     }

@@ -3,6 +3,8 @@
 #include "date_time.h"
 #include "qrys.h"
 #include "astra_utils.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -32,7 +34,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
         int col_suffix;
         int col_scd_out;
 
-        TCachedQuery fltQry;
+        DB::TCachedQuery fltQry;
 
         const char *delim;
 
@@ -68,20 +70,22 @@ int nosir_seDCSAddReport(int argc, char **argv)
             }
         }
 
-        TFltStat(TQuery &Qry, const char *adelim): fltQry(
-                "select "
-                "    pax_grp.client_type, "
-                "    pax.pers_type, "
-                "    pax.bag_pool_num pr_bag "
-                "from "
-                "    pax_grp, "
-                "    pax "
-                "where "
-                "    pax_grp.point_dep = :point_id and "
-                "    pax.grp_id = pax_grp.grp_id and "
-                "    pax_grp.status not in ('E') ",
-                QParams() << QParam("point_id", otInteger)
-                ),
+        TFltStat(DB::TQuery &Qry, const char *adelim)
+          : fltQry(
+              PgOra::getROSession({"PAX_GRP","PAX"}),
+              "SELECT "
+              "    pax_grp.client_type, "
+              "    pax.pers_type, "
+              "    pax.bag_pool_num pr_bag "
+              "FROM "
+              "    pax_grp, "
+              "    pax "
+              "WHERE "
+              "    pax_grp.point_dep = :point_id and "
+              "    pax.grp_id = pax_grp.grp_id and "
+              "    pax_grp.status not in ('E') ",
+              QParams() << QParam("point_id", otInteger),
+              STDLOG),
         delim(adelim)
         {
             col_point_id = Qry.GetFieldIndex("point_id");
@@ -92,7 +96,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
             col_scd_out = Qry.GetFieldIndex("scd_out");
         }
 
-        void get(TQuery &Qry, ofstream &of) {
+        void get(DB::TQuery &Qry, ofstream &of) {
             data.clear();
             int point_id = Qry.FieldAsInteger(col_point_id);
             fltQry.get().SetVariable("point_id", point_id);
@@ -103,7 +107,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 int col_pr_bag = fltQry.get().GetFieldIndex("pr_bag");
                 for(; not fltQry.get().Eof; fltQry.get().Next()) {
                     bool pr_adult = DecodePerson(fltQry.get().FieldAsString(col_pers_type)) == adult;
-                    bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type)) != ctTerm;
+                    bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type).c_str()) != ctTerm;
                     bool pr_bag = not fltQry.get().FieldIsNULL(col_pr_bag);
                     data[point_id][pr_adult][pr_web][pr_bag]++;
                 }
@@ -159,23 +163,24 @@ int nosir_seDCSAddReport(int argc, char **argv)
         }
     };
 
-    TCachedQuery Qry(
-            "select "
-            "   point_id, "
-            "   airline, "
-            "   airp, "
-            "   flt_no, "
-            "   suffix, "
-            "   scd_out "
-            "from "
-            "   points "
-            "where "
-            "   scd_out>=:first_date AND scd_out<:last_date AND airline='ž’' AND "
-            "   pr_reg<>0 AND pr_del>=0 ",
-            QParams()
-            << QParam("first_date", otDate, FirstDate)
-            << QParam("last_date", otDate, FirstDate + 1)
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("POINTS"),
+          "SELECT "
+          "   point_id, "
+          "   airline, "
+          "   airp, "
+          "   flt_no, "
+          "   suffix, "
+          "   scd_out "
+          "FROM "
+          "   points "
+          "WHERE "
+          "   scd_out>=:first_date AND scd_out<:last_date AND airline='ž’' AND "
+          "   pr_reg<>0 AND pr_del>=0 ",
+          QParams()
+          << QParam("first_date", otDate, FirstDate)
+          << QParam("last_date", otDate, FirstDate + 1),
+          STDLOG);
 
     Qry.get().Execute();
     if(not Qry.get().Eof) {

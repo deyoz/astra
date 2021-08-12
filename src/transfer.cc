@@ -403,12 +403,12 @@ TBagItem& TBagItem::fromDB(DB::TQuery &Qry, bool fromTlg, bool loadTags)
     {
       if (Qry.FieldIsNULL("bag_pool_num")) return *this;
 
-      DB::TQuery TagQry(PgOra::getROSession("ORACLE"), STDLOG);
+      DB::TQuery TagQry(PgOra::getROSession({"BAG_TAGS", "BAG2"}), STDLOG);
       TagQry.SQLText="SELECT bag_tags.no "
-                     "FROM bag_tags, bag2 "
-                     "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
-                     "      bag_tags.bag_num=bag2.num(+) AND "
-                     "      bag_tags.grp_id=:grp_id AND "
+                     "FROM bag_tags "
+                     "LEFT OUTER JOIN bag2 "
+                     "ON bag_tags.grp_id = bag2.grp_id AND bag_tags.bag_num=bag2.num "
+                     "WHERE bag_tags.grp_id=:grp_id AND "
                      "      COALESCE(bag2.bag_pool_num,1)=:bag_pool_num";
       TagQry.DeclareVariable("grp_id", otInteger);
       TagQry.DeclareVariable("bag_pool_num", otInteger);
@@ -2335,8 +2335,7 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
   if (id_type!=idFlt && id_type!=idGrp)
     throw Exception("GetCheckedTags: wrong id_type");
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
+  DB::TQuery PaxQry(PgOra::getROSession("PAX"), STDLOG);
   PaxQry.SQLText=
     "SELECT subclass, surname, name "
     "FROM pax "
@@ -2344,8 +2343,7 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
   PaxQry.DeclareVariable("grp_id", otInteger);
   PaxQry.DeclareVariable("bag_pool_num", otInteger);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "BAG2", "BAG_TAGS"}), STDLOG);
   ostringstream sql;
   sql <<
     "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.class, "
@@ -2599,7 +2597,6 @@ void GetNewGrpInfo(int point_id,
 
   if (grps_ckin.empty() && grps_tlg.empty()) return;
 
-  TQuery Qry(&OraSession);
   list<TPaxItem> paxs_ckin, paxs_crs;
   bool paxListsInit=false;
   TGrpItem first_grp_in;

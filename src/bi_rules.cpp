@@ -383,23 +383,30 @@ namespace BIPrintRules {
 
     void Holder::getByGrpId(int grp_id)
     {
-        TCachedQuery fltQry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
+        DB::TCachedQuery fltQry(
+              PgOra::getROSession({"POINTS", "PAX_GRP"}),
+              "SELECT points.* "
+              "FROM points, pax_grp "
+              "WHERE pax_grp.grp_id = :grp_id AND pax_grp.point_dep = points.point_id ",
+              QParams() << QParam("grp_id", otInteger, grp_id),
+              STDLOG);
         fltQry.get().Execute();
         TTripInfo t(fltQry.get());
 
-        TCachedQuery paxQry(
-                "select "
-                "   pax.pax_id, "
-                "   pax_grp.class, "
-                "   pax.subclass "
-                "from "
-                "   pax, "
-                "   pax_grp "
-                "where "
-                "   pax_grp.grp_id = :grp_id and "
-                "   pax.grp_id = pax_grp.grp_id ",
-                QParams() << QParam("grp_id", otInteger, grp_id));
+        DB::TCachedQuery paxQry(
+              PgOra::getROSession({"PAX_GRP","PAX"}),
+              "SELECT "
+              "   pax.pax_id, "
+              "   pax_grp.class, "
+              "   pax.subclass "
+              "FROM "
+              "   pax, "
+              "   pax_grp "
+              "WHERE "
+              "   pax_grp.grp_id = :grp_id and "
+              "   pax.grp_id = pax_grp.grp_id ",
+              QParams() << QParam("grp_id", otInteger, grp_id),
+              STDLOG);
         paxQry.get().Execute();
         TBrands brands; //здесь, чтобы кэшировались запросы
         for(; not paxQry.get().Eof; paxQry.get().Next()) {

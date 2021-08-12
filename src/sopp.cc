@@ -3594,8 +3594,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 std::string GetTagsOfNotBoardedPax(int point_id)
 {
-  TQuery Qry(&OraSession);
-
+  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "BAG2", "BAG_TAGS", "TAG_TYPES"}), STDLOG);
   Qry.SQLText =
       /* Только бирки тех багажных пулов, все пассажиры которых не прошли посадку */
     "SELECT bag_tags.color, bag_tags.no, tag_types.no_len "

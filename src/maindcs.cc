@@ -1708,17 +1708,23 @@ class TScanParams
 
 bool ParseScanBPData(const string& data, TScanParams& params)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT pax_id FROM pax WHERE pax_id=:pax_id "
-              "UNION "
-              "SELECT TO_NUMBER(value) FROM prn_test_tags "
-              "WHERE name=:tag_name AND TO_NUMBER(value)=:pax_id";
+  DbCpp::Session& session = PgOra::getROSession({"PAX","PRN_TEST_TAGS"});
+  DB::TQuery Qry(session, STDLOG);
+  Qry.SQLText =
+      "SELECT pax_id "
+      "FROM pax WHERE pax_id=:pax_id "
+      "UNION "
+      + std::string(
+        session.isOracle()
+        ? "SELECT TO_NUMBER(value) FROM prn_test_tags "
+          "WHERE name=:tag_name AND TO_NUMBER(value)=:pax_id"
+        : "SELECT CAST(value AS NUMERIC) FROM prn_test_tags "
+          "WHERE name=:tag_name AND CAST(value AS NUMERIC)=:pax_id");
   Qry.DeclareVariable("pax_id",otInteger);
   Qry.CreateVariable("tag_name",otString,"pax_id");
 
 
-  string str=data,c;
+  string str=data;
   string::size_type p,ph=0,str_size=str.size(),i;
   int pax_id;
   bool init=false;
@@ -1727,12 +1733,6 @@ bool ParseScanBPData(const string& data, TScanParams& params)
     p=str.find_first_of("0123456789M",ph);
     if (p==string::npos) break;
     if (str_size<p+10) break;
-    /*
-    if (p<str_size)
-      ProgTrace(TRACE5,"ParseScanBPData: p=%d str=%s", p, str.substr(p).c_str());
-    else
-      ProgTrace(TRACE5,"ParseScanBPData: p=%d",p);
-    */
     ph=p;
     try
     {

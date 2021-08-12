@@ -201,12 +201,15 @@ std::optional<PointId_t> getPointIdByPaxId(const PaxId_t pax_id)
 {
   LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-    TCachedQuery Qry(
-            "select point_dep from pax_grp, pax "
-            "where "
-            "   pax.pax_id = :pax_id and "
-            "   pax.grp_id = pax_grp.grp_id ",
-            QParams() << QParam("pax_id", otInteger, pax_id.get()));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX_GRP", "PAX"}),
+          "SELECT point_dep "
+          "FROM pax_grp, pax "
+          "WHERE "
+          "   pax.pax_id = :pax_id and "
+          "   pax.grp_id = pax_grp.grp_id ",
+          QParams() << QParam("pax_id", otInteger, pax_id.get()),
+          STDLOG);
     Qry.get().Execute();
     if(Qry.get().Eof) return {};
     LogTrace(TRACE6) << __func__
@@ -227,7 +230,9 @@ bool TTripInfo::getByGrpId ( const int grp_id )
 {
   DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
   Qry.SQLText =
-    "SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id";
+    "SELECT point_dep "
+    "FROM pax_grp "
+    "WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
 
@@ -1147,7 +1152,7 @@ bool TTrferRoute::GetRoute(int grp_id,
                            TTrferRouteType route_type)
 {
   clear();
-  DB::TQuery Qry1(PgOra::getROSession("POINTS"), STDLOG);
+  DB::TQuery Qry1(PgOra::getROSession({"PAX_GRP", "POINTS"}), STDLOG);
   if (route_type==trtWithFirstSeg)
   {
     Qry1.SQLText=
@@ -1765,14 +1770,14 @@ void TMktFlight::getByPnrId(int pnr_id)
 {
     DB::TQuery Qry(PgOra::getROSession("CRS_PNR"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "    pnr_id, "
         "    point_id, "
         "    subclass tlg_subcls, "
         "    airp_arv tlg_airp_arv "
-        "from "
+        "FROM "
         "   crs_pnr "
-        "where "
+        "WHERE "
         "    pnr_id = :id ";
     get(Qry, pnr_id);
 }

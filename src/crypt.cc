@@ -491,7 +491,6 @@ void TCrypt::Init( const std::string &desk )
   if ( TReqInfo::Instance()->duplicate ) //!!! не работаем в режиме дуплицирования в режиме шифрования
     return;
   #ifdef USE_MESPRO
-  TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
   if ( !GetCryptGrp( desk, grp_id, pr_grp ) )

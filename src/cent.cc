@@ -686,12 +686,12 @@ void TBalanceData::init() {
     qBagTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
   }
   if ( dataFlags.isFlag( tdExcess ) ) {
-    qExcessBagQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG); // ckin.get_excess_wt
+    qExcessBagQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG);
     qExcessBagQry->SQLText = qryBalanceExcessBagWOCheckinTranzit.c_str();
     qExcessBagQry->DeclareVariable( "point_dep", otInteger );
     qExcessBagQry->DeclareVariable( "point_arv", otInteger );
 
-    qExcessBagTQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG); // ckin.get_excess_wt
+    qExcessBagTQry = new DB::TQuery(PgOra::getROSession("PAX_GRP"), STDLOG);
     qExcessBagTQry->SQLText = qryBalanceExcessBagWithCheckinTranzit.c_str();
     qExcessBagTQry->DeclareVariable( "point_dep", otInteger );
     qExcessBagTQry->DeclareVariable( "point_arv", otInteger );

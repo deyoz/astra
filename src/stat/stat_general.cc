@@ -477,7 +477,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " SUM(pcs) bag_amount, "
            " SUM(weight) bag_weight, "
            " SUM(excess_wt) AS excess_wt, "
-           " SUM(NVL(excess_pc,0)) AS excess_pc ";
+           " SUM(COALESCE(excess_pc,0)) AS excess_pc ";
   };
   if (params.statType==statShort)
   {

@@ -463,10 +463,13 @@ void TSeatTariffMap::get(const int pax_id)
 
   _potential_queries++;
   _real_queries++;
-  TCachedQuery Qry("SELECT pax_grp.point_dep AS point_id_oper, pax_grp.point_id_mark, pax_grp.grp_id, pax_grp.airp_arv "
-                   "FROM pax_grp, pax "
-                   "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX_GRP", "PAX"}),
+        "SELECT pax_grp.point_dep AS point_id_oper, pax_grp.point_id_mark, pax_grp.grp_id, pax_grp.airp_arv "
+        "FROM pax_grp, pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, pax_id),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof)
   {
@@ -6127,23 +6130,11 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   getPassengers( passengers, flgGetPass );
   DB::TQuery Qry(PgOra::getROSession("PAX_SEATS"),STDLOG);
   Qry.SQLText =
-    "SELECT pax_id, xname, yname from pax_seats "
-    " WHERE point_id=:point_id AND pr_wl=0";
+    "SELECT pax_id, xname, yname "
+    "FROM pax_seats "
+    "WHERE point_id=:point_id AND pr_wl=0";
   Qry.DeclareVariable( "point_id", otInteger );
 
-  TQuery DelQry( &OraSession );
-  DelQry.SQLText =
-    "BEGIN "
-    " IF :pr_update = 1 THEN "
-    " DELETE FROM pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=1; "
-    " UPDATE pax_seats SET pr_wl=1 WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
-    " :pr_update := SQL%ROWCOUNT;"
-    " END IF;"
-    " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
-    "END;";
-  DelQry.DeclareVariable( "point_id", otInteger );
-  DelQry.DeclareVariable( "pax_id", otInteger );
-  DelQry.DeclareVariable( "pr_update", otInteger );
   DB::TQuery InsQry(PgOra::getRWSession("PAX_SEATS"),STDLOG);
   InsQry.SQLText =
     "INSERT INTO pax_seats(point_id,pax_id,xname,yname,pr_wl,seat_descr) "
@@ -6165,7 +6156,6 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   map<int,TPlaceList*> salons; // для быстрой адресации к салону
   for ( FilterRoutesProperty::iterator ipoint=filterRoutes.begin();
         ipoint!=filterRoutes.end(); ipoint++ ) {  //сразу по всему маршруту
-    DelQry.SetVariable( "point_id", ipoint->point_id );
     InsQry.SetVariable( "point_id", ipoint->point_id );
     //!logProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm: point_dep=%d, pr_craft_lat=%d",
     //!log           ipoint->point_id, pr_craft_lat );
@@ -6224,16 +6214,45 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
           continue;
         }
         //изменились места - удаляем старые, записываем новые
-        DelQry.SetVariable( "pax_id", inew->first );
-        DelQry.SetVariable( "pr_update", 0 );
-        DelQry.Execute();
+        DB::TCachedQuery DelQry(
+              PgOra::getRWSession("PAX_SEATS"),
+              "DELETE pax_seats "
+              "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
+              QParams() << QParam("point_id", otInteger, ipoint->point_id)
+                        << QParam("pax_id", otInteger, inew->first),
+              STDLOG);
+        DelQry.get().Execute();
         change_pax_seats.insert( inew->first );
       }
       else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
-        DelQry.SetVariable( "pax_id", iold->first );
-        DelQry.SetVariable( "pr_update", 1 );
-        DelQry.Execute();
-        bool pr_exists = DelQry.GetVariableAsInteger( "pr_update") != 0;
+        QParams sqlParams;
+        sqlParams << QParam("point_id", otInteger, ipoint->point_id)
+                  << QParam("pax_id", otInteger, iold->first);
+        DB::TCachedQuery DelWlQry(
+              PgOra::getRWSession("PAX_SEATS"),
+              "DELETE FROM pax_seats "
+              "WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=1 ",
+              sqlParams,
+              STDLOG);
+        DelWlQry.get().Execute();
+
+        DB::TCachedQuery UpdQry(
+              PgOra::getRWSession("PAX_SEATS"),
+              "UPDATE pax_seats "
+              "SET pr_wl=1 "
+              "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
+              sqlParams,
+              STDLOG);
+        UpdQry.get().Execute();
+
+        DB::TCachedQuery DelQry(
+              PgOra::getRWSession("PAX_SEATS"),
+              "DELETE pax_seats "
+              "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
+              sqlParams,
+              STDLOG);
+        DelQry.get().Execute();
+        bool pr_exists = UpdQry.get().RowsProcessed() > 0;
         if ( pr_exists ) {
           if ( passes.find( iold->first ) != passes.end() ) { //существует такой пассажир
             if ( paxs_external_logged.find( iold->first ) == paxs_external_logged.end() ) {
@@ -6341,7 +6360,6 @@ bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoS
     for ( int j=0; j<ipass->seats; j++ ) {
       TPlace *place = placelist->place( seat_p );
       std::map<int, TSetOfLayerPriority,classcomp > layers;
-      std::map<int, TSetOfLayerPriority,classcomp >::iterator ilayers;
       place->GetLayers( layers, glAll );
       for ( std::map<int, TSetOfLayerPriority,classcomp >::iterator ilayers=layers.begin();
             ilayers!=layers.end(); ilayers++ ) {
@@ -6837,8 +6855,10 @@ void LoadCompRemarksPriority( std::map<std::string, int> &rems )
 
 bool Checkin( int pax_id )
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT pax_id FROM pax where pax_id=:pax_id";
+    DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG);
+    Qry.SQLText = "SELECT pax_id "
+                  "FROM pax "
+                  "WHERE pax_id=:pax_id ";
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.Execute();
     return Qry.RowCount();
@@ -8402,15 +8422,15 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
     "ORDER BY pr_comp, code ";
   RemsQry.DeclareVariable( "pax_id", otInteger );
 
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"PAX", "TCKIN_PAX_GRP", "PAX_GRP"}), STDLOG);
   Qry.SQLText =
-    "SELECT pax.ticket_no, pax.wl_type, pax.tid,  pax.bag_pool_num, "
+    "SELECT pax.ticket_no, pax.wl_type, pax.tid, pax.bag_pool_num, "
     "       pax_grp.excess_wt, pax_grp.bag_refuse "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
-    "FROM pax, tckin_pax_grp, pax_grp "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pax_id=:pax_id AND "
-    "      pax.grp_id=tckin_pax_grp.grp_id(+)";
+    "FROM pax "
+    "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
+    "LEFT OUTER JOIN tckin_pax_grp ON pax.grp_id=tckin_pax_grp.grp_id "
+    "WHERE pax.pax_id=:pax_id ";
   Qry.DeclareVariable( "pax_id", otInteger );
   int rownum = 0;
   xmlNodePtr passengersNode = NULL;
@@ -8614,7 +8634,8 @@ void TAutoSeats::WritePaxSeats( int point_dep, int pax_id )
   }
   DB::TQuery QryDel(PgOra::getRWSession("PAX_SEATS"),STDLOG);
   QryDel.SQLText =
-    "DELETE FROM pax_seats WHERE pax_id=:pax_id AND NVL(pr_wl,0)=0";
+    "DELETE FROM pax_seats "
+    "WHERE pax_id=:pax_id AND COALESCE(pr_wl,0)=0";
   QryDel.CreateVariable( "pax_id", otInteger, ipax->pax_id );
   QryDel.Execute();
 

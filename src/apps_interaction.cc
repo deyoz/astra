@@ -2307,11 +2307,11 @@ Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t& pax_id, const std::stri
 {
     LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id;
     auto cur = make_db_curs(
-                "select POINT_DEP, STATUS, SURNAME, NAME, PAX.GRP_ID,  AIRP_DEP, AIRP_ARV "
-                ", PERS_TYPE, IS_FEMALE, REG_NO, REFUSE "
-                "from PAX_GRP, PAX "
-                "where PAX_ID = :pax_id and PAX_GRP.GRP_ID = PAX.GRP_ID",
-                PgOra::getROSession("PAX"));
+          "SELECT point_dep, status, surname, name, pax.grp_id,  airp_dep, airp_arv, "
+          "pers_type, is_female, reg_no, refuse "
+          "FROM pax_grp, pax "
+          "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id",
+          PgOra::getROSession({"PAX_GRP", "PAX"}));
     CheckInInfo info = {};
     std::string refuse;
     int reg_no = 0;
@@ -3052,13 +3052,15 @@ std::vector<PaxId_t> paxesToCancel(const PointId_t& point_dep, const PointId_t& 
  * Для таких пассажиров нужно послать отмену */
 
     int pax_id;
-    auto cur = make_db_curs("select PAX_ID from PAX_GRP, PAX "
-                         "where PAX_GRP.GRP_ID = PAX.GRP_ID and "
-                         "PAX_GRP.POINT_DEP = :point_dep    and "
-                         "PAX_GRP.POINT_ARV = :point_arv    and "
-                         "(PAX.NAME is null or PAX.NAME<>'CBBG') and "
-                         "PR_BRD=0 and PAX_GRP.STATUS != 'E' ",
-                         PgOra::getROSession("PAX"));
+    auto cur = make_db_curs(
+          "SELECT pax_id "
+          "FROM pax_grp, pax "
+          "WHERE pax_grp.grp_id = pax.grp_id AND "
+          "      pax_grp.point_dep = :point_dep AND "
+          "      pax_grp.point_arv = :point_arv AND "
+          "      (pax.name IS NULL OR pax.name <> 'CBBG') AND "
+          "      pr_brd = 0 AND pax_grp.status != 'E' ",
+          PgOra::getROSession({"PAX_GRP", "PAX"}));
     cur
         .stb()
         .def(pax_id)

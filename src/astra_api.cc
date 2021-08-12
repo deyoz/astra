@@ -1345,14 +1345,15 @@ PointId_t findArvPointId(const PointId_t& pointDep,
 GrpId_t findGrpIdByRegNo(const PointId_t& pointDep,
                          const RegNo_t& regNo)
 {
-    auto cur = make_db_curs(
-"select PAX_GRP.GRP_ID from PAX, PAX_GRP "
-"where PAX.GRP_ID = PAX_GRP.GRP_ID "
-"and PAX_GRP.POINT_DEP = :point_dep "
-"and PAX.REG_NO = :regno "
-"and PAX.REFUSE is null "
-"and PAX_GRP.STATUS not in ('E')",
-PgOra::getROSession({"PAX", "PAX_GRP"}));
+  auto cur = make_db_curs(
+        "SELECT pax_grp.grp_id "
+        "FROM pax, pax_grp "
+        "WHERE pax.grp_id = pax_grp.grp_id "
+        "AND pax_grp.point_dep = :point_dep "
+        "AND pax.reg_no = :regno "
+        "AND pax.refuse IS NULL "
+        "AND pax_grp.status not in ('E')",
+        PgOra::getROSession({"PAX", "PAX_GRP"}));
     GrpId_t::base_type grpId = 0;
     cur
         .stb()
@@ -1370,15 +1371,16 @@ PgOra::getROSession({"PAX", "PAX_GRP"}));
 GrpId_t findGrpIdByPaxId(const PointId_t& pointDep,
                          const PaxId_t& paxId)
 {
-    auto cur = make_db_curs(
-"select PAX_GRP.GRP_ID from PAX, PAX_GRP "
-"where PAX.GRP_ID = PAX_GRP.GRP_ID "
-"and PAX_GRP.POINT_DEP = :point_dep "
-"and PAX.PAX_ID = :pax_id "
-"and PAX.REFUSE is null "
-"and PAX_GRP.STATUS not in ('E')",
-PgOra::getROSession({"PAX", "PAX_GRP"}));
-    GrpId_t::base_type grpId = 0;
+  auto cur = make_db_curs(
+        "SELECT pax_grp.grp_id "
+        "FROM pax, pax_grp "
+        "WHERE pax.grp_id = pax_grp.grp_id "
+        "AND pax_grp.point_dep = :point_dep "
+        "AND pax.pax_id = :pax_id "
+        "AND pax.refuse IS NULL "
+        "AND pax_grp.status NOT IN ('E')",
+        PgOra::getROSession({"PAX", "PAX_GRP"}));
+  GrpId_t::base_type grpId = 0;
     cur
         .stb()
         .def(grpId)

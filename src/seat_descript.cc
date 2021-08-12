@@ -461,12 +461,13 @@ bool isConstructiveRow( SALONS2::TPlaceList* isalon, int row ) {
 
 void paxsWaitListDescrSeat::get( int point_dep ) {
   clear();
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("PAX_SEATS"), STDLOG);
   std::map<int, std::map<TSeat,std::string,CompareSeat> > paxWL;
   Qry.SQLText =
-    "SELECT pax_id, xname, yname, seat_descr FROM pax_seats "
-    " WHERE point_id=:point_id AND NVL(pr_wl,0)=1 "
-    " ORDER BY pax_id";
+    "SELECT pax_id, xname, yname, seat_descr "
+    "FROM pax_seats "
+    "WHERE point_id=:point_id AND COALESCE(pr_wl,0)=1 "
+    "ORDER BY pax_id";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.Execute();
   for (; !Qry.Eof; Qry.Next() ) {

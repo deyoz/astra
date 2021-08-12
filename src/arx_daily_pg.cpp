@@ -2046,7 +2046,7 @@ int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
         for(const auto & m : mark_trips) {
             make_db_curs("delete from MARK_TRIPS where POINT_ID = :point_id AND "
                          "NOT EXISTS (SELECT PAX_GRP.point_id_mark from PAX_GRP WHERE PAX_GRP.point_id_mark = :point_id) ",
-                         PgOra::getRWSession("MARK_TRIPS")).bind(":point_id", m.point_id)
+                         PgOra::getRWSession({"MARK_TRIPS","PAX_GRP"})).bind(":point_id", m.point_id)
                     .exec();
         }
     }

@@ -117,9 +117,11 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       if (TReqInfo::Instance()->desk.compatible(RESEAT_TO_RFISC_VERSION) ) {
         return NodeAsInteger("hall",reqNode);
       }
-      TQuery Qry( &OraSession );
+      DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
       Qry.SQLText =
-        "SELECT hall FROM pax_grp WHERE desk=:desk AND time_create>=:time_create AND rownum<2";
+        "SELECT hall FROM pax_grp "
+        "WHERE desk=:desk AND time_create>=:time_create "
+        "FETCH FIRST 1 ROWS ONLY";
       Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
       Qry.CreateVariable("time_create",otDate, NowUTC() - 1);
       Qry.Execute();
@@ -1031,27 +1033,28 @@ private:
     point_ids_spp.insert( make_pair(_point_id, _layer_type.value()) );
     curr_tid = NoExists;
     if ( isCheckLayer( _layer_type ) ) {
-      TQuery Qry( &OraSession );
-      Qry.SQLText =
-        "BEGIN "
-        " DELETE FROM trip_comp_layers "
-        "  WHERE point_id=:point_id AND "
-        "        layer_type=:layer_type AND "
-        "        pax_id=:pax_id; "
-        " IF :tid IS NULL THEN "
-        "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-        "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-        " END IF;"
-        "END;";
-      Qry.CreateVariable( "point_id", otInteger, _point_id );
-      Qry.CreateVariable( "pax_id", otInteger, _pax_id );
-      Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( _layer_type.value() ) );
-      if ( curr_tid == NoExists )
-        Qry.CreateVariable( "tid", otInteger, FNull );
-      else
-        Qry.CreateVariable( "tid", otInteger, curr_tid );
-      Qry.Execute();
-      curr_tid = Qry.GetVariableAsInteger( "tid" );
+      DB::TQuery QryDel(PgOra::getRWSession("TRIP_COMP_LAYERS"), STDLOG);
+      QryDel.SQLText =
+        "DELETE FROM trip_comp_layers "
+        "WHERE point_id=:point_id AND "
+        "      layer_type=:layer_type AND "
+        "      pax_id=:pax_id ";
+      QryDel.CreateVariable( "point_id", otInteger, _point_id );
+      QryDel.CreateVariable( "pax_id", otInteger, _pax_id );
+      QryDel.CreateVariable( "layer_type", otString, EncodeCompLayerType( _layer_type.value() ) );
+      QryDel.Execute();
+
+      if (curr_tid == NoExists) {
+          curr_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+          DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
+          QryUpd.SQLText =
+                  "UPDATE pax "
+                  "SET tid=:tid "
+                  "WHERE pax_id=:pax_id";
+          QryUpd.CreateVariable( "tid", otInteger, curr_tid );
+          QryUpd.CreateVariable( "pax_id", otInteger, _pax_id );
+          QryUpd.Execute();
+      }
     }
     else {
       DeleteTlgSeatRanges( {_layer_type.value()}, _pax_id, curr_tid, point_ids_spp );
@@ -1067,21 +1070,17 @@ private:
     }
     if ( isCheckLayer( _layer_type ) ) {
       SaveTripSeatRanges( _point_id, _layer_type.value(), seatRanges, _pax_id, _point_id, grp.value().point_arv, NowUTC() );
-      TQuery Qry( &OraSession );
-      Qry.SQLText =
-        "BEGIN "
-        " IF :tid IS NULL THEN "
-        "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-        "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-        " END IF;"
-        "END;";
-      Qry.CreateVariable( "pax_id", otInteger, _pax_id );
-      if ( curr_tid == NoExists )
-        Qry.CreateVariable( "tid", otInteger, FNull );
-      else
-        Qry.CreateVariable( "tid", otInteger, curr_tid );
-      Qry.Execute();
-      curr_tid = Qry.GetVariableAsInteger( "tid" );
+      if (curr_tid == NoExists) {
+          curr_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
+          DB::TQuery QryUpd(PgOra::getRWSession("PAX"), STDLOG);
+          QryUpd.SQLText =
+                  "UPDATE pax "
+                  "SET tid=:tid "
+                  "WHERE pax_id=:pax_id";
+          QryUpd.CreateVariable( "tid", otInteger, curr_tid );
+          QryUpd.CreateVariable( "pax_id", otInteger, _pax_id );
+          QryUpd.Execute();
+      }
     }
     else {
       TPointIdsForCheck point_ids_spp;

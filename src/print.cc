@@ -1204,7 +1204,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
       throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     DumpRoute(route);
     //бирки
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP","BAG_TAGS","TAG_TYPES","BAG2"}), STDLOG);
     string SQLText =
         "SELECT "
         "  pax_grp.class, "
@@ -1235,7 +1235,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         SQLText +=
         "  bag_tags.no = :no AND "
         "  bag_tags.tag_type = :tag_type AND "
-        "  NVL(bag_tags.color, ' ') = NVL(:color, ' ') AND "
+        "  COALESCE(bag_tags.color, ' ') = COALESCE(:color, ' ') AND "
         "  (tag_types.printable <> 0 OR tag_types.printable IS NULL) ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
         Qry.CreateVariable("color", otString, tag_key.color);
@@ -1584,9 +1584,9 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   try
   {
     TDevOper::Enum op_type = DevOperTypes().decode(NodeAsString("@op_type", reqNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
-    TQuery PaxQry(&OraSession);
+    DB::TQuery PaxQry(PgOra::getROSession({"PAX", "PAX_GRP"}), STDLOG);
     PaxQry.SQLText =
-        "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
+        "SELECT pax.grp_id, RTRIM(COALESCE(surname,'')||' '||COALESCE(name,'')) full_name, reg_no, point_dep "
         "FROM pax, pax_grp  "
         "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
@@ -1893,9 +1893,11 @@ std::string get_validator(const TBagReceipt &rcpt, bool pr_lat)
 
 bool get_bp_pr_lat(int grp_id, bool pr_lat)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
     Qry.SQLText=
-        "select airp_dep, airp_arv from pax_grp where grp_id = :grp_id";
+        "SELECT airp_dep, airp_arv "
+        "FROM pax_grp "
+        "WHERE grp_id = :grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -1940,8 +1942,10 @@ void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum 
 
 void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOper::Enum op_type)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
+    DB::TQuery Qry(PgOra::getROSession("PAX_GRP"), STDLOG);
+    Qry.SQLText="SELECT point_dep, class, status "
+                "FROM pax_grp "
+                "WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -2762,10 +2766,11 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(VOPaxListNode or first_seg_grp_id == 0)
         return GetPrintDataVOUnregistered(params, op_type, reqNode, resNode);
 
-    TQuery Qry(&OraSession);
     if(first_seg_grp_id == NoExists) {
-        Qry.Clear();
-        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
+        DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG);
+        Qry.SQLText="SELECT grp_id "
+                    "FROM pax "
+                    "WHERE pax_id = :pax_id ";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(Qry.Eof)
@@ -2787,7 +2792,6 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 );
 
     std::vector<BPPax> paxs;
-    Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
         TCkinGrpIds grps;
         TCkinRoute cr;

@@ -311,15 +311,15 @@ namespace EXCH_CHECKIN_RESULT
       col_time = ASTRA::NoExists;
       pr_init = false;
     }
-    void initPaxData( TQuery &PaxQry );
-    void createSQLRequest( TQuery &PaxQry ) {
+    void initPaxData( DB::TQuery &PaxQry );
+    void createSQLRequest( DB::TQuery &PaxQry ) {
       PaxQry.SQLText =
-          "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name, "
+          "SELECT pax.pax_id,pax.reg_no,RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) name, "
           "       pax_grp.grp_id, "
           "       pax_grp.airp_arv,pax_grp.airp_dep, "
-          "       pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+          "       pax_grp.class, COALESCE(pax.cabin_class, pax_grp.class) AS cabin_class, "
           "       pax.refuse, pax.pers_type, "
-          "       NVL(pax.is_female,1) as is_female, "
+          "       COALESCE(pax.is_female,1) as is_female, "
           "       pax.subclass, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
           "       pax.seats seats, "
@@ -329,7 +329,7 @@ namespace EXCH_CHECKIN_RESULT
           "       pax_grp.client_type, "
           "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid, "
           "       pax_grp.excess_wt, pax_grp.bag_refuse "
-          " FROM pax_grp, pax"
+          " FROM pax_grp, pax "
           " WHERE pax_grp.grp_id=pax.grp_id AND "
           "       pax.pax_id=:pax_id AND "
           "       pax.wl_type IS NULL";
@@ -337,8 +337,8 @@ namespace EXCH_CHECKIN_RESULT
     }
     int getFltNo( int point_id );
     bool getFlightInfo( int point_id, DB::TQuery &FltQry );
-    void getPaxTids( TQuery &PaxQry, PaxData &paxData );
-    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData, const CKIN::BagReader& bag_reader );
+    void getPaxTids( DB::TQuery &PaxQry, PaxData &paxData );
+    void getPaxData( const  Request &request, DB::TQuery &PaxQry, PaxData &paxData, const CKIN::BagReader& bag_reader );
     bool virtual is_sync( const TTripInfo &flight ) {
       return true;
     }
@@ -360,7 +360,7 @@ namespace EXCH_CHECKIN_RESULT
       bool processPaxs( Request &request, xmlDocPtr &docPaxs );
   };
 
-  void PaxDBData::initPaxData( TQuery &PaxQry )
+  void PaxDBData::initPaxData( DB::TQuery &PaxQry )
   {
     if ( pr_init ) {
       return;
@@ -499,7 +499,7 @@ namespace EXCH_CHECKIN_RESULT
     return iflt->second.flt_no;
   }
 
-  void PaxDBData::getPaxTids( TQuery &PaxQry, PaxData &paxData )
+  void PaxDBData::getPaxTids( DB::TQuery &PaxQry, PaxData &paxData )
   {
     EXCH_CHECKIN_RESULT::Tids tids;
     if ( !PaxQry.Eof ) {
@@ -511,7 +511,7 @@ namespace EXCH_CHECKIN_RESULT
     ProgTrace( TRACE5, "pax_tid=%d, grp_tid=%d", paxData.tids.pax_tid, paxData.tids.grp_tid );
   }
 
-   void PaxDBData::getPaxData(const Request &request, TQuery &PaxQry, PaxData &paxData , const CKIN::BagReader &bag_reader)
+   void PaxDBData::getPaxData(const Request &request, DB::TQuery &PaxQry, PaxData &paxData , const CKIN::BagReader &bag_reader)
   {
     paxData.pr_del = PaxQry.Eof;
     if ( paxData.pr_del ) {
@@ -843,7 +843,7 @@ namespace EXCH_CHECKIN_RESULT
     request.lastRequestTime  = ((request.lastRequestTime < nowUTC - 1.0/24.0)? nowUTC - 1.0/24.0:request.lastRequestTime);
     changePaxIdsDBData.createSQLRequest(request, changePaxIdsQry);
     PaxDBData paxDBData;
-    TQuery PaxQry(&OraSession);
+    DB::TQuery PaxQry(PgOra::getROSession({"PAX_GRP","PAX"}), STDLOG);
     paxDBData.createSQLRequest( PaxQry );
     // пробег по всем пассажирам у которых время больше или равно текущему
     int prior_pax_id = -1;
