@@ -210,7 +210,7 @@ void collect(map<string, int> &result, TDateTime from, TDateTime to)
         QParams grpParams;
         grpParams << QParam("point_id", otInteger, point_id);
 
-        TCachedQuery grpQry(grpSQL, grpParams);
+        DB::TCachedQuery grpQry(PgOra::getROSession("PAX_GRP"),grpSQL, grpParams, STDLOG);
         grpQry.get().Execute();
         for(; not grpQry.get().Eof; grpQry.get().Next()) {
             int grp_id = grpQry.get().FieldAsInteger("grp_id");
@@ -224,7 +224,7 @@ void collect(map<string, int> &result, TDateTime from, TDateTime to)
             QParams paxParams;
             paxParams << QParam("grp_id", otInteger, grp_id);
 
-            TCachedQuery paxQry(paxSQL, paxParams);
+            DB::TCachedQuery paxQry(PgOra::getROSession("PAX"), paxSQL, paxParams, STDLOG);
             paxQry.get().Execute();
             for(; not paxQry.get().Eof; paxQry.get().Next()) {
                 int pax_id = paxQry.get().FieldAsInteger("pax_id");

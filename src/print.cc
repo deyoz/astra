@@ -1686,15 +1686,20 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
 
     set<int> ids_set;
-    TCachedQuery pointQry(
-            "select point_dep from pax_grp, bag_tags where "
-            "   no = :no and tag_type = :type and "
-            "   (color is null and :color is null or color = :color) and "
-            "   bag_tags.grp_id = pax_grp.grp_id ",
-            QParams()
-            << QParam("type", otString)
-            << QParam("no", otFloat)
-            << QParam("color", otString));
+    DB::TCachedQuery pointQry(
+          PgOra::getROSession({"PAX_GRP", "BAG_TAGS"}),
+          "SELECT point_dep "
+          "FROM pax_grp, bag_tags "
+          "WHERE "
+          "   no = :no AND "
+          "   tag_type = :type AND "
+          "   (color IS NULL AND :color IS NULL OR color = :color) AND "
+          "   bag_tags.grp_id = pax_grp.grp_id ",
+          QParams()
+          << QParam("type", otString)
+          << QParam("no", otFloat)
+          << QParam("color", otString),
+          STDLOG);
     for(list<TType>::iterator tag = incoming_tags.begin();
             tag != incoming_tags.end(); tag++) {
         pointQry.get().SetVariable("type", tag->first);
@@ -3000,21 +3005,22 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     int reg_no = NodeAsInteger("reg_no", contentNode);
 
-    TCachedQuery Qry(
-            "select "
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAX_GRP", "PAX"}),
+            "SELECT "
             "   pax.grp_id, "
             "   pax.pax_id "
-            "from "
+            "FROM "
             "   pax_grp, "
             "   pax "
-            "where "
-            "   pax_grp.point_dep = :point_id and "
-            "   pax_grp.grp_id = pax.grp_id and "
+            "WHERE "
+            "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.grp_id = pax.grp_id AND "
             "   pax.reg_no = :reg_no ",
             QParams()
             << QParam("point_id", otInteger, point_id)
-            << QParam("reg_no", otInteger, reg_no)
-            );
+            << QParam("reg_no", otInteger, reg_no),
+            STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int grp_id = Qry.get().FieldAsInteger("grp_id");
@@ -3087,21 +3093,22 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             pax_id = reg_no;
             grp_id = point_id + TEST_ID_BASE;
         } else {
-            TCachedQuery Qry(
-                    "select "
-                    "   pax.grp_id, "
-                    "   pax.pax_id "
-                    "from "
-                    "   pax_grp, "
-                    "   pax "
-                    "where "
-                    "   pax_grp.point_dep = :point_id and "
-                    "   pax_grp.grp_id = pax.grp_id and "
-                    "   pax.reg_no = :reg_no ",
-                    QParams()
-                    << QParam("point_id", otInteger, point_id)
-                    << QParam("reg_no", otInteger, reg_no)
-                    );
+            DB::TCachedQuery Qry(
+                  PgOra::getROSession({"PAX_GRP", "PAX"}),
+                  "SELECT "
+                  "   pax.grp_id, "
+                  "   pax.pax_id "
+                  "FROM "
+                  "   pax_grp, "
+                  "   pax "
+                  "WHERE "
+                  "   pax_grp.point_dep = :point_id AND "
+                  "   pax_grp.grp_id = pax.grp_id AND "
+                  "   pax.reg_no = :reg_no ",
+                  QParams()
+                  << QParam("point_id", otInteger, point_id)
+                  << QParam("reg_no", otInteger, reg_no),
+                  STDLOG);
             Qry.get().Execute();
             if(not Qry.get().Eof) {
                 grp_id = Qry.get().FieldAsInteger("grp_id");

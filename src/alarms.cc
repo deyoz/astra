@@ -783,8 +783,13 @@ void TGrpAlarmHook::set(Alarm::Enum _type, const int& _id)
     if(_type == Alarm::SyncCustomAlarms)
         sethBefore(TSomeonesAlarmHook<TGrpAlarm>(TGrpAlarm(_type, _id)));
     else {
-        TCachedQuery Qry("SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id",
-                QParams() << QParam("grp_id", otInteger, _id));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PAX_GRP"),
+              "SELECT point_dep "
+              "FROM pax_grp "
+              "WHERE grp_id=:grp_id",
+              QParams() << QParam("grp_id", otInteger, _id),
+              STDLOG);
         Qry.get().Execute();
         if (Qry.get().Eof) return;
 
@@ -797,8 +802,13 @@ void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
     if(_type == Alarm::SyncCustomAlarms)
         sethBefore(TSomeonesAlarmHook<TPaxAlarm>(TPaxAlarm(_type, _id)));
     else {
-        TCachedQuery Qry("SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
-                QParams() << QParam("pax_id", otInteger, _id));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession({"PAX_GRP","PAX"}),
+              "SELECT pax_grp.point_dep "
+              "FROM pax_grp, pax "
+              "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+              QParams() << QParam("pax_id", otInteger, _id),
+              STDLOG);
         Qry.get().Execute();
         if (Qry.get().Eof) return;
 

@@ -571,7 +571,9 @@ TTrickyGender::Enum getGender(DB::TQuery &Qry)
 TTrickyGender::Enum getGender(int pax_id)
 {
     DB::TCachedQuery Qry(PgOra::getROSession("PAX"),
-            "select is_female, pers_type from pax where pax_id = :pax_id",
+            "SELECT is_female, pers_type "
+            "FROM pax "
+            "WHERE pax_id = :pax_id",
             QParams() << QParam("pax_id", otInteger, pax_id),
             STDLOG);
     Qry.get().Execute();
@@ -1281,9 +1283,15 @@ namespace PRL_SPACE {
         QryParams
             << QParam("grp_id", otInteger, grp_id)
             << QParam("bag_pool_num", otInteger, bag_pool_num);
-        TCachedQuery Qry(
-                "select count(*) from pax where grp_id = :grp_id and bag_pool_num = :bag_pool_num and refuse is null",
-                QryParams);
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PAX"),
+              "SELECT COUNT(*) "
+              "FROM pax "
+              "WHERE grp_id = :grp_id "
+              "AND bag_pool_num = :bag_pool_num "
+              "AND refuse IS NULL",
+              QryParams,
+              STDLOG);
         Qry.get().Execute();
         item.pax_count = Qry.get().FieldAsInteger(0);
         item.tags.get(grp_id, bag_pool_num);
@@ -2178,8 +2186,13 @@ void TWItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TWItem::get(int pax_id)
 {
-    TCachedQuery Qry("select grp_id, bag_pool_num from pax where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger, pax_id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("PAX"),
+          "SELECT grp_id, bag_pool_num "
+          "FROM pax "
+          "WHERE pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger, pax_id),
+          STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int bag_pool_num = NoExists;
@@ -4461,11 +4474,11 @@ void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string s
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
     DB::TCachedQuery Qry(PgOra::getROSession("PAX_FQT"),
-        "select rem_code, airline, no, extra "
-        "from pax_fqt "
-        "where "
-        "   pax_id = :pax_id and "
-        "   rem_code in('FQTV', 'FQTU', 'FQTR') ", QryParams, STDLOG);
+        "SELECT rem_code, airline, no, extra "
+        "FROM pax_fqt "
+        "WHERE "
+        "   pax_id = :pax_id AND "
+        "   rem_code IN('FQTV', 'FQTU', 'FQTR') ", QryParams, STDLOG);
     Qry.get().Execute();
 
     if(!Qry.get().Eof) {
@@ -9777,26 +9790,27 @@ namespace CKIN_REPORT {
     void TSelfCkinPaxList::get(int point_id)
     {
         items.clear();
-        TCachedQuery Qry(
-                "select "
+        DB::TCachedQuery Qry(
+              PgOra::getROSession({"POINTS", "PAX_GRP", "PAX"}),
+                "SELECT "
                 "   pax_id "
-                "from "
+                "FROM "
                 "   points, "
                 "   pax_grp, "
                 "   pax "
-                "where "
-                "   points.point_id = :point_id and "
-                "   points.point_id = pax_grp.point_dep and "
-                "   pax_grp.client_type in (:ctWeb, :ctMobile, :ctKiosk) and "
-                "   pax_grp.status not in ('E') and "
-                "   pax_grp.grp_id = pax.grp_id and "
-                "   pax.pr_brd is not null ",
+                "WHERE "
+                "   points.point_id = :point_id AND "
+                "   points.point_id = pax_grp.point_dep AND "
+                "   pax_grp.client_type IN (:ctWeb, :ctMobile, :ctKiosk) AND "
+                "   pax_grp.status NOT IN ('E') AND "
+                "   pax_grp.grp_id = pax.grp_id AND "
+                "   pax.pr_brd IS NOT NULL ",
                 QParams()
                 << QParam("point_id", otInteger, point_id)
                 << QParam("ctWeb", otString, EncodeClientType(ctWeb))
                 << QParam("ctMobile", otString, EncodeClientType(ctMobile))
-                << QParam("ctKiosk", otString, EncodeClientType(ctKiosk))
-                );
+                << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)),
+                STDLOG);
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
             items.insert(Qry.get().FieldAsInteger(0));
@@ -9805,26 +9819,27 @@ namespace CKIN_REPORT {
     void TCRSPaxList::get(int point_id)
     {
         items.clear();
-        TCachedQuery Qry(
-                "select "
-                "   crs_pnr.airp_arv, "
-                "   crs_pnr.class, "
-                "   count(*) amount "
-                "from "
-                "   crs_pnr, "
-                "   tlg_binding, "
-                "   crs_pax "
-                "where "
-                "   crs_pnr.point_id=tlg_binding.point_id_tlg and "
-                "   crs_pnr.system='CRS' and "
-                "   crs_pnr.pnr_id=crs_pax.pnr_id and "
-                "   crs_pax.pr_del=0 and "
-                "   tlg_binding.point_id_spp = :point_id "
-                "group by "
-                "   crs_pnr.airp_arv, "
-                "   crs_pnr.class ",
-                QParams() << QParam("point_id", otInteger, point_id)
-                );
+        DB::TCachedQuery Qry(
+              PgOra::getROSession({"CRS_PNR", "CRS_PAX", "TLG_BINDING"}),
+              "SELECT "
+              "   crs_pnr.airp_arv, "
+              "   crs_pnr.class, "
+              "   count(*) amount "
+              "FROM "
+              "   crs_pnr, "
+              "   tlg_binding, "
+              "   crs_pax "
+              "WHERE "
+              "   crs_pnr.point_id=tlg_binding.point_id_tlg and "
+              "   crs_pnr.system='CRS' and "
+              "   crs_pnr.pnr_id=crs_pax.pnr_id and "
+              "   crs_pax.pr_del=0 and "
+              "   tlg_binding.point_id_spp = :point_id "
+              "GROUP BY "
+              "   crs_pnr.airp_arv, "
+              "   crs_pnr.class ",
+              QParams() << QParam("point_id", otInteger, point_id),
+              STDLOG);
         Qry.get().Execute();
         LogTrace(TRACE5) << "point_id: " << point_id;
         for(; not Qry.get().Eof; Qry.get().Next()) {
@@ -10248,8 +10263,13 @@ namespace CKIN_REPORT {
 
     int get_bag_pool_num(int pax_id)
     {
-        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
-                QParams() << QParam("pax_id", otInteger, pax_id));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PAX"),
+              "SELECT bag_pool_num "
+              "FROM pax "
+              "WHERE pax_id = :pax_id",
+              QParams() << QParam("pax_id", otInteger, pax_id),
+              STDLOG);
         Qry.get().Execute();
         int result = NoExists;
         if(not Qry.get().Eof and not Qry.get().FieldIsNULL("bag_pool_num"))

@@ -2118,20 +2118,20 @@ bool TGrpItem::alreadyCheckedIn(int point_id) const
   QParams QryParams;
   QryParams << QParam("no", otFloat, tags.begin()->numeric_part);
   QryParams << QParam("point_id", otInteger, point_id);
-  TCachedQuery CachedQry(sql, QryParams);
-  TQuery &Qry=CachedQry.get();
+  DB::TCachedQuery CachedQry(PgOra::getROSession({"BAG_TAGS", "BAG2", "PAX_GRP"}), sql, QryParams, STDLOG);
+  DB::TQuery &Qry=CachedQry.get();
 
   QParams TagQryParams;
   TagQryParams << QParam("grp_id", otInteger);
   TagQryParams << QParam("bag_num", otInteger);
-  TCachedQuery CachedTagQry(tags_sql, TagQryParams);
-  TQuery &TagQry=CachedTagQry.get();
+  DB::TCachedQuery CachedTagQry(PgOra::getROSession("BAG_TAGS"), tags_sql, TagQryParams, STDLOG);
+  DB::TQuery &TagQry=CachedTagQry.get();
 
   QParams PaxQryParams;
   PaxQryParams << QParam("grp_id", otInteger);
   PaxQryParams << QParam("bag_pool_num", otInteger);
-  TCachedQuery CachedPaxQry(paxs_sql, PaxQryParams);
-  TQuery &PaxQry=CachedPaxQry.get();
+  DB::TCachedQuery CachedPaxQry(PgOra::getROSession("PAX"), paxs_sql, PaxQryParams, STDLOG);
+  DB::TQuery &PaxQry=CachedPaxQry.get();
 
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())

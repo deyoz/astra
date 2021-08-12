@@ -40,8 +40,13 @@ void ANNUL(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TAnnulBTStat AnnulBTStat;
     RunAnnulBTStat(AnnulBTStat, rpt_params.point_id);
 
-    TCachedQuery paxQry("select reg_no, name, surname from pax where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger));
+    DB::TCachedQuery paxQry(
+          PgOra::getROSession("PAX"),
+          "SELECT reg_no, name, surname "
+          "FROM pax "
+          "WHERE pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger),
+          STDLOG);
 
     struct TPaxInfo {
         int reg_no;

@@ -346,8 +346,13 @@ namespace BIPrintRules {
         TPaxList::iterator iPax = items.find(pax_id);
         if(iPax == items.end()) {
             if(grp_id == NoExists) {
-                TCachedQuery grpQry("select grp_id from pax where pax_id = :pax_id",
-                        QParams() << QParam("pax_id", otInteger, pax_id));
+                DB::TCachedQuery grpQry(
+                      PgOra::getROSession("PAX"),
+                      "SELECT grp_id "
+                      "FROM pax "
+                      "WHERE pax_id = :pax_id",
+                      QParams() << QParam("pax_id", otInteger, pax_id),
+                      STDLOG);
                 grpQry.get().Execute();
                 if(grpQry.get().Eof)
                     throw Exception("bi_rules: grp_id not found for pax_id: %d", pax_id);
@@ -525,8 +530,13 @@ bool TPrPrint::get_pr_print(int pax_id)
 void TPrPrint::fromDB(int grp_id, int pax_id, DB::TQuery &Qry)
 {
     // А вот теперь определение pr_bi_print
-    TCachedQuery grpQry("select pax_id from pax where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, grp_id));
+    DB::TCachedQuery grpQry(
+          PgOra::getROSession("PAX"),
+          "SELECT pax_id "
+          "FROM pax "
+          "WHERE grp_id = :grp_id",
+          QParams() << QParam("grp_id", otInteger, grp_id),
+          STDLOG);
     grpQry.get().Execute();
 
     Qry.SetVariable("op_type", DevOperTypes().encode(TDevOper::PrnBI));

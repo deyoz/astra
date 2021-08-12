@@ -160,11 +160,17 @@ const TCustomAlarms &TCustomAlarms::getByGrpId(int grp_id)
     clear();
     TTripInfo info;
     if(info.getByGrpId(grp_id) and sets.get(info.airline)) {
-        TCachedQuery Qry("select pax_id from pax where grp_id = :grp_id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PAX"),
+              "SELECT pax_id "
+              "FROM pax "
+              "WHERE grp_id = :grp_id",
+              QParams() << QParam("grp_id", otInteger, grp_id),
+              STDLOG);
         Qry.get().Execute();
-        for(; not Qry.get().Eof; Qry.get().Next())
+        for(; not Qry.get().Eof; Qry.get().Next()) {
             getByPaxId(Qry.get().FieldAsInteger("pax_id"), false, info.airline);
+        }
     }
     return *this;
 }
