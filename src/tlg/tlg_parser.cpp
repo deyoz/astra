@@ -6977,25 +6977,25 @@ void insertCrsInfDeleted(const PaxId_t& inf_id)
 
 void updateCrsPaxAsDeleted(const PaxId_t& pax_id, int tid, TDateTime datetime)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"), STDLOG);
-  Qry.SQLText=
+  DB::TQuery UpdQry(PgOra::getRWSession("CRS_PAX"), STDLOG);
+  UpdQry.SQLText=
       "UPDATE crs_pax "
       "SET pr_del=1, last_op=:last_op, tid=:tid "
       "WHERE pax_id=:pax_id AND pr_del=0 ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id.get());
-  Qry.CreateVariable("tid",otInteger,tid);
-  Qry.CreateVariable("last_op", otDate, datetime);
-  Qry.Execute();
+  UpdQry.CreateVariable("pax_id",otInteger,pax_id.get());
+  UpdQry.CreateVariable("tid",otInteger,tid);
+  UpdQry.CreateVariable("last_op", otDate, datetime);
+  UpdQry.Execute();
 }
 
 void updateCrsPax_InfIdToNull(const PaxId_t& pax_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"), STDLOG);
-  Qry.SQLText="UPDATE crs_pax "
+  DB::TQuery UpdQry(PgOra::getRWSession("CRS_PAX"), STDLOG);
+  UpdQry.SQLText="UPDATE crs_pax "
               "SET inf_id=NULL "
               "WHERE pax_id=:pax_id ";
-  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
-  Qry.Execute();
+  UpdQry.CreateVariable("pax_id", otInteger, pax_id.get());
+  UpdQry.Execute();
 }
 
 std::set<PaxId_t> loadCrsBlockingSeatIdSet(const PaxId_t& pax_id, bool lock)
@@ -7715,6 +7715,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   }
                   pax_id = SaveCrsPax(CrsPaxParams, pax_id, ne.surname, paxItem.name);
 
+                  CheckIn::SaveCrsPaxTranslit(PointIdTlg_t(point_id), PaxId_t(pax_id),
+                                              ne.surname, paxItem.name);
+
                   PaxIdWithSegmentPair paxId(PaxId_t(pax_id), segmentPair);
 
                   addPaxEvent(paxId,
@@ -7846,6 +7849,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         inf_id = suitableInf.get().paxId.get();
                       }
                       inf_id = SaveCrsPax(CrsPaxInfParams, inf_id, iInfItem->surname, iInfItem->name);
+                      CheckIn::SaveCrsPaxTranslit(PointIdTlg_t(point_id), PaxId_t(inf_id),
+                                                  iInfItem->surname, iInfItem->name);
 
                       PaxIdWithSegmentPair infId(PaxId_t(inf_id), segmentPair);
 

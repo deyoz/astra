@@ -87,8 +87,8 @@ void ANNUL(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         ostringstream buf;
         if(iPax->second.reg_no != NoExists)
             buf
-                << transliter(iPax->second.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU) << " "
-                << transliter(iPax->second.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+                << transliter(iPax->second.surname, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU) << " "
+                << transliter(iPax->second.name, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU);
         NewTextChild(rowNode, "fio", buf.str());
         //  номер бирки
         NewTextChild(rowNode, "no", get_tag_range(i->tags, LANG_EN));

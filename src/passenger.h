@@ -1173,6 +1173,11 @@ bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc); //вызывает LoadCrsPaxDoco, потом проверяет, что type=V, иначе вернет false
 bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 
+void SaveCrsPaxTranslit(const PointIdTlg_t& point_id, const PaxId_t& pax_id,
+                        const std::string& surname, const std::string& name);
+void SavePaxTranslit(const PointId_t& point_id, const PaxId_t& pax_id, const GrpId_t& grp_id,
+                     const std::string& surname, const std::string& name);
+
 void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
                 const bool paxIdUsedBefore,
                 const TPaxDocItem& doc,

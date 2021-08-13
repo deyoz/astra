@@ -544,12 +544,12 @@ std::string TPaxRemItem::get_rem_text(bool inf_indicator,
     result << ElemIdToPrefferedElem(etCkinRemType, code, efmtCodeNative, lang);
     if (!result.str().empty())
     {
-      result << transliter(text.substr(code.size()), 1, translit_lat);
+      result << transliter(text.substr(code.size()), TranslitFormat::V1, translit_lat);
       return result.str();
     }
   }
 
-  return transliter(text, 1, translit_lat);
+  return transliter(text, TranslitFormat::V1, translit_lat);
 }
 
 void TPaxFQTItem::saveDb(PaxId_t pax_id) const
@@ -635,11 +635,11 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem, efmtCodeNative, lang)
          << " " << ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang)
-         << " " << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
+         << " " << (strictly_lat?transliter(convert_char_view(no, strictly_lat), TranslitFormat::V1, strictly_lat):no);
   if (!extra.empty())
-    result << "/" << transliter(extra, 1, translit_lat);
+    result << "/" << transliter(extra, TranslitFormat::V1, translit_lat);
   if (output == outputReport and !tier_level.empty())
-    result << "/" << transliter(tier_level, 1, translit_lat);
+    result << "/" << transliter(tier_level, TranslitFormat::V1, translit_lat);
 
   return RemoveTrailingChars(result.str(), " ");
 }
@@ -741,9 +741,9 @@ std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
          << " " << RFIC
          << "/" << RFISC
          << "/" << (strictly_lat && !IsAscii7(ssr_code)?"":ssr_code)
-         << "/" << transliter(service_name, 1, translit_lat)
+         << "/" << transliter(service_name, TranslitFormat::V1, translit_lat)
          << "/" << emd_type
-         << "/" << (strictly_lat?transliter(convert_char_view(emd_no, strictly_lat), 1, strictly_lat):emd_no);
+         << "/" << (strictly_lat?transliter(convert_char_view(emd_no, strictly_lat), TranslitFormat::V1, strictly_lat):emd_no);
   if (emd_coupon!=ASTRA::NoExists)
     result << "C" << emd_coupon;
 

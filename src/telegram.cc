@@ -2234,8 +2234,8 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
       body << '/' << p->second.first.rk_weight;*/
     body << ENDL;
 
-    string surname=transliter(p->second.first.surname,1,options.is_lat);
-    string name=transliter(p->second.first.name,1,options.is_lat);
+    string surname=transliter(p->second.first.surname,TranslitFormat::V1,options.is_lat);
+    string name=transliter(p->second.first.name,TranslitFormat::V1,options.is_lat);
     if (options.pas_name_rp1745)
     {
       surname.erase(remove_if(surname.begin(), surname.end(), boost::is_any_of(" -")), surname.end());

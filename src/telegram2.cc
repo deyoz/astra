@@ -1330,8 +1330,8 @@ namespace PRL_SPACE {
             << "CHKD HK1 "
             << setw(4) << setfill('0') << reg_no
             << (pr_inf ? " I" : "") << "-1"
-            << transliter(surname, 1, pr_lat)
-            << (name.empty() ? "" : "/" + transliter(name, 1, pr_lat));
+            << transliter(surname, TranslitFormat::V1, pr_lat)
+            << (name.empty() ? "" : "/" + transliter(name, TranslitFormat::V1, pr_lat));
         return result.str();
     }
     void TRemList::get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
@@ -1353,9 +1353,9 @@ namespace PRL_SPACE {
                         rem += DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()) + " ";
                 } else
                     rem = "1INF ";
-                rem += transliter(infRow->surname, 1, info.is_lat());
+                rem += transliter(infRow->surname, TranslitFormat::V1, info.is_lat());
                 if(!infRow->name.empty()) {
-                    rem += "/" + transliter(infRow->name, 1, info.is_lat());
+                    rem += "/" + transliter(infRow->name, TranslitFormat::V1, info.is_lat());
                 }
                 items.push_back(rem);
                 items.push_back(chkd(infRow->reg_no, infRow->name, infRow->surname, true, info.is_lat()));
@@ -1398,7 +1398,7 @@ namespace PRL_SPACE {
           rem.fromDB(Qry.get());
           TRemCategory cat=getRemCategory(rem);
           if (isDisabledRemCategory(cat)) continue;
-          items.push_back(transliter(rem.text, 1, info.is_lat()));
+          items.push_back(transliter(rem.text, TranslitFormat::V1, info.is_lat()));
         };
 
         bool inf_indicator=false; //сюда попадают только люди не infant и ремарки выводим только для этих людей
@@ -1453,6 +1453,20 @@ namespace PRL_SPACE {
         }
     }
 
+    bool compareTPRLPax(const TPRLPax& p1, const TPRLPax& p2)
+    {
+      if (p1.target != p2.target) {
+        return p1.target < p2.target;
+      }
+      if (p1.cls_grp_id != p2.cls_grp_id) {
+        return p1.cls_grp_id < p2.cls_grp_id;
+      }
+      if (p1.name.surname != p2.name.surname) {
+        return p1.name.surname < p2.name.surname;
+      }
+      return p1.pax_id < p2.pax_id;
+    }
+
     void TPRLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers)
     {
         const TypeB::TMarkInfoOptions *markOptions=NULL;
@@ -1462,7 +1476,7 @@ namespace PRL_SPACE {
         if(info.optionsIs<TypeB::TPRLOptions>())
             PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
-        std::list<std::string> involvedTables({"PAX","PAX_GRP","CRS_PAX","CRS_PNR"}); // system.transliter
+        std::list<std::string> involvedTables({"PAX","PAX_GRP","CRS_PAX","CRS_PNR"});
         if(not(PRLOptions and PRLOptions->rbd))
           involvedTables.push_back("CLS_GRP");
 
@@ -1474,8 +1488,8 @@ namespace PRL_SPACE {
         else
             SQLText += "    cls_grp.id cls, ";
         SQLText +=
-            "    system.transliter(pax.surname, 1, :pr_lat) surname, "
-            "    system.transliter(pax.name, 1, :pr_lat) name, "
+            "    pax.surname, "
+            "    pax.name, "
             "    crs_pnr.pnr_id, "
             "    crs_pnr.sender crs, "
             "    crs_pnr.status, "
@@ -1492,7 +1506,7 @@ namespace PRL_SPACE {
             "FROM (pax "
             "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id) ";
         if(not(PRLOptions and PRLOptions->rbd)) {
-            SQLText += "LEFT OUTER JOIN cls_grp ";
+            SQLText += "LEFT OUTER JOIN cls_grp "
             "    ON COALESCE(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id "
             "       AND cls_grp.code = :class ";
         }
@@ -1519,14 +1533,13 @@ namespace PRL_SPACE {
             "    target, "
             "    cls, "
             "    surname, "
-            "    name nulls first, "
+            "    name NULLS FIRST, "
             "    pax.pax_id ";
         QParams QryParams;
         QryParams
             << QParam("point_id", otInteger, info.point_id)
             << QParam("airp", otString, airp)
-            << QParam("class", otString, cls)
-            << QParam("pr_lat", otInteger, info.is_lat());
+            << QParam("class", otString, cls);
 
         DB::TCachedQuery Qry(PgOra::getROSession(involvedTables),SQLText, QryParams,STDLOG);
         Qry.get().Execute();
@@ -1552,8 +1565,8 @@ namespace PRL_SPACE {
                 pax.target = Qry.get().FieldAsString(col_target);
                 if(!Qry.get().FieldIsNULL(col_cls))
                     pax.cls_grp_id = Qry.get().FieldAsInteger(col_cls);
-                pax.name.surname = Qry.get().FieldAsString(col_surname);
-                pax.name.name = Qry.get().FieldAsString(col_name);
+                pax.name.surname = transliter(Qry.get().FieldAsString(col_surname), TranslitFormat::V1, info.is_lat());
+                pax.name.name = transliter(Qry.get().FieldAsString(col_name), TranslitFormat::V1, info.is_lat());
                 if(!Qry.get().FieldIsNULL(col_pnr_id))
                     pax.pnr_id = Qry.get().FieldAsInteger(col_pnr_id);
                 pax.crs = Qry.get().FieldAsString(col_crs);
@@ -1582,6 +1595,7 @@ namespace PRL_SPACE {
 
                 PaxList.push_back(pax);
             }
+            std::sort(PaxList.begin(), PaxList.end(), compareTPRLPax);
         }
     }
 
@@ -2722,8 +2736,7 @@ void TPList::get(TypeB::TDetailCreateInfo &info, string trfer_cls)
 {
     QParams QryParams;
     QryParams
-        << QParam("grp_id", otInteger, grp->grp_id)
-        << QParam("pr_lat", otInteger, info.is_lat());
+        << QParam("grp_id", otInteger, grp->grp_id);
     if(grp->bag_pool_num == NoExists)
         QryParams << QParam("bag_pool_num", otInteger, FNull);
     else
@@ -2733,9 +2746,9 @@ void TPList::get(TypeB::TDetailCreateInfo &info, string trfer_cls)
           "PAX.PAX_ID, "
           "PAX.PR_BRD, "
           "PAX.SEATS, "
-          "SYSTEM.TRANSLITER(PAX.SURNAME, 1, :pr_lat) AS SURNAME, "
+          "PAX.SURNAME, "
           "PAX.PERS_TYPE, "
-          "SYSTEM.TRANSLITER(PAX.NAME, 1, :pr_lat) AS NAME, "
+          "PAX.NAME, "
           "SUBCLS.CLASS "
         "FROM PAX "
           "LEFT OUTER JOIN TRANSFER_SUBCLS "
@@ -2781,9 +2794,9 @@ void TPList::get(TypeB::TDetailCreateInfo &info, string trfer_cls)
             if(item.seats == 0) continue;
             if(item.seats > 1)
                 item.exst.get(Qry.get().FieldAsInteger(col_pax_id));
-            item.surname = Qry.get().FieldAsString(col_surname);
+            item.surname = transliter(Qry.get().FieldAsString(col_surname), TranslitFormat::V1, info.is_lat());
             item.pers_type = DecodePerson(Qry.get().FieldAsString(col_pers_type));
-            item.name = Qry.get().FieldAsString(col_name);
+            item.name = transliter(Qry.get().FieldAsString(col_name), TranslitFormat::V1, info.is_lat());
             item.trfer_cls = Qry.get().FieldAsString(col_cls);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
@@ -3108,7 +3121,7 @@ string TSSR::ToPILTlg(TypeB::TDetailCreateInfo &info) const
             result += " ";
         result += iv->code;
         if(not iv->free_text.empty())
-            result += " " + transliter(iv->free_text, 1, info.is_lat());
+            result += " " + transliter(iv->free_text, TranslitFormat::V1, info.is_lat());
     }
     return result;
 }
@@ -3118,7 +3131,7 @@ void TSSR::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     for(vector<TSSRItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         string buf = " " + iv->code;
         if(not iv->free_text.empty()) {
-            buf += " " + transliter(iv->free_text, 1, info.is_lat());
+            buf += " " + transliter(iv->free_text, TranslitFormat::V1, info.is_lat());
             string offset;
             while(buf.size() > LINE_SIZE) {
                 size_t idx = buf.rfind(" ", LINE_SIZE - 1);
@@ -3537,7 +3550,7 @@ void TTPM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
             if(infRow->grp_id == iv->grp_id and infRow->parent_pax_id == iv->pax_id) {
                 inf_count++;
                 if(!infRow->name.empty())
-                    buf << "/" << transliter(infRow->name, 1, info.is_lat());
+                    buf << "/" << transliter(infRow->name, TranslitFormat::V1, info.is_lat());
             }
         }
         if(inf_count > 0)
@@ -4240,17 +4253,17 @@ int SOM(TypeB::TDetailCreateInfo &info)
 
 string TName::ToPILTlg(TypeB::TDetailCreateInfo &info) const
 {
-    string result = transliter(surname, 1, info.is_lat());
+    string result = transliter(surname, TranslitFormat::V1, info.is_lat());
     if(not name.empty())
-        result += "/" + transliter(name, 1, info.is_lat());
+        result += "/" + transliter(name, TranslitFormat::V1, info.is_lat());
     return result;
 
 }
 
 void TName::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string postfix)
 {
-    name = transliter(name, 1, info.is_lat());
-    surname = transliter(surname, 1, info.is_lat());
+    name = transliter(name, TranslitFormat::V1, info.is_lat());
+    surname = transliter(surname, TranslitFormat::V1, info.is_lat());
     /*name = "Ден";
     surname = "тут был";*/
     if(postfix.size() > (LINE_SIZE - sizeof("1X/X ")))
@@ -4401,7 +4414,7 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TTPLPax &pax)
     LoadPaxRem(pax.pax_id, rems);
     for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++) {
         if(i->code == "ETLP")
-            items.push_back(transliter(convert_char_view(i->text, info.is_lat()), 1, info.is_lat()));
+            items.push_back(transliter(convert_char_view(i->text, info.is_lat()), TranslitFormat::V1, info.is_lat()));
     }
 }
 
@@ -4461,7 +4474,7 @@ static std::string get_pax_subclass(int pax_id)
         "   crs_pax.pr_del = 0 AND "
         "   crs_pax.pnr_id = crs_pnr.pnr_id AND "
         "   crs_pnr.system = 'CRS'",
-          PgOra::getRWSession({"CRS_PAX","CRS_PNR"}));
+          PgOra::getROSession({"CRS_PAX","CRS_PNR"}));
 
     std::string subclass;
     cur.bind(":pax_id", pax_id).def(subclass).EXfet();
@@ -4496,13 +4509,13 @@ void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string s
             item +=
                 rem_code + " " +
                 info.TlgElemIdToElem(etAirline, airline) + " " +
-                transliter(no, 1, info.is_lat());
+                transliter(no, TranslitFormat::V1, info.is_lat());
             if(rem_code == "FQTV") {
                 if(not subclass.empty() and subclass != subcls)
                     item += "-" + info.TlgElemIdToElem(etSubcls, subclass);
             } else {
                 if(not extra.empty())
-                    item += "-" + transliter(extra, 1, info.is_lat());
+                    item += "-" + transliter(extra, TranslitFormat::V1, info.is_lat());
             }
             items.push_back(item);
         }
@@ -4547,26 +4560,25 @@ struct TPIMDest {
 void TPIMDest::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     CheckIn::TPaxDocItem doc;
-    vector<string> pax_body;
     for(vector<TPIMPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
         LoadPaxDoc(iv->pax_id, doc);
         string vsurname, vname;
         if(doc.surname.empty()) {
-            vname = transliter(iv->name, 1, info.is_lat());
-            vsurname = transliter(iv->surname, 1, info.is_lat());
+            vname = transliter(iv->name, TranslitFormat::V1, info.is_lat());
+            vsurname = transliter(iv->surname, TranslitFormat::V1, info.is_lat());
         } else {
-            vname = transliter(doc.first_name, 1, info.is_lat());
+            vname = transliter(doc.first_name, TranslitFormat::V1, info.is_lat());
             if(not vname.empty() and not doc.second_name.empty())
                 vname += " ";
-            vname += transliter(doc.second_name, 1, info.is_lat());
-            vsurname = transliter(doc.surname, 1, info.is_lat());
+            vname += transliter(doc.second_name, TranslitFormat::V1, info.is_lat());
+            vsurname = transliter(doc.surname, TranslitFormat::V1, info.is_lat());
         }
         string line;
         line =
             vsurname
             + "/" + vname
             + "/" + (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
-            + "/" + transliter(convert_char_view(doc.no, info.is_lat()), 1, info.is_lat())
+            + "/" + transliter(convert_char_view(doc.no, info.is_lat()), TranslitFormat::V1, info.is_lat())
             + "/" + (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
             + "/" + (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()):"")
             + "/" + (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender)) //не клеим inf_indicator, надо будет - подклеим
@@ -4799,14 +4811,31 @@ struct TTPLDest {
     void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
+bool compareTTPLPax(const TTPLPax& p1, const TTPLPax& p2)
+{
+  if (p1.target != p2.target) {
+    return p1.target < p2.target;
+  }
+  if (p1.cls_grp_id != p2.cls_grp_id) {
+    return p1.cls_grp_id < p2.cls_grp_id;
+  }
+  if (p1.name.surname != p2.name.surname) {
+    return p1.name.surname < p2.name.surname;
+  }
+  if (p1.name.name != p2.name.name) {
+    return p1.name.name < p2.name.name;
+  }
+  return p1.pax_id < p2.pax_id;
+}
+
 void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers)
 {
-    DB::TCachedQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}), // system.transliter
+    DB::TCachedQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),
             "SELECT "
             "   pax_grp.airp_arv target, "
             "   cls_grp.id cls, "
-            "   system.transliter(pax.surname, 1, :pr_lat) surname, "
-            "   system.transliter(pax.name, 1, :pr_lat) name, "
+            "   pax.surname, "
+            "   pax.name, "
             "   crs_pnr.pnr_id, "
             "   pax.pax_id, "
             "   pax.grp_id, "
@@ -4830,8 +4859,7 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
         QParams()
             << QParam("point_id", otInteger, info.point_id)
             << QParam("airp", otString, airp)
-            << QParam("class", otString, cls)
-            << QParam("pr_lat", otInteger, info.is_lat()),
+            << QParam("class", otString, cls),
             STDLOG);
 
     Qry.get().Execute();
@@ -4849,8 +4877,8 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             pax.target = Qry.get().FieldAsString(col_target);
             if(!Qry.get().FieldIsNULL(col_cls))
                 pax.cls_grp_id = Qry.get().FieldAsInteger(col_cls);
-            pax.name.surname = Qry.get().FieldAsString(col_surname);
-            pax.name.name = Qry.get().FieldAsString(col_name);
+            pax.name.surname = transliter(Qry.get().FieldAsString(col_surname), TranslitFormat::V1, info.is_lat());
+            pax.name.name = transliter(Qry.get().FieldAsString(col_name), TranslitFormat::V1, info.is_lat());
             if(!Qry.get().FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.get().FieldAsInteger(col_pnr_id);
             pax.pax_id = Qry.get().FieldAsInteger(col_pax_id);
@@ -4864,6 +4892,7 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             grp_map->get(info, pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
+        std::sort(PaxList.begin(), PaxList.end(), compareTTPLPax);
     }
 }
 
@@ -4891,17 +4920,34 @@ struct TETLDest {
     void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
+bool compareTASLPax(const TASLPax& p1, const TASLPax& p2)
+{
+  if (p1.target != p2.target) {
+    return p1.target < p2.target;
+  }
+  if (p1.cls_grp_id != p2.cls_grp_id) {
+    return p1.cls_grp_id < p2.cls_grp_id;
+  }
+  if (p1.name.surname != p2.name.surname) {
+    return p1.name.surname < p2.name.surname;
+  }
+  if (p1.name.name != p2.name.name) {
+    return p1.name.name < p2.name.name;
+  }
+  return p1.pax_id < p2.pax_id;
+}
+
 void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
     const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
 
-    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),STDLOG); // system.transliter
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CRS_PNR","CRS_PAX","CLS_GRP"}),STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "    pax_grp.airp_arv target, "
         "    cls_grp.id cls, "
-        "    system.transliter(pax.surname, 1, :pr_lat) surname, "
-        "    system.transliter(pax.name, 1, :pr_lat) name, "
+        "    pax.surname, "
+        "    pax.name, "
         "    crs_pnr.pnr_id, "
         "    crs_pnr.sender crs, "
         "    pax.pax_id, "
@@ -4932,7 +4978,6 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("class", otString, cls);
-    Qry.CreateVariable("pr_lat", otInteger, info.is_lat());
     Qry.Execute();
     if(!Qry.Eof) {
         int col_target = Qry.FieldIndex("target");
@@ -4952,8 +4997,8 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             pax.target = Qry.FieldAsString(col_target);
             if(!Qry.FieldIsNULL(col_cls))
                 pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
-            pax.name.surname = Qry.FieldAsString(col_surname);
-            pax.name.name = Qry.FieldAsString(col_name);
+            pax.name.surname = transliter(Qry.FieldAsString(col_surname), TranslitFormat::V1, info.is_lat());
+            pax.name.name = transliter(Qry.FieldAsString(col_name), TranslitFormat::V1, info.is_lat());
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
             pax.crs = Qry.FieldAsString(col_crs);
@@ -4989,7 +5034,25 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
                 continue;
             PaxList.push_back(pax);
         }
+        std::sort(PaxList.begin(), PaxList.end(), compareTASLPax);
     }
+}
+
+bool compareTETLPax(const TETLPax& p1, const TETLPax& p2)
+{
+  if (p1.target != p2.target) {
+    return p1.target < p2.target;
+  }
+  if (p1.cls_grp_id != p2.cls_grp_id) {
+    return p1.cls_grp_id < p2.cls_grp_id;
+  }
+  if (p1.name.surname != p2.name.surname) {
+    return p1.name.surname < p2.name.surname;
+  }
+  if (p1.name.name != p2.name.name) {
+    return p1.name.name < p2.name.name;
+  }
+  return p1.pax_id < p2.pax_id;
 }
 
 void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
@@ -5007,8 +5070,8 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
     else
         SQLText += "    cls_grp.id cls, ";
     SQLText +=
-        "    system.transliter(pax.surname, 1, :pr_lat) surname, "
-        "    system.transliter(pax.name, 1, :pr_lat) name, "
+        "    pax.surname, "
+        "    pax.name, "
         "    crs_pnr.pnr_id, "
         "    crs_pnr.sender crs, "
         "    pax.pax_id, "
@@ -5043,12 +5106,11 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    surname, "
         "    name NULLS FIRST, "
         "    pax.pax_id ";
-    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CLS_GRP","CRS_PAX","CRS_PNR"}), STDLOG); // system.transliter
+    DB::TQuery Qry(PgOra::getROSession({"PAX","PAX_GRP","CLS_GRP","CRS_PAX","CRS_PNR"}), STDLOG);
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("class", otString, cls);
-    Qry.CreateVariable("pr_lat", otInteger, info.is_lat());
     Qry.Execute();
     if(!Qry.Eof) {
         int col_target = Qry.FieldIndex("target");
@@ -5067,8 +5129,8 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             pax.target = Qry.FieldAsString(col_target);
             if(!Qry.FieldIsNULL(col_cls))
                 pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
-            pax.name.surname = Qry.FieldAsString(col_surname);
-            pax.name.name = Qry.FieldAsString(col_name);
+            pax.name.surname = transliter(Qry.FieldAsString(col_surname), TranslitFormat::V1, info.is_lat());
+            pax.name.name = transliter(Qry.FieldAsString(col_name), TranslitFormat::V1, info.is_lat());
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
             pax.crs = Qry.FieldAsString(col_crs);
@@ -5088,6 +5150,7 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             grp_map->get(info, pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
+        std::sort(PaxList.begin(), PaxList.end(), compareTETLPax);
     }
 }
 
@@ -8461,7 +8524,7 @@ struct TFQT {
                     ".F/" +
                     info.TlgElemIdToElem(etAirline, i->first.airline) +
                     " " +
-                    transliter(i->first.no, 1, info.is_lat())
+                    transliter(i->first.no, TranslitFormat::V1, info.is_lat())
                     );
         }
     }
@@ -8769,8 +8832,8 @@ void nameToTlg(const string &name, const string &asurname, int seats, const stri
 
 void TPFSPax::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    name = transliter(name, 1, info.is_lat());
-    surname = transliter(surname, 1, info.is_lat());
+    name = transliter(name, TranslitFormat::V1, info.is_lat());
+    surname = transliter(surname, TranslitFormat::V1, info.is_lat());
     nameToTlg(name, surname, seats, exst_name, body);
     pnrs.ToTlg(info, body);
     M.ToTlg(info, body);

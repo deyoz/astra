@@ -456,7 +456,7 @@ void createXMLAnnulBTStat(
         // Агент
         NewTextChild(rowNode, "col", i->agent);
         // Пассажир
-        NewTextChild(rowNode, "col", transliter(i->full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "col", transliter(i->full_name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
         // №№ баг. бирок
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
         // От
@@ -559,7 +559,7 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
         // Агент
         <<  data.agent << delim
         // Пассажир
-        <<  transliter(data.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
+        <<  transliter(data.full_name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
         // №№ баг. бирок
         <<  get_tag_range(data.tags, LANG_EN) << delim
         // От

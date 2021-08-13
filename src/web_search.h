@@ -90,7 +90,6 @@ class TPNRFilter : public SurnameFilter
     TPNRFilter& fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode);
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
-    std::string getSurnameSQLFilter(const std::string &field_name, DB::TQuery &Qry) const;
     bool isEqualPnrAddr(const TPnrAddrs &pnr_addrs) const;
     bool isEqualSurname(const std::string &pax_surname) const;
     bool isEqualName(const std::string &pax_name) const;

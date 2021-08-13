@@ -221,17 +221,6 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
   return *this;
 }
 
-string TPNRFilter::getSurnameSQLFilter(const string &field_name, DB::TQuery &Qry) const
-{
-  ostringstream sql;
-  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
-                                     "system.transliter_equal(")
-      << field_name << ", :surname)<>0";
-
-  Qry.CreateVariable("surname", otString, surname);
-  return sql.str();
-};
-
 bool TPNRFilter::isEqualPnrAddr(const TPnrAddrs &pnr_addrs) const
 {
   if (!pnr_addr_normal.empty())
@@ -310,12 +299,23 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
 
   test_paxs.clear();
 
-  DB::TQuery Qry(PgOra::getROSession("TEST_PAX"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"TEST_PAX","TEST_PAX_TRANSLIT"}), STDLOG);
   ostringstream sql;
   sql << "SELECT id, airline, surname, name, subclass, doc_no, tkn_no, "
          "       pnr_airline, pnr_addr, reg_no "
          "FROM test_pax "
-      << "WHERE " << getSurnameSQLFilter("test_pax.surname", Qry);
+         "WHERE "
+         "EXISTS ( "
+         "    SELECT 1 FROM test_pax_translit "
+         "    WHERE test_pax_translit.pax_id = test_pax.pax_id "
+      << (checkSurnameEqualBeginning ? "    AND (test_pax_translit.surname LIKE :surname_v1 || '%' "
+                                       "         OR test_pax_translit.surname LIKE :surname_v2 || '%' "
+                                       "         OR test_pax_translit.surname LIKE :surname_v3 || '%') "
+                                     : "    AND test_pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+      << ") ";
+  Qry.CreateVariable("surname_v1", otString, transliter(surname, TranslitFormat::V1, true));
+  Qry.CreateVariable("surname_v2", otString, transliter(surname, TranslitFormat::V2, true));
+  Qry.CreateVariable("surname_v3", otString, transliter(surname, TranslitFormat::V3, true));
 
   if (!airlines.empty())
     sql << " AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
@@ -2127,7 +2127,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
     PointsQry.DeclareVariable("last_date", otDate);
 
 
-    DB::TQuery PaxQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX"}), STDLOG);
+    DB::TQuery PaxQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX","CRS_PAX_TRANSLIT"}), STDLOG);
     sql.str("");
     sql << "SELECT crs_pnr.pnr_id, "
            "       crs_pnr.airp_arv, "
@@ -2143,12 +2143,22 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
            "      tlg_binding.point_id_spp=:point_id AND "
            "      crs_pnr.system='CRS' AND "
            "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
-        << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
-        << "      crs_pax.pr_del=0 "
+           "      crs_pax.pr_del=0 AND "
+           "EXISTS ( "
+           "    SELECT 1 FROM crs_pax_translit "
+           "    WHERE crs_pax_translit.pax_id = crs_pax.pax_id "
+        << (filter.checkSurnameEqualBeginning ? "    AND (crs_pax_translit.surname LIKE :surname_v1 || '%' "
+                                                "         OR crs_pax_translit.surname LIKE :surname_v2 || '%' "
+                                                "         OR crs_pax_translit.surname LIKE :surname_v3 || '%') "
+                                              : "    AND crs_pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+        << ") "
            "ORDER BY pnr_id, orig_class, orig_subclass";
 
     PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("point_id", otInteger);
+    PaxQry.CreateVariable("surname_v1", otString, transliter(filter.surname, TranslitFormat::V1, true));
+    PaxQry.CreateVariable("surname_v2", otString, transliter(filter.surname, TranslitFormat::V2, true));
+    PaxQry.CreateVariable("surname_v3", otString, transliter(filter.surname, TranslitFormat::V3, true));
     PaxQry.CreateVariable("airp_arv", otString, filter.airp_arv);
 
     map< TFlightInfo, map<int, string> > flights;
@@ -2573,7 +2583,7 @@ bool SearchPaxByScanData(const std::string& bcbp,
 
     if (flts.empty()) return result;
 
-    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX"}), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "PAX", "PAX_TRANSLIT"}), STDLOG);
     ostringstream sql;
     sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats, pax.reg_no "
            "FROM pax_grp, pax "
@@ -2581,8 +2591,18 @@ bool SearchPaxByScanData(const std::string& bcbp,
            "      pax_grp.point_dep=:point_id AND "
            "      pax_grp.airp_arv=:airp_arv AND "
            "      pax.pr_brd IS NOT NULL AND "
-        << filter.getSurnameSQLFilter("pax.surname", Qry);
+           "EXISTS ( "
+           "    SELECT 1 FROM pax_translit "
+           "    WHERE pax_translit.pax_id = pax.pax_id "
+        << (filter.checkSurnameEqualBeginning ? "    AND (pax_translit.surname LIKE :surname_v1 || '%' "
+                                                "         OR pax_translit.surname LIKE :surname_v2 || '%' "
+                                                "         OR pax_translit.surname LIKE :surname_v3 || '%') "
+                                              : "    AND pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+        << ") ";
     Qry.DeclareVariable("point_id", otInteger);
+    Qry.CreateVariable("surname_v1", otString, transliter(filter.surname, TranslitFormat::V1, true));
+    Qry.CreateVariable("surname_v2", otString, transliter(filter.surname, TranslitFormat::V2, true));
+    Qry.CreateVariable("surname_v3", otString, transliter(filter.surname, TranslitFormat::V3, true));
     Qry.CreateVariable("airp_arv", otString, filter.airp_arv);
     Qry.SQLText=sql.str().c_str();
 

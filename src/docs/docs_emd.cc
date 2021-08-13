@@ -29,7 +29,7 @@ void EMD(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             for(size_t j = 0; j < fields.size(); j++) {
                 switch(j) {
                     case 0:
-                        NewTextChild(rowNode, "full_name", transliter(fields[j], 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                        NewTextChild(rowNode, "full_name", transliter(fields[j], TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
                         break;
                     case 1:
                         NewTextChild(rowNode, "etkt_no", fields[j]);

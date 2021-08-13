@@ -480,7 +480,7 @@ std::string TBagItem::key_str_compatible() const
 std::string TBagItem::tag_printer_id(bool is_lat) const
 {
   if (desk.size()<=6 &&
-      transliter(desk,1,is_lat)==desk)
+      transliter(desk, TranslitFormat::V1, is_lat)==desk)
   {
     for(string::const_iterator i=desk.begin(); i!=desk.end(); ++i)
       if (!(IsUpperLetter(*i) || IsDigit(*i))) return "XXXXXX";

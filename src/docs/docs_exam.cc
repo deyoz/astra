@@ -116,10 +116,10 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
               xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
               NewTextChild(paxNode, "reg_no", pax.reg_no);
-              NewTextChild(paxNode, "surname", transliter(pax.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-              NewTextChild(paxNode, "name", transliter(pax.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+              NewTextChild(paxNode, "surname", transliter(pax.surname, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+              NewTextChild(paxNode, "name", transliter(pax.name, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
               if(pr_web)
-                  NewTextChild(paxNode, "user_descr", transliter(pax_data.user_descr, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                  NewTextChild(paxNode, "user_descr", transliter(pax_data.user_descr, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
               NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
               NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
               NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
@@ -177,10 +177,10 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 }
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 NewTextChild(paxNode, "reg_no", pax->simple.reg_no);
-                NewTextChild(paxNode, "surname", transliter(pax->simple.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                NewTextChild(paxNode, "name", transliter(pax->simple.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                NewTextChild(paxNode, "surname", transliter(pax->simple.surname, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                NewTextChild(paxNode, "name", transliter(pax->simple.name, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
                 if(pr_web)
-                    NewTextChild(paxNode, "user_descr", transliter(pax->user_descr, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                    NewTextChild(paxNode, "user_descr", transliter(pax->user_descr, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
                 NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax->simple.pers_type), efmtCodeNative));
                 NewTextChild(paxNode, "pr_exam", (int)pax->simple.pr_exam, (int)false);
                 NewTextChild(paxNode, "pr_brd", (int)pax->simple.pr_brd, (int)false);

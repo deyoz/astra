@@ -80,7 +80,7 @@ void TServicesFullStat::add(const TServicesStatRow &row)
     pax.getByPaxId(row.pax_id, row.part_key);
     // из-за full_name пришлось копию делать...
     TServicesStatRow insert_row = row;
-    insert_row.full_name = transliter(pax.surname + " " + pax.name,1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+    insert_row.full_name = transliter(pax.surname + " " + pax.name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
     insert_row.ticket_no = pax.tkn.no_str();
     insert_row.airp_dep = ElemIdToCodeNative(etAirp, row.airp_dep);
     insert_row.airp_arv = ElemIdToCodeNative(etAirp, row.airp_arv);

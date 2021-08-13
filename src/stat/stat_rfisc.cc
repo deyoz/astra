@@ -378,14 +378,14 @@ void get_rfisc_stat(int point_id)
                         item +=
                             rem_code + " " +
                             ElemIdToElem(etAirline, airline, efmtCodeNative, LANG_EN) + " " +
-                            transliter(no, 1, true);
+                            transliter(no, TranslitFormat::V1, true);
                         if(rem_code == "FQTV") {
                             string subclass = get_subclass_by_pax_id(pax_id);
                             if(not subclass.empty() and subclass != subcls)
                                 item += "-" + ElemIdToElem(etSubcls, subclass, efmtCodeNative, LANG_EN);
                         } else {
                             if(not extra.empty())
-                                item += "-" + transliter(extra, 1, true);
+                                item += "-" + transliter(extra, TranslitFormat::V1, true);
                         }
                         fqt_no = item.substr(0, 50);;
                         break;

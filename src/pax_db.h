@@ -10,6 +10,7 @@ bool deletePaxEvents(PaxId_t pax_id);
 bool deleteStatAd(PaxId_t pax_id);
 bool deleteStatServices(PaxId_t pax_id);
 bool deleteConfirmPrint(PaxId_t pax_id);
+bool deletePaxTranslit(PaxId_t pax_id);
 bool deletePaxDOC(PaxId_t pax_id);
 bool deletePaxDOCO(PaxId_t pax_id);
 bool deletePaxDOCA(PaxId_t pax_id);

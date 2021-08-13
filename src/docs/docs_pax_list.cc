@@ -444,7 +444,7 @@ string TPax::rems() const
 
 string TPax::full_name_view() const
 {
-    return transliter(simple.full_name(), 1, pax_list.options.lang != AstraLocale::LANG_RU);
+    return transliter(simple.full_name(), TranslitFormat::V1, pax_list.options.lang != AstraLocale::LANG_RU);
 }
 
 bool REPORTS::pax_cmp(TPaxPtr pax1, TPaxPtr pax2)

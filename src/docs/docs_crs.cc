@@ -108,7 +108,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     continue;
 
                 xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
                 NewTextChild(rowNode, "type", rpt_params.ElemIdToReportElem(etPaxDocType, docsQry.FieldAsString("type"), efmtCodeNative));
                 NewTextChild(rowNode, "issue_country", rpt_params.ElemIdToReportElem(etPaxDocCountry, docsQry.FieldAsString("issue_country"), efmtCodeNative));
                 NewTextChild(rowNode, "no", docsQry.FieldAsString("no"));
@@ -123,11 +123,11 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(rowNode, "second_name", docsQry.FieldAsString("second_name"));
             } else {
                 xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             }
         } else {
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-            NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
             string pnr_addr=TPnrAddrs().firstAddrByPnrId(Qry.FieldAsInteger("pnr_id"), TPnrAddrInfo::AddrOnly); //пока не надо выводить компанию, может быть потом...
             NewTextChild(rowNode, "pnr_ref", pnr_addr);

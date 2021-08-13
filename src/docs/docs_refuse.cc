@@ -59,7 +59,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
             NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-            NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "refuse", rpt_params.ElemIdToReportElem(etRefusalType, Qry.FieldAsString("refuse"), efmtNameLong));

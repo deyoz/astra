@@ -132,7 +132,7 @@ void TServiceList::fromDB(const TRptParams &rpt_params)
                 //  Место в салоне
                 row.seat_no = pax.seat_no;
                 //  ФИО пассажира
-                row.family = transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+                row.family = transliter(pax.full_name(), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU);
                 //  Рег. №
                 row.reg_no = pax.reg_no;
                 if(service.first.list_item) {

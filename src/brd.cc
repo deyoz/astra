@@ -434,7 +434,7 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
 
   rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
 
-  DB::TQuery QryPax(PgOra::getRWSession("PAX"), STDLOG);
+  DB::TQuery QryPax(PgOra::getROSession("PAX"), STDLOG);
   QryPax.SQLText=
     "SELECT surname, name, reg_no, grp_id "
     "FROM pax "
@@ -1210,7 +1210,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           {
             list<string> msg;
             //1-я строка
-            msg.push_back(transliter(full_name(), 1, true));
+            msg.push_back(transliter(full_name(), TranslitFormat::V1, true));
 
             string seat_str="SEAT: "+seat_no_for_bgr;
             if (seat_str.size()>dev.display_width())

@@ -261,8 +261,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
                 NewTextChild(IdentityCardNode, "CountryName", pax.doc.issue_country, "");
             }
             xmlNodePtr PassengerNode = NewTextChild(PassengerInfoNode, "Passenger");
-            NewTextChild(PassengerNode, "PersonSurname", transliter(pax.surname, 1, true), "");
-            NewTextChild(PassengerNode, "PersonName", transliter(pax.name, 1, true), "");
+            NewTextChild(PassengerNode, "PersonSurname", transliter(pax.surname, TranslitFormat::V1, true), "");
+            NewTextChild(PassengerNode, "PersonName", transliter(pax.name, TranslitFormat::V1, true), "");
             NewTextChild(PassengerNode, "Sex", pax.is_female() == NoExists or not pax.is_female() ? "MR" : "MS");
             if(not pax.seat_no.empty())
                 NewTextChild(PassengerNode, "SeatNumber", pax.seat_no);

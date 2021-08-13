@@ -739,6 +739,10 @@ $(PAX_RESPONSE_1480_1_EN)})
 
 ### поиск по фамилии
 
+$(dump_table CRS_PAX_TRANSLIT)
+$(dump_table PAX_TRANSLIT)
+$(dump_table TEST_PAX_TRANSLIT)
+
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=3 lastname=МОТОВА)
 $(SEARCH_PASSENGERS_RESPONSE)
 

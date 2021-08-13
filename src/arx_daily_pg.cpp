@@ -208,6 +208,7 @@ void deleteBagReceipts(const PointId_t& point_id);
 void deleteStatServices(const PointId_t& point_id);
 void deleteStatAd(const PointId_t& point_id);
 void deleteBiStat(const PointId_t& point_id);
+void deletePaxTranslit(const PointId_t& point_id);
 
 void deleteByMoveId(const MoveId_t & move_id);
 void deleteEventsByMoveId(const MoveId_t & move_id);
@@ -449,6 +450,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     deleteStatAd(point_id);
                     deleteBiStat(point_id);
                     deleteBagReceipts(point_id); //FK TO PAX_GRP
+                    deletePaxTranslit(point_id);
                 }
 
                 for(const auto &grp : pax_grps)
@@ -1095,6 +1097,12 @@ void deleteBagReceipts(const PointId_t& point_id)
         make_db_curs("delete from BAG_RCPT_KITS where kit_id = :kit_id ",
                      PgOra::getRWSession("BAG_RCPT_KITS")).bind(":kit_id", br.kit_id).exec();
     }
+}
+
+void deletePaxTranslit(const PointId_t& point_id)
+{
+    make_db_curs("delete from PAX_TRANSLIT where point_id = :point_id ",
+        PgOra::getRWSession("PAX_TRANSLIT")).bind(":point_id", point_id.get()).exec();
 }
 
 void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)

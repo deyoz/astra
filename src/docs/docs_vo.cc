@@ -40,7 +40,7 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(rowNode, "reg_no");
             else
                 NewTextChild(rowNode, "reg_no", i.first.reg_no);
-            NewTextChild(rowNode, "fio", transliter(i.first.full_name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            NewTextChild(rowNode, "fio", transliter(i.first.full_name, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "type", getLocaleText(i.first.pers_type, rpt_params.GetLang()));
 
             ostringstream ticket;

@@ -678,7 +678,7 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
                 if(not Qry.get().Eof)
                     return transliter(
                             string(Qry.get().FieldAsString("text")).substr(0, Qry.get().FieldAsInteger("text_length")),
-                            1, Qry.get().FieldAsInteger("pr_lat"));
+                            TranslitFormat::V1, Qry.get().FieldAsInteger("pr_lat"));
             }
 
     return "";

@@ -15,6 +15,7 @@ std::set<PaxId_t> loadPaxIdSet(const PnrId_t& pnr_id, bool skip_deleted);
 bool deleteCrsSeatsBlocking(const PaxId_t& pax_id);
 bool deleteCrsInf(const PaxId_t& pax_id);
 bool deleteCrsInfDeleted(const PaxId_t& pax_id);
+bool deleteCrsPaxTranslit(const PaxId_t& pax_id);
 bool deleteCrsPaxRem(const PaxId_t& pax_id);
 bool deleteCrsPaxDoc(const PaxId_t& pax_id);
 bool deleteCrsPaxDoco(const PaxId_t& pax_id);

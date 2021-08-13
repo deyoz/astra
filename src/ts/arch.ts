@@ -827,11 +827,13 @@ $(deny_ets_interactive ž’ 298 ‘Ž—)
 $(deny_ets_interactive ž’ 300 ‘Ž—)
 
 $(INB_PNL_UT_MARK1 AER PRG 298 $(ddmon +0 en))
+$(set point_dep_UT_298_tlg $(last_point_id_tlg 0))
 $(set point_dep_UT_298 $(last_point_id_spp 0))
 $(set point_arv_UT_298 $(get_next_trip_point_id $(get point_dep_UT_298)))
 
 
 $(INB_PNL_UT_MARK2 AER PRG 300 $(ddmon +0 en))
+$(set point_dep_UT_300_tlg $(last_point_id_tlg 0))
 $(set point_dep_UT_300 $(last_point_id_spp 0))
 $(set point_arv_UT_300 $(get_next_trip_point_id $(get point_dep_UT_300)))
 
@@ -854,6 +856,27 @@ $(CHECKIN_PAX $(get pax_id2) $(get point_dep_UT_300) $(get point_arv_UT_300) ž’ 
 $(set pax_tid1 $(get_single_pax_tid  $(get point_dep_UT_298) ALIMOV TALGAT))
 $(set pax_tid2 $(get_single_pax_tid  $(get point_dep_UT_300) OZ OFER))
 
+??
+$(db_dump_table PAX_TRANSLIT fields="point_id, translit_format" display="on")
+>> lines=3:-3
+[$(get point_dep_UT_298)] [1] $()
+[$(get point_dep_UT_298)] [2] $()
+[$(get point_dep_UT_298)] [3] $()
+[$(get point_dep_UT_300)] [1] $()
+[$(get point_dep_UT_300)] [2] $()
+[$(get point_dep_UT_300)] [3] $()
+;;
+
+??
+$(db_dump_table CRS_PAX_TRANSLIT fields="point_id, translit_format" display="on")
+>> lines=3:-3
+[$(get point_dep_UT_298_tlg)] [1] $()
+[$(get point_dep_UT_298_tlg)] [2] $()
+[$(get point_dep_UT_298_tlg)] [3] $()
+[$(get point_dep_UT_300_tlg)] [1] $()
+[$(get point_dep_UT_300_tlg)] [2] $()
+[$(get point_dep_UT_300_tlg)] [3] $()
+;;
 
 $(run_arch_step $(ddmmyy +141))
 ??
@@ -869,6 +892,20 @@ $(check_dump ARX_PAX_GRP order="point_dep,grp_id")
 [•] [‘Ž—] [0] [] [12] [TERM] [ŒŽ‚ŽŒ] [0] [0] [...] [1] [0] [$(get point_arv_UT_298)] [$(get point_dep_UT_298)] [$(get point_dep_UT_298)] [0] [K] [$(get pax_tid1)] [$(date_format %d.%m.%Y -3h)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()
 [•] [‘Ž—] [0] [] [12] [TERM] [ŒŽ‚ŽŒ] [0] [0] [...] [1] [0] [$(get point_arv_UT_300)] [$(get point_dep_UT_300)] [$(get point_dep_UT_300)] [0] [K] [$(get pax_tid2)] [$(date_format %d.%m.%Y -3h)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()
 $()
+
+??
+$(db_dump_table PAX_TRANSLIT fields="point_id, translit_format" display="on")
+>> lines=auto
+------------------- END PAX_TRANSLIT DUMP COUNT=0 -------------------
+;;
+
+$(run_arch_step $(ddmmyy +141) 3)
+
+??
+$(db_dump_table CRS_PAX_TRANSLIT fields="point_id, translit_format" display="on")
+>> lines=auto
+------------------- END CRS_PAX_TRANSLIT DUMP COUNT=0 -------------------
+;;
 
 %%
 #########################################################################################

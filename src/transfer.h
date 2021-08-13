@@ -447,19 +447,19 @@ class TPaxItem
     {
       for(int fmt=1; fmt<=2; fmt++)
       {
-        translit_surname[fmt-1]=transliter(surname, fmt, true);
-        translit_name[fmt-1]=transliter(name, fmt, true);
-      };
-    };
+        translit_surname[fmt-1]=transliter(surname, TranslitFormat(fmt), true);
+        translit_name[fmt-1]=transliter(name, TranslitFormat(fmt), true);
+      }
+    }
 
     TPaxItem(const TrferList::TPaxItem &pax) : subcl(pax.subcl),surname(pax.surname),name(pax.name)
     {
       for(int fmt=1; fmt<=2; fmt++)
       {
-        translit_surname[fmt-1]=transliter(surname, fmt, true);
-        translit_name[fmt-1]=transliter(name, fmt, true);
-      };
-    };
+        translit_surname[fmt-1]=transliter(surname, TranslitFormat(fmt), true);
+        translit_name[fmt-1]=transliter(name, TranslitFormat(fmt), true);
+      }
+    }
 
     bool operator == (const TPaxItem &item) const
     {

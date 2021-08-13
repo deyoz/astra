@@ -264,8 +264,6 @@ static const std::string& getSearchPaxQueryOrderByPart()
 
 void getTCkinSearchPaxQuery(DB::TQuery& Qry)
 {
-//  "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-//  "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
     std::ostringstream sql;
 
     sql << getSearchPaxQuerySelectPart()
@@ -280,8 +278,12 @@ void getTCkinSearchPaxQuery(DB::TQuery& Qry)
            "      (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND "
            "      crs_pax.pers_type=:pers_type AND "
            "      (CASE WHEN crs_pax.seats = 0 THEN 0 ELSE 1 END = :seats) AND "
-           "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-           "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
+           "      EXISTS ( "
+           "          SELECT 1 FROM crs_pax_translit "
+           "          WHERE crs_pax_translit.point_id = crs_pnr.point_id "
+           "          AND crs_pax_translit.surname = :surname "
+           "          AND crs_pax_translit.name = :name "
+           "      ) AND "
            "      crs_pax.pr_del=0 AND "
            "      pax.pax_id IS NULL "
         << getSearchPaxQueryOrderByPart();
@@ -293,7 +295,8 @@ void getTCkinSearchPaxQuery(DB::TQuery& Qry)
     Qry.DeclareVariable("pers_type",otString);
     Qry.DeclareVariable("seats",otInteger);
     Qry.DeclareVariable("surname",otString);
-    Qry.DeclareVariable("name",otString);}
+    Qry.DeclareVariable("name",otString);
+}
 
 std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id)
 {
@@ -608,33 +611,66 @@ bool SurnameFilter::validForSearch() const
   return !surname.empty();
 }
 
-void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+void SurnameFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<string>& tables) const
 {
-  std::string field_name;
-
   switch(origin)
   {
     case paxCheckIn:
-      field_name="pax.surname";
+      tables.insert("pax_translit");
       break;
     case paxPnl:
-      field_name="crs_pax.surname";
+      tables.insert("crs_pax_translit");
       break;
     case paxTest:
-      field_name="test_pax.surname";
+      tables.insert("test_pax_translit");
       break;
   }
-  ostringstream sql;
-  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
-                                     "system.transliter_equal(")
-      << field_name << ", :surname)<>0";
+}
 
+void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  ostringstream sql;
+  switch(origin)
+  {
+    case paxCheckIn:
+      sql << "EXISTS ( "
+             "    SELECT 1 FROM pax_translit "
+             "    WHERE pax_translit.pax_id = pax.pax_id "
+          << (checkSurnameEqualBeginning ? "    AND (pax_translit.surname LIKE :surname_v1 || '%' "
+                                           "         OR pax_translit.surname LIKE :surname_v2 || '%' "
+                                           "         OR pax_translit.surname LIKE :surname_v3 || '%') "
+                                         : "    AND pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+          << ") ";
+      break;
+    case paxPnl:
+      sql << "EXISTS ( "
+             "    SELECT 1 FROM crs_pax_translit "
+             "    WHERE crs_pax_translit.pax_id = crs_pax.pax_id "
+          << (checkSurnameEqualBeginning ? "    AND (crs_pax_translit.surname LIKE :surname_v1 || '%' "
+                                           "         OR crs_pax_translit.surname LIKE :surname_v2 || '%' "
+                                           "         OR crs_pax_translit.surname LIKE :surname_v3 || '%') "
+                                         : "    AND crs_pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+          << ") ";
+      break;
+    case paxTest:
+      sql << "EXISTS ( "
+             "    SELECT 1 FROM test_pax_translit "
+             "    WHERE test_pax_translit.pax_id = test_pax.pax_id "
+          << (checkSurnameEqualBeginning ? "    AND (test_pax_translit.surname LIKE :surname_v1 || '%' "
+                                           "         OR test_pax_translit.surname LIKE :surname_v2 || '%' "
+                                           "         OR test_pax_translit.surname LIKE :surname_v3 || '%') "
+                                         : "    AND test_pax_translit.surname IN (:surname_v1, :surname_v2, :surname_v3) ")
+          << ") ";
+      break;
+  }
   conditions.push_back(sql.str());
 }
 
 void SurnameFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
-  params << QParam("surname", otString, surname);
+  params << QParam("surname_v1", otString, transliter(surname, TranslitFormat::V1, true));
+  params << QParam("surname_v2", otString, transliter(surname, TranslitFormat::V2, true));
+  params << QParam("surname_v3", otString, transliter(surname, TranslitFormat::V3, true));
 }
 
 bool SurnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const

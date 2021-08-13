@@ -81,6 +81,7 @@ namespace PgOra
         { "SP_PG_GROUP_AODB_STATIONS",{ "AODB_STATIONS", "AODB_PAX_CHANGE" } }, // STATIONS
         { "SP_PG_GROUP_AODB_POINTS",{ "SNAPSHOT_POINTS", "AODB_POINTS" } }, // POINTS
         { "SP_PG_GROUP_TRIP_VOUCHERS",{ "TRIP_VOUCHERS", "VOUCHER_TYPES" } },
+        { "SP_PG_GROUP_PAX_TRANSLIT",{ "PAX_TRANSLIT", "CRS_PAX_TRANSLIT", "TEST_PAX_TRANSLIT" } }, // new tables
 
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
@@ -242,6 +243,7 @@ namespace PgOra
                 "PAX_DOC",  // "PAX", "PAX_GRP", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "POINTS", "AIRPS", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2", salons.get_seat_no
                 "PAX_DOCA", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCO", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
                 "PAX_DOCO", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
+                "TEST_PAX", // "PAX","CRS_PAX","CRS_PNR","SUBCLS","CLS_GRP"
         }},
         { "SP_PG_GROUP_TRIP_TASK", {
                 "TRIP_CLASSES",
@@ -269,7 +271,7 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_TRANSFER", {
                 "TRANSFER",
-                "TRANSFER_SUBCLS", // "PAX","PAX_GRP","SUBCLS","CLASSES","TRANSFER","TRFER_TRIPS", system.transliter
+                "TRANSFER_SUBCLS", // "PAX","PAX_GRP","SUBCLS","CLASSES","TRANSFER","TRFER_TRIPS"
         }},
         { "SP_PG_GROUP_TRIP_CALC", {
                 "TRIP_CALC_DATA",

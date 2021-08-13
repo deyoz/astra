@@ -87,7 +87,7 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             i != sorted_pax.end(); i++) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", i->second.pax.reg_no);
-        NewTextChild(rowNode, "full_name", transliter(i->second.pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "full_name", transliter(i->second.pax.full_name(), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(rowNode, "pr_brd", i->second.pax.pr_brd);
         NewTextChild(rowNode, "seats", i->second.pax.seats);
         NewTextChild(rowNode, "old_seat_no", i->second.seats.first);

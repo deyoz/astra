@@ -1435,7 +1435,7 @@ void get_self_ckin_stat(const PointId_t& point_id)
   }
 
   std::map<SelfCkinStatKey,SelfCkinStatData> self_ckin_stat_map;
-  DB::TQuery Qry(PgOra::getRWSession({"BAG2","EVENTS_BILINGUAL","STATIONS","PAX",
+  DB::TQuery Qry(PgOra::getROSession({"BAG2","EVENTS_BILINGUAL","STATIONS","PAX",
                                       "PAX_GRP","WEB_CLIENTS","DESKS","DESK_GRP","TCKIN_PAX_GRP"}), STDLOG);
   Qry.SQLText =
       "SELECT "

@@ -30,7 +30,7 @@ void TADFullStat::add(const TADStatRow &row)
 
     CheckIn::TSimplePaxItem pax;
     pax.getByPaxId(row.pax_id, row.part_key);
-    string name = transliter(pax.surname + " " + pax.name,1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+    string name = transliter(pax.surname + " " + pax.name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
     TADFullData &data = (*this)[info.view_airline][info.view_airp][info.view_flt_no][row.scd_out][name][pax.id];
     if(data.pers_type == NoPerson) FRowCount++;

@@ -185,11 +185,7 @@ bool clearEventsBilingual(GrpId_t grp_id, PointId_t point_id)
 int getCurrentSeqTid()
 {
     LogTrace(TRACE6) << __func__;
-    int result = ASTRA::NoExists;
-    make_db_curs("SELECT cycle_tid__seq.currval FROM DUAL",
-                 PgOra::getRWSession("CYCLE_TID__SEQ"))
-    .def(result)
-    .EXfet();
+    const int result = PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ");
     LogTrace(TRACE6) << __func__
                      << ": result=" << result;
     return result;

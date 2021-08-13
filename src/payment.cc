@@ -225,17 +225,17 @@ namespace RCPT_PAX_NAME {
             if(lex.size() > 4)
                 lex.erase(lex.begin() + 3, lex.begin() + 3 + lex.size() - 4);
             if(lex.size() > 3) {
-                lex[2] = transliter(lex[2], 1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
+                lex[2] = transliter(lex[2], TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
                 num_translited++;
             }
         } else if(lex.size() >= 3) {
             lex.erase(lex.begin() + 3, lex.end());
-            lex[2] = transliter(lex[2], 1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
+            lex[2] = transliter(lex[2], TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
             num_translited++;
         }
 
         for(size_t i = 0; i < lex.size() - num_translited; i++)
-            lex[i] = transliter(lex[i],1,tag_lang.GetLang() != AstraLocale::LANG_RU);
+            lex[i] = transliter(lex[i],TranslitFormat::V1,tag_lang.GetLang() != AstraLocale::LANG_RU);
 
         return compile_pax_name(lex);
     }
@@ -721,30 +721,30 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   TFlights flights;
   flights.Get( point_dep, ftTranzit );
   flights.Lock(__FUNCTION__);
-  TQuery Qry(&OraSession);
+  DB::TQuery QryPoint(PgOra::getROSession("POINTS"), STDLOG);
   //лочим рейс
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id,cycle_tid__seq.nextval AS tid "
+  QryPoint.SQLText=
+    "SELECT point_id "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE";
-  Qry.CreateVariable("point_id",otInteger,point_dep);
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  int new_tid=Qry.FieldAsInteger("tid");
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 ";
+  QryPoint.CreateVariable("point_id",otInteger,point_dep);
+  QryPoint.Execute();
+  if (QryPoint.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  int new_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryGrp(PgOra::getRWSession("PAX_GRP"), STDLOG);
+  QryGrp.SQLText=
     "UPDATE pax_grp "
-    "SET tid=cycle_tid__seq.currval "
+    "SET tid=:new_tid "
     "WHERE grp_id=:grp_id AND tid=:tid";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.CreateVariable("tid",otInteger,tid);
-  Qry.Execute();
-  if (Qry.RowsProcessed()<=0)
+  QryGrp.CreateVariable("grp_id",otInteger,grp_id);
+  QryGrp.CreateVariable("tid",otInteger,tid);
+  QryGrp.CreateVariable("new_tid",otInteger,new_tid);
+  QryGrp.Execute();
+  if (QryGrp.RowsProcessed()<=0)
     throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
   return new_tid;
-};
+}
 
 void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

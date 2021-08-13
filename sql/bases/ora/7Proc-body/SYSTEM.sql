@@ -1,21 +1,6 @@
 create or replace PACKAGE BODY system
 AS
 
-FUNCTION is_lat(str     IN VARCHAR2) RETURN BOOLEAN
-IS
-c       CHAR(1);
-BEGIN
-  IF str IS NULL THEN RETURN TRUE; END IF;
-  FOR i IN 1..LENGTH(str) LOOP
-    c:=SUBSTR(str,i,1);
-    IF ASCII(c)>127 THEN
---    IF c BETWEEN '€' AND 'Ÿ' OR c='ð' THEN
-      RETURN FALSE;
-    END IF;
-  END LOOP;
-  RETURN TRUE;
-END is_lat;
-
 FUNCTION is_upp_let(str 	IN VARCHAR2,
                     pr_lat 	IN INTEGER DEFAULT NULL) RETURN NUMBER
 IS
@@ -114,27 +99,6 @@ BEGIN
   RETURN is_name(str,pr_lat,' ,.+-/:;()"`''');
 END is_airline_name;
 
-FUNCTION IsLeapYear( vYear NUMBER ) RETURN NUMBER
-IS
-BEGIN
- IF ( vYear MOD 4 = 0 )AND( ( vYear MOD 100 <> 0 )OR( vYear MOD 400 = 0 ) )
-  THEN RETURN 1;
-  ELSE RETURN 0;
- END IF;
-END IsLeapYear;
-
-FUNCTION LastDayofMonth( vYear NUMBER, vMonth NUMBER ) RETURN NUMBER
-IS
-BEGIN
- IF vMonth IN (1,3,5,7,8,10,12)
-  THEN RETURN 31;
-  ELSE IF vMonth = 2
-        THEN RETURN 28 + IsLeapYear( vYear );
-        ELSE RETURN 30;
-       END IF;
- END IF;
-END LastDayofMonth;
-
 FUNCTION UTCSYSDATE RETURN DATE
 IS
 vdate	DATE;
@@ -150,106 +114,6 @@ BEGIN
   SELECT CAST(SYSTIMESTAMP AS DATE) INTO vdate FROM dual;
   RETURN vdate;
 END LOCALSYSDATE;
-
-FUNCTION transliter(str	IN VARCHAR2, fmt IN INTEGER) RETURN VARCHAR2
-IS
-CURSOR cur IS
-  SELECT * FROM translit_dicts;
-str2	VARCHAR2(4000);
-c	CHAR(1);
-c2	VARCHAR2(4);
-i       BINARY_INTEGER;
-BEGIN
-  IF translit_dicts_t.FIRST IS NULL THEN
-    -- ¯ãáâ®© á«®¢ àì: ­ ¤® ­ ¯®«­¨âì
-    FOR curRow IN cur LOOP
-      translit_dicts_t(curRow.letter):=curRow;
-    END LOOP;
-  END IF;
-
-  str2:=NULL;
-  i:=1;
-  WHILE i<=LENGTH(str) LOOP
-    c:=SUBSTR(str,i,1);
-    c2:=NULL;
-    IF ASCII(c)>127 THEN
-      BEGIN
-        IF fmt=3 THEN
-          IF UPPER(SUBSTR(str,i,2))='Š‘' THEN c2:='X'; i:=i+1; END IF;
-          IF UPPER(SUBSTR(str,i,3))='ˆ‰' THEN c2:='Y'; i:=i+1; END IF;
-          IF UPPER(c)='—' AND i>1 AND INSTR('€…ðˆŽ“›žŸ', UPPER(SUBSTR(str,i-1,1)))>0 THEN c2:='TCH'; END IF;
-          IF UPPER(c)='“' AND i=1 THEN c2:='U'; END IF;
-        END IF;
-        IF c2 IS NULL THEN
-          c2:=CASE fmt
-                WHEN 3 THEN translit_dicts_t(UPPER(c)).lat3
-                WHEN 2 THEN translit_dicts_t(UPPER(c)).lat2
-                WHEN 1 THEN translit_dicts_t(UPPER(c)).lat1
-                       ELSE UPPER(c)
-              END;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN c2:='?';
-      END;
-      IF UPPER(c)<>c THEN c2:=LOWER(c2); END IF;
-      str2:=str2||c2;
-    ELSE
-      str2:=str2||c;
-    END IF;
-    i:=i+1;
-  END LOOP;
-  RETURN str2;
-EXCEPTION
-  WHEN VALUE_ERROR THEN RETURN str2;
-END transliter;
-
-FUNCTION transliter(str	        IN VARCHAR2,
-                    fmt 	IN INTEGER,
-                    pr_lat      IN INTEGER) RETURN VARCHAR2
-IS
-BEGIN
-  IF pr_lat <> 0 AND NOT is_lat(str) THEN
-    RETURN transliter(str,fmt);
-  ELSE
-    RETURN str;
-  END IF;
-END transliter;
-
-FUNCTION transliter_equal(str1 IN VARCHAR2,
-                          str2 IN VARCHAR2,
-                          fmt  IN INTEGER DEFAULT NULL) RETURN NUMBER
-IS
-BEGIN
-  IF str1 IS NULL OR str2 IS NULL THEN RETURN 0; END IF;
-  FOR ifmt IN 1..3 LOOP
-    IF fmt IS NULL OR
-       fmt IS NOT NULL AND fmt=ifmt THEN
-      IF transliter(str1,ifmt)=transliter(str2,ifmt) THEN RETURN 1; END IF;
-    END IF;
-  END LOOP;
-  RETURN 0;
-END transliter_equal;
-
-FUNCTION transliter_equal_begin(str       IN VARCHAR2,
-                                substring IN VARCHAR2,
-                                fmt       IN INTEGER DEFAULT NULL) RETURN NUMBER
-IS
-s1 VARCHAR2(4000);
-s2 VARCHAR2(4000);
-min_len NUMBER;
-BEGIN
-  IF str IS NULL OR substring IS NULL THEN RETURN 0; END IF;
-  FOR ifmt IN 1..3 LOOP
-    IF fmt IS NULL OR
-       fmt IS NOT NULL AND fmt=ifmt THEN
-      s1:=system.transliter(str,ifmt);
-      s2:=system.transliter(substring,ifmt);
-      min_len:=LENGTH(s2);
-      IF SUBSTR(s1,1,min_len)=SUBSTR(s2,1,min_len) THEN RETURN 1; END IF;
-    END IF;
-  END LOOP;
-  RETURN 0;
-END transliter_equal_begin;
 
 PROCEDURE raise_user_exception(verror_code   IN NUMBER,
                                lexeme_id     IN VARCHAR2,

@@ -1816,11 +1816,11 @@ std::string givenNames(const CheckIn::TPaxDocItem& doc, const Name_t & name)
             given_names = given_names + " " + doc.second_name;
         }
         given_names = given_names.substr(0, 40);
-        given_names = transliter(given_names, 1, 1);
+        given_names = transliter(given_names, TranslitFormat::V1, true);
     }
     else {
         if(!name.get().empty()) {
-            given_names = (transliter(name.get(), 1, 1));
+            given_names = (transliter(name.get(), TranslitFormat::V1, true));
         }
     }
     return given_names;
@@ -1830,11 +1830,11 @@ std::string familyName(const CheckIn::TPaxDocItem& doc, const Surname_t& surname
 {
     std::string family_name;
     if(!doc.surname.empty()) {
-        family_name = transliter(doc.surname, 1, 1);
+        family_name = transliter(doc.surname, TranslitFormat::V1, true);
     }
     else {
         family_name = surname.get();
-        family_name = transliter(family_name, 1, 1);
+        family_name = transliter(family_name, TranslitFormat::V1, true);
     }
     return family_name;
 }

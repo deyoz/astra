@@ -106,6 +106,11 @@ bool deleteConfirmPrint(PaxId_t pax_id)
   return deleteByPaxId("CONFIRM_PRINT", pax_id, STDLOG);
 }
 
+bool deletePaxTranslit(PaxId_t pax_id)
+{
+  return deleteByPaxId("PAX_TRANSLIT", pax_id, STDLOG);
+}
+
 bool deletePaxDOC(PaxId_t pax_id)
 {
   return deleteByPaxId("PAX_DOC", pax_id, STDLOG);
@@ -281,6 +286,7 @@ bool deletePaxData(PaxId_t pax_id)
   result += deleteStatAd(pax_id) ? 1 : 0;
   result += deleteStatServices(pax_id) ? 1 : 0;
   result += deleteConfirmPrint(pax_id) ? 1 : 0;
+  result += deletePaxTranslit(pax_id) ? 1 : 0;
   result += deletePaxDOC(pax_id) ? 1 : 0;
   result += deletePaxDOCO(pax_id) ? 1 : 0;
   result += deletePaxDOCA(pax_id) ? 1 : 0;

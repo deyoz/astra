@@ -253,7 +253,7 @@ class SurnameFilter
     }
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>&) const { return; }

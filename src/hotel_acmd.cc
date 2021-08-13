@@ -480,7 +480,7 @@ void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(pax->second.reg_no != NoExists)
             NewTextChild(paxNode, "reg_no", pax->second.reg_no);
         NewTextChild(paxNode, "pers_type", pax->second.pers_type);
-        NewTextChild(paxNode, "full_name", transliter(pax->second.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "full_name", transliter(pax->second.full_name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
         map<int, THotelAcmdPaxItem>::iterator acmd_pax = hotel_acmd_pax.items.find(pax->second.pax_id);
         if(acmd_pax != hotel_acmd_pax.items.end()) {
             NewTextChild(paxNode, "hotel_id", acmd_pax->second.hotel_id);

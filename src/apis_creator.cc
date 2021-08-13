@@ -529,15 +529,15 @@ void CreateEdi(const TApisRouteData& route,
     string doc_second_name;
     if (!iPax->doc.surname.empty())
     {
-      doc_surname = transliter(iPax->doc.surname,1,1);
-      doc_first_name = transliter(iPax->doc.first_name,1,1);
-      doc_second_name = transliter(iPax->doc.second_name,1,1);
+      doc_surname = transliter(iPax->doc.surname, TranslitFormat::V1, true);
+      doc_first_name = transliter(iPax->doc.first_name,TranslitFormat::V1, true);
+      doc_second_name = transliter(iPax->doc.second_name,TranslitFormat::V1, true);
     }
     else
     {
       //в терминалах до версии 201107-0126021 невозможен контроль и ввод фамилии из документа
-      doc_surname = transliter(iPax->surname,1,1);
-      doc_first_name = transliter(iPax->name,1,1);
+      doc_surname = transliter(iPax->surname,TranslitFormat::V1, true);
+      doc_first_name = transliter(iPax->name,TranslitFormat::V1, true);
     }
 
     if (format.rule(r_convertPaxNames))
@@ -824,15 +824,15 @@ void CreateTxt( const TApisRouteData& route,
 
     if (!iPax->doc.surname.empty())
     {
-      pdf.doc_surname = transliter(iPax->doc.surname,1,1);
-      pdf.doc_first_name = transliter(iPax->doc.first_name,1,1);
-      pdf.doc_second_name = transliter(iPax->doc.second_name,1,1);
+      pdf.doc_surname = transliter(iPax->doc.surname,TranslitFormat::V1, true);
+      pdf.doc_first_name = transliter(iPax->doc.first_name,TranslitFormat::V1, true);
+      pdf.doc_second_name = transliter(iPax->doc.second_name,TranslitFormat::V1, true);
     }
     else
     {
       //в терминалах до версии 201107-0126021 невозможен контроль и ввод фамилии из документа
-      pdf.doc_surname = transliter(iPax->surname,1,1);
-      pdf.doc_first_name = transliter(iPax->name,1,1);
+      pdf.doc_surname = transliter(iPax->surname,TranslitFormat::V1, true);
+      pdf.doc_first_name = transliter(iPax->name,TranslitFormat::V1, true);
     }
 
     if (format.rule(r_convertPaxNames))

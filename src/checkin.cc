@@ -5202,37 +5202,37 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (segs.isTransitGrp())
             pr_brd_with_reg = setList.value<bool>(tsTransitBrdWithAutoreg);
 
-          DB::TQuery Qry(PgOra::getRWSession("PAX"), STDLOG);
-          Qry.SQLText=
+          DB::TQuery QryIns(PgOra::getRWSession("PAX"), STDLOG);
+          QryIns.SQLText=
             "INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
             "                pr_exam,subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,tid) "
             "VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "       :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
             "       :pr_exam,:subclass,:cabin_subclass,:cabin_class,:cabin_class_grp,:bag_pool_num,:tid) ";
-          Qry.DeclareVariable("pax_id",otInteger);
-          Qry.DeclareVariable("grp_id",otInteger);
-          Qry.DeclareVariable("surname",otString);
-          Qry.DeclareVariable("name",otString);
-          Qry.DeclareVariable("pers_type",otString);
-          Qry.DeclareVariable("crew_type",otString);
-          Qry.DeclareVariable("is_jmp",otInteger);
-          Qry.DeclareVariable("is_female",otInteger);
-          Qry.DeclareVariable("seat_type",otString);
-          Qry.DeclareVariable("seats",otInteger);
-          Qry.DeclareVariable("pr_brd",otInteger);
-          Qry.DeclareVariable("pr_exam",otInteger);
-          Qry.DeclareVariable("wl_type",otString);
-          Qry.DeclareVariable("reg_no",otInteger);
-          Qry.DeclareVariable("ticket_no",otString);
-          Qry.DeclareVariable("coupon_no",otInteger);
-          Qry.DeclareVariable("ticket_rem",otString);
-          Qry.DeclareVariable("ticket_confirm",otInteger);
-          Qry.DeclareVariable("subclass",otString);
-          Qry.DeclareVariable("cabin_subclass",otString);
-          Qry.DeclareVariable("cabin_class",otString);
-          Qry.DeclareVariable("cabin_class_grp",otInteger);
-          Qry.DeclareVariable("bag_pool_num",otInteger);
+          QryIns.DeclareVariable("pax_id",otInteger);
+          QryIns.DeclareVariable("grp_id",otInteger);
+          QryIns.DeclareVariable("surname",otString);
+          QryIns.DeclareVariable("name",otString);
+          QryIns.DeclareVariable("pers_type",otString);
+          QryIns.DeclareVariable("crew_type",otString);
+          QryIns.DeclareVariable("is_jmp",otInteger);
+          QryIns.DeclareVariable("is_female",otInteger);
+          QryIns.DeclareVariable("seat_type",otString);
+          QryIns.DeclareVariable("seats",otInteger);
+          QryIns.DeclareVariable("pr_brd",otInteger);
+          QryIns.DeclareVariable("pr_exam",otInteger);
+          QryIns.DeclareVariable("wl_type",otString);
+          QryIns.DeclareVariable("reg_no",otInteger);
+          QryIns.DeclareVariable("ticket_no",otString);
+          QryIns.DeclareVariable("coupon_no",otInteger);
+          QryIns.DeclareVariable("ticket_rem",otString);
+          QryIns.DeclareVariable("ticket_confirm",otInteger);
+          QryIns.DeclareVariable("subclass",otString);
+          QryIns.DeclareVariable("cabin_subclass",otString);
+          QryIns.DeclareVariable("cabin_class",otString);
+          QryIns.DeclareVariable("cabin_class_grp",otInteger);
+          QryIns.DeclareVariable("bag_pool_num",otInteger);
           for(int k=0;k<=1;k++)
           {
             int pax_no=1;
@@ -5253,12 +5253,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
-                pax.toDB(Qry);
+                pax.toDB(QryIns);
                 int is_female=pax.is_female();
                 if (is_female!=NoExists)
-                  Qry.SetVariable("is_female", is_female);
+                  QryIns.SetVariable("is_female", is_female);
                 else
-                  Qry.SetVariable("is_female", FNull);
+                  QryIns.SetVariable("is_female", FNull);
                 int pax_id = pax.id;
                 if (pax_id == ASTRA::NoExists) {
                   xmlNodePtr node2=p->node->children;
@@ -5269,13 +5269,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (pax_id == ASTRA::NoExists) {
                   pax_id = PgOra::getSeqNextVal_int("PAX_ID");
                 }
-                Qry.SetVariable("grp_id", grp.id);
-                Qry.SetVariable("pax_id", pax_id);
-                Qry.CreateVariable("tid", otInteger, tid);
+                QryIns.SetVariable("grp_id", grp.id);
+                QryIns.SetVariable("pax_id", pax_id);
+                QryIns.CreateVariable("tid", otInteger, tid);
 
                 try
                 {
-                  Qry.Execute();
+                  QryIns.Execute();
                 }
                 catch(const EOracleError& E)
                 {
@@ -5296,6 +5296,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (pax.id==NoExists) {
                     p->generatedPaxId=paxId(); //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
                 }
+
+                // запись имени во всех вариантах транслита (для поиска по имени)
+                CheckIn::SavePaxTranslit(PointId_t(grp.point_dep), PaxId_t(pax_id), GrpId_t(grp.id),
+                                         pax.surname, pax.name);
 
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(paxId, !new_checkin, pax.doc, modifiedPaxRem);
@@ -5435,7 +5439,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (!pr_unaccomp)
         {
-          DB::TQuery PaxQry(PgOra::getRWSession("PAX"), STDLOG);
+          DB::TQuery UpdPaxQry(PgOra::getRWSession("PAX"), STDLOG);
           ostringstream sql;
           sql << "UPDATE pax SET ";
           if (reqInfo->client_type==ctTerm)
@@ -5448,14 +5452,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                    "    ticket_rem=:ticket_rem, "
                    "    ticket_confirm=:ticket_confirm, "
                    "    subclass=:subclass, ";
-            PaxQry.DeclareVariable("surname",otString);
-            PaxQry.DeclareVariable("name",otString);
-            PaxQry.DeclareVariable("pers_type",otString);
-            PaxQry.DeclareVariable("ticket_no",otString);
-            PaxQry.DeclareVariable("coupon_no",otInteger);
-            PaxQry.DeclareVariable("ticket_rem",otString);
-            PaxQry.DeclareVariable("ticket_confirm",otInteger);
-            PaxQry.DeclareVariable("subclass",otString);
+            UpdPaxQry.DeclareVariable("surname",otString);
+            UpdPaxQry.DeclareVariable("name",otString);
+            UpdPaxQry.DeclareVariable("pers_type",otString);
+            UpdPaxQry.DeclareVariable("ticket_no",otString);
+            UpdPaxQry.DeclareVariable("coupon_no",otInteger);
+            UpdPaxQry.DeclareVariable("ticket_rem",otString);
+            UpdPaxQry.DeclareVariable("ticket_confirm",otInteger);
+            UpdPaxQry.DeclareVariable("subclass",otString);
           }
 
           if (reqInfo->client_type==ctTerm ||
@@ -5463,7 +5467,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               isTagRevokeRequestSBDO(reqNode))
           {
             sql << "    bag_pool_num=:bag_pool_num, ";
-            PaxQry.DeclareVariable("bag_pool_num",otInteger);
+            UpdPaxQry.DeclareVariable("bag_pool_num",otInteger);
           }
 
           sql << "    is_female = CASE WHEN :doc_exists = 0 THEN is_female ELSE :is_female END, "
@@ -5472,23 +5476,23 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                  "    pr_exam = CASE WHEN :refuse IS NULL THEN pr_exam ELSE 0 END, "
                  "    tid=:new_tid "
                  "WHERE pax_id=:pax_id AND tid=:tid";
-          PaxQry.DeclareVariable("doc_exists",otInteger);
-          PaxQry.DeclareVariable("is_female",otInteger);
-          PaxQry.DeclareVariable("pax_id",otInteger);
-          PaxQry.DeclareVariable("tid",otInteger);
-          PaxQry.DeclareVariable("refuse",otString);
+          UpdPaxQry.DeclareVariable("doc_exists",otInteger);
+          UpdPaxQry.DeclareVariable("is_female",otInteger);
+          UpdPaxQry.DeclareVariable("pax_id",otInteger);
+          UpdPaxQry.DeclareVariable("tid",otInteger);
+          UpdPaxQry.DeclareVariable("refuse",otString);
 
-          PaxQry.SQLText=sql.str().c_str();
+          UpdPaxQry.SQLText=sql.str().c_str();
 
 
-          DB::TQuery LayerQry(PgOra::getRWSession({"TRIP_COMP_LAYERS", "PAX", "PAX_GRP", "GRP_STATUS_TYPES"}), STDLOG);
-          LayerQry.SQLText =
+          DB::TQuery DelLayerQry(PgOra::getRWSession({"TRIP_COMP_LAYERS", "PAX", "PAX_GRP", "GRP_STATUS_TYPES"}), STDLOG);
+          DelLayerQry.SQLText =
             "DELETE FROM trip_comp_layers "
             "WHERE pax_id=:pax_id AND layer_type= "
             "(SELECT layer_type FROM pax, pax_grp, grp_status_types "
             " WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
             "       pax_grp.status=grp_status_types.code)";
-          LayerQry.DeclareVariable("pax_id",otInteger);
+          DelLayerQry.DeclareVariable("pax_id",otInteger);
 
           int pax_no=1;
           for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
@@ -5501,23 +5505,23 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               {
                 if (!pax.refuse.empty())
                 {
-                  LayerQry.SetVariable("pax_id",pax.id);
-                  LayerQry.Execute();
+                  DelLayerQry.SetVariable("pax_id",pax.id);
+                  DelLayerQry.Execute();
                   int tid = pax.tid;
                   DeleteTlgSeatRanges( {ASTRA::cltProtSelfCkin,
                                         ASTRA::cltProtBeforePay,
                                         ASTRA::cltProtAfterPay}, pax.id, tid);
                 }
-                pax.toDB(PaxQry);
-                PaxQry.CreateVariable("new_tid", otInteger, new_tid);
-                PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
+                pax.toDB(UpdPaxQry);
+                UpdPaxQry.CreateVariable("new_tid", otInteger, new_tid);
+                UpdPaxQry.SetVariable("doc_exists", (int)pax.DocExists);
                 int is_female=pax.is_female();
                 if (pax.DocExists && is_female!=NoExists)
-                  PaxQry.SetVariable("is_female", is_female);
+                  UpdPaxQry.SetVariable("is_female", is_female);
                 else
-                  PaxQry.SetVariable("is_female", FNull);
-                PaxQry.Execute();
-                if (PaxQry.RowsProcessed()<=0)
+                  UpdPaxQry.SetVariable("is_female", FNull);
+                UpdPaxQry.Execute();
+                if (UpdPaxQry.RowsProcessed()<=0)
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                       LParams()<<LParam("surname",pax.full_name())); //WEB
                 //запись pax_doc
@@ -5533,27 +5537,30 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
               else
               {
-                DB::TQuery Qry(PgOra::getRWSession("PAX"), STDLOG);
+                DB::TQuery UpdQry(PgOra::getRWSession("PAX"), STDLOG);
                 sql.str("");
                 sql << "UPDATE pax SET ";
                 if (!inbound_group_bag.empty())
                 {
                   //это может быть подтверждение входящего трансфера после веб-регситрации
                   sql << "    bag_pool_num=:bag_pool_num, ";
-                  Qry.DeclareVariable("bag_pool_num",otInteger);
+                  UpdQry.DeclareVariable("bag_pool_num",otInteger);
                 }
                 sql << "    tid=:new_tid "
                        "WHERE pax_id=:pax_id AND tid=:tid ";
-                Qry.SQLText=sql.str().c_str();
-                Qry.DeclareVariable("pax_id", otInteger);
-                Qry.DeclareVariable("tid", otInteger);
-                Qry.CreateVariable("new_tid", otInteger, new_tid);
-                pax.toDB(Qry);
-                Qry.Execute();
-                if (Qry.RowsProcessed()<=0)
+                UpdQry.SQLText=sql.str().c_str();
+                UpdQry.DeclareVariable("pax_id", otInteger);
+                UpdQry.DeclareVariable("tid", otInteger);
+                UpdQry.CreateVariable("new_tid", otInteger, new_tid);
+                pax.toDB(UpdQry);
+                UpdQry.Execute();
+                if (UpdQry.RowsProcessed()<=0)
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                       LParams()<<LParam("surname",pax.full_name())); //WEB
               }
+
+              CheckIn::SavePaxTranslit(PointId_t(grp.point_dep), PaxId_t(pax.id), GrpId_t(grp.id),
+                                       pax.surname, pax.name);
 
               if (save_trfer)
               {
@@ -8317,7 +8324,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(segNode,"classes",cfg.str());
         }
 
-        DB::TQuery CrsQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX,PAX"}), STDLOG);
+        DB::TQuery CrsQry(PgOra::getROSession({"TLG_BINDING","CRS_PNR","CRS_PAX,PAX","CRS_PAX_TRANSLIT"}), STDLOG);
         getTCkinSearchPaxQuery(CrsQry);
         //класс пассажиров
         CrsQry.SetVariable("point_id", currSeg.pointDep().get());

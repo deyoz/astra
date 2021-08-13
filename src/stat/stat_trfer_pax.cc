@@ -261,7 +261,7 @@ void ArxRunTrferPaxStat(
                         item.suffix2 = flt->first.suffix;
                         item.date2 = flt->first.scd_out;
                         item.airp_arv = flt->second;
-                        item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                        item.pax_name = transliter(full_name, TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
                         item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
                         typedef map<bool, TSegCategories::Enum> TSeg2Map;
@@ -442,7 +442,7 @@ void RunTrferPaxStat(
                     item.suffix2 = flt->first.suffix;
                     item.date2 = flt->first.scd_out;
                     item.airp_arv = flt->second;
-                    item.pax_name = transliter(pax.full_name(), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                    item.pax_name = transliter(pax.full_name(), TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
                     item.pax_doc = CheckIn::GetPaxDocStr(std::nullopt, pax_id, false);
                     typedef map<bool, TSegCategories::Enum> TSeg2Map;

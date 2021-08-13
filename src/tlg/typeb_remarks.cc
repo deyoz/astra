@@ -590,10 +590,10 @@ bool SaveCHKDRem(const PaxIdWithSegmentPair& paxId, const vector<TCHKDItem> &chk
   }
   if (result)
   {
-    DB::TQuery QryPax(PgOra::getRWSession("CRS_PAX"), STDLOG);
-    QryPax.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
-    QryPax.CreateVariable("pax_id",otInteger,paxId().get());
-    QryPax.Execute();
+    DB::TQuery UpdPaxQry(PgOra::getRWSession("CRS_PAX"), STDLOG);
+    UpdPaxQry.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
+    UpdPaxQry.CreateVariable("pax_id",otInteger,paxId().get());
+    UpdPaxQry.Execute();
   }
   return result;
 }

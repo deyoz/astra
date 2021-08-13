@@ -1358,8 +1358,8 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         return scan;
     BCBPSections barcode;
     //scan_data = barcode;
-    string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string surname = transliter(paxInfo.surname_2d, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string name = transliter(paxInfo.name_2d, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     barcode.add_section();
     barcode.set_passenger_name_surname(name, surname);
     barcode.set_version(5);
@@ -1435,8 +1435,8 @@ string TBCBPData::toString(const TTagLang &tag_lang)
         << 1;
     // Passenger Name
     result << left;
-    string _surname = transliter(surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    string _name = transliter(name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string _surname = transliter(surname, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string _name = transliter(name, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     string pax_name = _surname;
     if(!_name.empty())
         pax_name += "/" + _name;
@@ -2214,7 +2214,7 @@ string TPrnTagStore::FQT_TIER_LEVEL(TFieldParams fp)
     if(!fp.TagInfo.empty())
         return boost::any_cast<std::string>(fp.TagInfo);
     else
-        return transliter(fqtInfo.tier_level, 1,tag_lang.GetLang() != AstraLocale::LANG_RU);
+        return transliter(fqtInfo.tier_level, TranslitFormat::V1,tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::FQT(TFieldParams fp)
@@ -2225,7 +2225,7 @@ string TPrnTagStore::FQT(TFieldParams fp)
         string result;
         if(not fqtInfo.airline.empty()) {
             string airline = tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative);
-            string extra = transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            string extra = transliter(fqtInfo.extra, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
             result = (airline + " " + fqtInfo.no + string(" ", extra.empty() ? 0 : 1) + extra);
             size_t min_width = airline.size() + fqtInfo.no.size() + 1;
             if(fp.len == 0)
@@ -2260,7 +2260,7 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         const std::string fullnm = boost::any_cast<std::string>(fp.TagInfo);
-        return transliter(fullnm, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
+        return transliter(fullnm, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU)
             .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     } else {
         string name, surname;
@@ -2272,7 +2272,9 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
             name = paxInfo.name;
         }
         return
-            transliter(name.empty() ? surname : surname + " " + name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
+            transliter(name.empty() ? surname : surname + " " + name,
+                       TranslitFormat::V1,
+                       tag_lang.GetLang() != AstraLocale::LANG_RU)
             .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     }
 }
@@ -2488,10 +2490,10 @@ string TPrnTagStore::NAME(TFieldParams fp)
 {
     string result;
     if(scan_data != NULL) {
-        result = transliter(scan_data->unique.passengerName().second, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        result = transliter(scan_data->unique.passengerName().second, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     } else {
         if(fp.TagInfo.empty())
-            result = transliter(paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            result = transliter(paxInfo.name, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         else
             result = SURNAME(fp);
     }
@@ -2746,9 +2748,9 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
 
 string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
 {
-    TQuery Qry(&OraSession);
     if (!isTestPaxId(paxInfo.pax_id))
     {
+        TQuery Qry(&OraSession);
         Qry.SQLText =
             "select "
             "   salons.get_seat_no(:pax_id,:seats,:is_jmp,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
@@ -2769,8 +2771,11 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
     }
     else
     {
+        DB::TQuery Qry(PgOra::getROSession("TEST_PAX"), STDLOG);
         Qry.SQLText =
-            "SELECT seat_xname, seat_yname FROM test_pax WHERE id=:pax_id";
+            "SELECT seat_xname, seat_yname "
+            "FROM test_pax "
+            "WHERE id=:pax_id";
         Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
         Qry.Execute();
         if (Qry.Eof || Qry.FieldIsNULL("seat_yname") || Qry.FieldIsNULL("seat_xname")) return "";
@@ -2816,14 +2821,14 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
 {
     string result;
     if(scan_data != NULL) {
-        result = transliter(scan_data->unique.passengerName().first, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        result = transliter(scan_data->unique.passengerName().first, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     } else if(fp.TagInfo.empty())
-        result = transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        result = transliter(paxInfo.surname, TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     else {
         if(boost::any_cast<int>(&fp.TagInfo))
             result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang);
         else if(boost::any_cast<std::string>(&fp.TagInfo))
-            result = transliter(boost::any_cast<std::string>(fp.TagInfo), 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            result = transliter(boost::any_cast<std::string>(fp.TagInfo), TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         else
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
@@ -3143,7 +3148,7 @@ string TPrnTagStore::VOUCHER_CODE(TFieldParams fp) {
         string code = boost::any_cast<string>(fp.TagInfo);
         result << transliter(
                 tag_lang.ElemIdToTagElem(etVoucherType, code, efmtCodeNative),
-                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+                TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result.str();
 }
@@ -3161,7 +3166,7 @@ string TPrnTagStore::VOUCHER_TEXT(TFieldParams fp) {
         string code = boost::any_cast<string>(fp.TagInfo);
         result << transliter(
                 tag_lang.ElemIdToTagElem(etVoucherType, code, efmtNameLong),
-                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+                TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result.str();
 }
@@ -3175,7 +3180,7 @@ string TPrnTagStore::BI_AIRP_TERMINAL(TFieldParams fp) {
             BIHallInfo.airp_terminal_id = rule.halls.begin()->second;
             result << transliter(
                     tag_lang.ElemIdToTagElem(etAirpTerminal, BIHallInfo.airp_terminal_id, efmtNameLong),
-                    1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+                    TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         }
     }
     return result.str();
@@ -3200,7 +3205,7 @@ string TPrnTagStore::BI_HALL(TFieldParams fp) {
         if(rule.exists() and not rule.halls.empty()) {
             BIHallInfo.hall_id = rule.halls.begin()->first;
             int hall = rule.halls.begin()->first;
-            result << transliter(tag_lang.ElemIdToTagElem(etBIHall, hall, efmtNameLong), 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            result << transliter(tag_lang.ElemIdToTagElem(etBIHall, hall, efmtNameLong), TranslitFormat::V1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         }
     }
     return result.str();

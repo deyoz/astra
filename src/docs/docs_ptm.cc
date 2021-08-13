@@ -313,7 +313,7 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", pax.simple.reg_no);
-        NewTextChild(rowNode, "full_name", transliter(pax.simple.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "full_name", transliter(pax.simple.full_name(), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(rowNode, "last_target", pax.last_target);
         NewTextChild(rowNode, "pr_trfer", pax.pr_trfer);
         NewTextChild(rowNode, "airp_arv", pax.target);

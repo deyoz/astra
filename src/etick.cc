@@ -1513,8 +1513,6 @@ static bool updateCrsPaxSubclass(int pax_id,
         "     OR etick_class<>:etick_class "
         "     OR etick_class IS NULL AND :etick_class IS NOT NULL "
         "     OR etick_class IS NOT NULL AND :etick_class IS NULL) ",
-
-
         PgOra::getRWSession("CRS_PAX"));
   cur.stb()
       .bind(":etick_subclass", etick_subclass)

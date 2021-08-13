@@ -1629,11 +1629,11 @@ class TTranslitLetter
 {
   public:
     string lat1, lat2, lat3;
-    TTranslitLetter(const char* l1, const char* l2, const char* l3):lat1(l1), lat2(l2), lat3(l3) {};
-    TTranslitLetter() {};
+    TTranslitLetter(const char* l1, const char* l2, const char* l3):lat1(l1), lat2(l2), lat3(l3) {}
+    TTranslitLetter() {}
 };
 
-string transliter(const string &value, int fmt, bool pr_lat)
+string transliter(const string &value, TranslitFormat fmt, bool pr_lat)
 {
   string result;
   if (pr_lat)
@@ -1662,7 +1662,7 @@ string transliter(const string &value, int fmt, bool pr_lat)
       string c2;
       if (!IsAscii7(c))
       {
-        if (fmt==3)
+        if (fmt == TranslitFormat::V3)
         {
           string::const_iterator i2=i+1;
           if (i2!=value.end())
@@ -1679,9 +1679,9 @@ string transliter(const string &value, int fmt, bool pr_lat)
           map<char, TTranslitLetter>::const_iterator letter=dicts.find(uc);
           if (letter!=dicts.end())
           {
-            if      (fmt==3) c2=letter->second.lat3;
-            else if (fmt==2) c2=letter->second.lat2;
-            else if (fmt==1) c2=letter->second.lat1;
+            if      (fmt==TranslitFormat::V3) c2=letter->second.lat3;
+            else if (fmt==TranslitFormat::V2) c2=letter->second.lat2;
+            else if (fmt==TranslitFormat::V1) c2=letter->second.lat1;
             else             c2=uc;
           }
           else
@@ -1694,44 +1694,45 @@ string transliter(const string &value, int fmt, bool pr_lat)
   }
   else  result=value;
   return result;
-};
+}
 
-bool transliter_equal(const string &value1, const string &value2, int fmt)
+bool transliter_equal(const string &value1, const string &value2, TranslitFormat fmt)
 {
   return transliter(value1, fmt, true)==transliter(value2, fmt, true);
-};
+}
 
 bool transliter_equal(const string &value1, const string &value2)
 {
-  for(int fmt=1;fmt<=3;fmt++)
-    if (transliter_equal(value1, value2, fmt)) return true;
+  for(int fmt=int(TranslitFormat::V1);fmt<=int(TranslitFormat::V3);fmt++)
+    if (transliter_equal(value1, value2, TranslitFormat(fmt))) return true;
   return false;
-};
+}
 
-bool transliter_equal_begin(const string &str, const string &substr, int fmt)
+bool transliter_equal_begin(const string &str, const string &substr, TranslitFormat fmt)
 {
   std::string v1(transliter(str,    fmt, true));
   std::string v2(transliter(substr, fmt, true));
   size_t minSize=v2.size();
   return v1.substr(0, minSize)==v2.substr(0, minSize);
-};
+}
 
 bool transliter_equal_begin(const string &str, const string &substr)
 {
-  for(int fmt=1;fmt<=3;fmt++)
-    if (transliter_equal_begin(str, substr, fmt)) return true;
+  for(int fmt=int(TranslitFormat::V1);fmt<=int(TranslitFormat::V3);fmt++)
+    if (transliter_equal_begin(str, substr, TranslitFormat(fmt))) return true;
   return false;
-};
+}
 
 int best_transliter_similarity(const string &value1, const string &value2)
 {
   if (value1==value2) return 100;
 
   int result=EditDistanceSimilarity(value1, value2);
-  for(int fmt=1;fmt<=3;fmt++)
+  for(int fmt=int(TranslitFormat::V1);fmt<=int(TranslitFormat::V3);fmt++)
   {
     if (result>=100) return result;
-    int i=EditDistanceSimilarity(transliter(value1, fmt, true), transliter(value2, fmt, true));
+    int i=EditDistanceSimilarity(transliter(value1, TranslitFormat(fmt), true),
+                                 transliter(value2, TranslitFormat(fmt), true));
     if (i>result) result=i;
   }
   return result;

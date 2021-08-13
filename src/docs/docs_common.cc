@@ -776,8 +776,8 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
         loader = Qry.FieldAsString("loader");
         pts_agent = Qry.FieldAsString("pts_agent");
     }
-    NewTextChild(variablesNode, "loader", transliter(loader, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-    NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "loader", transliter(loader, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
 }
 
 std::string get_report_version(const std::string& name)

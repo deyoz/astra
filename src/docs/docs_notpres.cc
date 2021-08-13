@@ -61,7 +61,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
             NewTextChild(rowNode, "reg_no", pax.reg_no);
-            NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            NewTextChild(rowNode, "family", transliter(pax.full_name(), TranslitFormat::V1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", pax.seat_no);
 

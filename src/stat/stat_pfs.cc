@@ -172,8 +172,8 @@ void ArxRunPFSStat(
                 row.seats = Qry.get().FieldAsInteger(col_seats);
                 row.subcls = ElemIdToCodeNative(etSubcls, Qry.get().FieldAsString(col_subcls));
                 row.pnr = Qry.get().FieldAsString(col_pnr);
-                row.surname = transliter(Qry.get().FieldAsString(col_surname), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
-                row.name = transliter(Qry.get().FieldAsString(col_name), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                row.surname = transliter(Qry.get().FieldAsString(col_surname), TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                row.name = transliter(Qry.get().FieldAsString(col_name), TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
                 row.gender = Qry.get().FieldAsString(col_gender);
                 switch(CheckIn::is_female(row.gender, row.name)) {
@@ -310,8 +310,8 @@ void RunPFSStat(
             row.seats = Qry.get().FieldAsInteger(col_seats);
             row.subcls = ElemIdToCodeNative(etSubcls, Qry.get().FieldAsString(col_subcls));
             row.pnr = Qry.get().FieldAsString(col_pnr);
-            row.surname = transliter(Qry.get().FieldAsString(col_surname), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
-            row.name = transliter(Qry.get().FieldAsString(col_name), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+            row.surname = transliter(Qry.get().FieldAsString(col_surname), TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+            row.name = transliter(Qry.get().FieldAsString(col_name), TranslitFormat::V1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
             row.gender = Qry.get().FieldAsString(col_gender);
             switch(CheckIn::is_female(row.gender, row.name)) {

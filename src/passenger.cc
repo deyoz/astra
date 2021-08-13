@@ -346,7 +346,7 @@ std::string TPaxTknItem::get_rem_text(bool inf_indicator,
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
          << " HK1 " << (inf_indicator?"INF":"")
-         << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
+         << (strictly_lat?transliter(convert_char_view(no, strictly_lat), TranslitFormat::V1, strictly_lat):no);
   if (coupon!=ASTRA::NoExists)
     result << "/" << coupon;
   return result.str();
@@ -791,14 +791,14 @@ std::string TPaxDocItem::get_rem_text(bool inf_indicator,
          << " HK1"
          << "/" << (type.empty()?"":ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang))
          << "/" << (issue_country.empty()?"":PaxDocCountryIdToPrefferedElem(issue_country, efmtCodeISOInter, lang))
-         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
+         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), TranslitFormat::V1, strictly_lat):no)
          << "/" << (nationality.empty()?"":PaxDocCountryIdToPrefferedElem(nationality, efmtCodeISOInter, lang))
          << "/" << (birth_date!=ASTRA::NoExists?DateTimeToStr(birth_date, "ddmmmyy", language_lat):"")
          << "/" << (gender.empty()?"":ElemIdToPrefferedElem(etGenderType, gender, efmtCodeNative, lang)) << (inf_indicator?"I":"")
          << "/" << (expiry_date!=ASTRA::NoExists?DateTimeToStr(expiry_date, "ddmmmyy", language_lat):"")
-         << "/" << transliter(surname, 1, translit_lat)
-         << "/" << transliter(first_name, 1, translit_lat)
-         << "/" << transliter(second_name, 1, translit_lat)
+         << "/" << transliter(surname, TranslitFormat::V1, translit_lat)
+         << "/" << transliter(first_name, TranslitFormat::V1, translit_lat)
+         << "/" << transliter(second_name, TranslitFormat::V1, translit_lat)
          << "/" << (pr_multi?"H":"");
 
   return RemoveTrailingChars(result.str(), "/");
@@ -1045,10 +1045,10 @@ std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
          << " HK1"
-         << "/" << transliter(birth_place, 1, translit_lat)
+         << "/" << transliter(birth_place, TranslitFormat::V1, translit_lat)
          << "/" << (type.empty()?"":ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang))
-         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
-         << "/" << transliter(issue_place, 1, translit_lat)
+         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), TranslitFormat::V1, strictly_lat):no)
+         << "/" << transliter(issue_place, TranslitFormat::V1, translit_lat)
          << "/" << (issue_date!=ASTRA::NoExists?DateTimeToStr(issue_date, "ddmmmyy", language_lat):"")
          << "/" << (applic_country.empty()?"":PaxDocCountryIdToPrefferedElem(applic_country, efmtCodeISOInter, lang))
          << "/" << (inf_indicator?"I":"");
@@ -1182,10 +1182,10 @@ std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
          << " HK1"
          << "/" << type
          << "/" << (country.empty()?"":PaxDocCountryIdToPrefferedElem(country, efmtCodeISOInter, lang))
-         << "/" << transliter(address, 1, translit_lat)
-         << "/" << transliter(city, 1, translit_lat)
-         << "/" << transliter(region, 1, translit_lat)
-         << "/" << transliter(postal_code, 1, translit_lat)
+         << "/" << transliter(address, TranslitFormat::V1, translit_lat)
+         << "/" << transliter(city, TranslitFormat::V1, translit_lat)
+         << "/" << transliter(region, TranslitFormat::V1, translit_lat)
+         << "/" << transliter(postal_code, TranslitFormat::V1, translit_lat)
          << "/" << (inf_indicator?"I":"");
 
   return RemoveTrailingChars(result.str(), "/");
@@ -1607,6 +1607,89 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
   };
   return !doca_map.empty();
 };
+
+void SaveCrsPaxTranslit(const PointIdTlg_t& point_id, const PaxId_t& pax_id,
+                        const std::string& surname, const std::string& name, TranslitFormat translit_format)
+{
+  QParams params;
+  params << QParam("pax_id", otInteger, pax_id.get())
+         << QParam("surname", otString, surname)
+         << QParam("name", otString, name)
+         << QParam("translit_format", otInteger, int(translit_format));
+  DB::TCachedQuery UpdQry(
+        PgOra::getRWSession("CRS_PAX_TRANSLIT"),
+        "UPDATE crs_pax_translit "
+        "SET surname = :surname, "
+        "    name = :name "
+        "WHERE pax_id = :pax_id "
+        "AND translit_format = :translit_format ",
+        params,
+        STDLOG);
+  UpdQry.get().Execute();
+
+  if (UpdQry.get().RowsProcessed() == 0) {
+    DB::TCachedQuery InsQry(
+          PgOra::getRWSession("CRS_PAX_TRANSLIT"),
+          "INSERT INTO crs_pax_translit (point_id, pax_id, surname, name, translit_format) "
+          "VALUES (:point_id, :pax_id, :surname, :name, :translit_format) ",
+          params << QParam("point_id", otInteger, point_id.get()),
+          STDLOG);
+    InsQry.get().Execute();
+  }
+}
+
+void SaveCrsPaxTranslit(const PointIdTlg_t& point_id, const PaxId_t& pax_id,
+                        const std::string& surname, const std::string& name)
+{
+  for (int fmt = 1; fmt <= int(TranslitFormat::V3); fmt++) {
+    SaveCrsPaxTranslit(point_id, pax_id,
+                       transliter(surname, TranslitFormat(fmt), true),
+                       transliter(name, TranslitFormat(fmt), true),
+                       TranslitFormat(fmt));
+  }
+}
+
+void SavePaxTranslit(const PointId_t& point_id, const PaxId_t& pax_id, const GrpId_t& grp_id,
+                     const std::string& surname, const std::string& name, TranslitFormat translit_format)
+{
+  QParams params;
+  params << QParam("pax_id", otInteger, pax_id.get())
+         << QParam("surname", otString, surname)
+         << QParam("name", otString, name)
+         << QParam("translit_format", otInteger, int(translit_format));
+  DB::TCachedQuery UpdQry(
+        PgOra::getRWSession("PAX_TRANSLIT"),
+        "UPDATE pax_translit "
+        "SET surname = :surname, "
+        "    name = :name "
+        "WHERE pax_id = :pax_id "
+        "AND translit_format = :translit_format ",
+        params,
+        STDLOG);
+  UpdQry.get().Execute();
+
+  if (UpdQry.get().RowsProcessed() == 0) {
+    DB::TCachedQuery InsQry(
+          PgOra::getRWSession("PAX_TRANSLIT"),
+          "INSERT INTO pax_translit (point_id, pax_id, grp_id, surname, name, translit_format) "
+          "VALUES (:point_id, :pax_id, :grp_id, :surname, :name, :translit_format) ",
+          params << QParam("point_id", otInteger, point_id.get())
+                 << QParam("grp_id", otInteger, grp_id.get()),
+          STDLOG);
+    InsQry.get().Execute();
+  }
+}
+
+void SavePaxTranslit(const PointId_t& point_id, const PaxId_t& pax_id, const GrpId_t& grp_id,
+                     const std::string& surname, const std::string& name)
+{
+  for (int fmt = 1; fmt <= int(TranslitFormat::V3); fmt++) {
+    SavePaxTranslit(point_id, pax_id, grp_id,
+                    transliter(surname, TranslitFormat(fmt), true),
+                    transliter(name, TranslitFormat(fmt), true),
+                    TranslitFormat(fmt));
+  }
+}
 
 void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
                 const bool paxIdUsedBefore,
@@ -2570,23 +2653,24 @@ bool TSimplePaxItem::cabinClassToDB() const
 {
   if (id==ASTRA::NoExists) return false;
 
-  DB::TCachedQuery Qry(PgOra::getRWSession("pax"),
+  DB::TCachedQuery UpdQry(PgOra::getRWSession("pax"),
                    "UPDATE pax "
                    "SET cabin_subclass=:cabin_subclass, "
                    "    cabin_class=:cabin_class, "
                    "    cabin_class_grp=:cabin_class_grp, "
-                   "    tid=cycle_tid__seq.nextval "
+                   "    tid=:new_tid "
                    "WHERE pax_id=:pax_id AND tid=:tid",
                    QParams() << QParam("pax_id", otInteger, id)
                              << QParam("tid", otInteger, tid)
+                             << QParam("new_tid", otInteger, PgOra::getSeqNextVal_int("CYCLE_TID__SEQ"))
                              << QParam("cabin_subclass", otString)
                              << QParam("cabin_class", otString)
                              << QParam("cabin_class_grp", otInteger),
                    STDLOG);
-  cabin.toDB(Qry.get(), "cabin_");
-  Qry.get().Execute();
+  cabin.toDB(UpdQry.get(), "cabin_");
+  UpdQry.get().Execute();
 
-  return Qry.get().RowsProcessed()>0;
+  return UpdQry.get().RowsProcessed()>0;
 }
 
 boost::optional<WeightConcept::TPaxNormComplex> TSimplePaxItem::getRegularNorm() const
