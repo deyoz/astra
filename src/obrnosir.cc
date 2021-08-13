@@ -39,8 +39,6 @@ int edi_load_messages_local(int argc, char** argv);
 int nosir_tscript(int argc, char** argv);
 int verifyHTTP(int argc,char **argv);
 int test_reprint(int argc,char **argv);
-int get_events_stat(int argc,char **argv);
-int get_events_stat2(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
 int test_typeb_utils(int argc,char **argv);
 //int test_typeb_utils2(int argc,char **argv);
@@ -116,8 +114,7 @@ const
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
-    {"-lci",                    TypeB::lci,             NULL,                       NULL},
-    {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
+    {"-lci",                    TypeB::lci,             NULL,                       NULL},    
     {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},

@@ -2022,22 +2022,28 @@ void TRegEvents::fromDB(TDateTime part_key, int point_id)
     {
         return fromArxDB(part_key, point_id);
     }
+    auto& sess = PgOra::getROSession("EVENTS_BILINGUAL");
     QParams QryParams;
     QryParams
         << QParam("lang", otString, AstraLocale::LANG_RU)
         << QParam("evtPax", otString, EncodeEventType(ASTRA::evtPax))
         << QParam("point_id", otInteger, point_id);
+
+    std::string inStrCkin = sess.isOracle() ? "INSTR(msg,'зарегистрирован')"
+                                            : "STRPOS(msg,'зарегистрирован')";
+    std::string inStrBrd = sess.isOracle() ? "INSTR(msg,'прошел посадку')"
+                                           : "STRPOS(msg,'прошел посадку')";
     ostringstream sql;
     sql <<
         "SELECT id3 AS grp_id, id2 AS reg_no, "
-        "       MIN(DECODE(INSTR(msg,'зарегистрирован'),0,TO_DATE(NULL),time)) AS ckin_time, "
-        "       MAX(DECODE(INSTR(msg,'прошел посадку'),0,TO_DATE(NULL),time)) AS brd_time "
+        "       MIN(CASE " << inStrCkin << " WHEN 0 THEN NULL ELSE time) AS ckin_time, "
+        "       MAX(CASE " << inStrBrd << " WHEN 0 THEN NULL ELSE time) AS brd_time "
         "FROM events_bilingual "
         "WHERE lang=:lang AND type=:evtPax AND id1=:point_id AND "
         "   (msg like '%зарегистрирован%' OR msg like '%прошел посадку%') "
         "GROUP BY id3, id2";
 
-    TCachedQuery Qry(sql.str(), QryParams);
+    DB::TCachedQuery Qry(sess, sql.str(), QryParams, STDLOG);
 
     Qry.get().Execute();
     for(;!Qry.get().Eof;Qry.get().Next())

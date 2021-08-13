@@ -1142,7 +1142,11 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
   DelQryParams << QParam("ev_time", otDate, ctxt_event.ev_time)
                << QParam("ev_order", otInteger, ctxt_event.ev_order);
 
-  TCachedQuery DelQry("DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order", DelQryParams);
+  DB::TCachedQuery DelQry(
+              PgOra::getRWSession("EVENTS_BILINGUAL"),
+              "DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order",
+              DelQryParams,
+              STDLOG);
   DelQry.get().Execute();
 
   event.fromXML(eventCtxtNode);
@@ -1151,7 +1155,7 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
   event.id2=EMDCtxtActual.pax.reg_no;
   event.id3=EMDCtxtActual.pax.grp_id;
   return true;
-};
+}
 
 #include "astra_emd.h"
 #include "tlg/emd_edifact.h"

@@ -71,7 +71,8 @@ void StatInterface::AHM(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     SQLText +=
         " ORDER BY ev_order";
 
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"EVENTS_BILINGUAL", "AHM_DICT", "AIRLINES"}),
+                         SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         xmlNodePtr ctrlNode = NewTextChild(resNode, "ctrl");
