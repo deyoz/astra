@@ -1157,6 +1157,23 @@ void HotelAcmd::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("hotel_acmd").synchronize(getRowId("id", oldRow, newRow));
 }
 
+//HotelRoomTypes
+
+bool HotelRoomTypes::userDependence() const
+{
+  return false;
+}
+
+std::string HotelRoomTypes::selectSql() const
+{
+  return "SELECT id, name FROM hotel_room_types";
+}
+
+std::list<std::string> HotelRoomTypes::dbSessionObjectNames() const
+{
+  return {"HOTEL_ROOM_TYPES"};
+}
+
 //CrsSet
 
 bool CrsSet::userDependence() const {

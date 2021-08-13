@@ -298,6 +298,14 @@ class HotelAcmd : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class HotelRoomTypes : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
 class CrsSet : public CacheTableWritable
 {
   public:

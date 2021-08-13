@@ -24,47 +24,80 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 
-void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
+void createFileParamsSofi( int point_id, string pult, const string &point_addr, map<string,string> &params )
 {
-	TQuery Qry( &OraSession );
-	Qry.SQLText =
-     "declare "
-     "  time date; "
-	 "BEGIN "
-	 " SELECT file_no, time INTO :file_no, time FROM sofi_files "
-     "  where "
-     " point_addr = :point_addr and "
-     " desk = :desk for update; "
-     " if trunc(time) <> trunc(sysdate) then "
-     "   :file_no := 0; "
-     "   update sofi_files set file_no = 1, time = sysdate where "
-     "    point_addr = :point_addr and "
-     "    desk = :desk; "
-     " else "
-	 " UPDATE sofi_files SET file_no=:file_no+1 where point_addr = :point_addr and "
-     "    desk = :desk; "
-     " end if; "
-	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
-	 "   :file_no := 0; "
-	 "   INSERT INTO sofi_files(file_no, point_addr, desk, time) VALUES( 1, :point_addr, :desk, sysdate ); "
-	 "END; ";
-	Qry.CreateVariable( "file_no", otInteger, 0 );
-	Qry.CreateVariable( "point_addr", otString, point_addr );
-	Qry.CreateVariable( "desk", otString, pult );
-	tst();
-	Qry.Execute();
-	ostringstream res;
-	res <<setw(0)<<DateTimeToStr(NowUTC(),"yymmdd");
-    res << pult;
-	res <<Qry.GetVariableAsInteger( "file_no" );
-	res <<setw(0)<<".txt";
-    ProgTrace(TRACE5, "params.size = %zu", params.size());
-    for(map<string,string>::iterator im = params.begin(); im != params.end(); im++) {
-        ProgTrace(TRACE5, "params[%s] = %s", im->first.c_str(), im->second.c_str());
+  DB::TQuery QryLock(PgOra::getRWSession("SOFI_FILES"), STDLOG);
+  QryLock.SQLText =
+      "SELECT file_no, time "
+      "FROM sofi_files "
+      "WHERE point_addr = :point_addr "
+      "AND desk = :desk "
+      "FOR UPDATE ";
+  QryLock.CreateVariable("point_addr", otString, point_addr);
+  QryLock.CreateVariable("desk", otString, pult);
+  QryLock.Execute();
+
+  int file_no = 0;
+  TDateTime now_local = Now();
+  if (!QryLock.Eof) {
+    TDateTime today;
+    modf(now_local, &today);
+
+    file_no = QryLock.FieldAsInteger("file_no");
+    TDateTime file_date = QryLock.FieldAsDateTime("time");
+    modf(file_date, &file_date);
+
+    if (file_date != today) {
+      file_no = 0;
+      DB::TQuery QryUpd(PgOra::getRWSession("SOFI_FILES"), STDLOG);
+      QryUpd.SQLText =
+          "UPDATE sofi_files "
+          "SET file_no = :file_no, "
+          "time = :now_local "
+          "WHERE point_addr = :point_addr "
+          "AND desk = :desk ";
+      QryUpd.CreateVariable("file_no", otInteger, 1);
+      QryUpd.CreateVariable("now_local", otDate, now_local);
+      QryUpd.CreateVariable("point_addr", otString, point_addr);
+      QryUpd.CreateVariable("desk", otString, pult);
+      QryUpd.Execute();
+    } else {
+      DB::TQuery QryUpd(PgOra::getRWSession("SOFI_FILES"), STDLOG);
+      QryUpd.SQLText =
+          "UPDATE sofi_files "
+          "SET file_no = :file_no "
+          "WHERE point_addr = :point_addr "
+          "AND desk = :desk ";
+      QryUpd.CreateVariable("file_no", otInteger, file_no + 1);
+      QryUpd.CreateVariable("point_addr", otString, point_addr);
+      QryUpd.CreateVariable("desk", otString, pult);
+      QryUpd.Execute();
     }
+  } else {
+    file_no = 0;
+    DB::TQuery QryIns(PgOra::getRWSession("SOFI_FILES"), STDLOG);
+    QryIns.SQLText =
+        "INSERT INTO sofi_files(file_no, point_addr, desk, time) "
+        "VALUES(:file_no, :point_addr, :desk, :now_local) ";
+    QryIns.CreateVariable("file_no", otInteger, 1);
+    QryIns.CreateVariable("now_local", otDate, now_local);
+    QryIns.CreateVariable("point_addr", otString, point_addr);
+    QryIns.CreateVariable("desk", otString, pult);
+    QryIns.Execute();
+  }
+
+  ostringstream res;
+  res << setw(0) << DateTimeToStr(NowUTC(), "yymmdd");
+  res << pult;
+  res << file_no;
+  res << setw(0)<<".txt";
+  ProgTrace(TRACE5, "params.size = %zu", params.size());
+  for(map<string,string>::iterator im = params.begin(); im != params.end(); im++) {
+    ProgTrace(TRACE5, "params[%s] = %s", im->first.c_str(), im->second.c_str());
+  }
   params[ PARAM_FILE_NAME ] =  res.str();
   params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
-	params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
   params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
 }
 
@@ -266,7 +299,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<dlmt; //15
  TFileData fd;
  fd.file_data = res.str();
- createFileParamsSofi( point_id, receipt_id, pult, point_addr, fd.params );
+ createFileParamsSofi( point_id, pult, point_addr, fd.params );
  if ( !fd.file_data.empty() )
 	fds.push_back( fd );
  return !fds.empty();
