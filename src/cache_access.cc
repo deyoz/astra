@@ -110,6 +110,19 @@ bool isPermitted(const std::optional<CityCode_t>& cityOpt)
 namespace CacheTable
 {
 
+void throwIfNotPermitted(const std::optional<AirportCode_t>& airportOpt, bool isNewRow)
+{
+  if (isPermitted(airportOpt)) return;
+
+  if (airportOpt) {
+    throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AIRPORT":"MSG.NO_PERM_MODIFY_AIRPORT",
+                        LParams() << LParam("airp", ElemIdToCodeNative(etAirp, airportOpt.value().get())));
+  }
+  else {
+    throw UserException(isNewRow?"MSG.NEED_SET_CODE_AIRP":"MSG.NO_PERM_MODIFY_INDEFINITE_AIRPORT");
+  }
+}
+
 void checkAirportAccess(const std::string& fieldName,
                         const std::optional<CacheTable::Row>& oldRow,
                         const std::optional<CacheTable::Row>& newRow)
@@ -126,15 +139,20 @@ void checkAirportAccess(const std::string& fieldName,
       if (!value.empty()) airportOpt.emplace(value);
     }
 
-    if (isPermitted(airportOpt)) continue;
+    throwIfNotPermitted(airportOpt, isNewRow);
+  }
+}
 
-    if (airportOpt) {
-      throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AIRPORT":"MSG.NO_PERM_MODIFY_AIRPORT",
-                          LParams() << LParam("airp", ElemIdToCodeNative(etAirp, airportOpt.value().get())));
-    }
-    else {
-      throw UserException(isNewRow?"MSG.NEED_SET_CODE_AIRP":"MSG.NO_PERM_MODIFY_INDEFINITE_AIRPORT");
-    }
+void throwIfNotPermitted(const std::optional<AirlineCode_t>& airlineOpt, bool isNewRow)
+{
+  if (isPermitted(airlineOpt)) return;
+
+  if (airlineOpt) {
+    throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AIRLINE":"MSG.NO_PERM_MODIFY_AIRLINE",
+                        LParams() << LParam("airline", ElemIdToCodeNative(etAirline, airlineOpt.value().get())));
+  }
+  else {
+    throw UserException(isNewRow?"MSG.NEED_SET_CODE_AIRLINE":"MSG.NO_PERM_MODIFY_INDEFINITE_AIRLINE");
   }
 }
 
@@ -154,15 +172,7 @@ void checkAirlineAccess(const std::string& fieldName,
       if (!value.empty()) airlineOpt.emplace(value);
     }
 
-    if (isPermitted(airlineOpt)) continue;
-
-    if (airlineOpt) {
-      throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AIRLINE":"MSG.NO_PERM_MODIFY_AIRLINE",
-                          LParams() << LParam("airline", ElemIdToCodeNative(etAirline, airlineOpt.value().get())));
-    }
-    else {
-      throw UserException(isNewRow?"MSG.NEED_SET_CODE_AIRLINE":"MSG.NO_PERM_MODIFY_INDEFINITE_AIRLINE");
-    }
+    throwIfNotPermitted(airlineOpt, isNewRow);
   }
 }
 
@@ -499,6 +509,41 @@ void checkNotNullAirportOrAirportAccess(const std::string& fieldName1,
     throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AP_AND_AP":"MSG.NO_PERM_MODIFY_AP_AND_AP",
                         LParams() << LParam("airp1", ElemIdToCodeNative(etAirp, airport1.get()))
                                   << LParam("airp2", ElemIdToCodeNative(etAirp, airport2.get())));
+  }
+}
+
+void checkAirlineOrAirlineAccess(const std::string& fieldName1,
+                                 const std::string& fieldName2,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow)
+{
+  for(bool isNewRow : {false, true})
+  {
+    const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
+    if (!row) continue;
+
+    std::optional<AirlineCode_t> airline1;
+    std::optional<AirlineCode_t> airline2;
+
+    std::string value1=row.value().getAsString(fieldName1);
+    if (!value1.empty()) airline1.emplace(value1);
+    std::string value2=row.value().getAsString(fieldName2);
+    if (!value2.empty()) airline2.emplace(value2);
+
+    if (airline1==airline2)
+      throwIfNotPermitted(airline1, isNewRow);
+    else
+    {
+      if (isPermitted(airline1) || isPermitted(airline2)) continue;
+
+      if (airline1 && airline2)
+        throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AL_AND_AL":"MSG.NO_PERM_MODIFY_AL_AND_AL",
+                            LParams() << LParam("airline1", ElemIdToCodeNative(etAirline, airline1.value().get()))
+                                      << LParam("airline2", ElemIdToCodeNative(etAirline, airline2.value().get())));
+      else
+        throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AL_AND_INDEFINITE_AL":"MSG.NO_PERM_MODIFY_AL_AND_INDEFINITE_AL",
+                            LParams() << LParam("airline", ElemIdToCodeNative(etAirline, (airline1?airline1:airline2).value().get())));
+    }
   }
 }
 

@@ -3689,7 +3689,7 @@ BEGINDATA
 "MSG.NO_PERM_ENTER_AIRP_DEP"|"EN"|"No rights to fill in the row of the departure airport [airp%s]"|0|0|0
 "MSG.NO_PERM_ENTER_AIRP_DEP_AND_ARV"|"EN"|"No rights to fill in the row of these departure and arrival airports"|0|0|0
 "MSG.NO_PERM_ENTER_AIRPORT"|"EN"|"No rights to fill in the row of the airport [airp%s]"|0|0|0
-"MSG.NO_PERM_ENTER_AL_AND_AL"|"EN"|"No rights to fill in the row of the airline [airline%s] and [airline2%s]"|0|0|0
+"MSG.NO_PERM_ENTER_AL_AND_AL"|"EN"|"No rights to fill in the row of the airline [airline1%s] and [airline2%s]"|0|0|0
 "MSG.NO_PERM_ENTER_AL_AND_INDEFINITE_AL"|"EN"|"No rights to fill in the row of the airline [airline%s] and unspecified airline"|0|0|0
 "MSG.NO_PERM_ENTER_AP_AND_AP"|"EN"|"No rights to fill in the row of the airport [airp1%s] and [airp2%s]"|0|0|0
 "MSG.NO_PERM_ENTER_AP_AND_INDEFINITE_AP"|"EN"|"No rights to fill in the row of the airport [airp%s] and unspecified airport"|0|0|0
@@ -3701,7 +3701,7 @@ BEGINDATA
 "MSG.NO_PERM_MODIFY_AIRP_DEP_AND_ARV"|"EN"|"No rights to change or delete the row with these departure and arrival airports"|0|0|0
 "MSG.NO_PERM_MODIFY_AIRPORT"|"EN"|"No rights to change or delete the row with the airport [airp%s]"|0|0|0
 "QST.CONTINUE"|"RU"|"Продолжить?"|0|0|0
-"MSG.NO_PERM_MODIFY_AL_AND_AL"|"EN"|"No rights to change or delete the row with the airline [airline%s] and [airline2%s]"|0|0|0
+"MSG.NO_PERM_MODIFY_AL_AND_AL"|"EN"|"No rights to change or delete the row with the airline [airline1%s] and [airline2%s]"|0|0|0
 "MSG.NO_PERM_MODIFY_AL_AND_INDEFINITE_AL"|"EN"|"No rights to change or delete the row with the airline [airline%s] and unspecified airline"|0|0|0
 "MSG.NO_PERM_MODIFY_AP_AND_AP"|"EN"|"No rights to change or delete the row with the airport [airp1%s] and [airp2%s]"|0|0|0
 "MSG.NO_PERM_MODIFY_AP_AND_INDEFINITE_AP"|"EN"|"No rights to change or delete the row with the airport [airp%s] and unspecified airport"|0|0|0

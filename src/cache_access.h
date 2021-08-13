@@ -120,5 +120,10 @@ void checkNotNullAirportOrAirportAccess(const std::string& fieldName1,
                                         const std::optional<CacheTable::Row>& oldRow,
                                         const std::optional<CacheTable::Row>& newRow);
 
+void checkAirlineOrAirlineAccess(const std::string& fieldName1,
+                                 const std::string& fieldName2,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow);
+
 } //namespace CacheTable
 
