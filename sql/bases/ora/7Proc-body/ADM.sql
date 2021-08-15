@@ -3380,29 +3380,5 @@ BEGIN
   END IF;
 END insert_brand_fares;
 
-PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
-                              v_st_user IN web_sales.st_user%TYPE,
-                              vlang     IN lang_types.code%TYPE)
-IS
-info	 adm.TCacheInfo;
-lparams  system.TLexemeParams;
-BEGIN
-  check_chars_in_name(v_st_desk, NULL, NULL, 'WEB_SALES', 'ST_DESK', vlang);
-  check_chars_in_name(v_st_user, NULL, NULL, 'WEB_SALES', 'ST_USER', vlang);
-
-  IF v_st_desk IS NOT NULL THEN
-    IF LENGTH(v_st_desk)<>6 THEN
-      system.raise_user_exception('MSG.INVALID_DESK_LENGTH');
-    END IF;
-  END IF;
-  IF v_st_user IS NOT NULL THEN
-    IF LENGTH(v_st_user)<10 THEN
-      info:=adm.get_cache_info('WEB_SALES');
-      lparams('fieldname'):=info.field_title('ST_USER');
-      system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
-    END IF;
-  END IF;
-END check_web_sales_row;
-
 END adm;
 /

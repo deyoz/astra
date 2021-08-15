@@ -125,7 +125,6 @@ BEGINDATA
 133|"rfisc_rates"|"id"|"airline, airp_dep, airp_arv, brand, sale_first_date, sale_last_date, rfisc, rate, rate_cur"
 116|"fqt_tier_levels"|"id"|"airline, tier_level"
 142|"bi_print_rules"|"id"|"airline, brand_airline, brand_code, fqt_airline, fqt_tier_level, aircode, rem_code, class, subclass, rfisc, print_type, pr_denial"
-106|"web_sales"|"id"|"client_id, st_desk, st_user"
 175|"edifact_profiles"|"name"|"ctrl_agency, sub_version, syntax_name, syntax_ver, version"
 151|"airline_profiles"|"profile_id"|"name, airline, airp"
 152|"profile_rights"|"id"|"profile_id, right_id"
