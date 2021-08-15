@@ -2198,3 +2198,31 @@ bool isDoomedToWait()
 {
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
 }
+
+std::optional<char> invalidSymbolInName(const std::string &value,
+                                        const bool latinOnly,
+                                        const std::string &additionalSymbols)
+{
+
+  const string::const_iterator i=
+    std::find_if_not(value.begin(), value.end(),
+                     [latinOnly, additionalSymbols](const auto &c)
+                     {
+                       return ((!latinOnly || IsAscii7(c)) && IsUpperLetter(c)) ||
+                              IsDigit(c) ||
+                              additionalSymbols.find(c)!=string::npos;
+                     });
+  if (i!=value.end()) return *i;
+
+  return std::nullopt;
+}
+
+bool isValidName(const std::string &value, const bool latinOnly, const std::string &additionalSymbols)
+{
+  return !invalidSymbolInName(value, latinOnly, additionalSymbols);
+}
+
+bool isValidAirlineName(const std::string &value, const bool latinOnly)
+{
+  return isValidName(value, latinOnly, " ,.+-/:;()\"`'");
+}

@@ -863,4 +863,13 @@ void syncHistory(const std::string& table_name, int id,
 
 std::optional<int> getDeskGroupByCode(const std::string& desk);
 
+std::optional<char> invalidSymbolInName(const std::string &value,
+                                        const bool latinOnly,
+                                        const std::string &additionalSymbols=" -");
+
+bool isValidName(const std::string &value, const bool latinOnly, const std::string &additionalSymbols=" -");
+
+bool isValidAirlineName(const std::string &value, const bool latinOnly);
+
+
 #endif /*_ASTRA_UTILS_H_*/
