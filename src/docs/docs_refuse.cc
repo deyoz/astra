@@ -27,7 +27,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         string SQLText =
             "SELECT point_dep AS point_id, "
             "       reg_no, "
-            "       surname||' '||pax.name family, "
+            "       RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) family, "
             "       pax.pers_type, "
             "       ticket_no, "
             "       refusal_types.code refuse, "

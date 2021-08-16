@@ -1687,7 +1687,7 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
         "   arx_points.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
         "   arx_pax.reg_no, "
-        "   arx_pax.surname||' '||arx_pax.name full_name, "
+        "   RTRIM(COALESCE(arx_pax.surname,'')||' '||COALESCE(arx_pax.name,'')) full_name, "
         "   arx_pax.excess_pc, "
         "   arx_pax.refuse, "
         "   arx_pax.pr_brd, "
@@ -1971,7 +1971,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.reg_no, "
                 "   pax.bag_pool_num, "
                 "   pax_grp.airp_arv, "
-                "   pax.surname||' '||pax.name full_name, "
+                "   RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) full_name, "
                 "   pax_grp.grp_id, "
                 "   pax.refuse, "
                 "   pax.pr_brd, "
@@ -2160,7 +2160,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
         sql << "SELECT arx_points.part_key, " <<
                TTripInfo::selectedFields("arx_points") << ", \n"
             << " arx_pax.reg_no, \n"
-               " arx_pax.surname||' '||arx_pax.name full_name, \n"
+               " RTRIM(COALESCE(arx_pax.surname,'')||' '||COALESCE(arx_pax.name,'')) full_name, \n"
                " arx_pax.excess_pc, \n"
                " arx_pax.pr_brd, \n"
                " arx_pax.refuse, \n"
@@ -2318,7 +2318,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         sql << TTripInfo::selectedFields("points") << ", "
                " pax.reg_no, "
                " pax_grp.airp_arv, "
-               " pax.surname||' '||pax.name full_name, ";
+               " RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) full_name, ";
         if(!DEMO_MODE()) {
             sql <<
                " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, ";

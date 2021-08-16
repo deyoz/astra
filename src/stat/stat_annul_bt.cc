@@ -59,7 +59,7 @@ void ArxRunAnnulBTStat(
             "   arx_annul_bag.id, "
             "   arx_pax_grp.airp_dep, "
             "   arx_pax_grp.airp_arv, "
-            "   arx_pax.surname||' '||arx_pax.name full_name, "
+            "   RTRIM(COALESCE(arx_pax.surname,'')||' '||COALESCE(arx_pax.name,'')) full_name, "
             "   arx_annul_bag.pax_id, "
             "   arx_annul_bag.bag_type, "
             "   arx_annul_bag.rfisc, "

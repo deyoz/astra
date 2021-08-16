@@ -178,7 +178,7 @@ void ArxRunTrferPaxStat(
         string SQLText =
             "select arx_points.part_key, "
             "   arx_trfer_pax_stat.*, "
-            "   arx_pax.surname||' '||arx_pax.name full_name, "
+            "   RTRIM(COALESCE(arx_pax.surname,'')||' '||COALESCE(arx_pax.name,'')) full_name, "
             "   arx_pax.pers_type, arx_pax.grp_id, arx_pax.bag_pool_num ";
 
         SQLText +=

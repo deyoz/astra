@@ -236,7 +236,7 @@ const TVouchers &TVouchers::fromDB(int point_id, int grp_id)
         DB::TCachedQuery unregQry(
               PgOra::getROSession("CONFIRM_PRINT_VO_UNREG"),
               "SELECT "
-              "   surname||' '||name AS full_name, "
+              "   RTRIM(COALESCE(surname,'')||' '||COALESCE(name,'')) AS full_name, "
               "   voucher, "
               "   count(*) total "
               "FROM "
