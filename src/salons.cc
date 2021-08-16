@@ -8425,7 +8425,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
   DB::TQuery Qry(PgOra::getROSession({"PAX", "TCKIN_PAX_GRP", "PAX_GRP"}), STDLOG);
   Qry.SQLText =
     "SELECT pax.ticket_no, pax.wl_type, pax.tid, pax.bag_pool_num, "
-    "       pax_grp.excess_wt, pax_grp.bag_refuse "
+    "       pax_grp.excess_wt, pax_grp.bag_refuse, "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
     "FROM pax "
     "JOIN pax_grp ON pax_grp.grp_id = pax.grp_id "
