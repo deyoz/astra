@@ -871,5 +871,12 @@ bool isValidName(const std::string &value, const bool latinOnly, const std::stri
 
 bool isValidAirlineName(const std::string &value, const bool latinOnly);
 
+void checkPeriod(bool pr_new,
+                 TDateTime first_date,
+                 TDateTime last_date,
+                 TDateTime now,
+                 TDateTime& first,
+                 TDateTime& last,
+                 bool& pr_opd);
 
 #endif /*_ASTRA_UTILS_H_*/

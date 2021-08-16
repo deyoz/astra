@@ -17,58 +17,6 @@ namespace Kassa {
 
 namespace {
 
-void checkPeriod(bool pr_new,
-                 TDateTime first_date,
-                 TDateTime last_date,
-                 TDateTime now,
-                 TDateTime& first,
-                 TDateTime& last,
-                 bool& pr_opd)
-{
-    if (first_date == ASTRA::NoExists && last_date == ASTRA::NoExists) {
-        throw AstraLocale::UserException("MSG.TABLE.NOT_SET_RANGE");
-    }
-    std::modf(first_date, &first);
-    std::modf(last_date, &last);
-
-    if (first_date != ASTRA::NoExists
-        && last_date != ASTRA::NoExists
-        && first > last)
-    {
-        throw AstraLocale::UserException("MSG.TABLE.INVALID_RANGE");
-    }
-
-    TDateTime today;
-    std::modf(now,&today);
-
-    if (first != ASTRA::NoExists) {
-        if (first < today) {
-            if (pr_new) {
-                throw AstraLocale::UserException("MSG.TABLE.FIRST_DATE_BEFORE_TODAY");
-            } else {
-                first = today;
-            }
-        }
-        if (first == today) {
-            first = now;
-        }
-        pr_opd = false;
-    } else {
-        pr_opd = true;
-    }
-
-    if (last != ASTRA::NoExists) {
-        if (last < today) {
-            throw AstraLocale::UserException("MSG.TABLE.LAST_DATE_BEFORE_TODAY");
-        }
-        last = last + 1;
-    }
-    if (pr_opd) {
-        first = last;
-        last  = ASTRA::NoExists;
-    }
-}
-
 void checkParams(int id, TDateTime first_date, TDateTime last_date,
                  TDateTime& first, TDateTime& last, bool& pr_opd)
 {
