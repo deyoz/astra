@@ -5,9 +5,11 @@ METASOURCES = AUTO
 lib_LIBRARIES = libkiosk.a
 libkiosk_a_SOURCES = \
   kiosk_events.cc \
-  kiosk_config.cc
+  kiosk_config.cc \
+  kiosk_cache_impl.cc
         
 
 noinst_HEADERS = \
   kiosk_events.h \
-  kiosk_config.h
+  kiosk_config.h \
+  kiosk_cache_impl.h

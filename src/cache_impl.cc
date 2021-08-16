@@ -3,6 +3,7 @@
 #include "astra_elems.h"
 #include "astra_types.h"
 #include "kassa.h"
+#include "kiosk/kiosk_cache_impl.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -69,6 +70,11 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
   if (cacheCode=="PLACE_CALC")          return new CacheTable::PlaceCalc;
   if (cacheCode=="COMP_SUBCLS_SETS")    return new CacheTable::CompSubclsSets;
+  if (cacheCode=="KIOSK_ALIASES_LIST")  return new CacheTable::KioskAliasesList;
+  if (cacheCode=="KIOSK_APP_LIST")      return new CacheTable::KioskAppList;
+  if (cacheCode=="KIOSK_CONFIG_LIST")   return new CacheTable::KioskConfigList;
+  if (cacheCode=="KIOSK_ADDR")          return new CacheTable::KioskAddr;
+  if (cacheCode=="KIOSK_GRP_NAMES")     return new CacheTable::KioskGrpNames;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
