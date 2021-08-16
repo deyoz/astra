@@ -250,14 +250,10 @@ struct KioskServerEventContainer {
       }
     }
     void toDB() {
-      TQuery Qry( &OraSession );
       if ( event.valid()) {
         try {
-          Qry.SQLText =
-            "SELECT kiosk_event__seq.nextval AS event_id FROM dual";
-          Qry.Execute();
-          int event_id = Qry.FieldAsInteger( "event_id" );
-          Qry.Clear();
+          int event_id =  PgOra::getSeqNextVal_int("KIOSK_EVENT__SEQ");
+          DB::TQuery Qry(PgOra::getRWSession("KIOSK_EVENTS"), STDLOG);
           Qry.SQLText =
             "INSERT INTO kiosk_events(id,type,application,screen,kioskid,time,ev_order,session_id) "
             "VALUES(:event_id,:type,:application,:screen,:kioskid,:time,:ev_order,:session_id) ";
@@ -273,33 +269,33 @@ struct KioskServerEventContainer {
           Qry.CreateVariable( "session_id", otString, event->session_id() );
           Qry.Execute();
           if ( event->inputParams != boost::none ) {
-            Qry.Clear();
-            Qry.SQLText =
+            DB::TQuery BQry(PgOra::getRWSession("KIOSK_EVENT_PARAMS"),STDLOG);
+            BQry.SQLText =
               "INSERT INTO kiosk_event_params(event_id,num,name,value,page_no) "
               " VALUES(:event_id,:num,:name,:value,:page_no)";
-            Qry.CreateVariable( "event_id", otInteger, event_id );
-            Qry.DeclareVariable( "num", otInteger );
-            Qry.DeclareVariable( "name", otString );
-            Qry.DeclareVariable( "value", otString );
-            Qry.DeclareVariable( "page_no", otInteger );
+            BQry.CreateVariable( "event_id", otInteger, event_id );
+            BQry.DeclareVariable( "num", otInteger );
+            BQry.DeclareVariable( "name", otString );
+            BQry.DeclareVariable( "value", otString );
+            BQry.DeclareVariable( "page_no", otInteger );
             int num = 0;
             for ( property_map<std::vector<boost::optional<std::string>>>::const_iterator i=event->inputParams.get().begin(); i!=event->inputParams.get().end(); i++ ) {
-              Qry.SetVariable( "name", i->first );
+              BQry.SetVariable( "name", i->first );
               if ( !i->second.empty() ) {
                 for ( vector<boost::optional<std::string>>::const_iterator v=i->second.begin(); v!=i->second.end(); v++ ) {
                   if ( *v == boost::none ) {
                      continue;
                   }
-                  Qry.SetVariable( "num", num );
+                  BQry.SetVariable( "num", num );
                   string value = v->get();
                   if ( requestTypeStr == "requestData" ) {
                      LogError(STDLOG) << "KIOSK: " << value;
                   }
                   int i=0;
                   while ( !value.empty() ) {
-                    Qry.SetVariable( "value", value.substr( 0, 2000 ) );
-                    Qry.SetVariable( "page_no", i );
-                    Qry.Execute();
+                    BQry.SetVariable( "value", value.substr( 0, 2000 ) );
+                    BQry.SetVariable( "page_no", i );
+                    BQry.Execute();
                     i++;
                     value.erase( 0, 2000 );
                   }
@@ -321,16 +317,16 @@ struct KioskServerEventContainer {
     }
     if ( !event.valid() ) {
       ProgError( STDLOG, "kiosk_event error %s", event.err().text.c_str() );
-      Qry.Clear();
-      Qry.SQLText =
+      DB::TQuery CQry(PgOra::getRWSession("KIOSK_EVENT_ERRORS"),STDLOG);
+      CQry.SQLText =
         "INSERT INTO kiosk_event_errors(content,error,reference,time) "
         " VALUES(:content,:error,:reference,:time)";
-      Qry.CreateVariable( "content", otString, headers[ "content" ].substr(0,2000) );
-      Qry.CreateVariable( "error", otString, event.err().text.substr(0,2000) );
-      Qry.CreateVariable( "reference", otString, string("") );
-      Qry.CreateVariable( "time", otDate, BASIC::date_time::Now() );
+      CQry.CreateVariable( "content", otString, headers[ "content" ].substr(0,2000) );
+      CQry.CreateVariable( "error", otString, event.err().text.substr(0,2000) );
+      CQry.CreateVariable( "reference", otString, string("") );
+      CQry.CreateVariable( "time", otDate, BASIC::date_time::Now() );
       tst();
-      Qry.Execute();
+      CQry.Execute();
       tst();
     }
   }

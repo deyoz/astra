@@ -981,8 +981,8 @@ $(db_dump_table FILES display="on")
 ??
 $(db_dump_table KIOSK_EVENTS display="on")
 >> lines=auto
-[NULL] [1] [1] [NULL] [NULL] [NULL] [$(date_format %y%m%d)] [NULL] $()
-[NULL] [5] [2] [NULL] [NULL] [NULL] [$(date_format %y%m%d)] [NULL] $()
+[NULL] [1] [1] [NULL] [NULL] [NULL] [$(date_format %Y-%m-%d) 00:00:00] [NULL] $()
+[NULL] [5] [2] [NULL] [NULL] [NULL] [$(date_format %Y-%m-%d) 00:00:00] [NULL] $()
 
 ??
 $(db_dump_table ETICKS_DISPLAY fields="coupon_no, ticket_no, last_display" display="on")

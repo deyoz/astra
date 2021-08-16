@@ -339,6 +339,10 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_VALIDATOR_TYPES", {"VALIDATOR_TYPES","HIST_VALIDATOR_TYPES"} },
         { "SP_PG_GROUP_PLACE_CALC", {"PLACE_CALC","HIST_PLACE_CALC"} },
+        { "SP_PG_GROUP_KIOSKS", {"KIOSK_EVENT__SEQ", "KIOSK_ADDR", "KIOSK_ALIASES", "KIOSK_CONFIG_LIST",
+                                 "KIOSK_EVENT_ERRORS", "KIOSK_EVENTS", "KIOSK_GRP", "KIOSK_ALIASES_LIST",
+                                 "KIOSK_APP_LIST", "KIOSK_CONFIG", "KIOSK_EVENT_PARAMS", "KIOSK_GRP_NAMES",
+                                 "KIOSK_LANG"}},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

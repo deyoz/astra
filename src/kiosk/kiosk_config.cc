@@ -15,7 +15,7 @@
 #include "boost/filesystem/operations.hpp"
 #include "exceptions.h"
 #include "jxtlib/xml_stuff.h"
-
+#include "PgOraConfig.h"
 
 using namespace std;
 using namespace boost;
@@ -149,14 +149,13 @@ class KioskParams
         sql += " 0 AS pr_del, 0 AS tid ";
       }
       sql +=
-        " FROM " + table_name +
-        " , kiosk_app_list ";
+        " FROM " + table_name + " LEFT OUTER JOIN KIOSK_APP_LIST ON " +
+              table_name + ".app_id=KIOSK_APP_LIST.id ";
       if ( fieldsContent.isFlag( elang ) ) {
         sql += ", kiosk_lang ";
       }
       sql +=
-        " WHERE " +  table_name + ".app_id=kiosk_app_list.id(+) AND "
-        "   ( kiosk_id=:kiosk_id OR "
+        " WHERE ( kiosk_id=:kiosk_id OR "
         "         kiosk_id IS NULL OR "
         "         grp_id IN ( SELECT grp_id FROM kiosk_grp WHERE kiosk_id=:kiosk_id ) ) AND "
         "       ( kiosk_app_list.code=:application OR "
@@ -186,7 +185,7 @@ class KioskParams
       return this->version == version;
     }
     void fromDB() {
-      TQuery Qry(&OraSession);
+      DB::TQuery Qry(PgOra::getROSession({table_name, "KIOSK_APP_LIST", "KIOSK_GRP"}), STDLOG);
       Qry.SQLText = getSQL();
       Qry.CreateVariable("application", otString, application );
       Qry.CreateVariable("kiosk_id", otString, kioskId );

@@ -215,8 +215,9 @@ TKioskEventParams::TItemsMap TKioskEventParams::get_param(const string &name) co
 
 void TKioskEventParams::fromDB(int event_id)
 {
-    TCachedQuery Qry("select * from kiosk_event_params where event_id = :event_id",
-            QParams() << QParam("event_id", otInteger, event_id));
+    DB::TCachedQuery Qry(PgOra::getROSession("KIOSK_EVENT_PARAMS"),
+                         "select * from kiosk_event_params where event_id = :event_id",
+            QParams() << QParam("event_id", otInteger, event_id), STDLOG);
     Qry.get().Execute();
 
     typedef map<int, string> TPageMap; // <page_no, value>
@@ -287,7 +288,7 @@ struct TSelfCkinLog {
 
     TItemsMap items;
     void fromDB(const TParams &params);
-    void fromDB(const TParams &params, TCachedQuery &Qry);
+    void fromDB(const TParams &params, DB::TCachedQuery &Qry);
     void toXML(xmlNodePtr resNode);
     void rowToXML(xmlNodePtr rowNodek, const TSelfCkinLogItem &log_item, const string &err = "");
     bool found(const string &value, const string &param);
@@ -388,7 +389,7 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
-void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
+void TSelfCkinLog::fromDB(const TParams &params, DB::TCachedQuery &Qry)
 {
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -452,7 +453,7 @@ void TSelfCkinLog::fromDB(const TParams &params)
 {
     if(params.kiosks_grp.no_data()) return;
     QParams QryParams;
-    string SQLText = "select * from kiosk_events where kioskid is not null and ";
+    string SQLText = "select * from KIOSK_EVENTS where kioskid is not null and ";
     if(params.sessionId.empty()) {
         SQLText += "time > :time_from and time <= :time_to";
         QryParams
@@ -489,20 +490,21 @@ void TSelfCkinLog::fromDB(const TParams &params)
         SQLText += " session_id = :sessionId ";
         QryParams << QParam("sessionId", otString, params.sessionId);
     }
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("KIOSK_EVENTS"), SQLText, QryParams, STDLOG);
     fromDB(params, Qry);
     if(not params.sessionId.empty() and not items.empty()) {
-        TCachedQuery devQry(
+        DB::TCachedQuery devQry(PgOra::getROSession("KIOSK_EVENTS"),
                 "select * from kiosk_events where "
                 "   kioskid = :kiosk_id and "
                 "   type in(:statusDevices, :statusOperation) and "
-                "   time > :time_from - 5/1440 and time <= :time_to + 5/1440 ",
+                "   time > :time_from - 5 * interval '1 minute' and time <= :time_to + 5 * interval '1 minute' ",
                 QParams()
                 << QParam("kiosk_id", otString, items.begin()->second.begin()->second.begin()->second.kiosk_id)
                 << QParam("time_from", otDate, items.begin()->second.begin()->first)
                 << QParam("time_to", otDate, items.rbegin()->second.begin()->first)
                 << QParam("statusDevices", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusDevices))
-                << QParam("statusOperation", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusOperation)));
+                << QParam("statusOperation", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusOperation)),
+                                STDLOG);
 
         fromDB(params, devQry);
     }
