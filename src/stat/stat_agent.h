@@ -33,7 +33,6 @@ namespace STAT {
             agent_stat_t drk_amount,
             agent_stat_t drk_weight
             );
-    int agent_stat_delta(int argc,char **argv);
 }
 
 struct TAgentStatKey {

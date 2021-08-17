@@ -4,6 +4,10 @@
 #include "qrys.h"
 #include "term_version.h"
 #include "salons.h"
+#include "PgOraConfig.h"
+
+#define NICKNAME "SYSTEM"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -64,7 +68,7 @@ void TParamItem::toXML(xmlNodePtr resNode)
     }
 }
 
-void TParamItem::fromDB(TQuery &Qry)
+void TParamItem::fromDB(DB::TQuery &Qry)
 {
     code = Qry.FieldAsString("code");
     visible = Qry.FieldAsInteger("visible");
@@ -85,7 +89,10 @@ void TParamItem::fromDB(TQuery &Qry)
 void TLayout::get_params()
 {
     if(params.empty()) {
-        TCachedQuery Qry("select * from stat_params");
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("STAT_PARAMS"),
+              "SELECT * FROM stat_params",
+              STDLOG);
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next()) {
             TParamItem item;
@@ -103,9 +110,9 @@ void TLayout::get_params()
     }
 }
 
-void TLayout::toXML(xmlNodePtr resNode, const string &tag, const string &qry)
+void TLayout::toXML(xmlNodePtr resNode, const string &tag, const string &qry, DbCpp::Session& session)
 {
-    TCachedQuery Qry(qry);
+    DB::TCachedQuery Qry(session, qry, STDLOG);
     Qry.get().Execute();
     xmlNodePtr listNode = NewTextChild(resNode, tag.c_str());
     for(; not Qry.get().Eof; Qry.get().Next()) {
@@ -131,7 +138,7 @@ void TLayout::toXML(xmlNodePtr resNode)
     xmlNodePtr paramsNode = NewTextChild(resNode, "params");
     for(map<int, TParamItem>::iterator i = params.begin(); i != params.end(); i++)
         i->second.toXML(paramsNode);
-    toXML(resNode, "types", "select * from stat_types order by view_order");
-    toXML(resNode, "levels", "select * from stat_levels order by view_order");
+    toXML(resNode, "types", "SELECT * FROM stat_types ORDER BY view_order", PgOra::getROSession("STAT_TYPES"));
+    toXML(resNode, "levels", "SELECT * FROM stat_levels ORDER BY view_order", PgOra::getROSession("STAT_LEVELS"));
 }
 

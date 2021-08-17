@@ -15,35 +15,49 @@ void set_stat_zamar(ZamarType type, const AirlineCode_t &airline, const AirportC
 {
     LogTrace(TRACE5) << __func__ << " start: " << airline << ", " << airp << ", " << pr_ok;
     try {
-        TCachedQuery Qry(
-                "declare "
-                "  pragma autonomous_transaction; "
-                "begin "
-                "  insert into stat_zamar( "
-                "     sbdo_type, "
-                "     time, "
-                "     airline, "
-                "     airp, "
-                "     amount_ok, "
-                "     amount_fault "
-                "  ) values ( "
-                "     :sbdo_type, "
-                "     :time, "
-                "     :airline, "
-                "     :airp, "
-                "     :amount_ok, "
-                "     :amount_fault "
-                "  ); "
-                "  commit; "
-                "end; ",
-                QParams()
-                << QParam("sbdo_type", otString, EncodeZamarType(type))
+      QParams qryParams;
+      qryParams << QParam("sbdo_type", otString, EncodeZamarType(type))
                 << QParam("time", otDate, NowUTC())
                 << QParam("airline", otString, airline.get())
                 << QParam("airp", otString, airp.get())
                 << QParam("amount_ok", otInteger, pr_ok)
-                << QParam("amount_fault", otInteger, not pr_ok));
-        Qry.get().Execute();
+                << QParam("amount_fault", otInteger, not pr_ok);
+      std::string sqlInsert =
+          "  INSERT INTO stat_zamar( "
+          "     sbdo_type, "
+          "     time, "
+          "     airline, "
+          "     airp, "
+          "     amount_ok, "
+          "     amount_fault "
+          "  ) VALUES ( "
+          "     :sbdo_type, "
+          "     :time, "
+          "     :airline, "
+          "     :airp, "
+          "     :amount_ok, "
+          "     :amount_fault "
+          "  ) ";
+
+        DbCpp::Session& session = PgOra::getRWSession("STAT_ZAMAR");
+        if (session.isOracle()) {
+          DB::TCachedQuery insQry(
+                session,
+                "DECLARE "
+                "  PRAGMA AUTONOMOUS_TRANSACTION; "
+                "BEGIN "
+                "  " + sqlInsert + "; "
+                "  COMMIT; "
+                "END; ",
+                qryParams,
+                STDLOG);
+          insQry.get().Execute();
+        } else {
+          DbCpp::PgAutonomousSessionManager mngr = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+          DB::TCachedQuery insQry(mngr.session(), sqlInsert, qryParams, STDLOG);
+          insQry.get().Execute();
+          mngr.commit();
+        }
     } catch(const Exception &E) {
         ProgError( STDLOG, "%s: %s", __func__, E.what());
     } catch(...) {
@@ -117,15 +131,14 @@ void RunZamarStat(
         << QParam("LastDate", otDate, params.LastDate)
         << QParam("sbdo_type", otString, EncodeZamarType(ZamarType::SBDO));
 
-    string SQLText = "select stat_zamar.* "
-                     "from  stat_zamar "
-                     "where ";
+    string SQLText = "SELECT stat_zamar.* "
+                     "FROM stat_zamar "
+                     "WHERE ";
     params.AccessClause(SQLText, "stat_zamar");
     SQLText +=
-        "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate and "
+        "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate AND "
         "   stat_zamar.sbdo_type = :sbdo_type ";
-    TCachedQuery Qry(SQLText, QryParams);
-
+    DB::TCachedQuery Qry(PgOra::getROSession("STAT_ZAMAR"), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_airline = Qry.get().GetFieldIndex("airline");

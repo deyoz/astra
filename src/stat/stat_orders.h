@@ -64,7 +64,7 @@ struct TStatOrder {
         file_id(afile_id),
         user_id(auser_id),
         source(asource)
-    { };
+    { }
     TStatOrder() { clear(); }
     void clear()
     {
@@ -82,7 +82,7 @@ struct TStatOrder {
 
     void del() const;
     void toDB();
-    void fromDB(TCachedQuery &Qry);
+    void fromDB(DB::TCachedQuery &Qry);
     void get_parts();
     void check_integrity(BASIC::date_time::TDateTime month);
 };
@@ -113,7 +113,7 @@ struct TFileParams {
 };
 
 struct TErrCommit {
-    TCachedQuery Qry;
+    DB::TCachedQuery Qry;
     TErrCommit();
     static TErrCommit *Instance()
     {
@@ -126,6 +126,6 @@ struct TErrCommit {
 };
 
 const std::string EncodeOrderStatus(TOrderStatus s);
-void commit_progress(TQuery &Qry, int parts, int size, long time_processing, int interval);
+void commit_progress(DB::TQuery &Qry, int parts, int size, long time_processing, int interval);
 
 #endif

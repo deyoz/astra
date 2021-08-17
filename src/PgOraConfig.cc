@@ -82,6 +82,32 @@ namespace PgOra
         { "SP_PG_GROUP_AODB_POINTS",{ "SNAPSHOT_POINTS", "AODB_POINTS" } }, // POINTS
         { "SP_PG_GROUP_TRIP_VOUCHERS",{ "TRIP_VOUCHERS", "VOUCHER_TYPES" } },
         { "SP_PG_GROUP_PAX_TRANSLIT",{ "PAX_TRANSLIT", "CRS_PAX_TRANSLIT", "TEST_PAX_TRANSLIT" } }, // new tables
+        { "SP_PG_GROUP_STAT_ORDERS",{
+                "STAT_ORDERS",
+                "STAT_ORDERS_DATA",
+        } },
+        { "SP_PG_GROUP_BAG_NAMES",{
+                "STAT_FV_BAG_NAMES",
+                "RPT_BM_BAG_NAMES"
+        } },
+        { "SP_PG_GROUP_STAT_2",{
+                "STAT_TYPES",
+                "STAT_LEVELS",
+                "STAT_PARAMS",
+                "STAT_ZAMAR",
+        } },
+        { "SP_PG_GROUP_STAT_3",{
+                "STAT",                    // "POINTS","TRFER_STAT"
+                "LIMITED_CAPABILITY_STAT", // "POINTS"
+                "STAT_HA",                 // "POINTS"
+                "STAT_VO",                 // "POINTS"
+                "STAT_REM",                // "POINTS","USERS2",
+                "TRFER_STAT",              // "POINTS","STAT"
+                "AGENT_STAT",              // "POINTS","USERS2", agent_stat_t
+                "SELF_CKIN_STAT",          // "POINTS"
+                "PFS_STAT",                // "POINTS"
+                "RFISC_STAT",              // "POINTS"
+        } },
 
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },

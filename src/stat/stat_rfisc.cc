@@ -115,7 +115,8 @@ void get_rfisc_stat(int point_id)
     QryParams << QParam("point_id", otInteger, point_id);
 
     DB::TCachedQuery delQry(PgOra::getRWSession("RFISC_STAT"),
-                            "delete from rfisc_stat where point_id = :point_id",
+                            "DELETE FROM rfisc_stat "
+                            "WHERE point_id = :point_id",
                             QryParams,
                             STDLOG);
     delQry.get().Execute();
@@ -168,7 +169,7 @@ void get_rfisc_stat(int point_id)
           STDLOG);
 
     DB::TCachedQuery insQry(PgOra::getRWSession("RFISC_STAT"),
-            "insert into rfisc_stat( "
+            "INSERT INTO rfisc_stat( "
             "  point_id, "
             "  pr_trfer, "
             "  trfer_airline, "
@@ -191,7 +192,7 @@ void get_rfisc_stat(int point_id)
             "  fqt_no, "
             "  excess, "
             "  paid "
-            ") values ( "
+            ") VALUES ( "
             "  :point_id, "
             "  :pr_trfer, "
             "  :trfer_airline, "
@@ -465,7 +466,8 @@ void nosir_rfisc_stat_point(int point_id)
 
     int count = 0;
     DB::TQuery RfiscQry(PgOra::getROSession("RFISC_STAT"), STDLOG);
-    RfiscQry.SQLText = "select count(*) from rfisc_stat where point_id=:point_id";
+    RfiscQry.SQLText = "SELECT count(*) FROM rfisc_stat "
+                       "WHERE point_id=:point_id";
     RfiscQry.CreateVariable("point_id", otInteger, point_id);
     RfiscQry.Execute();
     if (not RfiscQry.Eof) {
@@ -530,9 +532,9 @@ int nosir_rfisc_all(int argc,char **argv)
     nextDateQry.SQLText = "select add_months(:begin, 1) from dual";
     nextDateQry.DeclareVariable("begin", otDate);
 
-    TQuery rfiscQry(&OraSession);
+    DB::TQuery rfiscQry(PgOra::getROSession({"RFISC_STAT","POINTS"}), STDLOG);
     rfiscQry.SQLText =
-        "select "
+        "SELECT "
         "   rfisc_stat.rfisc, "
         "   rfisc_stat.point_id, "
         "   rfisc_stat.point_num, "
@@ -556,14 +558,14 @@ int nosir_rfisc_all(int argc,char **argv)
         "   rfisc_stat.fqt_no, "
         "   rfisc_stat.excess, "
         "   rfisc_stat.paid "
-        "from "
+        "FROM "
         "   points, "
         "   rfisc_stat "
-        "where "
+        "WHERE "
         "   rfisc_stat.point_id = points.point_id and "
         "   points.pr_del >= 0 and "
         "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
-        "order by "
+        "ORDER BY "
         "   rfisc_stat.point_id, "
         "   rfisc_stat.point_num, "
         "   rfisc_stat.pr_trfer, "
@@ -928,17 +930,17 @@ void RunRFISCStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
     string SQLText =
-        "select * from "
-        "   points, \n"
-        "   rfisc_stat \n"
+        "SELECT * FROM "
+        "   points, "
+        "   rfisc_stat "
         "where "
         "   rfisc_stat.point_id = points.point_id and "
         "   points.pr_del >= 0 and ";
     params.AccessClause(SQLText);
-    SQLText +=  " points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    SQLText +=  " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
 
-    TCachedQuery Qry(SQLText, QryParams);
-
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"RFISC_STAT","POINTS"}), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_reg_no = Qry.get().GetFieldIndex("reg_no");

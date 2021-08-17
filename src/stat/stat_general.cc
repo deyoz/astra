@@ -1662,41 +1662,41 @@ void RunPactDetailStat(const TStatParams &params,
 
     ostringstream sql;
     DB::TQuery Qry(PgOra::getROSession("STAT"), STDLOG);
-    sql << "SELECT \n"
-        " points.airline, \n"
-        " points.airp, \n"
-        " points.scd_out, \n"
-        " stat.point_id, \n"
-        " adult, \n"
-        " child, \n"
-        " baby, \n"
-        " term_bp, \n"
-        " term_bag, \n"
-        " f, c, y, \n"
-        " client_type \n"
-        "FROM \n"
-        "   points, \n"
-        "   stat \n"
-        "WHERE \n"
-        " stat.point_id = points.point_id AND \n"
-        " points.pr_del>=0 AND \n"
-        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    sql << "SELECT "
+           " points.airline, "
+           " points.airp, "
+           " points.scd_out, "
+           " stat.point_id, "
+           " adult, "
+           " child, "
+           " baby, "
+           " term_bp, "
+           " term_bag, "
+           " f, c, y, "
+           " client_type "
+           "FROM "
+           "   points, "
+           "   stat "
+           "WHERE "
+           " stat.point_id = points.point_id AND "
+           " points.pr_del>=0 AND "
+           " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
 
     if(params.flt_no != NoExists) {
-        sql << " AND points.flt_no = :flt_no \n";
+        sql << " AND points.flt_no = :flt_no ";
         Qry.CreateVariable("flt_no", otInteger, params.flt_no);
     }
     if (!params.airps.elems().empty()) {
         if (params.airps.elems_permit())
-            sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << "\n";
+            sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << " ";
         else
-            sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << "\n";
+            sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << " ";
     };
     if (!params.airlines.elems().empty()) {
         if (params.airlines.elems_permit())
-            sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << "\n";
+            sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << " ";
         else
-            sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << "\n";
+            sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << " ";
     };
     Qry.SQLText = sql.str().c_str();
 

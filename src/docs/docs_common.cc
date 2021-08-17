@@ -917,7 +917,9 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
 void t_rpt_bm_bag_name::init(const string &airp, const string &airline, bool pr_stat_fv)
 {
     bag_names.clear();
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession((pr_stat_fv ? "STAT_FV_BAG_NAMES"
+                                                   : "RPT_BM_BAG_NAMES")),
+                   STDLOG);
     string SQLText = (string)
         "select "
         "   bag_type, "
@@ -928,12 +930,10 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline, bool pr_
         "   name, "
         "   name_lat "
         "from " +
-        (pr_stat_fv ? "stat_fv_bag_names" : "rpt_bm_bag_names ") +
-        " where "
-        "   (airp is null or "
-        "   airp = :airp) and "
-        "   (airline is null or "
-        "   airline = :airline) "
+        (pr_stat_fv ? "stat_fv_bag_names " : "rpt_bm_bag_names ") +
+        "WHERE "
+        "   (airp is null OR airp = :airp) AND "
+        "   (airline IS NULL OR airline = :airline) "
         "order by "
         "   airline nulls last, "
         "   airp nulls last, "

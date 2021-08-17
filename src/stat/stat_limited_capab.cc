@@ -98,7 +98,7 @@ void RunLimitedCapabStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
     string SQLText =
-        "select "
+        "SELECT "
         "   points.point_id, "
         "   points.airline, "
         "   points.airp, "
@@ -108,18 +108,19 @@ void RunLimitedCapabStat(
         "   points.scd_out, "
         "   stat.rem_code, "
         "   stat.pax_amount "
-        "from "
+        "FROM "
         "   limited_capability_stat stat, "
         "   points "
-        "where "
-        "   stat.point_id = points.point_id and ";
+        "WHERE "
+        "   stat.point_id = points.point_id AND ";
     params.AccessClause(SQLText);
     if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
+        SQLText += " points.flt_no = :flt_no AND ";
         QryParams << QParam("flt_no", otInteger, params.flt_no);
     }
     SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"LIMITED_CAPABILITY_STAT","POINTS"}),
+                         SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_point_id = Qry.get().FieldIndex("point_id");
@@ -372,7 +373,7 @@ void get_limited_capability_stat(int point_id)
 {
     DB::TCachedQuery delQry(
                 PgOra::getRWSession("LIMITED_CAPABILITY_STAT"),
-                "delete from limited_capability_stat where point_id = :point_id",
+                "DELETE from limited_capability_stat where point_id = :point_id",
                 QParams() << QParam("point_id", otInteger, point_id),
                 STDLOG);
     delQry.get().Execute();
@@ -384,7 +385,8 @@ void get_limited_capability_stat(int point_id)
     DB::TCachedQuery Qry(
             PgOra::getROSession({"PAX_GRP", "PAX", "PAX_REM"}),
             "SELECT pax.grp_id, pax_grp.airp_arv, rem_code "
-            "FROM pax_grp, pax, pax_rem where "
+            "FROM pax_grp, pax, pax_rem "
+            "WHERE "
             "   pax_grp.point_dep = :point_id and "
             "   pax.grp_id = pax_grp.grp_id and "
             "   pax_rem.pax_id = pax.pax_id ",

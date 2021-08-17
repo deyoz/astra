@@ -4,6 +4,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include <libxml/tree.h>
+#include "db_tquery.h"
 
 struct TParamItem {
     std::string code;
@@ -26,7 +27,7 @@ struct TParamItem {
         len(ASTRA::NoExists),
         isalnum(ASTRA::NoExists)
     {}
-    void fromDB(TQuery &Qry);
+    void fromDB(DB::TQuery &Qry);
     void toXML(xmlNodePtr resNode);
 };
 
@@ -34,7 +35,7 @@ struct TLayout {
     std::map<int, TParamItem> params;
     void get_params();
     void toXML(xmlNodePtr resNode);
-    void toXML(xmlNodePtr resNode, const std::string &tag, const std::string &qry);
+    void toXML(xmlNodePtr resNode, const std::string &tag, const std::string &qry, DbCpp::Session& session);
 };
 
 #endif

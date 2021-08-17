@@ -38,7 +38,7 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 298 ‘Ž— • TUM
 $(collect_flight_stat $(get point_dep))
 
 ??
-$(dump_table SELF_CKIN_STAT fields="ADULT, CLIENT_TYPE,DESK" display=on)
+$(db_dump_table SELF_CKIN_STAT fields="ADULT, CLIENT_TYPE,DESK" display=on)
 
 >> lines=auto
 [1] [KIOSK] [KIOSK2] $()

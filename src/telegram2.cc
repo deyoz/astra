@@ -10967,44 +10967,46 @@ void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 namespace PFS_STAT {
     void toDB(int point_id, TPFSBody &pfs)
     {
-        TCachedQuery Qry(
-                "insert into pfs_stat ( "
-                "   point_id, "
-                "   pax_id, "
-                "   status, "
-                "   airp_arv, "
-                "   seats, "
-                "   subcls, "
-                "   pnr, "
-                "   surname, "
-                "   name, "
-                "   gender, "
-                "   birth_date "
-                ") values ( "
-                "   :point_id, "
-                "   :pax_id, "
-                "   :status, "
-                "   :airp_arv, "
-                "   :seats, "
-                "   :subcls, "
-                "   :pnr, "
-                "   :surname, "
-                "   :name, "
-                "   :gender, "
-                "   :birth_date "
-                ") ",
-                QParams()
-                << QParam("point_id", otInteger, point_id)
-                << QParam("pax_id", otInteger)
-                << QParam("status", otString)
-                << QParam("airp_arv", otString)
-                << QParam("seats", otInteger)
-                << QParam("subcls", otString)
-                << QParam("pnr", otString)
-                << QParam("surname", otString)
-                << QParam("name", otString)
-                << QParam("gender", otString)
-                << QParam("birth_date", otDate));
+        DB::TCachedQuery Qry(
+              PgOra::getRWSession("PFS_STAT"),
+              "INSERT INTO pfs_stat ( "
+              "   point_id, "
+              "   pax_id, "
+              "   status, "
+              "   airp_arv, "
+              "   seats, "
+              "   subcls, "
+              "   pnr, "
+              "   surname, "
+              "   name, "
+              "   gender, "
+              "   birth_date "
+              ") VALUES ( "
+              "   :point_id, "
+              "   :pax_id, "
+              "   :status, "
+              "   :airp_arv, "
+              "   :seats, "
+              "   :subcls, "
+              "   :pnr, "
+              "   :surname, "
+              "   :name, "
+              "   :gender, "
+              "   :birth_date "
+              ") ",
+              QParams()
+              << QParam("point_id", otInteger, point_id)
+              << QParam("pax_id", otInteger)
+              << QParam("status", otString)
+              << QParam("airp_arv", otString)
+              << QParam("seats", otInteger)
+              << QParam("subcls", otString)
+              << QParam("pnr", otString)
+              << QParam("surname", otString)
+              << QParam("name", otString)
+              << QParam("gender", otString)
+              << QParam("birth_date", otDate),
+              STDLOG);
         for(TPFSItems::const_iterator
                 target = pfs.items.begin();
                 target != pfs.items.end();
@@ -11075,8 +11077,12 @@ void get_bag_info(map<string, pair<int, int> > &bag_info, int point_id)
 
 void get_pfs_stat(int point_id)
 {
-    TCachedQuery delQry("delete from pfs_stat where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("PFS_STAT"),
+          "DELETE FROM pfs_stat "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
 
     TPFSBody pfs;

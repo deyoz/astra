@@ -48,7 +48,7 @@ const string EncodeOrderStatus(TOrderStatus s)
   return TOrderStatusS[s];
 };
 
-void commit_progress(TQuery &Qry, int parts, int size, long time_processing, int interval)
+void commit_progress(DB::TQuery &Qry, int parts, int size, long time_processing, int interval)
 {
     Qry.SetVariable("progress", round((double)parts / size * 100));
     Qry.Execute();
@@ -80,29 +80,33 @@ void TErrCommit::exec(int file_id, TOrderStatus st, const string &err)
 
 TErrCommit::TErrCommit():
     Qry(
-        "update stat_orders set "
-        "   status = :status, "
-        "   error = :error "
-        "where "
-        "   file_id = :file_id ",
-        QParams()
-        << QParam("file_id", otInteger)
-        << QParam("status", otInteger)
-        << QParam("error", otString)
-       )
+      PgOra::getRWSession("STAT_ORDERS"),
+      "UPDATE stat_orders SET "
+      "   status = :status, "
+      "   error = :error "
+      "WHERE "
+      "   file_id = :file_id ",
+      QParams()
+      << QParam("file_id", otInteger)
+      << QParam("status", otInteger)
+      << QParam("error", otString),
+      STDLOG)
 {
 }
 
 void TStatOrderDataItem::complete() const
 {
-    TCachedQuery Qry(
-            "update stat_orders_data set download_times = download_times + 1 where "
-            "   file_id = :file_id and "
-            "   month = :month",
-            QParams()
-            << QParam("file_id", otInteger, file_id)
-            << QParam("month", otDate, month)
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("STAT_ORDERS_DATA"),
+          "UPDATE stat_orders_data SET "
+          "   download_times = download_times + 1 "
+          "WHERE "
+          "   file_id = :file_id AND "
+          "   month = :month",
+          QParams()
+          << QParam("file_id", otInteger, file_id)
+          << QParam("month", otDate, month),
+          STDLOG);
     Qry.get().Execute();
 }
 
@@ -110,41 +114,50 @@ void TStatOrder::del() const
 {
     for(TStatOrderData::const_iterator i = so_data.begin(); i != so_data.end(); i++)
         remove( get_part_file_name(i->file_id, i->month).c_str());
-    TCachedQuery delQry(
-            "begin "
-            "   delete from stat_orders_data where file_id = :file_id; "
-            "   delete from stat_orders where file_id = :file_id; "
-            "end; ", QParams() << QParam("file_id", otInteger, file_id)
-            );
+    DB::TCachedQuery delDataQry(
+          PgOra::getRWSession("STAT_ORDERS_DATA"),
+          "DELETE FROM stat_orders_data "
+          "WHERE file_id = :file_id ",
+          QParams() << QParam("file_id", otInteger, file_id),
+          STDLOG);
+    delDataQry.get().Execute();
+
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_ORDERS"),
+          "DELETE FROM stat_orders "
+          "WHERE file_id = :file_id ",
+          QParams() << QParam("file_id", otInteger, file_id),
+          STDLOG);
     delQry.get().Execute();
 }
 
 void TStatOrder::toDB()
 {
     const auto file_time = TFileQueue::getwait_time(file_id).second;
-    TCachedQuery Qry(
-            "insert into stat_orders( "
-            "   file_id, "
-            "   user_id, "
-            "   time_ordered, "
-            "   source, "
-            "   status, "
-            "   progress "
-            ") values ( "
-            "   :file_id, "
-            "   :user_id, "
-            "   :file_time, "
-            "   :os, "
-            "   :status, "
-            "   0 "
-            ") ",
-            QParams()
-            << QParam("file_id", otInteger, file_id)
-            << QParam("user_id", otInteger, user_id)
-            << QParam("file_time", otDate, file_time)
-            << QParam("os", otString, EncodeOrderSource(source))
-            << QParam("status", otInteger, stRunning)
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("STAT_ORDERS"),
+          "INSERT INTO stat_orders( "
+          "   file_id, "
+          "   user_id, "
+          "   time_ordered, "
+          "   source, "
+          "   status, "
+          "   progress "
+          ") VALUES ( "
+          "   :file_id, "
+          "   :user_id, "
+          "   :file_time, "
+          "   :os, "
+          "   :status, "
+          "   0 "
+          ") ",
+          QParams()
+          << QParam("file_id", otInteger, file_id)
+          << QParam("user_id", otInteger, user_id)
+          << QParam("file_time", otDate, file_time)
+          << QParam("os", otString, EncodeOrderSource(source))
+          << QParam("status", otInteger, stRunning),
+          STDLOG);
     Qry.get().Execute();
 }
 
@@ -177,12 +190,17 @@ void TStatOrder::check_integrity(TDateTime month)
         }
 
         status = stReady;
-        TCachedQuery readyQry("update stat_orders set status = :status, error = :error where file_id = :file_id",
-                QParams()
-                << QParam("file_id", otInteger, file_id)
-                << QParam("status", otInteger, status)
-                << QParam("error", otString, string())
-                );
+        DB::TCachedQuery readyQry(
+              PgOra::getRWSession("STAT_ORDERS"),
+              "UPDATE stat_orders "
+              "SET status = :status, "
+              "    error = :error "
+              "WHERE file_id = :file_id",
+              QParams()
+              << QParam("file_id", otInteger, file_id)
+              << QParam("status", otInteger, status)
+              << QParam("error", otString, string()),
+              STDLOG);
         readyQry.get().Execute();
     } catch (Exception &E) {
         status = stCorrupted;
@@ -333,13 +351,15 @@ void TFileParams::get(int file_id)
 
 void TStatOrder::get_parts()
 {
-    TCachedQuery Qry(
-            "select * from stat_orders_data where "
-            "   file_id = :file_id "
-            "order by month "
-            ,
-            QParams() << QParam("file_id", otInteger, file_id)
-            );
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("STAT_ORDERS_DATA"),
+          "SELECT * "
+          "FROM stat_orders_data "
+          "WHERE "
+          "   file_id = :file_id "
+          "ORDER BY month ",
+          QParams() << QParam("file_id", otInteger, file_id),
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         TStatOrderDataItem item;
@@ -353,7 +373,7 @@ void TStatOrder::get_parts()
     }
 }
 
-void TStatOrder::fromDB(TCachedQuery &Qry)
+void TStatOrder::fromDB(DB::TCachedQuery &Qry)
 {
     clear();
     if(not Qry.get().Eof) {
@@ -390,19 +410,19 @@ void TStatOrders::get(int user_id, int file_id, const string &source)
     }
     if(file_id != NoExists) {
         if(not condition.empty())
-            condition += " and ";
+            condition += " AND ";
         condition += " file_id = :file_id ";
         QryParams << QParam("file_id", otInteger, file_id);
     } else if(not source.empty()) {
         if(not condition.empty())
-            condition += " and ";
+            condition += " AND ";
         condition += "   source = :source ";
         QryParams << QParam("source", otString, source);
     }
-    string SQLText = "select * from stat_orders ";
+    string SQLText = "SELECT * FROM stat_orders ";
     if(not condition.empty())
-        SQLText += " where " + condition;
-    TCachedQuery Qry(SQLText, QryParams);
+        SQLText += " WHERE " + condition;
+    DB::TCachedQuery Qry(PgOra::getROSession("STAT_ORDERS"), SQLText, QryParams, STDLOG);
 
     Qry.get().Execute();
     TPerfTimer tm;
@@ -505,8 +525,10 @@ void TStatOrders::toXML(xmlNodePtr resNode)
 
 int nosir_stat_order(int argc,char **argv)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select text from stat_orders_data where file_id = 14167838 order by page_no";
+    DB::TQuery Qry(PgOra::getROSession("STAT_ORDERS_DATA"), STDLOG);
+    Qry.SQLText = "SELECT text FROM stat_orders_data "
+                  "WHERE file_id = 14167838 "
+                  "ORDER BY page_no";
     Qry.Execute();
     string data;
     for(; not Qry.Eof; Qry.Next()) {

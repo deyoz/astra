@@ -54,6 +54,4 @@ void createXMLSelfCkinStat(const TStatParams &params,
 
 void RunSelfCkinStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline);
 
-int nosir_self_ckin(int argc,char **argv);
-
 #endif

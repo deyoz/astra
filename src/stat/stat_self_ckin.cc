@@ -207,9 +207,9 @@ void RunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
                   TPrintAirline &prn_airline)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"POINTS","SELF_CKIN_STAT"}), STDLOG);
     string SQLText =
-        "select "
+        "SELECT "
         "    points.airline, "
         "    points.airp, "
         "    points.scd_out, "
@@ -226,29 +226,29 @@ void RunSelfCkinStat(const TStatParams &params,
         "    term_bag, "
         "    term_ckin_service, "
         "    tckin "
-        "from "
+        "FROM "
         "   points, "
         "   self_ckin_stat "
-        "where ";
+        "WHERE ";
 
     params.AccessClause(SQLText);
 
     SQLText +=
-        "    self_ckin_stat.point_id = points.point_id and "
-        "    points.pr_del >= 0 and "
-        "    points.scd_out >= :FirstDate and "
+        "    self_ckin_stat.point_id = points.point_id AND "
+        "    points.pr_del >= 0 AND "
+        "    points.scd_out >= :FirstDate AND "
         "    points.scd_out < :LastDate ";
 
     if(not params.reg_type.empty()) {
-        SQLText += " and self_ckin_stat.client_type = :reg_type ";
+        SQLText += " AND self_ckin_stat.client_type = :reg_type ";
         Qry.CreateVariable("reg_type", otString, params.reg_type);
     }
     if(params.flt_no != NoExists) {
-        SQLText += " and points.flt_no = :flt_no ";
+        SQLText += " AND points.flt_no = :flt_no ";
         Qry.CreateVariable("flt_no", otInteger, params.flt_no);
     }
     if(!params.desk.empty()) {
-        SQLText += "and self_ckin_stat.desk = :desk ";
+        SQLText += "AND self_ckin_stat.desk = :desk ";
         Qry.CreateVariable("desk", otString, params.desk);
     }
     Qry.SQLText = SQLText;
@@ -685,62 +685,5 @@ void RunSelfCkinStatFile(const TStatParams &params, TOrderStatWriter &writer, TP
     RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline);
     for (TSelfCkinStat::const_iterator i = SelfCkinStat.begin(); i != SelfCkinStat.end(); ++i)
         writer.insert(TSelfCkinStatCombo(*i, params));
-}
-
-int nosir_self_ckin(int argc,char **argv)
-{
-    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
-    map<string, map<string, int> > result;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "    points.point_id, "
-        "    points.airline, "
-        "    scs.client_type "
-        "from "
-        "    self_ckin_stat scs, "
-        "    points "
-        "where "
-        "    points.scd_out >= to_date('01.11.2015 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
-        "    points.scd_out < to_date('01.02.2016 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
-        "    points.point_id = scs.point_id ";
-    Qry.Execute();
-    if(not Qry.Eof) {
-        int col_point_id = Qry.GetFieldIndex("point_id");
-        int col_airline = Qry.GetFieldIndex("airline");
-        int col_client_type = Qry.GetFieldIndex("client_type");
-        int count = 0;
-        map<int, string> points;
-        for(; not Qry.Eof; Qry.Next(), count++) {
-            if(count % 100 == 0) cout << count << endl;
-            int point_id = Qry.FieldAsInteger(col_point_id);
-
-            map<int, string>::iterator idx = points.find(point_id);
-            if(idx == points.end()) {
-                TTripRoute route;
-                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-                string airp_arv;
-                if(not route.empty())
-                    airp_arv = route.back().airp;
-                pair<map<int, string>::iterator, bool> res = points.insert(make_pair(point_id, airp_arv));
-                idx = res.first;
-            }
-
-            if(idx->second != "‘Ž—") continue;
-            result[Qry.FieldAsString(col_airline)][Qry.FieldAsString(col_client_type)]++;
-        }
-    }
-    ofstream out("self_ckin.csv");
-    for(map<string, map<string, int> >::iterator i = result.begin(); i != result.end(); i++) {
-        for(map<string, int>::iterator j = i->second.begin(); j != i->second.end(); j++) {
-            out
-                << i->first << ","
-                << j->first << ","
-                << "‘Ž—,"
-                << j->second << endl;
-        }
-    }
-    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
-    return 1;
 }
 

@@ -267,25 +267,31 @@ void create_plain_files(
 
 void processStatOrders(TQueueItem &item, TPerfTimer &tm, int interval) {
     try {
-        TCachedQuery finishQry(
-                "update stat_orders set "
-                "   data_size = :data_size, "
-                "   data_size_zip = :data_size_zip, "
-                "   time_created = :tc, "
-                "   status = :status "
-                "where file_id = :file_id",
-                QParams()
-                << QParam("data_size", otFloat)
-                << QParam("data_size_zip", otFloat)
-                << QParam("tc", otDate)
+        DB::TCachedQuery finishQry(
+              PgOra::getRWSession("STAT_ORDERS"),
+              "UPDATE stat_orders SET "
+              "   data_size = :data_size, "
+              "   data_size_zip = :data_size_zip, "
+              "   time_created = :tc, "
+              "   status = :status "
+              "WHERE file_id = :file_id",
+              QParams()
+              << QParam("data_size", otFloat)
+              << QParam("data_size_zip", otFloat)
+              << QParam("tc", otDate)
+              << QParam("file_id", otInteger, item.id)
+              << QParam("status", otInteger),
+              STDLOG
+              );
+        DB::TCachedQuery progressQry(
+              PgOra::getRWSession("STAT_ORDERS"),
+              "UPDATE stat_orders "
+              "SET progress = :progress "
+              "WHERE file_id = :file_id ",
+              QParams()
                 << QParam("file_id", otInteger, item.id)
-                << QParam("status", otInteger)
-                );
-        TCachedQuery progressQry("update stat_orders set progress = :progress where file_id = :file_id",
-                QParams()
-                << QParam("file_id", otInteger, item.id)
-                << QParam("progress", otInteger)
-                );
+                << QParam("progress", otInteger),
+              STDLOG);
 
         TStatParams params(TStatOverflow::ignore);
         params.fromFileParams(item.params);
@@ -959,13 +965,6 @@ bool existsConfirmPrint(TDevOper::Enum op_type, int pax_id);
 
 void get_stat(const PointId_t& point_id)
 {
-  if(DEMO_MODE())
-  {
-      // ‚ „…ŒŽ Ž•Ž„ˆŒ ‘Ž ‘’€’ˆ‘’ˆŠˆ ‘’ŽŽŽ‰
-      TST();
-      return;
-  }
-
   DB::TQuery QryDel(PgOra::getRWSession("STAT"), STDLOG);
   QryDel.SQLText = "DELETE FROM stat WHERE point_id=:point_id";
   QryDel.CreateVariable("point_id", otInteger, point_id.get());
@@ -1426,13 +1425,6 @@ void get_self_ckin_stat(const PointId_t& point_id)
                    "WHERE point_id = :point_id ";
   QryDel.CreateVariable("point_id", otInteger, point_id.get());
   QryDel.Execute();
-
-  if(DEMO_MODE())
-  {
-      // ‚ „…ŒŽ Ž•Ž„ˆŒ ‘Ž ‘’€’ˆ‘’ˆŠˆ ‘’ŽŽŽ‰
-      TST();
-      return;
-  }
 
   std::map<SelfCkinStatKey,SelfCkinStatData> self_ckin_stat_map;
   DB::TQuery Qry(PgOra::getROSession({"BAG2","EVENTS_BILINGUAL","STATIONS","PAX",

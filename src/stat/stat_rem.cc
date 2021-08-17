@@ -188,7 +188,7 @@ void RunRemStat(
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
         string SQLText =
-            "select "
+            "SELECT "
             "   points.point_id, "
             "   cs.ticket_no, "
             "   points.scd_out, "
@@ -205,20 +205,20 @@ void RunRemStat(
             "   cs.rfisc, "
             "   cs.rate, "
             "   cs.rate_cur "
-            "from "
+            "FROM "
             "   stat_rem cs, "
             "   points, "
             "   users2 "
-            "where "
-            "   cs.point_id = points.point_id and ";
+            "WHERE "
+            "   cs.point_id = points.point_id AND ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " points.flt_no = :flt_no AND ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                    " cs.user_id = users2.user_id ";
-        TCachedQuery Qry(SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession({"STAT_REM","POINTS","USERS2"}), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_point_id = Qry.get().GetFieldIndex("point_id");

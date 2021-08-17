@@ -2,7 +2,10 @@
 #include "astra_date_time.h"
 #include "stat_utils.h"
 #include "report_common.h"
+#include "qrys.h"
+#include "db_tquery.h"
 #include "PgOraConfig.h"
+#include <serverlib/dbcpp_session.h>
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -242,52 +245,52 @@ void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
                   TPrintAirline &prn_airline)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"USERS2","POINTS","AGENT_STAT"}), STDLOG);
     string SQLText =
-        "SELECT \n"
-        "  points.point_id, \n"
-        "  points.airline, \n"
-        "  points.flt_no, \n"
-        "  points.suffix, \n"
-        "  points.airp, \n"
-        "  points.scd_out, \n"
-        "  users2.user_id, \n"
-        "  users2.descr AS user_descr, \n"
-        "  ags.desk, \n"
-        "  pax_time, \n"
-        "  pax_amount, \n"
-        "  ags.dpax_amount.inc pax_am_inc, \n"
-        "  ags.dpax_amount.dec pax_am_dec, \n"
-        "  ags.dtckin_amount.inc tckin_am_inc, \n"
-        "  ags.dtckin_amount.dec tckin_am_dec, \n"
-        "  ags.dbag_amount.inc bag_am_inc, \n"
-        "  ags.dbag_amount.dec bag_am_dec, \n"
-        "  ags.dbag_weight.inc bag_we_inc, \n"
-        "  ags.dbag_weight.dec bag_we_dec, \n"
-        "  ags.drk_amount.inc rk_am_inc, \n"
-        "  ags.drk_amount.dec rk_am_dec, \n"
-        "  ags.drk_weight.inc rk_we_inc, \n"
-        "  ags.drk_weight.dec rk_we_dec \n"
-        "FROM \n"
-        "   users2, \n"
-        "   points, \n"
-        "   agent_stat ags \n"
-        "WHERE \n"
-        "    ags.point_id = points.point_id AND \n"
-        "    points.pr_del >= 0 AND \n"
-        "    ags.user_id = users2.user_id AND \n";
+        "SELECT "
+        "  points.point_id, "
+        "  points.airline, "
+        "  points.flt_no, "
+        "  points.suffix, "
+        "  points.airp, "
+        "  points.scd_out, "
+        "  users2.user_id, "
+        "  users2.descr AS user_descr, "
+        "  ags.desk, "
+        "  pax_time, "
+        "  pax_amount, "
+        "  ags.dpax_amount.inc pax_am_inc, "
+        "  ags.dpax_amount.dec pax_am_dec, "
+        "  ags.dtckin_amount.inc tckin_am_inc, "
+        "  ags.dtckin_amount.dec tckin_am_dec, "
+        "  ags.dbag_amount.inc bag_am_inc, "
+        "  ags.dbag_amount.dec bag_am_dec, "
+        "  ags.dbag_weight.inc bag_we_inc, "
+        "  ags.dbag_weight.dec bag_we_dec, "
+        "  ags.drk_amount.inc rk_am_inc, "
+        "  ags.drk_amount.dec rk_am_dec, "
+        "  ags.drk_weight.inc rk_we_inc, "
+        "  ags.drk_weight.dec rk_we_dec "
+        "FROM "
+        "   users2, "
+        "   points, "
+        "   agent_stat ags "
+        "WHERE "
+        "    ags.point_id = points.point_id AND "
+        "    points.pr_del >= 0 AND "
+        "    ags.user_id = users2.user_id AND ";
     params.AccessClause(SQLText);
-    SQLText += "    ags.ondate >= :FirstDate AND ags.ondate < :LastDate \n";
+    SQLText += "    ags.ondate >= :FirstDate AND ags.ondate < :LastDate ";
     if(params.flt_no != NoExists) {
-        SQLText += " AND points.flt_no = :flt_no \n";
+        SQLText += " AND points.flt_no = :flt_no ";
         Qry.CreateVariable("flt_no", otInteger, params.flt_no);
     }
     if(!params.desk.empty()) {
-        SQLText += " AND ags.desk = :desk \n";
+        SQLText += " AND ags.desk = :desk ";
         Qry.CreateVariable("desk", otString, params.desk);
     }
     if(!params.user_login.empty()) {
-        SQLText += " AND users2.login = :user_login \n";
+        SQLText += " AND users2.login = :user_login ";
         Qry.CreateVariable("user_login", otString, params.user_login);
     }
     //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
@@ -764,61 +767,6 @@ void RunAgentStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrin
         writer.insert(TAgentStatCombo(*im, params));
 }
 
-int STAT::agent_stat_delta(int argc,char **argv)
-{
-    try {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "begin "
-            "   delete from agent_stat; "
-            "end; ";
-        Qry.Execute();
-        Qry.SQLText =
-            "select "
-            "  point_id, "
-            "  user_id, "
-            "  desk, "
-            "  ondate, "
-            "  pax_time, "
-            "  pax_amount, "
-            "  asp.dpax_amount.inc pax_am_inc, "
-            "  asp.dpax_amount.dec pax_am_dec, "
-            "  asp.dtckin_amount.inc tckin_am_inc, "
-            "  asp.dtckin_amount.dec tckin_am_dec, "
-            "  asp.dbag_amount.inc bag_am_inc, "
-            "  asp.dbag_amount.dec bag_am_dec, "
-            "  asp.dbag_weight.inc bag_we_inc, "
-            "  asp.dbag_weight.dec bag_we_dec, "
-            "  asp.drk_amount.inc rk_am_inc, "
-            "  asp.drk_amount.dec rk_am_dec, "
-            "  asp.drk_weight.inc rk_we_inc, "
-            "  asp.drk_weight.dec rk_we_dec "
-            "from agent_stat_params asp";
-        Qry.Execute();
-        for(; not Qry.Eof; Qry.Next()) {
-            agent_stat_delta(
-                    Qry.FieldAsInteger("point_id"),
-                    Qry.FieldAsInteger("user_id"),
-                    Qry.FieldAsString("desk"),
-                    Qry.FieldAsDateTime("ondate"),
-                    Qry.FieldAsInteger("pax_time"),
-                    Qry.FieldAsInteger("pax_amount"),
-                    agent_stat_t(Qry.FieldAsInteger("pax_am_inc"), Qry.FieldAsInteger("pax_am_dec")),
-                    agent_stat_t(Qry.FieldAsInteger("tckin_am_inc"), Qry.FieldAsInteger("tckin_am_dec")),
-                    agent_stat_t(Qry.FieldAsInteger("bag_am_inc"), Qry.FieldAsInteger("bag_am_dec")),
-                    agent_stat_t(Qry.FieldAsInteger("bag_we_inc"), Qry.FieldAsInteger("bag_we_dec")),
-                    agent_stat_t(Qry.FieldAsInteger("rk_am_inc"), Qry.FieldAsInteger("rk_am_dec")),
-                    agent_stat_t(Qry.FieldAsInteger("rk_we_inc"), Qry.FieldAsInteger("rk_we_dec"))
-                    );
-        }
-        Qry.Clear();
-    } catch(Exception &E) {
-        cout << "Error: " << E.what() << endl;
-        return 1;
-    }
-    return 0;
-}
-
 void STAT::agent_stat_delta(
         int point_id,
         int user_id,
@@ -834,77 +782,123 @@ void STAT::agent_stat_delta(
         agent_stat_t drk_weight
         )
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update agent_stat ags set "
-        "    pax_time = pax_time + :pax_time, "
-        "    pax_amount = pax_amount + :pax_amount, "
-        "    ags.dpax_amount.inc = ags.dpax_amount.inc + :pax_am_inc, "
-        "    ags.dpax_amount.dec = ags.dpax_amount.dec + :pax_am_dec, "
-        "    ags.dtckin_amount.inc = ags.dtckin_amount.inc + :tckin_am_inc, "
-        "    ags.dtckin_amount.dec = ags.dtckin_amount.dec + :tckin_am_dec, "
-        "    ags.dbag_amount.inc = ags.dbag_amount.inc + :bag_am_inc, "
-        "    ags.dbag_amount.dec = ags.dbag_amount.dec + :bag_am_dec, "
-        "    ags.dbag_weight.inc = ags.dbag_weight.inc + :bag_we_inc, "
-        "    ags.dbag_weight.dec = ags.dbag_weight.dec + :bag_we_dec, "
-        "    ags.drk_amount.inc = ags.drk_amount.inc + :rk_am_inc, "
-        "    ags.drk_amount.dec = ags.drk_amount.dec + :rk_am_dec, "
-        "    ags.drk_weight.inc = ags.drk_weight.inc + :rk_we_inc, "
-        "    ags.drk_weight.dec = ags.drk_weight.dec + :rk_we_dec "
-        "  where "
-        "    point_id = :point_id and "
-        "    user_id = :user_id and "
-        "    desk = :desk and "
-        "    ondate = TRUNC(:ondate); "
-        "  if sql%notfound then "
-        "    insert into agent_stat( "
-        "        point_id, "
-        "        user_id, "
-        "        desk, "
-        "        ondate, "
-        "        pax_time, "
-        "        pax_amount, "
-        "        dpax_amount, "
-        "        dtckin_amount, "
-        "        dbag_amount, "
-        "        dbag_weight, "
-        "        drk_amount, "
-        "        drk_weight "
-        "    ) values ( "
-        "        :point_id, "
-        "        :user_id, "
-        "        :desk, "
-        "        TRUNC(:ondate), "
-        "        :pax_time, "
-        "        :pax_amount, "
-        "        agent_stat_t(:pax_am_inc, :pax_am_dec), "
-        "        agent_stat_t(:tckin_am_inc, :tckin_am_dec), "
-        "        agent_stat_t(:bag_am_inc, :bag_am_dec), "
-        "        agent_stat_t(:bag_we_inc, :bag_we_dec), "
-        "        agent_stat_t(:rk_am_inc, :rk_am_dec), "
-        "        agent_stat_t(:rk_we_inc, :rk_we_dec) "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("user_id", otInteger, user_id);
-    Qry.CreateVariable("desk", otString, desk);
-    Qry.CreateVariable("ondate", otDate, ondate);
-    Qry.CreateVariable("pax_time", otInteger, pax_time);
-    Qry.CreateVariable("pax_amount", otInteger, pax_amount);
-    Qry.CreateVariable("pax_am_inc", otInteger, dpax_amount.inc);
-    Qry.CreateVariable("pax_am_dec", otInteger, dpax_amount.dec);
-    Qry.CreateVariable("tckin_am_inc", otInteger, dtckin_amount.inc);
-    Qry.CreateVariable("tckin_am_dec", otInteger, dtckin_amount.dec);
-    Qry.CreateVariable("bag_am_inc", otInteger, dbag_amount.inc);
-    Qry.CreateVariable("bag_am_dec", otInteger, dbag_amount.dec);
-    Qry.CreateVariable("bag_we_inc", otInteger, dbag_weight.inc);
-    Qry.CreateVariable("bag_we_dec", otInteger, dbag_weight.dec);
-    Qry.CreateVariable("rk_am_inc", otInteger, drk_amount.inc);
-    Qry.CreateVariable("rk_am_dec", otInteger, drk_amount.dec);
-    Qry.CreateVariable("rk_we_inc", otInteger, drk_weight.inc);
-    Qry.CreateVariable("rk_we_dec", otInteger, drk_weight.dec);
-    Qry.Execute();
+    TDateTime ondate_trunc;
+    modf(ondate, &ondate_trunc);
+    QParams qryParams;
+    qryParams
+        << QParam("point_id", otInteger, point_id)
+        << QParam("user_id", otInteger, user_id)
+        << QParam("desk", otString, desk)
+        << QParam("ondate", otDate, ondate_trunc)
+        << QParam("pax_time", otInteger, pax_time)
+        << QParam("pax_amount", otInteger, pax_amount)
+        << QParam("pax_am_inc", otInteger, dpax_amount.inc)
+        << QParam("pax_am_dec", otInteger, dpax_amount.dec)
+        << QParam("tckin_am_inc", otInteger, dtckin_amount.inc)
+        << QParam("tckin_am_dec", otInteger, dtckin_amount.dec)
+        << QParam("bag_am_inc", otInteger, dbag_amount.inc)
+        << QParam("bag_am_dec", otInteger, dbag_amount.dec)
+        << QParam("bag_we_inc", otInteger, dbag_weight.inc)
+        << QParam("bag_we_dec", otInteger, dbag_weight.dec)
+        << QParam("rk_am_inc", otInteger, drk_amount.inc)
+        << QParam("rk_am_dec", otInteger, drk_amount.dec)
+        << QParam("rk_we_inc", otInteger, drk_weight.inc)
+        << QParam("rk_we_dec", otInteger, drk_weight.dec);
+
+    DbCpp::Session& session = PgOra::getRWSession("AGENT_STAT");
+
+    ostringstream updSql;
+    updSql << "UPDATE agent_stat ags SET "
+              "  pax_time = pax_time + :pax_time, "
+              "  pax_amount = pax_amount + :pax_amount, ";
+    if (session.isOracle()) {
+      updSql << "  ags.dpax_amount.inc = ags.dpax_amount.inc + :pax_am_inc, "
+                "  ags.dpax_amount.dec = ags.dpax_amount.dec + :pax_am_dec, "
+                "  ags.dtckin_amount.inc = ags.dtckin_amount.inc + :tckin_am_inc, "
+                "  ags.dtckin_amount.dec = ags.dtckin_amount.dec + :tckin_am_dec, "
+                "  ags.dbag_amount.inc = ags.dbag_amount.inc + :bag_am_inc, "
+                "  ags.dbag_amount.dec = ags.dbag_amount.dec + :bag_am_dec, "
+                "  ags.dbag_weight.inc = ags.dbag_weight.inc + :bag_we_inc, "
+                "  ags.dbag_weight.dec = ags.dbag_weight.dec + :bag_we_dec, "
+                "  ags.drk_amount.inc = ags.drk_amount.inc + :rk_am_inc, "
+                "  ags.drk_amount.dec = ags.drk_amount.dec + :rk_am_dec, "
+                "  ags.drk_weight.inc = ags.drk_weight.inc + :rk_we_inc, "
+                "  ags.drk_weight.dec = ags.drk_weight.dec + :rk_we_dec ";
+    } else {
+      updSql << "  ags.dpax_amount_inc = ags.dpax_amount_inc + :pax_am_inc, "
+                "  ags.dpax_amount_dec = ags.dpax_amount_dec + :pax_am_dec, "
+                "  ags.dtckin_amount_inc = ags.dtckin_amount_inc + :tckin_am_inc, "
+                "  ags.dtckin_amount_dec = ags.dtckin_amount_dec + :tckin_am_dec, "
+                "  ags.dbag_amount_inc = ags.dbag_amount_inc + :bag_am_inc, "
+                "  ags.dbag_amount_dec = ags.dbag_amount_dec + :bag_am_dec, "
+                "  ags.dbag_weight_inc = ags.dbag_weight_inc + :bag_we_inc, "
+                "  ags.dbag_weight_dec = ags.dbag_weight_dec + :bag_we_dec, "
+                "  ags.drk_amount_inc = ags.drk_amount_inc + :rk_am_inc, "
+                "  ags.drk_amount_dec = ags.drk_amount_dec + :rk_am_dec, "
+                "  ags.drk_weight_inc = ags.drk_weight_inc + :rk_we_inc, "
+                "  ags.drk_weight_dec = ags.drk_weight_dec + :rk_we_dec ";
+    }
+    updSql << "WHERE "
+              "  point_id = :point_id AND "
+              "  user_id = :user_id AND "
+              "  desk = :desk AND "
+              "  ondate = :ondate ";
+
+    DB::TCachedQuery updQry(session, updSql.str(), qryParams, STDLOG);
+    updQry.get().Execute();
+
+    if (updQry.get().RowsProcessed() == 0) {
+      ostringstream insSql;
+      insSql << "INSERT INTO agent_stat( "
+                "    point_id, "
+                "    user_id, "
+                "    desk, "
+                "    ondate, "
+                "    pax_time, "
+                "    pax_amount, ";
+
+      if (session.isOracle()) {
+        insSql << "    dpax_amount, "
+                  "    dtckin_amount, "
+                  "    dbag_amount, "
+                  "    dbag_weight, "
+                  "    drk_amount, "
+                  "    drk_weight ";
+      } else {
+        insSql << "    dpax_amount_inc, dpax_amount_dec, "
+                  "    dtckin_amount_inc, dtckin_amount_dec, "
+                  "    dbag_amount_inc, dbag_amount_dec, "
+                  "    dbag_weight_inc, dbag_weight_dec, "
+                  "    drk_amount_inc, drk_amount_dec, "
+                  "    drk_weight_inc, drk_weight_dec ";
+      }
+
+      insSql << ") values ( "
+                "    :point_id, "
+                "    :user_id, "
+                "    :desk, "
+                "    :ondate, "
+                "    :pax_time, "
+                "    :pax_amount, ";
+      if (session.isOracle()) {
+        insSql << "    agent_stat_t(:pax_am_inc, :pax_am_dec), "
+                  "    agent_stat_t(:tckin_am_inc, :tckin_am_dec), "
+                  "    agent_stat_t(:bag_am_inc, :bag_am_dec), "
+                  "    agent_stat_t(:bag_we_inc, :bag_we_dec), "
+                  "    agent_stat_t(:rk_am_inc, :rk_am_dec), "
+                  "    agent_stat_t(:rk_we_inc, :rk_we_dec) ";
+      } else {
+        insSql << "    :pax_am_inc, :pax_am_dec, "
+                  "    :tckin_am_inc, :tckin_am_dec, "
+                  "    :bag_am_inc, :bag_am_dec, "
+                  "    :bag_we_inc, :bag_we_dec, "
+                  "    :rk_am_inc, :rk_am_dec, "
+                  "    :rk_we_inc, :rk_we_dec ";
+      }
+      insSql << ") ";
+
+      DB::TCachedQuery insQry(session, insSql.str(), qryParams, STDLOG);
+      insQry.get().Execute();
+    }
 }
 

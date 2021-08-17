@@ -87,11 +87,12 @@ void RunHAStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
     string SQLText =
-        "select stat_ha.* from "
+        "SELECT stat_ha.* "
+        "FROM "
         "   stat_ha, "
         "   points "
-        "where "
-        "   stat_ha.point_id = points.point_id and "
+        "WHERE "
+        "   stat_ha.point_id = points.point_id AND "
         "   points.pr_del >= 0 and ";
     params.AccessClause(SQLText);
     if(params.flt_no != NoExists) {
@@ -99,7 +100,7 @@ void RunHAStat(
         QryParams << QParam("flt_no", otInteger, params.flt_no);
     }
     SQLText += " stat_ha.scd_out >= :FirstDate AND stat_ha.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"STAT_HA","POINTS"}), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -490,7 +491,12 @@ void RunHAShortFile(const TStatParams &params, TOrderStatWriter &writer)
 
 void get_stat_ha(int point_id)
 {
-    TCachedQuery delQry("delete from stat_ha where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_HA"),
+          "DELETE FROM stat_ha "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
 
     TPaxList pax_list;
@@ -536,24 +542,26 @@ void get_stat_ha(int point_id)
         << QParam("chd", otInteger)
         << QParam("inf", otInteger);
 
-    TCachedQuery insQry(
-            "insert into stat_ha ( "
-            "   point_id, "
-            "   hotel_id, "
-            "   room_type, "
-            "   scd_out, "
-            "   adt, "
-            "   chd, "
-            "   inf "
-            ") values ( "
-            "   :point_id, "
-            "   :hotel_id, "
-            "   :room_type, "
-            "   :scd_out, "
-            "   :adt, "
-            "   :chd, "
-            "   :inf "
-            ") ", insQryParams);
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("STAT_HA"),
+          "INSERT INTO stat_ha ( "
+          "   point_id, "
+          "   hotel_id, "
+          "   room_type, "
+          "   scd_out, "
+          "   adt, "
+          "   chd, "
+          "   inf "
+          ") VALUES ( "
+          "   :point_id, "
+          "   :hotel_id, "
+          "   :room_type, "
+          "   :scd_out, "
+          "   :adt, "
+          "   :chd, "
+          "   :inf "
+          ") ",
+          insQryParams, STDLOG);
     for(THotelStat::iterator hotel = stat.begin();
             hotel != stat.end(); hotel++) {
         for(TRoomStat::iterator room = hotel->second.begin();

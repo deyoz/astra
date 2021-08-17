@@ -217,8 +217,9 @@ void RunPFSStat(
     QryParams
         << QParam("FirstDate", otDate, first_date)
         << QParam("LastDate", otDate, last_date);
-    string SQLText = "select "
-        " null part_key, "
+    string SQLText =
+        "SELECT "
+        " NULL part_key, "
         " points.point_id, "
         " points.scd_out, "
         " points.airline, "
@@ -235,19 +236,19 @@ void RunPFSStat(
         " pfs_stat.name, "
         " pfs_stat.gender, "
         " pfs_stat.birth_date "
-        "from "
+        "FROM "
         "   pfs_stat, "
         "   points "
-        "where "
-        "   pfs_stat.point_id = points.point_id and "
-        "   points.pr_del >= 0 and ";
+        "WHERE "
+        "   pfs_stat.point_id = points.point_id AND "
+        "   points.pr_del >= 0 AND ";
     params.AccessClause(SQLText);
     if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
+        SQLText += " points.flt_no = :flt_no AND ";
         QryParams << QParam("flt_no", otInteger, params.flt_no);
     }
     SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"PFS_STAT","POINTS"}), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().FieldIndex("part_key");

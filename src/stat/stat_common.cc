@@ -460,21 +460,22 @@ void TOrderStatWriter::finish()
     out.reset();
     TMD5Sum::Instance()->Final();
     data_size_zip = TMD5Sum::Instance()->data_size;
-    TCachedQuery updDataQry(
-            "update stat_orders_data set "
-            "   file_size = :file_size, "
-            "   file_size_zip = :file_size_zip, "
-            "   md5_sum = :md5_sum "
-            "where "
-            "   file_id = :file_id and "
-            "   month = :month ",
-            QParams()
-            << QParam("file_id", otInteger, file_id)
-            << QParam("month", otDate, month)
-            << QParam("file_size", otFloat, data_size)
-            << QParam("file_size_zip", otFloat, data_size_zip)
-            << QParam("md5_sum", otString, TMD5Sum::Instance()->str())
-            );
+    DB::TCachedQuery updDataQry(
+          PgOra::getRWSession("STAT_ORDERS_DATA"),
+          "UPDATE stat_orders_data SET "
+          "   file_size = :file_size, "
+          "   file_size_zip = :file_size_zip, "
+          "   md5_sum = :md5_sum "
+          "WHERE "
+          "   file_id = :file_id and "
+          "   month = :month ",
+          QParams()
+          << QParam("file_id", otInteger, file_id)
+          << QParam("month", otDate, month)
+          << QParam("file_size", otFloat, data_size)
+          << QParam("file_size_zip", otFloat, data_size_zip)
+          << QParam("md5_sum", otString, TMD5Sum::Instance()->str()),
+          STDLOG);
     updDataQry.get().Execute();
 }
 
@@ -511,24 +512,28 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
         out.push(TMD5Filter(), ORDERS_BLOCK_SIZE());
         out.push(boost::iostreams::file_sink(get_part_file_name(file_id, month)), ORDERS_BLOCK_SIZE());
 
-        TCachedQuery insDataQry(
-                "begin "
-                "   insert into stat_orders_data(file_id, month, file_name, download_times) values ( "
-                "   :file_id, :month, :file_name, 0); "
-                "exception "
-                "   when dup_val_on_index then "
-                "       update stat_orders_data set "
-                "           file_name = :file_name "
-                "       where "
-                "           file_id = :file_id and "
-                "           month = :month; "
-                "end; "
-                ,
-                QParams() << QParam("file_id", otInteger, file_id)
-                << QParam("month", otDate, month)
-                << QParam("file_name", otString, file_name)
-                );
-        insDataQry.get().Execute();
+        QParams qryParams;
+        qryParams << QParam("file_id", otInteger, file_id)
+                  << QParam("month", otDate, month)
+                  << QParam("file_name", otString, file_name);
+        DB::TCachedQuery updDataQry(
+              PgOra::getRWSession("STAT_ORDERS_DATA"),
+              "UPDATE stat_orders_data SET "
+              "    file_name = :file_name "
+              "WHERE "
+              "    file_id = :file_id AND "
+              "    month = :month ",
+              qryParams, STDLOG);
+        updDataQry.get().Execute();
+
+        if (updDataQry.get().RowsProcessed() == 0) {
+          DB::TCachedQuery insDataQry(
+                PgOra::getRWSession("STAT_ORDERS_DATA"),
+                "INSERT INTO stat_orders_data(file_id, month, file_name, download_times) "
+                "VALUES (:file_id, :month, :file_name, 0) ",
+                qryParams, STDLOG);
+          insDataQry.get().Execute();
+        }
         ASTRA::commit();
         //ASTRA::commit(); // чтобы сборщик мусора все видел и не удалял.
 

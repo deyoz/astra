@@ -80,21 +80,21 @@ void RunVOStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
 
-    string SQLText = "select stat_vo.* from ";
+    string SQLText = "SELECT stat_vo.* FROM ";
     SQLText +=
         "   stat_vo, "
         "   points "
-        "where "
-        "   stat_vo.point_id = points.point_id and "
-        "   points.pr_del >= 0 and ";
+        "WHERE "
+        "   stat_vo.point_id = points.point_id AND "
+        "   points.pr_del >= 0 AND ";
     params.AccessClause(SQLText);
     if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
+        SQLText += " points.flt_no = :flt_no AND ";
         QryParams << QParam("flt_no", otInteger, params.flt_no);
     }
 
     SQLText += "   stat_vo.scd_out >= :FirstDate AND stat_vo.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession({"STAT_VO","POINTS"}), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -417,7 +417,11 @@ void RunVOShortFile(const TStatParams &params, TOrderStatWriter &writer)
 
 void get_stat_vo(int point_id)
 {
-    TCachedQuery delQry("delete from stat_vo where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_VO"),
+          "DELETE FROM stat_vo WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
     TVouchers vouchers;
     vouchers.fromDB(point_id);
@@ -428,23 +432,25 @@ void get_stat_vo(int point_id)
         map<string, int> stat;
         for(const auto &i: vouchers.items)
             stat[i.first.voucher] += i.second;
-        TCachedQuery insQry(
-                "insert into stat_vo ( "
-                "   point_id, "
-                "   voucher, "
-                "   scd_out, "
-                "   amount "
-                ") values ( "
-                "   :point_id, "
-                "   :voucher, "
-                "   :scd_out, "
-                "   :amount "
-                ") ",
-                QParams()
-                << QParam("point_id", otInteger, point_id)
-                << QParam("voucher", otString)
-                << QParam("scd_out", otDate, flt.scd_out)
-                << QParam("amount", otInteger));
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("STAT_VO"),
+              "INSERT INTO stat_vo ( "
+              "   point_id, "
+              "   voucher, "
+              "   scd_out, "
+              "   amount "
+              ") VALUES ( "
+              "   :point_id, "
+              "   :voucher, "
+              "   :scd_out, "
+              "   :amount "
+              ") ",
+              QParams()
+              << QParam("point_id", otInteger, point_id)
+              << QParam("voucher", otString)
+              << QParam("scd_out", otDate, flt.scd_out)
+              << QParam("amount", otInteger),
+              STDLOG);
         for(const auto &i: stat) {
             insQry.get().SetVariable("voucher", i.first);
             insQry.get().SetVariable("amount", i.second);
