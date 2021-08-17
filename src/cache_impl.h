@@ -306,6 +306,41 @@ class HotelRoomTypes : public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const;
 };
 
+class DevOperTypes : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class DevFmtOpers : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class DevFmtTypes : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class DevModels : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
 class CrsSet : public CacheTableWritable
 {
   public:

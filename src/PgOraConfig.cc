@@ -162,7 +162,6 @@ namespace PgOra
                                       "RFIC_TYPES",       "PAY_TYPES",    "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
-                                      "DEV_SESS_TYPES",   "DEV_FMT_TYPES","DEV_MODELS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES"
         } },
@@ -235,16 +234,17 @@ namespace PgOra
                 "WEB_CLIENTS",
         }},
         { "SP_PG_GROUP_DEV", {
-                "DEV_OPER_TYPES",       // base_tables.h
-                                        // 4load: cache_fields.ldr, cache_tables.ldr, dev_oper_types.ldr
-                "DEV_MODEL_DEFAULTS",   // dev_oper_types
-                "DEV_EVENT_CMD",        // +
-                "DEV_MODEL_PARAMS",     // dev_sess_modes
-                "DEV_FMT_OPERS",        // dev_model_params, dev_model_sess_fmt, dev_sess_modes
-                                        // 4load: cache_fields.ldr, cache_tables.ldr
-                "DEV_SESS_MODES",       // dev_model_params, dev_model_sess_fmt, dev_fmt_opers
-                "DEV_MODEL_SESS_FMT",   // dev_sess_modes, dev_fmt_opers
-                                        // 4load: cache_tables.ldr
+                "DEV_EVENT_CMD",
+                "DEV_FMT_OPERS",        // "DEV_MODEL_PARAMS","DEV_MODEL_SESS_FMT","DEV_SESS_MODES","DEV_OPER_TYPES","DEV_MODELS"
+                "DEV_FMT_TYPES",
+                "DEV_MODEL_DEFAULTS",   // "DEV_OPER_TYPES"
+                "DEV_MODEL_FMT_PARAMS",
+                "DEV_MODEL_PARAMS",     // "DEV_SESS_MODES","DEV_FMT_OPERS"
+                "DEV_MODEL_SESS_FMT",   // "DEV_SESS_MODES", "DEV_FMT_OPERS","DEV_OPER_TYPES","DEV_MODELS"
+                "DEV_MODELS",           // "DEV_FMT_OPERS","DEV_MODEL_SESS_FMT"
+                "DEV_OPER_TYPES",       // "DEV_MODEL_DEFAULTS","DEV_MODELS","DEV_MODEL_SESS_FMT","DEV_SESS_MODES","DEV_FMT_OPERS"
+                "DEV_SESS_MODES",       // "DEV_MODEL_PARAMS","DEV_MODEL_SESS_FMT","DEV_FMT_OPERS","DEV_OPER_TYPES","DEV_MODELS","DEV_SESS_MODES"
+                "DEV_SESS_TYPES",
         }},
         { "SP_PG_GROUP_CACHE_TABLES", {
                 "CACHE_TABLES",         // 7Proc: ADM

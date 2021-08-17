@@ -1181,6 +1181,101 @@ std::list<std::string> HotelRoomTypes::dbSessionObjectNames() const
   return {"HOTEL_ROOM_TYPES"};
 }
 
+//DevOperTypes
+
+bool DevOperTypes::userDependence() const
+{
+  return false;
+}
+
+std::string DevOperTypes::selectSql() const
+{
+  return "SELECT code, name FROM dev_oper_types ORDER BY code, name ";
+}
+
+std::list<std::string> DevOperTypes::dbSessionObjectNames() const
+{
+  return {"DEV_OPER_TYPES"};
+}
+
+//DevFmtOpers
+
+bool DevFmtOpers::userDependence() const
+{
+  return false;
+}
+
+std::string DevFmtOpers::selectSql() const
+{
+  return "SELECT op_type, fmt_type FROM dev_fmt_opers ORDER BY op_type, fmt_type ";
+}
+
+std::list<std::string> DevFmtOpers::dbSessionObjectNames() const
+{
+  return {"DEV_FMT_OPERS"};
+}
+
+//DevFmtTypes
+
+bool DevFmtTypes::userDependence() const
+{
+  return false;
+}
+
+std::string DevFmtTypes::selectSql() const
+{
+  return "SELECT code, name FROM dev_fmt_types ";
+}
+
+std::string DevFmtTypes::insertSql() const
+{
+  return "INSERT INTO dev_fmt_types(code, name) VALUES(:code, :name) ";
+}
+
+std::string DevFmtTypes::updateSql() const
+{
+  return "UPDATE dev_fmt_types SET name = :name WHERE code = :OLD_code ";
+}
+
+std::string DevFmtTypes::deleteSql() const
+{
+  return "DELETE FROM dev_fmt_types WHERE code = :OLD_code ";
+}
+
+std::list<std::string> DevFmtTypes::dbSessionObjectNames() const
+{
+  return {"DEV_FMT_TYPES"};
+}
+
+//DevModels
+
+bool DevModels::userDependence() const
+{
+  return false;
+}
+
+std::string DevModels::selectSql() const
+{
+  return "SELECT DISTINCT "
+         "   dev_model_sess_fmt.dev_model code, "
+         "   dev_models.name, "
+         "   dev_fmt_opers.op_type, "
+         "   dev_fmt_opers.fmt_type "
+         "FROM   "
+         "   dev_model_sess_fmt, "
+         "   dev_models, "
+         "   dev_fmt_opers "
+         "WHERE   "
+         "   dev_model_sess_fmt.dev_model = dev_models.code "
+         "   AND dev_model_sess_fmt.fmt_type = dev_fmt_opers.fmt_type "
+         "ORDER BY op_type, fmt_type, code ";
+}
+
+std::list<std::string> DevModels::dbSessionObjectNames() const
+{
+  return {"DEV_FMT_OPERS","DEV_MODELS","DEV_MODEL_SESS_FMT"};
+}
+
 //CrsSet
 
 bool CrsSet::userDependence() const {

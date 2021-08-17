@@ -73,33 +73,33 @@ namespace to_esc {
     struct TConvertParams {
         private:
             string dev_model;
-            TQuery Qry;
+            DB::TQuery Qry;
             void Exec(string name);
             double AsFloat(string name);
             int AsInteger(string name);
             string AsString(string name);
         public:
             double x_modif, y_modif;
-            TConvertParams(): Qry(&OraSession), x_modif(0), y_modif(0)
+            TConvertParams(): Qry(PgOra::getROSession("DEV_MODEL_FMT_PARAMS"), STDLOG), x_modif(0), y_modif(0)
             {
                 Qry.SQLText =
-                    "select "
+                    "SELECT "
                     "  param_value "
-                    "from "
+                    "FROM "
                     "  dev_model_fmt_params "
-                    "where "
-                    "  (dev_model = :dev_model or dev_model is null) and "
-                    "  fmt_type = :fmt_type and "
-                    "  param_name = :param_name and "
-                    "  (desk_grp_id = :desk_grp_id or desk_grp_id is null) "
-                    "order by "
-                    "  dev_model nulls last, "
-                    "  desk_grp_id nulls last ";
+                    "WHERE "
+                    "  (dev_model = :dev_model OR dev_model IS NULL) AND "
+                    "  fmt_type = :fmt_type AND "
+                    "  param_name = :param_name AND "
+                    "  (desk_grp_id = :desk_grp_id OR desk_grp_id IS NULL) "
+                    "ORDER BY "
+                    "  dev_model NULLS LAST, "
+                    "  desk_grp_id NULLS LAST ";
                 Qry.DeclareVariable("dev_model", otString);
                 Qry.CreateVariable("fmt_type", otString, DevFmtTypes().encode(TDevFmt::EPSON));
                 Qry.DeclareVariable("param_name", otString);
                 Qry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
-            };
+            }
             void init(string dev_model);
             void dump()
             {

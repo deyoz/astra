@@ -428,7 +428,7 @@ void GetEventCmd( const vector<string> &event_names,
   DB::TQuery CmdQry(PgOra::getROSession("DEV_EVENT_CMD"), STDLOG);
   CmdQry.SQLText=
     "SELECT cmd_data,cmd_order,wait_prior_cmd,cmd_fmt_hex,cmd_fmt_file, "
-    "       binary,posted,error_show,error_log,error_abort "
+    "       binary_val,posted,error_show,error_log,error_abort "
     "FROM dev_event_cmd "
     "WHERE fmt_type=:fmt_type AND event_name=:event_name AND "
     "      (dev_model IS NULL AND :dev_model IS NULL OR dev_model=:dev_model) AND "
@@ -509,7 +509,7 @@ void GetEventCmd( const vector<string> &event_names,
           (first_sess_type=="COM/CUTE" || first_sess_type=="CUTE"))
         cmd_data="AD;"+cmd_data;
 
-      if (CmdQry.FieldAsInteger("binary")==0 &&
+      if (CmdQry.FieldAsInteger("binary_val")==0 &&
           ValidXMLString(cmd_data))
       {
         cmdNode=NewTextChild(cmdsNode,"command",cmd_data);
