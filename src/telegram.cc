@@ -1400,14 +1400,14 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
     TTlgOutPartInfo tlg;
     tlg.fromDB(TlgQry);
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT id, addr, double_sign, descr FROM typeb_originators WHERE id=:originator_id";
-    Qry.CreateVariable( "originator_id", otInteger, tlg.originator_id );
-    Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
+    DB::TQuery OrigQry(PgOra::getROSession("TYPEB_ORIGINATORS"), STDLOG);
+    OrigQry.SQLText="SELECT id, addr, double_sign, descr FROM typeb_originators WHERE id=:originator_id";
+    OrigQry.CreateVariable("originator_id", otInteger, tlg.originator_id);
+    OrigQry.Execute();
+    if (OrigQry.Eof)
+        throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     TypeB::TOriginatorInfo originator;
-    originator.fromDB(Qry);
+    originator.fromDB(OrigQry);
 
     TypeB::IataAddrOwnerItem orig;
     orig.fromDB(originator.addr);
@@ -1426,12 +1426,13 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
     TTripInfo fltInfo;
     if (tlg.point_id!=NoExists)
     {
-      Qry.Clear();
-      Qry.SQLText="SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id";
-      Qry.CreateVariable("point_id", otInteger, tlg.point_id);
-      Qry.Execute();
-      if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
-      fltInfo.Init(Qry);
+      DB::TQuery PointsQry(PgOra::getROSession("POINTS"), STDLOG);
+      PointsQry.SQLText="SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id";
+      PointsQry.CreateVariable("point_id", otInteger, tlg.point_id);
+      PointsQry.Execute();
+      if (PointsQry.Eof)
+          throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
+      fltInfo.Init(PointsQry);
     };
 
     string old_addrs;

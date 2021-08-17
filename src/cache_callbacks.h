@@ -290,3 +290,10 @@ class CacheTableKeepDeletedRows : public CacheTableWritableHandmade
     virtual void bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const = 0;
     virtual std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const = 0;
 };
+
+using TFieldTitles = std::map<std::string, std::string>;
+struct TCacheInfo {
+    std::string title;
+    TFieldTitles fieldTitle;
+};
+TCacheInfo getCacheInfo(const std::string &code);

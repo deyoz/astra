@@ -265,8 +265,7 @@ int test_typeb_utils(int argc,char **argv)
         TlgQry.SQLText=sql;
         TlgQry.DeclareVariable("point_id", otInteger);
 
-        TQuery OrigQry(&OraSession);
-        OrigQry.Clear();
+        DB::TQuery OrigQry(PgOra::getROSession("TYPEB_ORIGINATORS"), STDLOG);
         OrigQry.SQLText="SELECT * FROM typeb_originators WHERE id=:id";
         OrigQry.DeclareVariable("id", otInteger);
 
@@ -283,8 +282,6 @@ int test_typeb_utils(int argc,char **argv)
         {
             TDateTime time_create=NowUTC();
             TAdvTripInfo fltInfo(Qry);
-
-
             set<int> tlg_ids;
 
             for(int pass=0; pass<=1; pass++)

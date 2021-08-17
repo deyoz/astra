@@ -1,4 +1,5 @@
 #include "cache_callbacks.h"
+#include "astra_locale_adv.h"
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "PgOraConfig.h"
@@ -687,3 +688,35 @@ void CacheTableKeepDeletedRows::onApplyingRowChanges(const TCacheUpdateStatus st
   if (rowId) HistoryTable(lowerc(tableName())).synchronize(rowId.value());
 }
 
+
+TCacheInfo getCacheInfo(const std::string &code)
+{
+    TCacheInfo info;
+
+    auto curTab = make_db_curs("SELECT title FROM cache_tables WHERE code=:code",
+                               PgOra::getROSession("CACHE_TABLES"));
+
+    if (curTab.stb().def(info.title).bind(":code", code).EXfet() == DbCpp::ResultCode::NoDataFound)
+        throw AstraLocale::UserException("Cache " + code + " not found");
+
+    auto curFld = make_db_curs("SELECT name, title FROM cache_fields WHERE code=:code",
+                               PgOra::getROSession("CACHE_FIELDS"));
+
+    std::string name;
+    std::string title;
+
+    curFld.stb()
+          .autoNull()
+          .def(name)
+          .defNull(title, std::string())
+          .bind(":code", code)
+          .exec();
+
+    while (curFld.fen() == DbCpp::ResultCode::Ok) {
+        if (title.empty())
+            title = name;
+        info.fieldTitle.emplace(name, title);
+    }
+
+    return info;
+}

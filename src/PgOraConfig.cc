@@ -377,6 +377,10 @@ namespace PgOra
                                  "KIOSK_APP_LIST", "KIOSK_CONFIG", "KIOSK_EVENT_PARAMS", "KIOSK_GRP_NAMES",
                                  "KIOSK_LANG", "HIST_KIOSK_APP_LIST", "HIST_KIOSK_ADDR",
                                  "HIST_KIOSK_ALIASES", "HIST_KIOSK_CONFIG"}},
+        { "SP_PG_GROUP_TYPEB_ORIGINATORS", {
+                "TYPEB_ORIGINATORS",
+                "HIST_TYPEB_ORIGINATORS"
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

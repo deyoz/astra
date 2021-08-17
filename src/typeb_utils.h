@@ -2196,15 +2196,15 @@ struct TOriginatorInfo
   std::string addr;
   std::string double_sign;
   std::string descr;
-  TOriginatorInfo() { clear(); };
+  TOriginatorInfo() { clear(); }
   void clear()
   {
     id=ASTRA::NoExists;
     addr.clear();
     double_sign.clear();
     descr.clear();
-  };
-  TOriginatorInfo& fromDB(TQuery &Qry);
+  }
+  TOriginatorInfo& fromDB(DB::TQuery &Qry);
   std::string originSection(TDateTime time_create, const std::string &endline) const;
 };
 

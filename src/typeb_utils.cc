@@ -757,7 +757,7 @@ string format_addr_line(string vaddrs, TDetailCreateInfo *info)
     return result;
 }
 
-TOriginatorInfo& TOriginatorInfo::fromDB(TQuery &Qry)
+TOriginatorInfo& TOriginatorInfo::fromDB(DB::TQuery &Qry)
 {
   clear();
   if (!Qry.FieldIsNULL("id"))
@@ -786,20 +786,19 @@ TOriginatorInfo getOriginator(const string &airline,
                               const TDateTime &time_create,
                               bool with_exception)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TYPEB_ORIGINATORS"), STDLOG);
   Qry.SQLText =
     "SELECT id, addr, double_sign, "
-    "       DECODE(airline,NULL,0,8) + "
-    "       DECODE(airp_dep,NULL,0,4) + "
-    "       DECODE(tlg_type,NULL,0,2) AS priority "
+      "(CASE WHEN airline  IS NULL THEN 0 ELSE 8 END) + "
+      "(CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) + "
+      "(CASE WHEN tlg_type IS NULL THEN 0 ELSE 2 END) AS priority "
     "FROM typeb_originators "
     "WHERE first_date<=:time_create AND "
-    "      (last_date IS NULL OR last_date>:time_create) AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (tlg_type IS NULL OR tlg_type=:tlg_type) AND "
-    "      pr_del=0 "
+      "(last_date IS NULL OR last_date>:time_create) AND "
+      "(airline IS NULL OR airline=:airline) AND "
+      "(airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+      "(tlg_type IS NULL OR tlg_type=:tlg_type) AND "
+      "pr_del=0 "
     "ORDER BY priority DESC";
   Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("airp_dep", otString, airp_dep);
@@ -807,7 +806,8 @@ TOriginatorInfo getOriginator(const string &airline,
   Qry.CreateVariable("time_create", otDate, time_create);
   Qry.Execute();
   TOriginatorInfo originator;
-  if (!Qry.Eof) originator.fromDB(Qry);
+  if (!Qry.Eof)
+    originator.fromDB(Qry);
 
   if (with_exception)
   {
@@ -828,7 +828,7 @@ TOriginatorInfo getOriginator(const string &airline,
     };
   };
   return originator;
-};
+}
 
 std::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
 {
