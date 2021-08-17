@@ -1353,6 +1353,22 @@ static std::string FP_db_sql(const std::vector<std::string> &args)
     return "";
 }
 
+static std::string FP_db_seq_nextval(const std::vector<std::string> &args)
+{
+    assert(args.size() == 1);
+
+    const std::string seqName = args.at(0);
+    return std::to_string(PgOra::getSeqNextVal_int(seqName));
+}
+
+static std::string FP_db_seq_currval(const std::vector<std::string> &args)
+{
+    assert(args.size() == 1);
+
+    const std::string seqName = args.at(0);
+    return std::to_string(PgOra::getSeqCurrVal_int(seqName));
+}
+
 static std::string FP_initIapiRequestId(const std::vector<std::string> &par)
 {
   ASSERT(par.size() == 1);
@@ -1620,6 +1636,8 @@ FP_REGISTER("db_dump_table", FP_dump_table_astra);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("pg_sql", FP_pg_sql);
 FP_REGISTER("db_sql", FP_db_sql);
+FP_REGISTER("db_seq_nextval", FP_db_seq_nextval);
+FP_REGISTER("db_seq_currval", FP_db_seq_currval);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
