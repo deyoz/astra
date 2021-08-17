@@ -379,11 +379,6 @@ bool isTripDeleted(const std::vector<dbo::Points>& points)
 
 bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
-    if(move_ids.empty()) {
-        HelpCpp::Timer timer;
-        readMoveIds(max_rows);
-        LogTrace(TRACE6) << " readMoveIds: " << timer.elapsedSeconds();
-    }
     HelpCpp::Timer timer;
     while (!move_ids.empty())
     {
@@ -508,7 +503,9 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         };
     };
     LogTrace(TRACE6) << " MoveFlt one iteration time: " << timer.elapsedSeconds();
-    return false;
+
+    readMoveIds(max_rows);
+    return !move_ids.empty();
 };
 
 string TArxMoveFlt::TraceCaption()
@@ -1835,11 +1832,7 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    if(tlg_trip_points.empty()) {
-        HelpCpp::Timer timer;
-        readTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
-        LogTrace(TRACE6) << " readTlgTripPoints time: " << timer.elapsedSeconds();
-    }
+    LogTrace(TRACE6) << __func__;
     HelpCpp::Timer timer;
     while (!tlg_trip_points.empty())
     {
@@ -1858,7 +1851,9 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
         };
     };
     LogTrace(TRACE6) << " TArxTlgTrips time: " << timer.elapsedSeconds();
-    return false;
+
+    readTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
+    return !tlg_trip_points.empty();
 };
 
 string TArxTlgTrips::TraceCaption()
@@ -1937,7 +1932,9 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
         };
     };
     LogTrace(TRACE6) << " TArxTypeBIn time: " << timer.elapsedSeconds();
-    return false;
+
+    readTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
+    return !tlg_ids.empty();
 }
 
 string TArxTypeBIn::TraceCaption()
