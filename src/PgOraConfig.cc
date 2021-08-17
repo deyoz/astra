@@ -108,6 +108,12 @@ namespace PgOra
                 "PFS_STAT",                // "POINTS"
                 "RFISC_STAT",              // "POINTS"
         } },
+        { "SP_PG_GROUP_KUF_STAT",{
+                "KUF_STAT",                // "KUF_STAT_TEXT"
+                "KUF_STAT_AIRLINES",
+                "KUF_STAT_AIRPS",
+                "KUF_STAT_TEXT",           // "KUF_STAT"
+        } },
 
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },

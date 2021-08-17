@@ -10607,7 +10607,10 @@ namespace KUF_STAT {
         public:
             TAirlines()
             {
-                TCachedQuery airlinesQry("select airline from kuf_stat_airlines");
+                DB::TCachedQuery airlinesQry(
+                      PgOra::getROSession("KUF_STAT_AIRLINES"),
+                      "SELECT airline FROM kuf_stat_airlines",
+                      STDLOG);
                 airlinesQry.get().Execute();
                 for(; not airlinesQry.get().Eof; airlinesQry.get().Next()) {
                     items.insert(airlinesQry.get().FieldAsString("airline"));
@@ -10629,7 +10632,7 @@ namespace KUF_STAT {
             {
                 DB::TCachedQuery airpsQry(
                             PgOra::getROSession("KUF_STAT_AIRPS"),
-                            "select airp from kuf_stat_airps",
+                            "SELECT airp FROM kuf_stat_airps",
                             STDLOG);
                 airpsQry.get().Execute();
                 for(; not airpsQry.get().Eof; airpsQry.get().Next()) {
@@ -10646,18 +10649,20 @@ namespace KUF_STAT {
     string fromDB(int point_id, TFileType::Enum file_type, string &fname)
     {
         fname.clear();
-        TCachedQuery Qry(
-                "select file_name, text from kuf_stat, kuf_stat_text "
-                "where "
-                "   kuf_stat.point_id = :point_id and "
-                "   kuf_stat.file_type = :file_type and "
-                "   kuf_stat.id = kuf_stat_text.id "
-                "order by "
-                "   page_no",
-                QParams()
-                << QParam("point_id", otInteger, point_id)
-                << QParam("file_type", otString, TFileTypes().encode(file_type))
-                );
+        DB::TCachedQuery Qry(
+              PgOra::getROSession({"KUF_STAT", "KUF_STAT_TEXT"}),
+              "SELECT file_name, text "
+              "FROM kuf_stat, kuf_stat_text "
+              "WHERE "
+              "   kuf_stat.point_id = :point_id AND "
+              "   kuf_stat.file_type = :file_type AND "
+              "   kuf_stat.id = kuf_stat_text.id "
+              "ORDER BY "
+              "   page_no",
+              QParams()
+              << QParam("point_id", otInteger, point_id)
+              << QParam("file_type", otString, TFileTypes().encode(file_type)),
+              STDLOG);
         Qry.get().Execute();
         string result;
         for (; not Qry.get().Eof; Qry.get().Next()) {
@@ -10677,27 +10682,49 @@ namespace KUF_STAT {
             << DateTimeToStr(tripInfo.scd_out, "dd.mm.yy") << '.'
             << TFileTypes().encode(ftype)
             << ".xml";
-        TCachedQuery Qry(
-                "begin "
-                "   delete from kuf_stat_text where id = (select id from kuf_stat where point_id = :point_id and file_type = :file_type); "
-                "   delete from kuf_stat where point_id = :point_id and file_type = :file_type; "
-                "   insert into kuf_stat(id, point_id, file_type, file_name)  values(tid__seq.nextval, :point_id, :file_type, :fname) returning id into :id; "
-                "end; ",
-                QParams()
-                << QParam("point_id", otInteger, tripInfo.point_id)
-                << QParam("file_type", otString, TFileTypes().encode(ftype))
-                << QParam("fname", otString, fname.str())
-                << QParam("id", otInteger)
-                );
-        Qry.get().Execute();
-        int id = Qry.get().GetVariableAsInteger("id");
-        TCachedQuery txtQry(
-                "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
-                QParams()
-                << QParam("id", otInteger, id)
-                << QParam("page_no", otInteger)
-                << QParam("text", otString)
-                );
+        QParams qryParams;
+        qryParams << QParam("point_id", otInteger, tripInfo.point_id)
+                  << QParam("file_type", otString, TFileTypes().encode(ftype));
+        DB::TCachedQuery delTextQry(
+              PgOra::getRWSession({"KUF_STAT_TEXT","KUF_STAT"}),
+                "DELETE FROM kuf_stat_text "
+                "WHERE id = ( "
+                "    SELECT id "
+                "    FROM kuf_stat "
+                "    WHERE point_id = :point_id "
+                "    AND file_type = :file_type "
+                ") ",
+                qryParams,
+                STDLOG);
+        delTextQry.get().Execute();
+
+        DB::TCachedQuery delStatQry(
+              PgOra::getRWSession("KUF_STAT"),
+              "DELETE FROM kuf_stat "
+              "WHERE point_id = :point_id "
+              "AND file_type = :file_type ",
+              qryParams,
+              STDLOG);
+        delStatQry.get().Execute();
+
+        int id = PgOra::getSeqNextVal_int("TID__SEQ");
+        DB::TCachedQuery insStatQry(
+              PgOra::getRWSession("KUF_STAT"),
+              "INSERT INTO kuf_stat(id, point_id, file_type, file_name) "
+              "VALUES(:tid, :point_id, :file_type, :fname) ",
+              qryParams
+              << QParam("fname", otString, fname.str())
+              << QParam("tid", otInteger, id),
+              STDLOG);
+        insStatQry.get().Execute();
+        DB::TCachedQuery txtQry(
+              PgOra::getROSession("KUF_STAT_TEXT"),
+              "INSERT INTO kuf_stat_text(id, page_no, text) VALUES(:id, :page_no, :text)",
+              QParams()
+              << QParam("id", otInteger, id)
+              << QParam("page_no", otInteger)
+              << QParam("text", otString),
+              STDLOG);
         longToDB(txtQry.get(), "text", data);
     }
 
@@ -10723,19 +10750,24 @@ namespace KUF_STAT {
 
     int fix(int argc, char **argv)
     {
-        TQuery delQry(&OraSession);
-        delQry.SQLText = "delete from kuf_stat_text where id = :id";
+        DB::TQuery delQry(PgOra::getRWSession("KUF_STAT_TEXT"), STDLOG);
+        delQry.SQLText = "DELETE FROM kuf_stat_text "
+                         "WHERE id = :id";
         delQry.DeclareVariable("id", otInteger);
 
-        TQuery txtQry(&OraSession);
-        txtQry.SQLText = "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
+        DB::TQuery txtQry(PgOra::getRWSession("KUF_STAT_TEXT"), STDLOG);
+        txtQry.SQLText = "INSERT INTO kuf_stat_text(id, page_no, text) "
+                         "VALUES(:id, :page_no, :text) ",
         txtQry.DeclareVariable("id", otInteger);
         txtQry.DeclareVariable("page_no", otInteger);
         txtQry.DeclareVariable("text", otString);
 
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getRWSession("KUF_STAT"), STDLOG);
         Qry.SQLText =
-            "select id, point_id, file_type from kuf_stat where file_type in(:close, :flight_close) order by point_id";
+            "SELECT id, point_id, file_type "
+            "FROM kuf_stat "
+            "WHERE file_type IN(:close, :flight_close) "
+            "ORDER BY point_id ";
         Qry.CreateVariable("close", otString, TFileTypes().encode(TFileType::ftClose));
         Qry.CreateVariable("flight_close", otString, TFileTypes().encode(TFileType::ftTakeoff));
         Qry.Execute();
@@ -10798,8 +10830,14 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     string str_scd_out = html_get_param("scd_out", reqNode);
     if(StrToDateTime(str_scd_out.c_str(), "dd.mm.yy", scd_out) == EOF)
         throw Exception("kuf_stat_flts: can't convert scd_out: %s", str_scd_out.c_str());
-    TCachedQuery Qry("select * from points where scd_out >= :scd_out and scd_out < :scd_out + 1 and pr_del >= 0",
-            QParams() << QParam("scd_out", otDate, scd_out));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("POINTS"),
+          "SELECT * FROM points "
+          "WHERE scd_out >= :scd_out "
+          "AND scd_out < :scd_out + 1 "
+          "AND pr_del >= 0",
+          QParams() << QParam("scd_out", otDate, scd_out),
+          STDLOG);
     Qry.get().Execute();
     xmlNodePtr contentNode = NewTextChild(resNode, "content");
     xmlNodePtr fltsNode = NewTextChild(contentNode, "flts");
@@ -11098,10 +11136,12 @@ void get_pfs_stat(int point_id)
 
 void get_kuf_stat(int point_id)
 {
-    DB::TCachedQuery Qry(PgOra::getROSession("POINTS"),
-                         "select * from points where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id),
-                         STDLOG);
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("POINTS"),
+          "SELECT * FROM points "
+          "WHERE point_id = :point_id ",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     Qry.get().Execute();
 
     TTripInfo tripInfo(Qry.get());
