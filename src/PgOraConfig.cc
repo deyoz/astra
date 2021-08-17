@@ -97,16 +97,17 @@ namespace PgOra
                 "STAT_ZAMAR",
         } },
         { "SP_PG_GROUP_STAT_3",{
-                "STAT",                    // "POINTS","TRFER_STAT"
+                "STAT",                    // "POINTS","TRFER_STAT","PACTS"
                 "LIMITED_CAPABILITY_STAT", // "POINTS"
                 "STAT_HA",                 // "POINTS"
                 "STAT_VO",                 // "POINTS"
                 "STAT_REM",                // "POINTS","USERS2",
-                "TRFER_STAT",              // "POINTS","STAT"
+                "TRFER_STAT",              // "POINTS","STAT","PACTS"
                 "AGENT_STAT",              // "POINTS","USERS2", agent_stat_t
                 "SELF_CKIN_STAT",          // "POINTS"
                 "PFS_STAT",                // "POINTS"
                 "RFISC_STAT",              // "POINTS"
+                "PACTS",                   // "POINTS","TRFER_STAT","STAT"
         } },
         { "SP_PG_GROUP_KUF_STAT",{
                 "KUF_STAT",                // "KUF_STAT_TEXT"

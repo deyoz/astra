@@ -3,6 +3,7 @@
 #include "astra_date_time.h"
 #include <serverlib/str_utils.h>
 #include "date_time.h"
+#include "qrys.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -129,22 +130,22 @@ std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTi
 }
 
 const string AIRLINE_LIST =
-" (SELECT airline  \n"
-"  FROM pacts  \n"
-"  WHERE airp=:ap AND \n"
-"        first_date<=periods.period_first_date AND  \n"
-"        (last_date IS NULL OR periods.period_first_date<last_date) AND \n"
-"        airline IS NOT NULL) \n";
+" (SELECT airline "
+"  FROM pacts "
+"  WHERE airp=:ap AND "
+"        first_date<=periods.period_first_date AND "
+"        (last_date IS NULL OR periods.period_first_date < last_date) AND "
+"        airline IS NOT NULL) ";
 
 std::vector<std::string> read_airline_list(const Dates::time_period & period, const std::string& airp)
 {
     std::string airline;
-    auto cur = make_db_curs(" (SELECT airline  \n"
-                            "  FROM pacts  \n"
-                            "  WHERE airp=:ap AND \n"
-                            "        first_date <= :period_first_date AND  \n"
-                            "        (last_date IS NULL OR last_date > :period_first_date) AND \n"
-                            "        airline IS NOT NULL) \n", PgOra::getROSession("PACTS"));
+    auto cur = make_db_curs(" (SELECT airline "
+                            "  FROM pacts "
+                            "  WHERE airp=:ap AND "
+                            "        first_date <= :period_first_date AND "
+                            "        (last_date IS NULL OR last_date > :period_first_date) AND "
+                            "        airline IS NOT NULL) ", PgOra::getROSession("PACTS"));
     cur.stb()
        .defNull(airline, "")
        .bind(":ap", airp)
@@ -159,20 +160,20 @@ std::vector<std::string> read_airline_list(const Dates::time_period & period, co
 
 
 const string AIRP_LIST =
-" (SELECT airp  \n"
-"  FROM pacts  \n"
-"  WHERE airline=:ak AND \n"
-"        first_date<=periods.period_first_date AND  \n"
-"        (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
+" (SELECT airp "
+"  FROM pacts "
+"  WHERE airline=:ak AND "
+"        first_date<=periods.period_first_date AND "
+"        (last_date IS NULL OR periods.period_first_date<last_date) ) ";
 
 std::vector<std::string> read_airp_list(const Dates::time_period & period, const std::string& airline)
 {
     std::string airp;
-    auto cur = make_db_curs(" (SELECT airp  \n"
-                            "  FROM pacts  \n"
-                            "  WHERE airline=:ak AND \n"
-                            "        first_date <= :period_first_date AND  \n"
-                            "        (last_date IS NULL OR :period_first_date < last_date) ) \n",
+    auto cur = make_db_curs(" (SELECT airp "
+                            "  FROM pacts "
+                            "  WHERE airline=:ak AND "
+                            "        first_date <= :period_first_date AND "
+                            "        (last_date IS NULL OR :period_first_date < last_date) ) ",
                             PgOra::getROSession("PACTS"));
     cur.stb()
        .def(airp)
@@ -1578,20 +1579,21 @@ void ArxRunPactDetailStat(const vector<TPact>& result_pacts, const TStatParams &
 
 vector<TPact> readPacts(const TStatParams &params)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("PACTS"), STDLOG);
     Qry.SQLText =
-        "select\n"
-        "    descr,\n"
-        "    airline,\n"
-        "    airp,\n"
-        "    DECODE(SIGN(first_date-:FirstDate),1,first_date,:FirstDate) AS first_date,\n"
-        "    DECODE(SIGN(last_date- :LastDate),-1,last_date, :LastDate) AS last_date\n"
-        "from pacts where\n"
-        "  first_date >= :FirstDate and first_date < :LastDate or\n"
-        "  last_date >= :FirstDate and last_date < :LastDate or\n"
-        "  first_date < :FirstDate and (last_date >= :LastDate or last_date is null)\n"
-        "order by \n"
-        "  airline nulls first \n";
+        "SELECT "
+        "  descr, "
+        "  airline, "
+        "  airp, "
+        "  CASE WHEN sign((first_date - :FirstDate)) = 1 THEN first_date ELSE :FirstDate END AS first_date, "
+        "  CASE WHEN sign((last_date - :LastDate)) = -1 THEN last_date ELSE :LastDate END AS last_date "
+        "FROM pacts "
+        "WHERE "
+        "  first_date >= :FirstDate AND first_date < :LastDate OR "
+        "  last_date >= :FirstDate AND last_date < :LastDate OR "
+        "  first_date < :FirstDate AND (last_date >= :LastDate or last_date IS NULL) "
+        "ORDER BY  "
+        "  airline NULLS FIRST ";
 
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
@@ -1606,45 +1608,13 @@ vector<TPact> readPacts(const TStatParams &params)
                 Qry.FieldAsDateTime("first_date"),
                 Qry.FieldAsDateTime("last_date")
                 );
-        if(pact.airline.empty())
+        if(pact.airline.empty()) {
             airp_pacts[pact.airp].push_back(pact);
-        else {
-            /*
-            ProgTrace(TRACE5, "before correct_airp_pacts:");
-            ProgTrace(TRACE5, "descr: %s, first_date: %s, last_date: %s",
-                    pact.descr.c_str(),
-                    DateTimeToStr(pact.first_date, "ddmmyy").c_str(),
-                    DateTimeToStr(pact.last_date, "ddmmyy").c_str()
-                    );*/
-            /*
-            for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
-                correct_airp_pacts(im->second, pact);
-                */
+        } else {
             correct_airp_pacts(airp_pacts[pact.airp], pact);
-
             result_pacts.push_back(pact);
         }
     }
-    /*
-    ProgTrace(TRACE5, "AIRP_PACTS:");
-    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
-        ProgTrace(TRACE5, "airp: %s", im->first.c_str());
-        ProgTrace(TRACE5, "periods:");
-        for(vector<TPact>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
-            ProgTrace(TRACE5, "first_date: %s, last_date: %s",
-                    DateTimeToStr(iv->first_date, "ddmmyy").c_str(),
-                    DateTimeToStr(iv->last_date, "ddmmyy").c_str()
-                    );
-            string denied;
-            for(set<string>::iterator is = iv->airlines.begin(); is != iv->airlines.end(); is++) {
-                if(not denied.empty())
-                    denied += ", ";
-                denied += *is;
-            }
-            ProgTrace(TRACE5, "denied airlines: %s", denied.c_str());
-        }
-    }
-    */
     for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
         if(im->second.empty())
             continue;
@@ -1783,7 +1753,7 @@ void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession({"POINTS","TRFER_STAT","STAT"}), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"POINTS","TRFER_STAT","STAT","PACTS"}), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -2238,3 +2208,65 @@ void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, con
     }
 }
 
+void insert_pact(int id,
+                 TDateTime first_date,
+                 TDateTime last_date,
+                 const std::string& airline,
+                 const std::string& airp,
+                 const std::string& descr)
+{
+    checkDateRange(first_date, last_date);
+
+    QParams qryParams;
+    qryParams << QParam("airline", otString, airline)
+              << QParam("airp", otString, airp);
+    DB::TCachedQuery Qry(
+                PgOra::getROSession("PACTS"),
+                "SELECT id, first_date, last_date "
+                "FROM pacts "
+                "WHERE COALESCE(airline, ' ') = COALESCE(:airline, ' ') "
+                "AND airp = :airp ",
+                qryParams,
+                STDLOG);
+    Qry.get().Execute();
+
+    for(; !Qry.get().Eof; Qry.get().Next()) {
+        const int pact_id = Qry.get().FieldAsInteger("id");
+        if (id == pact_id) {
+            continue;
+        }
+        const TDateTime prev_first_date = Qry.get().FieldIsNULL("first_date") ? ASTRA::NoExists
+                                                                              : Qry.get().FieldAsDateTime("first_date");
+        const TDateTime prev_last_date = Qry.get().FieldIsNULL("last_date") ? ASTRA::NoExists
+                                                                            : Qry.get().FieldAsDateTime("last_date");
+        checkPeriodOverlaps(first_date, last_date, prev_first_date, prev_last_date);
+    }
+
+    qryParams << QParam("first_date", otInteger, first_date);
+    if (last_date == ASTRA::NoExists) {
+        qryParams << QParam("last_date", otInteger, FNull);
+    } else {
+        qryParams << QParam("last_date", otInteger, last_date + 1);
+    }
+    if (id == ASTRA::NoExists) {
+      const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
+      DB::TCachedQuery insQry(
+                  PgOra::getRWSession("PACTS"),
+                  "INSERT INTO pacts(id, airline, airp, first_date, last_date, descr) "
+                  "VALUES(:id, :airline, :airp, :first_date, :last_date, :descr) ",
+                  qryParams << QParam("id", otInteger, new_id)
+                            << QParam("descr", otString, descr),
+                  STDLOG);
+      insQry.get().Execute();
+    } else {
+        DB::TCachedQuery updQry(
+                    PgOra::getRWSession("PACTS"),
+                    "UPDATE pacts "
+                    "SET first_date = :first_date, "
+                    "    last_date = :last_date "
+                    "WHERE id = :id",
+                    qryParams << QParam("id", otInteger, id),
+                    STDLOG);
+        updQry.get().Execute();
+    }
+}

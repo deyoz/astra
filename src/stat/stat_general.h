@@ -122,4 +122,7 @@ void createXMLFullStat(const TStatParams &params,
                        const TFullStat &FullStat, const TFullStatRow &FullStatTotal,
                        const TPrintAirline &airline, xmlNodePtr resNode);
 
+void insert_pact(int id, TDateTime first_date, TDateTime last_date,
+                 const std::string& airline, const std::string& airp, const std::string& descr);
+
 #endif

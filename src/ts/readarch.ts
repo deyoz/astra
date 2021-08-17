@@ -2123,7 +2123,7 @@ $(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'êéô', id__seq.nextval
 $(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ûí', id__seq.nextval)")
 $(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ëì', id__seq.nextval)")
 
-$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ûí', 'ëéó', 'íÖëí', sysdate-30, null, id__seq.nextval)")
+$(db_sql PACTS "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ûí', 'ëéó', 'íÖëí', TO_DATE('$(date_format %Y-%m-%d -30)', 'yyyy-mm-dd'), null, $(db_seq_nextval ID__SEQ))")
 
 $(login)
 ################################################################################
@@ -2231,7 +2231,7 @@ $(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'êéô', id__seq.nextval
 $(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ûí', id__seq.nextval)")
 $(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ëì', id__seq.nextval)")
 
-$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ûí', 'ëéó', 'íÖëí', sysdate-30, null, id__seq.nextval)")
+$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ûí', 'ëéó', 'íÖëí', TO_DATE('$(date_format %Y-%m-%d -30)', 'yyyy-mm-dd'), null, $(db_seq_nextval ID__SEQ))")
 
 $(login)
 

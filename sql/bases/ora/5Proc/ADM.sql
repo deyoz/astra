@@ -53,18 +53,6 @@ PROCEDURE add_originator(
        vsetting_user    history_events.open_user%TYPE,
        vstation         history_events.open_desk%TYPE);
 
-procedure insert_pact(vid             in pacts.id%type,
-                      vsys_user_id    in users2.user_id%TYPE,
-                      vfirst_date     in pacts.first_date%type,
-                      vlast_date      in pacts.last_date%type,
-                      vairline        in pacts.airline%type,
-                      vairline_view   in VARCHAR2,
-                      vairp           in pacts.airp%type,
-                      vairp_view      in VARCHAR2,
-                      vdescr          in pacts.descr%TYPE,
-                      vsetting_user   in history_events.open_user%TYPE,
-                      vstation        in history_events.open_desk%TYPE);
-
 PROCEDURE check_hall_airp(vhall_id       IN halls2.id%TYPE,
                           vpoint_id      IN points.point_id%TYPE);
 FUNCTION check_hall_airp(vhall_id       IN halls2.id%TYPE,

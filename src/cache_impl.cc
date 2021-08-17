@@ -4,6 +4,7 @@
 #include "astra_types.h"
 #include "kassa.h"
 #include "kiosk/kiosk_cache_impl.h"
+#include "stat/stat_general.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -1241,6 +1242,85 @@ std::string lastDateSelectSQL(const std::string& objectName)
 {
   return PgOra::supportsPg(objectName)?"last_date - interval '1 second' AS last_date":
                                        "last_date-1/86400 AS last_date";
+}
+
+//Pacts
+
+bool Pacts::userDependence() const
+{
+    return true;
+}
+
+std::list<std::string> Pacts::dbSessionObjectNames() const
+{
+  return {"PACTS"};
+}
+
+
+std::string Pacts::selectSql() const {
+  return
+   "SELECT id, airline, airp, first_date, last_date - 1/86400 last_date, descr "
+   "FROM pacts "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirports) +
+   "ORDER BY airline, airp, first_date, last_date, descr ";
+}
+
+std::string Pacts::deleteSql() const
+{
+  return "DELETE FROM pacts WHERE id=:OLD_id ";
+}
+
+bool Pacts::insertImplemented() const
+{
+  return true;
+}
+
+bool Pacts::updateImplemented() const
+{
+  return true;
+}
+
+void Pacts::onApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row>& oldRow,
+                                 const std::optional<Row>& newRow) const
+{
+    if (status==usInserted)
+    {
+      const CacheTable::Row& row=newRow.value();
+      insert_pact(ASTRA::NoExists,
+                  row.getAsDateTime_ThrowOnEmpty("first_date"),
+                  row.getAsDateTime("last_date", ASTRA::NoExists),
+                  row.getAsString("airline"),
+                  row.getAsString("airp"),
+                  row.getAsString("descr"));
+    }
+
+    if (status==usModified)
+    {
+      insert_pact(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                  newRow.value().getAsDateTime_ThrowOnEmpty("first_date"),
+                  newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+                  newRow.value().getAsString("airline"),
+                  newRow.value().getAsString("airp"),
+                  std::string());
+    }
+}
+
+void Pacts::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void Pacts::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                    const std::optional<CacheTable::Row>& oldRow,
+                                    const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("pacts").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //BaggageWt

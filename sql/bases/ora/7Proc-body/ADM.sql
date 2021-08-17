@@ -274,64 +274,6 @@ BEGIN
   END IF;
 END add_originator;
 
-procedure insert_pact(
-                      vid             in pacts.id%type,
-                      vsys_user_id    in users2.user_id%TYPE,
-                      vfirst_date     in pacts.first_date%type,
-                      vlast_date      in pacts.last_date%type,
-                      vairline        in pacts.airline%type,
-                      vairline_view   in VARCHAR2,
-                      vairp           in pacts.airp%type,
-                      vairp_view      in VARCHAR2,
-                      vdescr          in pacts.descr%TYPE,
-                      vsetting_user   in history_events.open_user%TYPE,
-                      vstation        in history_events.open_desk%TYPE)
-is
-vairlineh       airlines.code%TYPE;
-vairph          airps.code%TYPE;
-id              pacts.id%type;
-cursor cur is
-  select id, first_date, last_date from pacts where
-    nvl(airline, ' ') = nvl(vairline, ' ') and
-    airp = vairp;
-begin
-    vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
-    vairph:=adm.check_airp_access(vairp,vairp_view,vSYS_user_id,1);
-    if vlast_date < vfirst_date then
-      system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
-    end if;
-    for c in cur loop
-      if
-        vlast_date is null and c.last_date is null and (
-            nvl(vid, -1) <> c.id
-        ) or
-        vlast_date is null and c.last_date is not null and (
-            nvl(vid, -1) <> c.id and c.last_date > vfirst_date
-        ) or
-        vlast_date is not null and c.last_date is null and (
-            nvl(vid, -1) <> c.id and vlast_date >= c.first_date
-        ) or
-        vlast_date is not null and c.last_date is not null and (
-          nvl(vid, -1) <> c.id and (
-          (vfirst_date >= c.first_date and vlast_date <= c.last_date) or
-          (vfirst_date < c.first_date and vlast_date >= c.first_date) or
-          (vlast_date > c.last_date and vfirst_date < c.last_date))
-        )
-      then
-        system.raise_user_exception('MSG.PERIOD_OVERLAPS_WITH_INTRODUCED');
-      end if;
-    end loop;
-    if vid is null then
-      SELECT id__seq.nextval INTO id FROM dual;
-      insert into pacts(id, airline, airp, first_date, last_date, descr)
-        values(id, vairline, vairp, vfirst_date, vlast_date + 1, vdescr);
-      hist.synchronize_history('pacts',id,vsetting_user,vstation);
-    else
-      update pacts set first_date = vfirst_date, last_date = vlast_date + 1 where id = vid;
-      hist.synchronize_history('pacts',vid,vsetting_user,vstation);
-    end if;
-end;
-
 PROCEDURE check_hall_airp(vhall_id       IN halls2.id%TYPE,
                           vpoint_id      IN points.point_id%TYPE)
 IS

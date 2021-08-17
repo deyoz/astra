@@ -2227,54 +2227,87 @@ bool isValidAirlineName(const std::string &value, const bool latinOnly)
   return isValidName(value, latinOnly, " ,.+-/:;()\"`'");
 }
 
+void checkDateRange(TDateTime first_date, TDateTime last_date)
+{
+  if (first_date > last_date) {
+    throw AstraLocale::UserException("MSG.TABLE.INVALID_RANGE");
+  }
+}
+
 void checkPeriod(bool pr_new,
-                 TDateTime first_date,
-                 TDateTime last_date,
+                 TDateTime first_datetime,
+                 TDateTime last_datetime,
                  TDateTime now,
-                 TDateTime& first,
-                 TDateTime& last,
+                 TDateTime& first_date,
+                 TDateTime& last_date,
                  bool& pr_opd)
 {
-    if (first_date == ASTRA::NoExists && last_date == ASTRA::NoExists) {
+    if (first_datetime == ASTRA::NoExists && last_datetime == ASTRA::NoExists) {
         throw AstraLocale::UserException("MSG.TABLE.NOT_SET_RANGE");
     }
-    std::modf(first_date, &first);
-    std::modf(last_date, &last);
+    std::modf(first_datetime, &first_date);
+    std::modf(last_datetime, &last_date);
 
-    if (first_date != ASTRA::NoExists
-        && last_date != ASTRA::NoExists
-        && first > last)
+    if (first_datetime != ASTRA::NoExists
+        && last_datetime != ASTRA::NoExists)
     {
-        throw AstraLocale::UserException("MSG.TABLE.INVALID_RANGE");
+        checkDateRange(first_date, last_date);
     }
 
     TDateTime today;
     std::modf(now,&today);
 
-    if (first != ASTRA::NoExists) {
-        if (first < today) {
+    if (first_date != ASTRA::NoExists) {
+        if (first_date < today) {
             if (pr_new) {
                 throw AstraLocale::UserException("MSG.TABLE.FIRST_DATE_BEFORE_TODAY");
             } else {
-                first = today;
+                first_date = today;
             }
         }
-        if (first == today) {
-            first = now;
+        if (first_date == today) {
+            first_date = now;
         }
         pr_opd = false;
     } else {
         pr_opd = true;
     }
 
-    if (last != ASTRA::NoExists) {
-        if (last < today) {
+    if (last_date != ASTRA::NoExists) {
+        if (last_date < today) {
             throw AstraLocale::UserException("MSG.TABLE.LAST_DATE_BEFORE_TODAY");
         }
-        last = last + 1;
+        last_date = last_date + 1;
     }
     if (pr_opd) {
-        first = last;
-        last  = ASTRA::NoExists;
+        first_date = last_date;
+        last_date  = ASTRA::NoExists;
     }
+}
+
+void checkPeriodOverlaps(TDateTime first_date,
+                         TDateTime last_date,
+                         TDateTime prev_first_date,
+                         TDateTime prev_last_date)
+{
+  if (
+      (last_date == ASTRA::NoExists
+       && prev_last_date == ASTRA::NoExists)
+      || (last_date == ASTRA::NoExists
+          && prev_last_date != ASTRA::NoExists
+          && prev_last_date > first_date)
+      || (last_date != ASTRA::NoExists
+          && prev_last_date == ASTRA::NoExists
+          && last_date >= prev_first_date)
+      || (last_date != ASTRA::NoExists
+          && prev_last_date != ASTRA::NoExists
+          && (
+               (first_date >= prev_first_date && last_date <= prev_last_date)
+                || (first_date < prev_first_date && last_date >= prev_first_date)
+                || (last_date > prev_last_date && first_date < prev_last_date)
+              )
+          )
+  ) {
+    throw AstraLocale::UserException("MSG.PERIOD_OVERLAPS_WITH_INTRODUCED");
+  }
 }

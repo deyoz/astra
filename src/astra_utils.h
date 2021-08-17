@@ -871,6 +871,7 @@ bool isValidName(const std::string &value, const bool latinOnly, const std::stri
 
 bool isValidAirlineName(const std::string &value, const bool latinOnly);
 
+void checkDateRange(TDateTime first_date, TDateTime last_date);
 void checkPeriod(bool pr_new,
                  TDateTime first_date,
                  TDateTime last_date,
@@ -878,5 +879,9 @@ void checkPeriod(bool pr_new,
                  TDateTime& first,
                  TDateTime& last,
                  bool& pr_opd);
+void checkPeriodOverlaps(TDateTime first_date,
+                         TDateTime last_date,
+                         TDateTime prev_first_date,
+                         TDateTime prev_last_date);
 
 #endif /*_ASTRA_UTILS_H_*/
