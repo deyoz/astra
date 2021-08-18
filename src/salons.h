@@ -14,6 +14,7 @@
 #include "base_tables.h"
 #include "seats_utils.h"
 #include "comp_props.h"
+#include "seats_utils.h"
 #include "crafts/ComponCreator.h"
 
 using BASIC::date_time::TDateTime;
@@ -657,19 +658,6 @@ struct LayerPrioritySeatCompare {
 struct TSalonPax;
 class TPlace;
 
-struct CompareSeatRange  {
-  bool operator() ( const TSeatRange &seat1, const TSeatRange &seat2 ) const {
-    if ( seat1 != seat2 ) {
-      return ( seat1 < seat2 );
-    }
-    return false;
-  }
-};
-
-class TInvalidRange: public std::set<TSeatRange,CompareSeatRange> {
-};
-
-
 class TSalonPointNames {
   public:
     TSalonPoint point;
@@ -1214,6 +1202,8 @@ struct TPass {
   }
 };
 
+typedef std::map<TLayerPrioritySeat,TSeatRanges,LayerPrioritySeatCompare> TTotalRanges;
+
 struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
@@ -1240,7 +1230,7 @@ struct TSalonPax {
     ASTRA::TCrewType::Enum crew_type;
     TLayersPax layers;
     TLayersPax save_layers;
-    std::map<TLayerPrioritySeat,TInvalidRange,LayerPrioritySeatCompare> invalid_ranges;
+    TTotalRanges total_ranges;
     TSalonPax() {
       seats = 0;
       is_jmp = false;
@@ -1278,13 +1268,17 @@ struct TSalonPax {
       crew_type = pass.crew_type;
     }
     void get_seats( TWaitListReason &waitListReason,
-                    TPassSeats &ranges ) const;
+                    TPassSeats &ranges,
+                    bool with_crs = false ) const;
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
                     std::map<TSeat,TPlace*,CompareSeat> &descrs, bool with_crs = false ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
+    std::string crs_seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
     std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
+    std::string prior_crs_seat_no( const std::string &format, bool pr_lat_seat,
+                                   ASTRA::TCompLayerType& layer_type ) const;
 };
                                 //pax_id,TSalonPax
 class TPaxList: public std::map<int,TSalonPax> {
@@ -1749,6 +1743,17 @@ class TSalonList {
   public:
     SALONS2::CraftSeats _seats; //private!!!
     std::map<int,TPaxList> pax_lists;
+    bool getPax( int point_dep, int pax_id, TSalonPax& salonPax ) const {
+      salonPax = TSalonPax();
+      std::map<int,TPaxList>::const_iterator pxs = pax_lists.find( point_dep );
+      if ( pxs == pax_lists.end() )
+        return false;
+      TPaxList::const_iterator ipax = pxs->second.find( pax_id );
+      if ( ipax == pxs->second.end() )
+        return false;
+      salonPax = ipax->second;
+      return true;
+    }
     bool isCraftLat() const {
       return pr_craft_lat;
     }
@@ -1849,12 +1854,11 @@ class TSalonList {
     void JumpToLeg( const FilterRoutesProperty &filterRoutesNew );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
     void getPassengers( TSalonPassengers &passengers, const TGetPassFlags &flags );
-    void getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
+    bool getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
                       std::set<TPlace*,CompareSeats> &seats ) const;
-    void getPaxLayer( int point_dep, int pax_id,
+    bool getPaxLayer( int point_dep, int pax_id,
                       TLayerPrioritySeat &seatLayer,
-                      std::set<TPlace*,CompareSeats> &seats,
-                      bool useInvalidLayers=false ) const;
+                      std::set<TPlace*,CompareSeats> &seats ) const;
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 

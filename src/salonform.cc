@@ -1315,7 +1315,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
         }
         std::set<TPlace*,CompareSeats> _seats;
         SALONS2::TLayerPrioritySeat _layerPrioritySeat = SALONS2::TLayerPrioritySeat::emptyLayer();
-        NewSalonList.getPaxLayer(point_id, pax_id, _layerPrioritySeat, _seats, false );
+        NewSalonList.getPaxLayer(point_id, pax_id, _layerPrioritySeat, _seats );
         bool show_msg = true;
         for ( const auto & s : _seats ) {
           std::vector<TSeatRemark> vremarks;
@@ -1890,7 +1890,6 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
               NewTextChild( node, "pr_web", i->pr_web );
               NewTextChild( node, "grp_status", i->grp_status );
               NewTextChild( node, "name", i->name + " " + i->surname );
-              i->get_seats( waitListReason, seats );
               NewTextChild( node, "pr_waitlist", 0 );
               NewTextChild( node, "seat_no", "" );
             }

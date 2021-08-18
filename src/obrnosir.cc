@@ -31,6 +31,7 @@
 #include "stat/stat_departed.h"
 #include "stat/stat_ovb.h"
 #include "dbcpp_nosir_check.h"
+#include "tripinfo.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -51,6 +52,7 @@ int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
 int print_pg_tables(int argc, char **argv);
+int seat_no_test_single(int argc, char **argv);
 
 #ifdef XP_TESTING
 
@@ -146,6 +148,7 @@ const
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test_single,              NULL,                       NULL},
+    {"-seat_no_test",           seat_no_test_single,    NULL,                       NULL},
     {"-alias_to_db",            KIOSKCONFIG::alias_to_db, NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
@@ -313,4 +316,59 @@ bool getDateRangeFromArgs(int argc, char **argv,
 
   return true;
 }
+
+int seat_no_test_single(int argc, char **argv)
+{
+  tst();
+    TQuery PointIdQry(&OraSession);
+    PointIdQry.SQLText=
+      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL and point_id=4912602 ORDER BY point_id";
+    PointIdQry.Execute();
+  int c = 0;
+  for (;!PointIdQry.Eof;PointIdQry.Next()) {
+    tst();
+/*    XMLDoc reqDoc;
+    std::string reqText=
+    "<term>"
+    "<query handle=\"0\" id=\"prepreg\" ver=\"1\" opr=\"DJEK\" screen=\"AIR.EXE\" mode=\"STAND\" lang=\"RU\" term_id=\"1215111772\">"
+    "<ViewCRSList>"
+    "<dev_model/>"
+    "<fmt_type/>"
+    "<prnParams>"
+    "<pr_lat>0</pr_lat>"
+    "<encoding>UTF-16LE</encoding>"
+    "<offset>20</offset>"
+    "<top>0</top>"
+    "</prnParams>"
+    "<point_id>4915579</point_id>"
+    "</ViewCRSList>"
+    "</query>"
+    "</term>";
+    reqDoc.set(reqText);
+    //xmlNodePtr node = reqDoc.docPtr()->children->children;
+    ReplaceTextChild(reqDoc.docPtr()->children->children->children,"point_id",PointIdQry.FieldAsInteger("point_id"));*/
+    XMLDoc resDoc1("data");
+    XMLDoc resDoc2("data");
+    c++;
+    LogTrace(TRACE5) << c << " " << PointIdQry.FieldAsInteger("point_id");
+    try {
+      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+                   {}, resDoc1.docPtr()->children, false );
+      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+                   {}, resDoc2.docPtr()->children, true );
+    }
+    catch(const EXCEPTIONS::Exception &e) {
+      LogError(STDLOG) << e.what();
+      LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
+      continue;
+    }
+    if ( resDoc1.text() != resDoc2.text() )
+      LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
+    LogError(STDLOG) <<  resDoc2.text();
+    LogError(STDLOG) <<  resDoc1.text();
+  }
+  tst();
+  return 0;
+}
+
 

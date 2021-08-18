@@ -2270,24 +2270,26 @@ void TSalonList::ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes
                                                                                                                  flag ) );
       TPlaceList* placelist = NULL;
       TSalonPoint point_s;
-      point_s.num = Qry.FieldAsInteger( col_num );
-      point_s.x = Qry.FieldAsInteger( col_x );
-      point_s.y = Qry.FieldAsInteger( col_y );
+      bool invalid_layer = Qry.FieldIsNULL(col_num);
+      point_s.num = invalid_layer?ASTRA::NoExists:Qry.FieldAsInteger( col_num );
+      point_s.x = invalid_layer?ASTRA::NoExists:Qry.FieldAsInteger( col_x );
+      point_s.y = invalid_layer?ASTRA::NoExists:Qry.FieldAsInteger( col_y );
       TPoint seat_p( point_s.x, point_s.y );
+      LogTrace(TRACE5) << layerPrioritySeat.toString();
       if ( layerPrioritySeat.getPaxId() != NoExists &&
            pax_list.find( layerPrioritySeat.getPaxId() ) != pax_list.end() ) { //слой принадлежит пассажиру
         TSeatRange seatRange( TSeat(Qry.FieldAsString( idx_first_yname ),
                                     Qry.FieldAsString( idx_first_xname ) ),
                               TSeat(Qry.FieldAsString( idx_last_yname ),
                                     Qry.FieldAsString( idx_last_xname ) ) );
-        std::map<TLayerPrioritySeat,TInvalidRange >::iterator iranges = pax_list[ layerPrioritySeat.getPaxId() ].invalid_ranges.find( layerPrioritySeat );
-        if ( iranges != pax_list[ layerPrioritySeat.getPaxId() ].invalid_ranges.end() ) {
-          iranges->second.insert( seatRange );
+        std::map<TLayerPrioritySeat,TSeatRanges>::iterator iranges = pax_list[ layerPrioritySeat.getPaxId() ].total_ranges.find( layerPrioritySeat );
+        if ( iranges != pax_list[ layerPrioritySeat.getPaxId() ].total_ranges.end() ) {
+          iranges->second.emplace_back( seatRange );
         }
         else {
-          TInvalidRange ranges;
-          ranges.insert( seatRange );
-          pax_list[ layerPrioritySeat.getPaxId() ].invalid_ranges.emplace( layerPrioritySeat, ranges );
+          TSeatRanges ranges;
+          ranges.emplace_back( seatRange );
+          pax_list[ layerPrioritySeat.getPaxId() ].total_ranges.emplace( layerPrioritySeat, ranges );
         }
       }
 
@@ -2786,7 +2788,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
            "suffix, "
            "scd_out, "
            "act_out, "
-           "pr_lat_seat, "
+           "COALESCE(pr_lat_seat,1) as pr_lat_seat, "
            "COALESCE(comp_id, -1) comp_id, "
            "crc_comp, "
            "COALESCE(crc_base_comp, crc_comp) as crc_base_comp, "
@@ -3892,17 +3894,17 @@ void TSalonList::getPassengers( TSalonPassengers &passengers, const TGetPassFlag
   }
 }
 
-void TSalonList::getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
+bool TSalonList::getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
                               std::set<TPlace*,CompareSeats> &seats ) const
 {
   seats.clear();
   std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( point_dep );
   if ( ipax_list == pax_lists.end() ) {
-    return;
+    return false;
   }
   std::map<int,TSalonPax>::const_iterator ipax = ipax_list->second.find( pax_id );
   if ( ipax == ipax_list->second.end() ) {
-    return;
+    return false;
   }
 
   for ( TLayersPax::const_iterator ilayers=ipax->second.layers.begin();
@@ -3914,35 +3916,37 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType l
       continue;
     }
     seats = ilayers->second.seats;
-    break;
+    return true;
   }
+  return false;
 }
 
-
-void TSalonList::getPaxLayer( int point_dep, int pax_id,
+bool TSalonList::getPaxLayer( int point_dep, int pax_id,
                               TLayerPrioritySeat &seatLayer,
-                              std::set<TPlace*,CompareSeats> &seats, bool useInvalidLayers ) const
+                              std::set<TPlace*,CompareSeats> &seats ) const
 {
   seatLayer = TLayerPrioritySeat::emptyLayer();
   seats.clear();
   std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( point_dep );
   if ( ipax_list == pax_lists.end() ) {
-    return;
+    return false;
   }
   std::map<int,TSalonPax>::const_iterator ipax = ipax_list->second.find( pax_id );
   if ( ipax == ipax_list->second.end() ) {
-    return;
+    return false;
   }
   for ( TLayersPax::const_iterator ilayers=ipax->second.layers.begin();
         ilayers!=ipax->second.layers.end(); ilayers++ ) {
-    if ( (!useInvalidLayers && ilayers->second.waitListReason.status != layerValid) ||
+
+    if ( ilayers->second.waitListReason.status != layerValid ||
          ilayers->first.getPaxId( ) != pax_id ) {
       continue;
     }
     seatLayer = ilayers->first;
     seats = ilayers->second.seats;
-    break;
+    return true;
   }
+  return false;
 }
 
 void TSectionInfo::clearProps() {
@@ -4441,8 +4445,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     "SELECT num, x, y, trip_comp_layers.layer_type, crs_pax_id, pax_id, time_create, "
     "       trip_comp_layers.point_id, point_dep, point_arv, "
     "       first_xname, first_yname, last_xname, last_yname "
-    " FROM trip_comp_ranges "
-    "   LEFT OUTER JOIN trip_comp_layers "
+    " FROM trip_comp_layers "
+    "   LEFT OUTER JOIN trip_comp_ranges "
     "          ON trip_comp_layers.range_id = trip_comp_ranges.range_id "
     " WHERE trip_comp_layers.point_id = :point_id";
 
@@ -8207,7 +8211,8 @@ void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
     grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   }
   TLayersPax::const_iterator ilayer=layers.begin();
-  for ( ; ilayer!=layers.end(); ilayer++ ) {
+  for ( ; ilayer!=layers.end(); ilayer++ ) { // а нужен ли здесь пробег по слоям или самы первый-приоритетный?
+    LogTrace(TRACE5)  << ilayer->first.toString();
     if ( with_crs ||
          ilayer->first.layerType() == grp_layer_type ) {
       //!logProgTrace( TRACE5, "pax_id=%d, %s, grp_layer_type=%s, ilayer->second.layerType is valid %d",
@@ -8229,12 +8234,12 @@ void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
   }
 }
 
-
 void TSalonPax::get_seats( TWaitListReason &waitListReason,
-                           TPassSeats &ranges ) const {
+                           TPassSeats &ranges,
+                           bool with_crs) const {
   ranges.clear();
   vector<TPlace*> seats;
-  int_get_seats( waitListReason, seats );
+  int_get_seats( waitListReason, seats, with_crs );
   for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
         iseat!=seats.end(); iseat++ ) {
     ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
@@ -8266,6 +8271,17 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
   TPassSeats seats;
   TSeatRanges ranges;
   get_seats( waitListReason, seats );
+  for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
+    ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
+  }
+  return GetSeatRangeView(ranges, format, pr_lat_seat);
+}
+
+std::string TSalonPax::crs_seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
+{
+  TPassSeats seats;
+  TSeatRanges ranges;
+  get_seats( waitListReason, seats, true );
   for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
     ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
   }
@@ -8344,21 +8360,40 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
   ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   string res;
   if ( /*res.empty() &&*/
-       !invalid_ranges.empty() ) { //слоев нет, смотрим invalid_ranges
+       !total_ranges.empty() ) { //слоев нет, смотрим total_ranges
 //!log     tst();
     TSeatRanges ranges;
-    for ( std::map<TLayerPrioritySeat,TInvalidRange,LayerPrioritySeatCompare>::const_iterator iranges=invalid_ranges.begin();
-          iranges!=invalid_ranges.end(); iranges++ ) {
+    for ( std::map<TLayerPrioritySeat,TSeatRanges,LayerPrioritySeatCompare>::const_iterator iranges=total_ranges.begin();
+          iranges!=total_ranges.end(); iranges++ ) {
       if ( iranges->first.layerType() != grp_layer_type ) {
         continue;
       }
-      for ( TInvalidRange::const_iterator irange=iranges->second.begin();
+      for ( TSeatRanges::const_iterator irange=iranges->second.begin();
             irange!=iranges->second.end(); irange++ ) {
         ranges.push_back( *irange );
       }
     }
     res = GetSeatRangeView(ranges, format, pr_lat_seat);
   }
+  return res;
+}
+
+std::string TSalonPax::prior_crs_seat_no( const std::string &format, bool pr_lat_seat,
+                                          ASTRA::TCompLayerType& layer_type ) const
+{
+  if ( total_ranges.empty() )
+    return "";
+  string res;
+  TSeatRanges ranges;
+  std::map<TLayerPrioritySeat,TSeatRanges,LayerPrioritySeatCompare>::const_iterator iranges=total_ranges.begin();
+  layer_type = iranges->first.layerType();
+  for ( TSeatRanges::const_iterator irange=iranges->second.begin();
+        irange!=iranges->second.end(); irange++ ) {
+    ranges.push_back( *irange );
+  }
+  int vseats = seats;
+  LogTrace(TRACE5) << ranges.size();
+  res = GetSeatRangeView(ranges, format, pr_lat_seat, vseats, false);
   return res;
 }
 
