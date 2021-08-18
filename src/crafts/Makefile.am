@@ -6,10 +6,12 @@ lib_LIBRARIES = libcraft.a
 libcraft_a_SOURCES = \
   CraftCaches.cc \
   ComponCreator.cc \
-  SeatsPlanter.cc
+  SeatsPlanter.cc \
+  SeatsPax.cc
         
 
 noinst_HEADERS = \
   CraftCaches.h \
   ComponCreator.h \
-  SeatsPlanter.h
+  SeatsPlanter.h \
+  SeatsPax.h

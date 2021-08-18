@@ -5020,7 +5020,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
         ipass!=ipass_status->second.end(); ipass++ ) {
     TWaitListReason waitListReason;
     //!!!TPassSeats ranges;
-    string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
+    ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
     if ( waitListReason.status == layerValid ) {
       tst();
       continue;
