@@ -268,8 +268,8 @@ namespace PgOra
                 "CRS_PAX_CHKD",    // "CRS_PAX", "CRS_PNR", "PAX", "CRS_INF", salons.get_crs_seat_no
         }},
         { "SP_PG_GROUP_PAX", {
-                "PAX",
-                "PAX_GRP",
+                "PAX",      // !!!
+                "PAX_GRP",  // !!!
                 "PAX_EMD",  // "PAX", "PAX_GRP", "PAX_ASVC"
                 "PAX_ASVC", // "PAX", "PAX_GRP", "PAX_EMD", "TCKIN_PAX_GRP", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
                 "PAX_REM",  // "PAX", "PAX_GRP", "PAX_ASVC", "PAX_DOC", "PAX_DOCO", "PAX_DOCA", "COMP_REM_TYPES", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
@@ -278,7 +278,10 @@ namespace PgOra
                 "PAX_DOC",  // "PAX", "PAX_GRP", "PAX_DOCO", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "POINTS", "AIRPS", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2", salons.get_seat_no
                 "PAX_DOCA", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCO", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
                 "PAX_DOCO", // "PAX", "PAX_GRP", "PAX_DOC", "PAX_DOCA", "PAX_ASVC", "PAX_REM", "TRANSFER", "TRFER_TRIPS", "TRIP_CLASSES", "COUNTERS2", "PAX_FQT", "BAG2"
-                "TEST_PAX", // "PAX","CRS_PAX","CRS_PNR","SUBCLS","CLS_GRP"
+                "TEST_PAX", // "PAX","CRS_PAX","CRS_PNR","SUBCLS","CLS_GRP",
+                "TCKIN_PAX_GRP",  // "PAX","PAX_GRP","BAG2","EVENTS_BILINGUAL","STATIONS","WEB_CLIENTS","DESKS","DESK_GRP","POINTS","CRS_PAX","PAX_CALC_DATA","USERS2","PAX_ASVC","CLS_GRP","HALLS2","TRANSFER","TRFER_TRIPS"
+                "TCKIN_SEGMENTS", // "PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TRFER_TRIPS"
+                "MARK_TRIPS",     // "PAX","PAX_GRP","TRANSFER","TRFER_TRIPS","TCKIN_SEGMENTS","POINTS"
         }},
         { "SP_PG_GROUP_TRIP_TASK", {
                 "TRIP_CLASSES",
