@@ -1247,6 +1247,7 @@ struct TSalonPax {
       pax_id = ASTRA::NoExists;
       grp_id = ASTRA::NoExists;
       cabin_class_grp = ASTRA::NoExists;
+      point_dep = ASTRA::NoExists;
       point_arv = ASTRA::NoExists;
       parent_pax_id = ASTRA::NoExists;
       pr_web = false;
