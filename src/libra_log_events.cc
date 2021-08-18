@@ -117,6 +117,7 @@ static std::list<LogEvent> requestLogEventsFromDb(const Dates::DateTime_t& from,
 
 static size_t removeLogEventsViaHttp(const Dates::DateTime_t& to)
 {
+    LogTrace(TRACE3) << __func__ << " called by " << to;
     const std::string params = LIBRA::makeHttpQueryString({{"to", HelpCpp::string_cast(to, "%d%m%Y_%H%M%S")}});
     const auto row = LIBRA::getHttpRequestDataRow("/libra/remove_log_events", params);
     return static_cast<size_t>(row.at("rowcount").fieldAsInteger());
@@ -124,6 +125,7 @@ static size_t removeLogEventsViaHttp(const Dates::DateTime_t& to)
 
 static size_t removeLogEventsFromDb(const Dates::DateTime_t& to)
 {
+    LogTrace(TRACE3) << __func__ << " called by " << to;
     auto cur = make_db_curs(
 "delete from LIBRA_LOG_EVENTS where LOG_TIME <= :time_to",
                 PgOra::getRWSession("LIBRA_LOG_EVENTS"));
