@@ -351,10 +351,11 @@ double getDateRange(const Dates::time_period& date_period)
     return date_range;
 }
 
-void TArxMoveFlt::readMoveIds(size_t max_rows)
+void TArxMoveFlt::readMoveIds()
 {
-    LogTrace(TRACE6) << __func__;
+    HelpCpp::Timer timer;
     int move_id;
+    move_ids.clear();
     auto cur = make_db_curs("SELECT move_id FROM points "
                             "WHERE (time_in > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_in<:arx_date)"
                             " OR (time_out > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out<:arx_date)"
@@ -366,10 +367,11 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
        .bind(":arx_date", utcdate - Dates::days(ARX::ARX_DAYS()))
        .exec();
 
-    while(!cur.fen() && (move_ids.size() < max_rows)) {
+    while(!cur.fen()) {
         std::vector<dbo::Points> points = read_points(MoveId_t(move_id));
         move_ids.try_emplace(MoveId_t(move_id), tripDatePeriod(points));
     }
+    LogTrace(TRACE5) << " readMoveIds: " << timer.elapsedSeconds() << " move_ids size: " << move_ids.size();
 }
 
 bool isTripDeleted(const std::vector<dbo::Points>& points)
@@ -379,6 +381,10 @@ bool isTripDeleted(const std::vector<dbo::Points>& points)
 
 bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
+    if(move_ids.empty()) {
+        readMoveIds();
+    }
+
     HelpCpp::Timer timer;
     while (!move_ids.empty())
     {
@@ -390,7 +396,11 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         std::vector<dbo::Points> points = read_points(move_id);
         bool isTripDel = isTripDeleted(points);
         bool isValidPeriod = validDatePeriod(date_period, utcdate);
-        if(!isValidPeriod && !isTripDel) continue; // если период дат невалидный и маршрут неудаленный то игнорируем
+        // если период дат невалидный и маршрут неудаленный то игнорируем
+        if(!isValidPeriod && !isTripDel) {
+            LogTrace(TRACE6) << " is valid period: " << isValidPeriod << " isTripDeleted: " << isTripDel;
+            continue;
+        }
 
         Dates::DateTime_t part_key = isValidPeriod ? date_period.end() : Dates::not_a_date_time;
         LogTrace(TRACE6) << __func__ << " part_key: " << part_key;
@@ -504,8 +514,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     };
     LogTrace(TRACE6) << " MoveFlt one iteration time: " << timer.elapsedSeconds();
 
-    readMoveIds(max_rows);
-    return !move_ids.empty();
+    return false;
 };
 
 string TArxMoveFlt::TraceCaption()
@@ -1794,17 +1803,17 @@ TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
     point_ids_count=0;
 };
 
-void TArxTlgTrips::readTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
+void TArxTlgTrips::readTlgTripPoints(const Dates::DateTime_t& arx_date)
 {
-    tlg_trip_points.reserve(max_rows);
+    HelpCpp::Timer timer;
     int point_id_tlg;
+    tlg_trip_points.clear();
     auto cur = make_db_curs("SELECT point_id "
                             "FROM tlg_trips "
-                            "WHERE scd<:arx_date FETCH FIRST :max_rows ROWS ONLY ",
+                            "WHERE scd<:arx_date ",
                             PgOra::getROSession("TLG_TRIPS"));
     cur.def(point_id_tlg)
        .bind(":arx_date", arx_date)
-       .bind(":max_rows", max_rows)
        .exec();
     while(!cur.fen()) {
         const std::set<PointId_t> point_id_set = getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg));
@@ -1812,6 +1821,9 @@ void TArxTlgTrips::readTlgTripPoints(const Dates::DateTime_t& arx_date, size_t m
             tlg_trip_points.emplace_back(point_id_tlg);
         }
     }
+
+    LogTrace(TRACE5) << " readTlgTripPoints time: " << timer.elapsedSeconds()
+                     << " tlg_trips size: " << tlg_trip_points.size();
 }
 
 void arx_tlg_trip(const PointIdTlg_t& point_id)
@@ -1833,6 +1845,10 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE6) << __func__;
+    if(tlg_trip_points.empty()) {
+        readTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()));
+    }
+
     HelpCpp::Timer timer;
     while (!tlg_trip_points.empty())
     {
@@ -1852,8 +1868,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
     };
     LogTrace(TRACE6) << " TArxTlgTrips time: " << timer.elapsedSeconds();
 
-    readTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
-    return !tlg_trip_points.empty();
+    return false;
 };
 
 string TArxTlgTrips::TraceCaption()
@@ -1868,9 +1883,11 @@ TArxTypeBIn::TArxTypeBIn(const Dates::DateTime_t &utc_date):TArxMove(utc_date)
 {
 };
 
-void TArxTypeBIn::readTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
+void TArxTypeBIn::readTlgIds(const Dates::DateTime_t& arx_date)
 {
     LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
+    tlg_ids.clear();
+    HelpCpp::Timer timer;
     int tlg_id;
     Dates::DateTime_t time_receive;
     auto cur = make_db_curs(
@@ -1885,11 +1902,9 @@ void TArxTypeBIn::readTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
        .bind(":arx_date", arx_date)
        .exec();
     while(!cur.fen()) {
-        if(tlg_ids.size() == max_rows) {
-            break;
-        }
         tlg_ids.try_emplace(tlg_id, time_receive);
     }
+    LogTrace(TRACE5) << " readTlgIds time: " << timer.elapsedSeconds() << " tlg_ids size: " << tlg_ids.size();
 }
 
 void move_typeb_in(int tlg_id)
@@ -1908,9 +1923,7 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE6) << __func__;
     if(tlg_ids.empty()) {
-        HelpCpp::Timer timer;
-        readTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
-        LogTrace(TRACE6) << " readTlgIds time: " << timer.elapsedSeconds();
+        readTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()));
     }
     HelpCpp::Timer timer;
     while (!tlg_ids.empty())
@@ -1932,9 +1945,7 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
         };
     };
     LogTrace(TRACE6) << " TArxTypeBIn time: " << timer.elapsedSeconds();
-
-    readTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
-    return !tlg_ids.empty();
+    return false;
 }
 
 string TArxTypeBIn::TraceCaption()

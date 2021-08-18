@@ -56,7 +56,7 @@ private:
     std::map<MoveId_t, Dates::time_period> move_ids;
 protected:
     void LockAndCollectStat(const MoveId_t& move_id);
-    void readMoveIds(size_t max_rows);
+    void readMoveIds();
 public:
     TArxMoveFlt(const Dates::DateTime_t& utc_date);
     virtual ~TArxMoveFlt() = default;
@@ -69,7 +69,7 @@ class TArxTypeBIn : public TArxMove
 {
 private:
     std::map<int, Dates::DateTime_t> tlg_ids;
-    void readTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows);
+    void readTlgIds(const Dates::DateTime_t& arx_date);
 public:
     TArxTypeBIn(const Dates::DateTime_t& utc_date);
     virtual ~TArxTypeBIn() = default;
@@ -83,7 +83,7 @@ class TArxTlgTrips : public TArxMove
   private:
     int point_ids_count;
     std::vector<PointIdTlg_t> tlg_trip_points;
-    void readTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
+    void readTlgTripPoints(const Dates::DateTime_t &arx_date);
   public:
     TArxTlgTrips(const Dates::DateTime_t& utc_date);
     virtual bool Next(size_t max_rows, int duration);
