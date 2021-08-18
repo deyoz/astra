@@ -123,6 +123,7 @@ astra_SOURCES = \
   load_fr.cc \
   locale.cc \
   libra.cc \
+  libra_log_events.cc \
   maindcs.cc \
   meridian.cc \
   mob_payment.cc \
@@ -358,6 +359,7 @@ noinst_HEADERS = \
   kassa.h \
   load_fr.h \
   libra.h \
+  libra_log_events.h \
   maindcs.h \
   meridian.h \
   mob_payment.h \

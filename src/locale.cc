@@ -308,6 +308,13 @@ int init_locale(void)
     return 0;
 }
 
+void init_locale_throwIfFailed()
+{
+    if(init_locale() < 0) {
+        throw EXCEPTIONS::Exception("init_locale failed");
+    }
+}
+
 void init_tlg_callbacks()
 {
     telegrams::Telegrams::Instance()->setCallbacks(new AstraTlgCallbacks);

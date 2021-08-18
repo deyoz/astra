@@ -227,15 +227,12 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                 Qry.CreateVariable("point_id",otInteger,point_id);
             };
 
+            sql << "ORDER BY time, ev_order, part_num\n";
+
             Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
             Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
             Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
 
-            #ifdef XP_TESTING
-            if(inTestMode()){
-                sql << " ORDER BY ev_order \n";
-            }
-            #endif
 
             //ProgTrace(TRACE5, "GetEvents: SQL=\n%s", sql.str().c_str());
             Qry.SQLText=sql.str().c_str();

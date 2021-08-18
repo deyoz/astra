@@ -3,6 +3,8 @@
 
 int init_locale();
 
+void init_locale_throwIfFailed();
+
 void init_tlg_callbacks();
 
 #endif /* __ASTRA_MAIN_H__ */

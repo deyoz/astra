@@ -26,47 +26,66 @@ namespace LIBRA {
 
 std::string LIBRA_HTTP_HOST()
 {
-    static std::string host = readStringFromTcl("LIBRA_HTTP_HOST", "");
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    std::string host = readStringFromTcl("LIBRA_HTTP_HOST", "");
     return host;
 }
 
 static int LIBRA_HTTP_PORT()
 {
-    static int port = readIntFromTcl("LIBRA_HTTP_PORT", 0);
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int port = readIntFromTcl("LIBRA_HTTP_PORT", 0);
     return port;
 }
 
 static int LIBRA_HTTP_TIMEOUT()
 {
-    static int to = readIntFromTcl("LIBRA_HTTP_TIMEOUT", 10);
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int to = readIntFromTcl("LIBRA_HTTP_TIMEOUT", 10);
     return to;
 }
 
 static int LIBRA_HTTP_TRYCOUNT()
 {
-    static int tc = readIntFromTcl("LIBRA_HTTP_TRYCOUNT", 1);
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int tc = readIntFromTcl("LIBRA_HTTP_TRYCOUNT", 1);
     return tc;
 }
 
 static int LIBRA_HTTP_MODE()
 {
-    static int am = readIntFromTcl("LIBRA_HTTP_MODE", 0);
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int am = readIntFromTcl("LIBRA_HTTP_MODE", 0);
     return am;
 }
 
 static bool LIBRA_HTTP_STAT()
 {
-    static int stat = readIntFromTcl("LIBRA_HTTP_STAT", 0);
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int stat = readIntFromTcl("LIBRA_HTTP_STAT", 0);
     return static_cast<bool>(stat);
 }
 
 
 bool LIBRA_ENABLED()
 {
-  static int VAR=NoExists;
-  if (VAR==NoExists)
-    VAR=getTCLParam("LIBRA_ENABLED",0,1,0);
-  return VAR!=0;
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    int enabled = readIntFromTcl("LIBRA_ENABLED", 0);
+    return static_cast<bool>(enabled);
 }
 
 //---------------------------------------------------------------------------------------
@@ -175,8 +194,11 @@ bool asyncHttpMode()
 //---------------------------------------------------------------------------------------
 
 bool needSendHttpRequest()
-{
-    static bool force_libra_ora_scheme = getVariableStaticBool("LIBRA_FORCE_ORA", NULL, 0);
+{    
+#ifndef XP_TESTING
+    static
+#endif//XP_TESTING
+    bool force_libra_ora_scheme = getVariableStaticBool("LIBRA_FORCE_ORA", NULL, 0);
     if(force_libra_ora_scheme) {
         LogTrace(TRACE5) << "forcing libra to local oracle due to LIBRA_FORCE_ORA var";
         return false;

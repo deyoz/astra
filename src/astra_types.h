@@ -47,4 +47,5 @@ DECL_RIP_LENGTH(DeskCode_t, std::string, 6, 6);
 
 DECL_RIP_LENGTH(CurrencyCode_t, std::string, 3, 3);
 
-
+DECL_RIP_LENGTH(BortNum_t,     std::string, 5, 6)
+DECL_RIP_LENGTH(AhmCategory_t, std::string, 2, 30)

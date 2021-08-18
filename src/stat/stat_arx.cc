@@ -480,7 +480,8 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         "WHERE "
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type = :evtFltTask AND  "
-        "   events_bilingual.id1  = :point_id  ";
+        "   events_bilingual.id1  = :point_id  "
+        "ORDER BY time, ev_order, part_num";
     NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
@@ -773,7 +774,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
         "   events_bilingual.id1=:point_id  "
-        " ORDER BY ev_order";
+        " ORDER BY time, ev_order, part_num";
     qry2 =
         "SELECT msg, time,  "
         "       id2 AS point_id,  "
@@ -786,7 +787,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         "   events_bilingual.lang = :lang AND  "
         "   events_bilingual.type IN (:evtDisp) AND  "
         "   events_bilingual.id1=:move_id  "
-        " ORDER BY ev_order";
+        " ORDER BY time, ev_order, part_num";
     NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
@@ -1049,7 +1050,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "      id1=:point_id AND "
         "      id2=:reg_no AND "
         "      id3=:grp_id "
-        "ORDER BY ev_order";
+        "ORDER BY time, ev_order, part_num";
 
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));

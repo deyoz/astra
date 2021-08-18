@@ -138,58 +138,18 @@ $(pg_dump_table WB_MSG_TEXT fields="page_no, text" display="on")
 >> lines=auto
 [1] [L O A D S H E E T] $()
 
+
+
 %%
 ###
-#   Описание: DEFERRED astra_call/load_tlg
+#   Описание: AHM and BALANCE log
 #
 ###
 #########################################################################################
 
 $(desc_test 6)
 
-$(init)
-
-$(sql "insert into TYPEB_ORIGINATORS(ID, ADDR, DESCR, FIRST_DATE, LAST_DATE, TID, PR_DEL) values (ID__SEQ.nextval, 'MOWKB1H', 'DEFAULT', sysdate - 10, sysdate + 10, TID__SEQ.nextval, 0)")
-
-$(sql {begin LIBRA.DEFERR_ASTRA_CALL2(to_clob('<?xml version=\"1.0\" encoding=\"utf-8\"?><root name=\"astra_call\"><func>load_tlg</func><args><text>This is telegram text</text></args></root>')); end;})
-
-$(run_daemon astra_calls_handler)
-
-??
-$(dump_table DEFERRED_ASTRA_CALLS display="on" fields="time_handle")
-
->> lines=auto
-[xx.xx.xx xx:xx:xx,xxxxxx] $()
-
-
-$(run_daemon astra_calls_cleaner)
-
-??
-$(dump_table DEFERRED_ASTRA_CALLS display="on" fields="time_handle")
-
->> lines=auto
-[xx.xx.xx xx:xx:xx,xxxxxx] $()
-
-
-$(sql {update DEFERRED_ASTRA_CALLS set TIME_HANDLE = TIME_HANDLE - 1})
-
-$(run_daemon astra_calls_cleaner)
-
-??
-$(dump_table DEFERRED_ASTRA_CALLS display="on" fields="time_handle")
-
->> mode=regex
-.*ND DEFERRED_ASTRA_CALLS DUMP COUNT=0.*
-
-
-%%
-###
-#   Описание: AHM log
-#
-###
-#########################################################################################
-
-$(desc_test 7)
+$(settcl LIBRA_HTTP_PORT 0)
 
 $(init_term)
 
@@ -205,7 +165,7 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(set awk_UT 226)
+$(set awk_UT 'ЮТ')
 
 $(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  null, 'ОПЕРАТОР AHM', 'МОВРОМ', 'СООБЩЕНИЕ 1 В ЖУРНАЛ ОТ РЕДАКТОРА AHM'); end;")
 $(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), 'DOW', null, 'ОПЕРАТОР AHM', 'МОВРОМ', 'СООБЩЕНИЕ 2 В ЖУРНАЛ ОТ РЕДАКТОРА AHM'); end;")
@@ -218,6 +178,8 @@ $(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  'BB-321', 'ОПЕРАТОР A
 
 $(sql "begin LIBRA.WRITE_BALANCE_LOG_MSG($(get point_dep), 'ЦЕНТРОВЩИК', 'МОВРОМ', 'СООБЩЕНИЕ В ЖУРНАЛ РЕЙСА ОТ КАЛЬКУЛЯТОРА ЦЕНТРОВКИ'); end;")
 
+$(run_daemon libra_log_events_handler)
+
 !! capture=on
 $(GET_EVENTS $(get point_dep))
 
@@ -225,7 +187,7 @@ $(GET_EVENTS $(get point_dep))
         <msg>СООБЩЕНИЕ В ЖУРНАЛ РЕЙСА ОТ КАЛЬКУЛЯТОРА ЦЕНТРОВКИ</msg>
 
 ??
-$(dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="ID")
+$(db_dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="ID")
 >> lines=auto
 [226] [NULL] [NULL] $()
 [226] [DOW] [NULL] $()
@@ -240,7 +202,7 @@ $(dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="I
 ###
 #########################################################################################
 
-$(desc_test 8)
+$(desc_test 7)
 
 $(settcl LIBRA_HTTP_HOST localhost)
 $(settcl LIBRA_HTTP_PORT 8008)
@@ -435,7 +397,7 @@ $(dump_table TRIP_COMP_ELEMS display="on" order="x,y,yname")
 ###
 #########################################################################################
 
-$(desc_test 9)
+$(desc_test 8)
 
 $(init_term)
 $(set_user_time_type LocalAirp PIKE)
@@ -743,7 +705,7 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
 ###
 #########################################################################################
 
-$(desc_test 10)
+$(desc_test 9)
 
 $(settcl LIBRA_HTTP_HOST localhost)
 $(settcl LIBRA_HTTP_PORT 8008)
@@ -813,3 +775,136 @@ $(KICK_IN)
 >> lines=auto
     <data>&lt;?xml version='1.0' encoding='CP866'?&gt;&lt;root AP2='VKO
 LED'/&gt;</data>
+
+
+%%
+###
+#   Описание: AHM and BALANCE log via http
+#
+###
+#########################################################################################
+
+$(desc_test 10)
+
+$(settcl LIBRA_HTTP_HOST localhost)
+$(settcl LIBRA_HTTP_PORT 8008)
+
+$(init_term)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+###
+## первый ответ на чтение - с данными
+###
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <log_type>AHM</log_type>
+                <airline>ЮТ</airline>
+                <bort_num>VQ-BCP</bort_num>
+                <category/>
+                <point_id type=\"int\" null=\"true\"/>
+                <rus_msg>СООБЩЕНИЕ 1 НА РУССКОМ</rus_msg>
+                <lat_msg>MESSAGE 1 ON ENGLISH</lat_msg>
+                <log_time type=\"date\" format='ddmmyyyy hh:nn:ss'>17082021 19:10:05</log_time>
+                <ev_user>Петров</ev_user>
+                <ev_station>Стойка</ev_station>
+            </row>
+            <row num=\"2\">
+                <log_type>BAL</log_type>
+                <airline/>
+                <bort_num/>
+                <category/>
+                <point_id type=\"int\">$(get point_dep)</point_id>
+                <rus_msg>СООБЩЕНИЕ 2 НА РУССКОМ</rus_msg>
+                <lat_msg>MESSAGE 2 ON ENGLISH</lat_msg>
+                <log_time type=\"date\" format='ddmmyyyy hh:nn:ss'>17082021 19:12:04</log_time>
+                <ev_user>Сидоров</ev_user>
+                <ev_station>Комп</ev_station>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
+
+###
+## второй ответ на чтение - пустой
+###
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root/>
+    </answer>
+</result>}))
+
+
+###
+## третий ответ на чтение - с ошибкой
+###
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>ERR</status>
+    <code>DB-01</code>
+    <reason>Exception happened</reason>
+</result>}))
+
+
+###
+## ответ на удаление
+###
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+      <root>
+        <row num=\"1\">
+            <rowcount type=\"int\">0</rowcount>
+        </row>
+      </root>
+    </answer>
+</result>}))
+
+
+$(run_daemon libra_log_events_handler)
+
+>> lines=auto
+GET /libra/get_log_events?from=xxxxxxxx_xxxxxx&to=xxxxxxxx_xxxxxx HTTP/1.1
+
+
+$(run_daemon libra_log_events_handler)
+
+>> lines=auto
+GET /libra/get_log_events?from=xxxxxxxx_xxxxxx&to=xxxxxxxx_xxxxxx HTTP/1.1
+
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
+
+>> lines=auto
+        <msg>СООБЩЕНИЕ 2 НА РУССКОМ</msg>
+
+
+$(run_daemon libra_log_events_handler)
+>> lines=auto
+GET /libra/get_log_events?from=xxxxxxxx_xxxxxx&to=xxxxxxxx_xxxxxx HTTP/1.1
+
+
+# $(run_daemon libra_log_events_cleaner)

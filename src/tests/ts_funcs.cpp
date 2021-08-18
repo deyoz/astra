@@ -66,8 +66,8 @@ void tests_init() {}
 
 namespace xp_testing {
     void runEdiTimer_4testsOnly();
-    void runAstraCallsHandler_4testsOnly();
-    void runAstraCallsCleaner_4testsOnly();
+    void runLibraLogEventsHandler_4testsOnly();
+    void runLibraLogEventsCleaner_4testsOnly();
 }//namespace xp_testing
 
 static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t &point_id);
@@ -398,10 +398,10 @@ static std::string FP_run_daemon(const std::vector<std::string> &params) {
     assert(params.size() > 0);
     if(params.at(0) == "edi_timeout") {
         runEdiTimer_4testsOnly();
-    } else if(params.at(0) == "astra_calls_handler") {
-        runAstraCallsHandler_4testsOnly();
-    } else if(params.at(0) == "astra_calls_cleaner") {
-        runAstraCallsCleaner_4testsOnly();
+    } else if(params.at(0) == "libra_log_events_handler") {
+        runLibraLogEventsHandler_4testsOnly();
+    } else if(params.at(0) == "libra_log_events_cleaner") {
+        runLibraLogEventsCleaner_4testsOnly();
     }
     return "";
 }

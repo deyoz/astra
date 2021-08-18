@@ -702,6 +702,66 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
   msg.toDB(screen.name, user.descr, desk.code);
 }
 
+void TLogMsg::toDB(const std::string &screen,
+                   const std::string &user_descr,
+                   const std::string &desk_code,
+                   const std::string &lang)
+{
+    LogTrace(TRACE3) << __func__;
+    if(ev_time == ASTRA::NoExists) {
+        ev_time = NowUTC();
+    }
+    if(ev_order == ASTRA::NoExists) {
+        ev_order = PgOra::getSeqNextVal_int("EVENTS__SEQ");
+    }
+
+    QParams QryParams;
+    QryParams << QParam("type", otString, EncodeEventType(ev_type))
+              << QParam("sub_type", otString, "")
+              << QParam("screen", otString, screen)
+              << QParam("ev_user", otString, user_descr)
+              << QParam("station", otString, desk_code)
+              << QParam("msg", otString)
+              << QParam("lang", otString, lang)
+              << QParam("part_num", otInteger)
+              << QParam("ev_time", otDate, ev_time)
+              << QParam("ev_order", otInteger, ev_order);
+
+    if(id1!=0 && id1!=NoExists)
+      QryParams << QParam("id1", otInteger, id1);
+    else
+      QryParams << QParam("id1", otInteger, FNull);
+
+    if(id2!=0 && id2!=NoExists)
+      QryParams << QParam("id2", otInteger, id2);
+    else
+      QryParams << QParam("id2", otInteger, FNull);
+
+    if(id3!=0 && id3!=NoExists)
+      QryParams << QParam("id3", otInteger, id3);
+    else
+      QryParams << QParam("id3", otInteger, FNull);
+
+    LogTrace(TRACE0) << "ant " << QryParams;
+
+    DB::TCachedQuery CachedQry(PgOra::getRWSession("EVENTS_BILINGUAL"),
+          "  INSERT INTO events_bilingual(type,sub_type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
+          "  VALUES(:type,:sub_type,:ev_time,:ev_order,:part_num,"
+          "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) ",
+          QryParams, STDLOG);
+
+    DB::TQuery &Qry = CachedQry.get();
+
+    int part_num = 0;
+    vector<string> strs;
+    SeparateString(msg.c_str(), 250, strs);
+    for (const auto& i: strs) {
+        Qry.SetVariable("part_num", ++part_num);
+        Qry.SetVariable("msg", i);
+        Qry.Execute();
+    }
+}
+
 void TLogLocale::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
@@ -725,7 +785,7 @@ void TLogLocale::fromXML(xmlNodePtr node)
 }
 
 void TLogLocale::toDB(const string &screen, const string &user_descr, const string &desk_code)
-{  
+{
   ev_time = NowUTC();
   ev_order = PgOra::getSeqNextVal_int("EVENTS__SEQ");
   QParams QryParams;

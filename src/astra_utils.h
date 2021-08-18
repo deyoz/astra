@@ -36,7 +36,7 @@ struct TLogMsg {
     int id1,id2,id3;
     TLogMsg() {
       Clear();
-    };
+    }
     void Clear() {
       ev_time = ASTRA::NoExists;
       ev_order = ASTRA::NoExists;
@@ -45,7 +45,12 @@ struct TLogMsg {
       id1 = ASTRA::NoExists;
       id2 = ASTRA::NoExists;
       id3 = ASTRA::NoExists;
-    };
+    }
+
+    void toDB(const std::string &screen,
+              const std::string &user_descr,
+              const std::string &desk_code,
+              const std::string &lang);
 };
 
 struct TLogLocale {
