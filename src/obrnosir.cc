@@ -352,10 +352,10 @@ int seat_no_test_single(int argc, char **argv)
     c++;
     LogTrace(TRACE5) << c << " " << PointIdQry.FieldAsInteger("point_id");
     try {
-      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+/*      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc1.docPtr()->children, false );
       viewCRSList( PointIdQry.FieldAsInteger("point_id"),
-                   {}, resDoc2.docPtr()->children, true );
+                   {}, resDoc2.docPtr()->children, true );*/
     }
     catch(const EXCEPTIONS::Exception &e) {
       LogError(STDLOG) << e.what();
