@@ -611,18 +611,19 @@ bool SurnameFilter::validForSearch() const
   return !surname.empty();
 }
 
-void SurnameFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<string>& tables) const
+void SurnameFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<string>& tables,
+                                          std::set<std::string>& session_tables) const
 {
   switch(origin)
   {
     case paxCheckIn:
-      tables.insert("pax_translit");
+      session_tables.insert("pax_translit");
       break;
     case paxPnl:
-      tables.insert("crs_pax_translit");
+      session_tables.insert("crs_pax_translit");
       break;
     case paxTest:
-      tables.insert("test_pax_translit");
+      session_tables.insert("test_pax_translit");
       break;
   }
 }
@@ -730,9 +731,10 @@ bool TCkinPaxFilter::validForSearch() const
          !subclass.empty();
 }
 
-void TCkinPaxFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+void TCkinPaxFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                                           std::set<std::string>& session_tables) const
 {
-  FullnameFilter::addSQLTablesForSearch(origin, tables);
+  FullnameFilter::addSQLTablesForSearch(origin, tables, session_tables);
 
   switch(origin)
   {
@@ -832,7 +834,8 @@ bool FlightFilter::validForSearch() const
            max_scd_out-min_scd_out<=2.0;
 }
 
-void FlightFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+void FlightFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                                         std::set<std::string>& session_tables) const
 {
   tables.insert("points");
   switch(origin)

@@ -111,6 +111,7 @@ class Search
 
     PaxOrigin origin;
     std::set<std::string> tables;
+    std::set<std::string> session_tables;
     std::list<std::string> conditions;
     QParams params;
     bool useSearchPaxIds;
@@ -135,7 +136,7 @@ class Search
     {
       if (criterion.validForSearch())
       {
-        criterion.addSQLTablesForSearch(origin, tables);
+        criterion.addSQLTablesForSearch(origin, tables, session_tables);
         criterion.addSQLConditionsForSearch(origin, conditions);
         criterion.addSQLParamsForSearch(origin, params);
 
@@ -230,7 +231,8 @@ class PaxIdFilter
     explicit PaxIdFilter(const PaxId_t& _paxId) : paxId(_paxId) {}
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>&) const { return; }
@@ -253,7 +255,8 @@ class SurnameFilter
     }
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>&) const { return; }
@@ -348,7 +351,8 @@ class TCkinPaxFilter : public FullnameFilter
     }
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>&) const { return; }
@@ -386,7 +390,8 @@ class FlightFilter : public TTripInfo
     void setLocalDate(TDateTime localDate);
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>&) const { return; }

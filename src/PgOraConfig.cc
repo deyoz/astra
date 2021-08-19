@@ -171,6 +171,8 @@ namespace PgOra
         { "SP_PG_GROUP_ADM", { "ROT" } },
         { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES", "CLIENT_ERROR_LIST" } },
         { "SP_PG_GROUP_LIBRA", { "LIBRA_PROC_LOG_EVENTS", "AHM_DICT", "AHM_ID__SEQ" } },
+        { "SP_PG_GROUP_EVENTS", { "EVENTS_BILINGUAL" } },
+        { "SP_PG_GROUP_EVENTS_SEQ", { "EVENTS_SEQ" } },
 
 
         // ASTRA MINIMUM
