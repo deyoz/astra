@@ -655,7 +655,7 @@ void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list
     case paxTest:
       sql << "EXISTS ( "
              "    SELECT 1 FROM test_pax_translit "
-             "    WHERE test_pax_translit.pax_id = test_pax.pax_id "
+             "    WHERE test_pax_translit.pax_id = test_pax.id "
           << (checkSurnameEqualBeginning ? "    AND (test_pax_translit.surname LIKE :surname_v1 || '%' "
                                            "         OR test_pax_translit.surname LIKE :surname_v2 || '%' "
                                            "         OR test_pax_translit.surname LIKE :surname_v3 || '%') "
