@@ -7033,26 +7033,26 @@ void TLCIPaxTotals::get_bag_info(map<string, pair<int, int> > &bag_info, int &ba
     // bag_info itself
     if(pool_pax_id != NoExists and pool_pax_id == pax_id) {
         DB::TCachedQuery bagInfoQry(PgOra::getROSession({"BAG2","BAG_TYPES"}),
-                "SELECT"
-                  "CASE"
-                    "WHEN BAG2.TO_RAMP = 0 THEN BAG_TYPES.REM_CODE_LCI"
-                    "ELSE 'DAA'"
-                  "END AS rem_code,"
-                  "sum(CASE"
-                    "WHEN PR_CABIN = 0 THEN AMOUNT"
-                    "ELSE NULL"
-                  "END) AS bag_amount,"
-                  "sum(CASE"
-                    "WHEN PR_CABIN = 0 THEN WEIGHT"
-                    "ELSE NULL"
-                  "END) AS bag_weight"
-                "FROM BAG2"
-                  "LEFT OUTER JOIN BAG_TYPES"
-                    "ON BAG2.BAG_TYPE = BAG_TYPES.CODE"
-                "WHERE"
-                  "GRP_ID = :grp_id"
-                  "AND BAG_POOL_NUM = :bag_pool_num"
-                "GROUP BY BAG2.TO_RAMP, BAG_TYPES.REM_CODE_LCI",
+                "SELECT "
+                  "CASE "
+                    "WHEN BAG2.TO_RAMP = 0 THEN BAG_TYPES.REM_CODE_LCI "
+                    "ELSE 'DAA' "
+                  "END AS rem_code, "
+                  "sum(CASE "
+                    "WHEN PR_CABIN = 0 THEN AMOUNT "
+                    "ELSE NULL "
+                  "END) AS bag_amount, "
+                  "sum(CASE "
+                    "WHEN PR_CABIN = 0 THEN WEIGHT "
+                    "ELSE NULL "
+                  "END) AS bag_weight "
+                "FROM BAG2 "
+                  "LEFT OUTER JOIN BAG_TYPES "
+                    "ON BAG2.BAG_TYPE = BAG_TYPES.CODE "
+                "WHERE "
+                  "GRP_ID = :grp_id "
+                  "AND BAG_POOL_NUM = :bag_pool_num "
+                "GROUP BY BAG2.TO_RAMP, BAG_TYPES.REM_CODE_LCI ",
                 QParams()
                 << QParam("grp_id", otInteger, grp_id)
                 << QParam("bag_pool_num", otInteger, bag_pool_num),
