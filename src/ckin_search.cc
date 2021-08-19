@@ -522,7 +522,7 @@ std::string Search::getSQLText() const
 bool Search::executePaxQuery(const std::string& sql, TSimplePaxList& paxs) const
 {
   std::set<std::string> involvedTablesSet({"PAX","CRS_PAX","CRS_PNR","TEST_PAX"});
-  involvedTablesSet.insert(tables.begin(), tables.end());
+  involvedTablesSet.insert(session_tables.begin(), session_tables.end());
   std::list<std::string> involvedTables;
   involvedTables.insert(involvedTables.begin(), involvedTablesSet.begin(), involvedTablesSet.end());
   DB::TCachedQuery Qry(PgOra::getROSession(involvedTables), sql, params, STDLOG);
