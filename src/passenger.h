@@ -328,7 +328,8 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     int checkedInETCount() const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
@@ -475,7 +476,8 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     std::string getSurnameWithInitials() const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
@@ -1335,7 +1337,8 @@ class TPnrAddrInfo
                               const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                               std::set<std::string>& session_tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;

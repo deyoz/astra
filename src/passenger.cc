@@ -3622,7 +3622,8 @@ bool TPaxTknItem::validForSearch() const
   return !no.empty();
 }
 
-void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                                        std::set<std::string>& session_tables) const
 {
   switch(origin)
   {
@@ -3718,7 +3719,8 @@ bool TPaxDocItem::validForSearch() const
   return !no.empty();
 }
 
-void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                                        std::set<std::string>& session_tables) const
 {
   switch(origin)
   {
@@ -4021,7 +4023,8 @@ bool TPnrAddrInfo::validForSearch() const
   return !addr.empty();
 }
 
-void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables,
+                                         std::set<std::string>& session_tables) const
 {
 }
 
