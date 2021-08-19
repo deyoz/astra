@@ -41,6 +41,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="SOPP_STATIONS")       return new CacheTable::SoppStations;
   if (cacheCode=="HOTEL_ACMD")          return new CacheTable::HotelAcmd;
   if (cacheCode=="HOTEL_ROOM_TYPES")    return new CacheTable::HotelRoomTypes;
+  if (cacheCode=="DEV_OPER_TYPES")      return new CacheTable::DevOperTypes;
+  if (cacheCode=="DEV_FMT_OPERS")       return new CacheTable::DevFmtOpers;
+  if (cacheCode=="DEV_FMT_TYPES")       return new CacheTable::DevFmtTypes;
+  if (cacheCode=="DEV_MODELS")          return new CacheTable::DevModels;
   if (cacheCode=="BAG_NORMS")           return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::AllAirlines);
   if (cacheCode=="AIRLINE_BAG_NORMS")   return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::SingleAirline);
   if (cacheCode=="BASIC_BAG_NORMS")     return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::Basic);
