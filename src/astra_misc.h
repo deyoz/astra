@@ -1036,7 +1036,7 @@ void CheckTCkinIntegrity(const std::set<int> &tckin_ids, int tid);
 
 struct TCodeShareSets {
   private:
-    TQuery *Qry;
+    DB::TQuery *Qry;
   public:
     //настройки
     bool pr_mark_norms;

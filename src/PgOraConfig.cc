@@ -388,6 +388,10 @@ namespace PgOra
                 "TYPEB_ORIGINATORS",
                 "HIST_TYPEB_ORIGINATORS"
         }},
+        { "SP_PG_GROUP_CODESHARE_SETS", {
+                "CODESHARE_SETS",
+                "HIST_CODESHARE_SETS"
+        }},
         { "SP_PG_GROUP_TRIP_COMP_RFISC", {
                 "TRIP_COMP_RFISC", // COMP_RFISC
         }},

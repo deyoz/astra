@@ -2148,15 +2148,6 @@ $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
 >> lines=auto
 $(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
 
-??
-$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
->>
---------------------- CODESHARE_SETS DUMP ---------------------
-SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
-[xxxxxxxx 00:00:00] $()
-------------------- END CODESHARE_SETS DUMP COUNT=1 -------------------
-$()
-
 !! capture=on
 $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
 >> lines=auto
@@ -2205,17 +2196,6 @@ $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
 )
 >> lines=auto
 $(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
-
-??
-$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
->>
---------------------- CODESHARE_SETS DUMP ---------------------
-SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-------------------- END CODESHARE_SETS DUMP COUNT=3 -------------------
-$()
 
 !! capture=on
 $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
@@ -2316,20 +2296,6 @@ insert airline_oper:”‚ flt_no_oper:110 airline_mark:ž’ flt_no_mark:210 airp_dep:
 
 >> lines=auto
 $(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
-
-??
-$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
->>
---------------------- CODESHARE_SETS DUMP ---------------------
-SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-------------------- END CODESHARE_SETS DUMP COUNT=6 -------------------
-$()
 
 !! capture=on
 $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
@@ -2497,20 +2463,6 @@ delete old_airline_oper:”‚ old_flt_no_oper:110 old_airline_mark:ž’ old_flt_no_ma
 
 >> lines=auto
 $(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
-
-??
-$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
->>
---------------------- CODESHARE_SETS DUMP ---------------------
-SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-------------------- END CODESHARE_SETS DUMP COUNT=6 -------------------
-$()
 
 !! capture=on
 $(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
@@ -2697,18 +2649,3 @@ insert airline_oper:”‚ flt_no_oper:110 airline_mark:ž’ flt_no_mark:210 airp_dep:
 $(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
   </answer>
 </term>
-
-??
-$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
->>
---------------------- CODESHARE_SETS DUMP ---------------------
-SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-[xxxxxxxx 00:00:00] $()
-------------------- END CODESHARE_SETS DUMP COUNT=7 -------------------
-$()

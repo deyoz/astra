@@ -2174,8 +2174,11 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 TCodeShareSets::TCodeShareSets()
 {
   clear();
-  Qry = new TQuery( &OraSession );
-  Qry->SQLText=
+
+  auto& sess = PgOra::getROSession("CODESHARE_SETS");
+  Qry = new DB::TQuery(sess, STDLOG);
+  if(sess.isOracle()) {
+    Qry->SQLText=
     "SELECT pr_mark_norms, pr_mark_bp, pr_mark_rpt "
     "FROM codeshare_sets "
     "WHERE airline_oper=:airline_oper AND flt_no_oper=:flt_no_oper AND airp_dep=:airp_dep AND "
@@ -2184,7 +2187,19 @@ TCodeShareSets::TCodeShareSets()
     "      (suffix_mark IS NULL AND :suffix_mark IS NULL OR suffix_mark=:suffix_mark) AND "
     "      first_date<=:scd_local AND "
     "      (last_date IS NULL OR last_date>:scd_local) AND "
-    "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 ";
+    "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
+  } else {
+    Qry->SQLText=
+    "SELECT pr_mark_norms, pr_mark_bp, pr_mark_rpt "
+    "FROM codeshare_sets "
+    "WHERE airline_oper=:airline_oper AND flt_no_oper=:flt_no_oper AND airp_dep=:airp_dep AND "
+    "      airline_mark=:airline_mark AND flt_no_mark=:flt_no_mark AND "
+    "      (suffix_oper IS NULL AND :suffix_oper IS NULL OR suffix_oper=:suffix_oper) AND "
+    "      (suffix_mark IS NULL AND :suffix_mark IS NULL OR suffix_mark=:suffix_mark) AND "
+    "      first_date<=:scd_local AND "
+    "      (last_date IS NULL OR last_date>:scd_local) AND "
+    "      (days IS NULL OR position(CAST(:wday AS varchar) IN days) <> 0) AND pr_del=0";
+  }
   Qry->DeclareVariable("airline_oper",otString);
   Qry->DeclareVariable("flt_no_oper",otInteger);
   Qry->DeclareVariable("suffix_oper",otString);

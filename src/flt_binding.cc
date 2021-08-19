@@ -352,17 +352,27 @@ bool TFltBinding::bind_flt_or_bind_check(DB::TQuery &Qry, int point_id_spp)
   bool res=false;
   if (!flt.pr_utc)
   {
-    TQuery CodeShareQry(&OraSession);
-    CodeShareQry.Clear();
-    CodeShareQry.SQLText=
-        "SELECT airline_oper, flt_no_oper, suffix_oper "
-        "FROM codeshare_sets "
-        "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND "
-        "      (suffix_mark IS NULL AND :suffix IS NULL OR suffix_mark=:suffix) AND "
-        "      airp_dep=:airp_dep AND "
-        "      first_date<=:scd_local AND "
-        "      (last_date IS NULL OR last_date>:scd_local) AND "
-        "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
+    auto& sess = PgOra::getROSession("CODESHARE_SETS");
+    DB::TQuery CodeShareQry(sess, STDLOG);
+    if(sess.isOracle()) {
+      CodeShareQry.SQLText=
+      "SELECT airline_oper, flt_no_oper, suffix_oper "
+      "FROM codeshare_sets "
+      "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND airp_dep=:airp_dep AND "
+      "      (suffix_mark IS NULL AND :suffix IS NULL OR suffix_mark=:suffix) AND "
+      "      first_date<=:scd_local AND "
+      "      (last_date IS NULL OR last_date>:scd_local) AND "
+      "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
+    } else {
+      CodeShareQry.SQLText=
+      "SELECT airline_oper, flt_no_oper, suffix_oper "
+      "FROM codeshare_sets "
+      "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND airp_dep=:airp_dep AND "
+      "      (suffix_mark IS NULL AND :suffix IS NULL OR suffix_mark=:suffix) AND "
+      "      first_date<=:scd_local AND "
+      "      (last_date IS NULL OR last_date>:scd_local) AND "
+      "      (days IS NULL OR position(CAST(:wday AS varchar) IN days) <> 0) AND pr_del=0";
+    }
     CodeShareQry.CreateVariable("airline",otString,flt.airline);
     CodeShareQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
     CodeShareQry.CreateVariable("suffix",otString,flt.suffix);
@@ -372,9 +382,9 @@ bool TFltBinding::bind_flt_or_bind_check(DB::TQuery &Qry, int point_id_spp)
     CodeShareQry.Execute();
     for(;!CodeShareQry.Eof;CodeShareQry.Next())
     {
-      strcpy(flt.airline,CodeShareQry.FieldAsString("airline_oper"));
+      strcpy(flt.airline,CodeShareQry.FieldAsString("airline_oper").c_str());
       flt.flt_no=CodeShareQry.FieldAsInteger("flt_no_oper");
-      strcpy(flt.suffix,CodeShareQry.FieldAsString("suffix_oper"));
+      strcpy(flt.suffix,CodeShareQry.FieldAsString("suffix_oper").c_str());
       bind_flt(flt,bind_type,spp_point_ids);
       if (point_id_spp==NoExists)
       {
