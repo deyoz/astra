@@ -2118,7 +2118,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"ARX_PAX_GRP", "ARX_PAX" , "ARX_POINTS", "ARX_BAG_TAGS", "ARX_PAX_DOC"}), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     //Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -2260,7 +2260,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    auto& sess = PgOra::getROSession({"PAX", "PAX_GRP", "POINTS"});
+    auto& sess = PgOra::getROSession({"PAX", "PAX_GRP", "POINTS", "PAX_DOC", "BAG_TAGS"});
     DB::TQuery Qry(sess, STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);

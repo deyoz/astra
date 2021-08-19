@@ -1721,9 +1721,9 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       flightsForLock.Lock(__FUNCTION__);
     }
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BAG_TAGS"), STDLOG);
     Qry.SQLText =
-        "update bag_tags set pr_print = 1 where no = :no and tag_type = :type and "
+        "update BAG_TAGS set pr_print = 1 where no = :no and tag_type = :type and "
         "   (color is null and :color is null or color = :color)";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("no", otFloat);

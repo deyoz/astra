@@ -119,7 +119,8 @@ void ArxRunUNACCStat(
 
         UsersReader::Instance().updateUsers();
 
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_UNACCOMP_BAG_INFO"), SQLText, QryParams, STDLOG);
+        DB::TCachedQuery Qry(PgOra::getROSession({"ARX_POINTS","ARX_BAG_TAGS","ARX_PAX_GRP",
+                          "ARX_TRANSFER","ARX_UNACCOMP_BAG_INFO","ARX_BAG2"}), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             TAirpArvInfo airp_arv_info;

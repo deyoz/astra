@@ -242,7 +242,7 @@ void get_rfisc_stat(int point_id)
             STDLOG
             );
 
-    DB::TCachedQuery tagsQry(PgOra::getROSession("BAG_TAGS"),"select no from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
+    DB::TCachedQuery tagsQry(PgOra::getROSession("BAG_TAGS"),"select no from BAG_TAGS where grp_id = :grp_id and bag_num = :bag_num",
             QParams()
             << QParam("grp_id", otInteger)
             << QParam("bag_num", otInteger),
