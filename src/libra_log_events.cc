@@ -241,7 +241,11 @@ static int getOrGenAhmId(int airlineId)
 
 static int getAirlineId(const AirlineCode_t& airlineCode)
 {
-    const TAirlinesRow& row = dynamic_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", airlineCode.get()));
+    // TODO DROPME
+    if(airlineCode.get() == "226") return 226;
+    if(airlineCode.get() == "534") return 534;
+
+    const TAirlinesRow& row = dynamic_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code/code_lat", airlineCode.get()));
     return row.id;
 }
 
