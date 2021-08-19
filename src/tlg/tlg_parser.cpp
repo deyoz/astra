@@ -102,7 +102,7 @@ char lexh[MAX_LEXEME_SIZE+1];
 void ParseNameElement(const char* p, vector<string> &names, TElemPresence num_presence);
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem, bool &pr_bag_info);
 void BindRemarks(TTlgParser &tlg, TNameElement &ne);
-void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
+void ParseRemarks(const SeatRemPriority &seatRemPriority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg, const string &rem_text, vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg, const string &rem_text, TInfList &inf);
@@ -2484,8 +2484,8 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
     };
 
     //C. разобрать ремарки
-    TSeatRemPriority seat_rem_priority;
-    string airline_mark; //по какой компании посторен seat_rem_priority
+    SeatRemPriority seatRemPriority;
+    string airline_mark; //по какой компании посторен seatRemPriority
 
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
     {
@@ -2495,13 +2495,13 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
         string pnr_airline_mark=iPnrItem->market_flt.Empty()?con.flt.airline:iPnrItem->market_flt.airline;
         if (airline_mark.empty() || pnr_airline_mark!=airline_mark)
         {
-          GetSeatRemPriority(pnr_airline_mark, seat_rem_priority);
+          seatRemPriority=getSeatRemPriority(pnr_airline_mark);
           airline_mark=pnr_airline_mark;
         };
 
         for(TNameElement& ne : iPnrItem->ne)
         {
-          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,ne);
+          ParseRemarks(seatRemPriority,tlg,info,*iPnrItem,ne);
           ne.removeNotConfimedSSRs();
           ne.bindSystemIds();
         };
@@ -3379,7 +3379,7 @@ void TSeatsBlockingList::replace(const TSeatsBlockingList& src, bool isSpecial, 
   }
 }
 
-void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
+void ParseRemarks(const SeatRemPriority &seatRemPriority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
 {
   vector<TRemItem>::iterator iRemItem;
@@ -3518,15 +3518,13 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
       };
       if (pass==2)
       {
-        for(vector< pair<string,int> >::const_iterator r=seat_rem_priority.begin();
-                                                       r!=seat_rem_priority.end(); r++ )
+        for(const SeatRemPriorityItem& priorityItem : seatRemPriority)
         {
           for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
           {
             if (iRemItem->text.empty()) continue;
-            if (iPaxItem->emdRequired(iRemItem->code)) continue;
+            if (!iPaxItem->suitable(iRemItem->code, priorityItem)) continue;
 
-            if (iRemItem->code!=r->first) continue;
             TSeatRanges seats;
             if (ParseSEATRem(tlg,iRemItem->text,seats))
             {
@@ -3738,15 +3736,14 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
     };
     if (pass==2)
     {
-      for(vector< pair<string,int> >::const_iterator r=seat_rem_priority.begin();
-                                                     r!=seat_rem_priority.end(); r++ )
+      for(const SeatRemPriorityItem& priorityItem : seatRemPriority)
       {
         //пробегаем по ремаркам группы
         for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
         {
           if (iRemItem->text.empty()) continue;
 
-          if (iRemItem->code!=r->first) continue;
+          if (iRemItem->code!=priorityItem.seatRem) continue;
           TSeatRanges seats;
           if (ParseSEATRem(tlg,iRemItem->text,seats))
           {
@@ -3769,7 +3766,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                     for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
                       if (iPaxItem2->seat.Empty() &&
                           iPaxItem2->name=="EXST" &&
-                          !iPaxItem2->emdRequired(iRemItem->code))
+                          !iPaxItem2->suitable(iRemItem->code, priorityItem))
                       {
                         iPaxItem2->seat=seat;
                         break;
@@ -3780,10 +3777,11 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   //в первую очередь распределяем места текущему NameElement
                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
                     if (iPaxItem2->seat.Empty() &&
-                        !iPaxItem2->emdRequired(iRemItem->code))
+                        !iPaxItem2->suitable(iRemItem->code, priorityItem))
                     {
                       iPaxItem2->seat=seat;
-                      strcpy(iPaxItem2->seat_rem,i->rem);
+                      iPaxItem2->seatRem=priorityItem.seatRem;
+                      iPaxItem2->seatRemStatus=priorityItem.asvcStatus;
                       break;
                     };
                   if (iPaxItem2!=ne.pax.end()) continue;
@@ -3793,10 +3791,11 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   {
                     for(iPaxItem2=iNameElement->pax.begin();iPaxItem2!=iNameElement->pax.end();iPaxItem2++)
                       if (iPaxItem2->seat.Empty() &&
-                          !iPaxItem2->emdRequired(iRemItem->code))
+                          !iPaxItem2->suitable(iRemItem->code, priorityItem))
                       {
                         iPaxItem2->seat=seat;
-                        strcpy(iPaxItem2->seat_rem,i->rem);
+                        iPaxItem2->seatRem=priorityItem.seatRem;
+                        iPaxItem2->seatRemStatus=priorityItem.asvcStatus;
                         break;
                       };
                     if (iPaxItem2!=iNameElement->pax.end()) break;
@@ -3845,19 +3844,36 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   };
 };
 
-bool TPaxItem::emdRequired(const std::string& ssr_code) const
+ASVCStatus TPaxItem::getASVCStatus(const std::string& ssr_code) const
 {
-  if (ssr_code.empty()) return false;
-  for(const TASVCItem& i : asvc)
-    if (i.emdRequired() && ssr_code==i.ssr_code) return true;
+  if (ssr_code.empty()) return ASVCStatus::NotFound;
 
-  return false;
+  std::set<ASVCStatus> statuses;
+
+  for(const TASVCItem& i : asvc)
+    if (ssr_code==i.ssr_code) statuses.insert(i.status());
+
+  if (algo::contains(statuses, ASVCStatus::HD)) return ASVCStatus::HD;
+  if (algo::contains(statuses, ASVCStatus::HK)) return ASVCStatus::HK;
+  if (algo::contains(statuses, ASVCStatus::HI)) return ASVCStatus::HI;
+
+  return ASVCStatus::NotFound;
+}
+
+bool TPaxItem::suitable(const std::string& ssr_code, const SeatRemPriorityItem& item) const
+{
+  if (ssr_code!=item.seatRem) return false;
+
+  ASVCStatus status=getASVCStatus(ssr_code);
+  if (status==ASVCStatus::HD || status!=item.asvcStatus) return false;
+
+  return true;
 }
 
 void TPaxItem::removeNotConfimedSSRs()
 {
   for(vector<TRemItem>::const_iterator iRemItem=rem.begin(); iRemItem!=rem.end(); )
-    if (emdRequired(iRemItem->code))
+    if (getASVCStatus(iRemItem->code)==ASVCStatus::HD)
     {
       LogTrace(TRACE5) << __FUNCTION__ << ": " << iRemItem->text;
       iRemItem=rem.erase(iRemItem);
@@ -4151,7 +4167,8 @@ void TNameElement::setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool mo
         if (!seatIsUsed(seat))
         {
           paxItem.seat=seat;
-          strcpy(paxItem.seat_rem, range.rem);
+          paxItem.seatRem=range.rem;
+          paxItem.seatRemStatus=paxItem.getASVCStatus(range.rem);
           return;
         }
     }
@@ -4167,7 +4184,8 @@ void TNameElement::setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool mo
       if (paxItem.seat.Empty() && !seatIsUsed(seat))
       {
         paxItem.seat=seat;
-        strcpy(paxItem.seat_rem, range.rem);
+        paxItem.seatRem=range.rem;
+        paxItem.seatRemStatus=paxItem.getASVCStatus(range.rem);
         paxItem.seatRanges.push_back(range);
       }
       else
@@ -7676,14 +7694,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   {
                     CrsPaxParams << QParam("seat_xname",otString,paxItem.seat.line)
                                  << QParam("seat_yname",otString,paxItem.seat.row)
-                                 << QParam("seat_rem",otString,paxItem.seat_rem);
-                    if (strcmp(paxItem.seat_rem,"NSST")==0||
-                        strcmp(paxItem.seat_rem,"NSSA")==0||
-                        strcmp(paxItem.seat_rem,"NSSW")==0||
-                        strcmp(paxItem.seat_rem,"SMST")==0||
-                        strcmp(paxItem.seat_rem,"SMSA")==0||
-                        strcmp(paxItem.seat_rem,"SMSW")==0)
-                      CrsPaxParams << QParam("seat_type",otString,paxItem.seat_rem);
+                                 << QParam("seat_rem",otString,paxItem.seatRem);
+                    if (paxItem.seatRem == "NSST" ||
+                        paxItem.seatRem == "NSSA" ||
+                        paxItem.seatRem == "NSSW" ||
+                        paxItem.seatRem == "SMST" ||
+                        paxItem.seatRem == "SMSA" ||
+                        paxItem.seatRem == "SMSW")
+                      CrsPaxParams << QParam("seat_type",otString,paxItem.seatRem);
                     else
                       CrsPaxParams << QParam("seat_type",otString,FNull);
                   }
@@ -7810,15 +7828,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       QParams CrsPaxInfParams;
                       if (ne.indicator!=DEL && !paxItem.seat.Empty())
                       {
-                        CrsPaxInfParams << QParam("seat_rem",otString,paxItem.seat_rem);
-                        if (strcmp(paxItem.seat_rem,"NSST")==0||
-                            strcmp(paxItem.seat_rem,"NSSA")==0||
-                            strcmp(paxItem.seat_rem,"NSSW")==0||
-                            strcmp(paxItem.seat_rem,"SMST")==0||
-                            strcmp(paxItem.seat_rem,"SMSA")==0||
-                            strcmp(paxItem.seat_rem,"SMSW")==0)
+                        CrsPaxInfParams << QParam("seat_rem",otString,paxItem.seatRem);
+                        if (paxItem.seatRem == "NSST" ||
+                            paxItem.seatRem == "NSSA" ||
+                            paxItem.seatRem == "NSSW" ||
+                            paxItem.seatRem == "SMST" ||
+                            paxItem.seatRem == "SMSA" ||
+                            paxItem.seatRem == "SMSW")
                         {
-                          CrsPaxInfParams << QParam("seat_type",otString,paxItem.seat_rem);
+                          CrsPaxInfParams << QParam("seat_type",otString,paxItem.seatRem);
                         } else {
                           CrsPaxInfParams << QParam("seat_type",otString,FNull);
                         }
@@ -7918,9 +7936,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       //текущие слои
                       TlgSeatRanges currTlgSeatRanges;
                       currTlgSeatRanges.add(cltPNLCkin, paxItem.seatRanges);
-                      TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
+                      TCompLayerType rem_layer=getSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
                                                                                       pnr.market_flt.airline,
-                                                               paxItem.seat_rem);
+                                                               paxItem.seatRem, paxItem.seatRemStatus);
                       if (rem_layer==cltPNLBeforePay ||
                           rem_layer==cltPNLAfterPay)
                         currTlgSeatRanges.add(rem_layer, TSeatRange(paxItem.seat));

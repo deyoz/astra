@@ -13,6 +13,7 @@
 #include "flt_binding.h"
 #include "astra_types.h"
 #include "typeb_remarks.h"
+#include "comp_layers.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -395,7 +396,8 @@ class TPaxItem : public PersonAncestor
     long seats;
     TSeatRanges seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
-    char seat_rem[5];
+    std::string seatRem;
+    ASVCStatus seatRemStatus; //для корректной разметки телеграммного слоя
     TInfList inf;
     std::vector<TFQTItem> fqt;
     std::set<TFQTExtraItem> fqt_extra;
@@ -407,12 +409,13 @@ class TPaxItem : public PersonAncestor
     {
       pers_type=ASTRA::adult;
       seats=1;
-      *seat_rem=0;
+      seatRemStatus=ASVCStatus::NotFound;
     }
     using PersonAncestor::add;
     void add(const TASVCItem& item) { asvc.push_back(item); }
 
-    bool emdRequired(const std::string& ssr_code) const;
+    ASVCStatus getASVCStatus(const std::string& ssr_code) const;
+    bool suitable(const std::string& ssr_code, const SeatRemPriorityItem& item) const;
     void removeNotConfimedSSRs();
     bool isSeatBlocking() const { return isSeatBlockingRem(name); }
     bool isCBBG() const { return name=="CBBG"; }

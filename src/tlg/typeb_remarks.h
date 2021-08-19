@@ -375,9 +375,12 @@ class TASVCItem : public TDetailRemAncestor
              *emd_no==0 &&
              emd_coupon==ASTRA::NoExists;
     }
-    bool emdRequired() const
+    ASVCStatus status() const
     {
-      return strncmp(rem_status, "HD", 2)==0;
+      if (strncmp(rem_status, "HD", 2)==0) return ASVCStatus::HD;
+      if (strncmp(rem_status, "HK", 2)==0) return ASVCStatus::HK;
+      if (strncmp(rem_status, "HI", 2)==0) return ASVCStatus::HI;
+      return ASVCStatus::NotFound;
     }
 
     bool operator == (const TASVCItem &item) const
