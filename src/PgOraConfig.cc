@@ -337,7 +337,7 @@ namespace PgOra
                 "COMP_CLASSES", // COMPS
         }},
         { "SP_PG_GROUP_COMP_ELEMS", {
-                "COMP_ELEMS", // TRIP_COMP_ELEMS, TRIP_COMP_BASELAYERS, COMP_BASELAYERS + `````7Proc/SALONS````` (from trigger COMP_ELEMS__BEFORE__TRG) !
+                "COMP_ELEMS", // TRIP_COMP_ELEMS, TRIP_COMP_BASELAYERS, COMP_BASELAYERS
         }},
         { "SP_PG_GROUP_COMP_RATES", {
                 "COMP_RATES", // TRIP_COMP_RATES
