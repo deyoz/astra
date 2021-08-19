@@ -5,6 +5,7 @@
 #include "kassa.h"
 #include "kiosk/kiosk_cache_impl.h"
 #include "stat/stat_general.h"
+#include "codeshare_sets.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -76,6 +77,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="KIOSK_CONFIG_LIST")   return new CacheTable::KioskConfigList;
   if (cacheCode=="KIOSK_ADDR")          return new CacheTable::KioskAddr;
   if (cacheCode=="KIOSK_GRP_NAMES")     return new CacheTable::KioskGrpNames;
+  if (cacheCode=="CODESHARE_SETS")      return new CacheTable::CodeshareSets;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
@@ -3044,6 +3046,97 @@ std::optional<RowId_t> CkinRemTypes::getRowIdBeforeInsert(const CacheTable::Row&
   if (cur.err() != DbCpp::ResultCode::NoDataFound) return RowId_t(id);
 
   return std::nullopt;
+}
+
+//CodeshareSets
+
+std::string CodeshareSets::selectSql() const
+{
+  return
+    "SELECT id, "
+           "airline_oper, "
+           "flt_no_oper, "
+           "suffix_oper, "
+           "airp_dep, "
+           "airline_mark, "
+           "flt_no_mark, "
+           "suffix_mark, "
+           "pr_mark_norms, "
+           "pr_mark_bp, "
+           "pr_mark_rpt, "
+           "days, "
+           "first_date, "
+          + lastDateSelectSQL("CODESHARE_SETS") + ", "
+           "tid, "
+           "0 AS pr_denial "
+      "FROM codeshare_sets "
+     "WHERE pr_del = 0 "
+       "AND (last_date IS NULL OR last_date >= :lower_bound) "
+       "AND (" + getSQLFilter("airline_oper", AccessControl::PermittedAirlines) +
+         "OR " + getSQLFilter("airline_mark", AccessControl::PermittedAirlines) + ") "
+       "AND " + getSQLFilter("airp_dep", AccessControl::PermittedAirports) +
+     "ORDER BY airline_oper, flt_no_oper, suffix_oper, airp_dep, first_date";
+}
+
+void CodeshareSets::beforeSelectOrRefresh(const TCacheQueryType queryType,
+                                          const TParams& sqlParams,
+                                          DB::TQuery& Qry) const
+{
+  BASIC::date_time::TDateTime lowerBound;
+  modf(BASIC::date_time::NowUTC() - 3, &lowerBound);
+  Qry.CreateVariable("lower_bound", otDate, lowerBound);
+}
+
+void CodeshareSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineOrAirlineAccess("airline_oper", "airline_mark", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+}
+
+void CodeshareSets::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  if (status==usInserted)
+  {
+    const CacheTable::Row& row=newRow.value();
+
+    CodeshareSet::add(
+                row.getAsInteger("id", ASTRA::NoExists),
+                row.getAsString("airline_oper"),
+                row.getAsInteger("flt_no_oper", ASTRA::NoExists),
+                row.getAsString("suffix_oper"),
+                row.getAsString("airp_dep"),
+                row.getAsString("airline_mark"),
+                row.getAsInteger("flt_no_mark", ASTRA::NoExists),
+                row.getAsString("suffix_mark"),
+                row.getAsBoolean_ThrowOnEmpty("pr_mark_norms"),
+                row.getAsBoolean_ThrowOnEmpty("pr_mark_bp"),
+                row.getAsBoolean_ThrowOnEmpty("pr_mark_rpt"),
+                row.getAsString("days"),
+                row.getAsDateTime_ThrowOnEmpty("first_date"),
+                row.getAsDateTime("last_date", ASTRA::NoExists),
+                row.getAsBoolean_ThrowOnEmpty("pr_denial"),
+                ASTRA::NoExists);
+  }
+
+  if (status==usModified)
+  {
+    CodeshareSet::modifyById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists));
+  }
+
+  if (status==usDeleted)
+  {
+    CodeshareSet::deleteById(oldRow.value().getAsInteger_ThrowOnEmpty("id"));
+  }
+}
+
+std::list<std::string> CodeshareSets::dbSessionObjectNames() const {
+  return {"CODESHARE_SETS"};
 }
 
 } //namespace CacheTables

@@ -89,6 +89,7 @@ astra_SOURCES = \
   check_grp_unification.cc \
   ckin_search.cc \
   code_convert.cc \
+  codeshare_sets.cc \
   comp_layers.cc \
   counters.cc \
   comp_props.cpp \

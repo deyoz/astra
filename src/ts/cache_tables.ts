@@ -2114,3 +2114,601 @@ $(cache PIKE EN CKIN_REM_TYPES $(cache_iface_ver CKIN_REM_TYPES) "")
         </row>
       </rows>
 
+%%
+### test 11
+### CODESHARE_SETS
+#########################################################################################
+
+$(init_term)
+
+$(login PIKE PIKE)
+
+
+$(set twoDaysAgo   "$(date_format %d.%m.%Y  -2) 00:00:00")
+$(set range1_from  "$(date_format %d.%m.%Y  +1) 00:00:00")
+$(set range1_to    "$(date_format %d.%m.%Y  +6) 23:59:59")
+$(set range2_from  "$(date_format %d.%m.%Y  +7) 00:00:00")
+$(set range2_to    "$(date_format %d.%m.%Y +13) 23:59:59")
+$(set range3_from  "$(date_format %d.%m.%Y +14) 00:00:00")
+$(set range3_to    "$(date_format %d.%m.%Y +20) 23:59:59")
+$(set range3_to2   "$(date_format %d.%m.%Y +27) 23:59:59")
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+  insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get twoDaysAgo) last_date:$(get range3_to) pr_denial:0
+)
+
+$(USER_ERROR_RESPONSE MSG.TABLE.FIRST_DATE_BEFORE_TODAY)
+
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+  insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range1_from) last_date:$(get range3_to) pr_denial:0
+)
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+??
+$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
+>>
+--------------------- CODESHARE_SETS DUMP ---------------------
+SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
+[xxxxxxxx 00:00:00] $()
+------------------- END CODESHARE_SETS DUMP COUNT=1 -------------------
+$()
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='$(cache_data_ver CODESHARE_SETS)'>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col/>
+          <col>$(get range1_from)</col>
+          <col>$(get range3_to)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+  insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range2_from) last_date:$(get range2_to) pr_denial:0
+)
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+??
+$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
+>>
+--------------------- CODESHARE_SETS DUMP ---------------------
+SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+------------------- END CODESHARE_SETS DUMP COUNT=3 -------------------
+$()
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='$(cache_data_ver CODESHARE_SETS)'>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col/>
+          <col>$(get range1_from)</col>
+          <col>$(get range1_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col/>
+          <col>$(get range2_from)</col>
+          <col>$(get range2_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col/>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+$(set range1_id $(last_history_row_id codeshare_sets -02))
+$(set range2_id $(last_history_row_id codeshare_sets -01))
+$(set range3_id $(last_history_row_id codeshare_sets -00))
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range1_from) last_date:$(get range1_to) pr_denial:0 days:"1357"
+insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range2_from) last_date:$(get range2_to) pr_denial:0 days:"246"
+insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range3_from) last_date:$(get range3_to) pr_denial:0 days:"147"
+)
+
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+??
+$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
+>>
+--------------------- CODESHARE_SETS DUMP ---------------------
+SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+------------------- END CODESHARE_SETS DUMP COUNT=6 -------------------
+$()
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid='$(cache_data_ver CODESHARE_SETS)'>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>.2.4.6.</col>
+          <col>$(get range1_from)</col>
+          <col>$(get range1_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1.3.5.7</col>
+          <col>$(get range1_from)</col>
+          <col>$(get range1_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1.3.5.7</col>
+          <col>$(get range2_from)</col>
+          <col>$(get range2_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>.2.4.6.</col>
+          <col>$(get range2_from)</col>
+          <col>$(get range2_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>.23.56.</col>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1..4..7</col>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+
+$(set range4_id $(last_history_row_id codeshare_sets -04))
+$(set range5_id $(last_history_row_id codeshare_sets -02))
+$(set range6_id $(last_history_row_id codeshare_sets -00))
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+delete old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range1_id)
+delete old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range2_id)
+delete old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range3_id)
+)
+
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
+??
+$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
+>>
+--------------------- CODESHARE_SETS DUMP ---------------------
+SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+------------------- END CODESHARE_SETS DUMP COUNT=6 -------------------
+$()
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) "")
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid=...
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1.3.5.7</col>
+          <col>$(get range1_from)</col>
+          <col>$(get range1_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>.2.4.6.</col>
+          <col>$(get range2_from)</col>
+          <col>$(get range2_to)</col>
+          <col>0</col>
+        </row>
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1..4..7</col>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+update old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range6_id) last_date:$(get range1_from)
+)
+
+$(USER_ERROR_RESPONSE MSG.TABLE.INVALID_RANGE)
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+delete old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range4_id)
+delete old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range5_id)
+update old_airline_oper:îÇ old_flt_no_oper:110 old_airline_mark:ûí old_flt_no_mark:210 old_airp_dep:Ççä old_id:$(get range6_id) last_date:$(get range3_to2)
+)
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid=...
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>1..4..7</col>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to2)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+  </answer>
+</term>
+
+!! capture=on
+$(cache PIKE RU CODESHARE_SETS $(cache_iface_ver CODESHARE_SETS) ""
+insert airline_oper:îÇ flt_no_oper:110 airline_mark:ûí flt_no_mark:210 airp_dep:Ççä pr_mark_norms:1 pr_mark_bp:1 pr_mark_rpt:1 first_date:$(get range3_from) last_date:$(get range3_to2) pr_denial:0 days:"1..4..7"
+)
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer handle=...
+    <interface id='cache'/>
+    <data>
+      <code>CODESHARE_SETS</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>0</ReadOnly>
+      <keep_locally>0</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>1</user_depend>
+      <rows tid=...
+        <row pr_del='0'>
+          <col>...
+          <col>îÇ</col>
+          <col>îÇ</col>
+          <col>110</col>
+          <col/>
+          <col/>
+          <col>Ççä</col>
+          <col>Ççä</col>
+          <col>ûí</col>
+          <col>ûí</col>
+          <col>210</col>
+          <col/>
+          <col/>
+          <col>1</col>
+          <col>1</col>
+          <col>1</col>
+          <col>...4..7</col>
+          <col>$(get range3_from)</col>
+          <col>$(get range3_to2)</col>
+          <col>0</col>
+        </row>
+      </rows>
+    </data>
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+  </answer>
+</term>
+
+??
+$(dump_table CODESHARE_SETS fields="TO_TIMESTAMP(last_date)" display="on")
+>>
+--------------------- CODESHARE_SETS DUMP ---------------------
+SELECT TO_TIMESTAMP(last_date) FROM CODESHARE_SETS
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+[xxxxxxxx 00:00:00] $()
+------------------- END CODESHARE_SETS DUMP COUNT=7 -------------------
+$()
