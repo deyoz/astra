@@ -1,24 +1,6 @@
 create or replace PACKAGE system
 AS
 
-SUBTYPE TEventType IS events_bilingual.type%TYPE;
-evtSeason       CONSTANT TEventType := 'ëÖá';
-evtDisp         CONSTANT TEventType := 'Ñàë';
-evtFlt          CONSTANT TEventType := 'êÖâ';
-evtGraph        CONSTANT TEventType := 'Éêî';
-evtFltTask      CONSTANT TEventType := 'áÑó';
-evtPax          CONSTANT TEventType := 'èÄë';
-evtPay          CONSTANT TEventType := 'éèã';
-evtComp         CONSTANT TEventType := 'äåè';
-evtTlg          CONSTANT TEventType := 'íãÉ';
-evtAccess       CONSTANT TEventType := 'Ñëí';
-evtSystem       CONSTANT TEventType := 'ëàë';
-evtCodif        CONSTANT TEventType := 'äéÑ';
-evtPeriod       CONSTANT TEventType := 'èêÑ';
-evtPrn          CONSTANT TEventType := 'èóí';
-evtProgError    CONSTANT TEventType := '!';
-evtUnknown      CONSTANT TEventType := '?';
-
 FUNCTION is_upp_let(str 	IN VARCHAR2,
                     pr_lat 	IN INTEGER DEFAULT NULL) RETURN NUMBER;
 FUNCTION is_upp_let_dig(str 	IN VARCHAR2,
