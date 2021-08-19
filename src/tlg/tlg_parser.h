@@ -397,7 +397,6 @@ class TPaxItem : public PersonAncestor
     TSeatRanges seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
     std::string seatRem;
-    ASVCStatus seatRemStatus; //для корректной разметки телеграммного слоя
     TInfList inf;
     std::vector<TFQTItem> fqt;
     std::set<TFQTExtraItem> fqt_extra;
@@ -409,7 +408,6 @@ class TPaxItem : public PersonAncestor
     {
       pers_type=ASTRA::adult;
       seats=1;
-      seatRemStatus=ASVCStatus::NotFound;
     }
     using PersonAncestor::add;
     void add(const TASVCItem& item) { asvc.push_back(item); }

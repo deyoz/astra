@@ -3780,8 +3780,7 @@ void ParseRemarks(const SeatRemPriority &seatRemPriority,
                         !iPaxItem2->suitable(iRemItem->code, priorityItem))
                     {
                       iPaxItem2->seat=seat;
-                      iPaxItem2->seatRem=priorityItem.seatRem;
-                      iPaxItem2->seatRemStatus=priorityItem.asvcStatus;
+                      iPaxItem2->seatRem=i->rem;
                       break;
                     };
                   if (iPaxItem2!=ne.pax.end()) continue;
@@ -3794,8 +3793,7 @@ void ParseRemarks(const SeatRemPriority &seatRemPriority,
                           !iPaxItem2->suitable(iRemItem->code, priorityItem))
                       {
                         iPaxItem2->seat=seat;
-                        iPaxItem2->seatRem=priorityItem.seatRem;
-                        iPaxItem2->seatRemStatus=priorityItem.asvcStatus;
+                        iPaxItem2->seatRem=i->rem;
                         break;
                       };
                     if (iPaxItem2!=iNameElement->pax.end()) break;
@@ -4168,7 +4166,6 @@ void TNameElement::setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool mo
         {
           paxItem.seat=seat;
           paxItem.seatRem=range.rem;
-          paxItem.seatRemStatus=paxItem.getASVCStatus(range.rem);
           return;
         }
     }
@@ -4185,7 +4182,6 @@ void TNameElement::setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool mo
       {
         paxItem.seat=seat;
         paxItem.seatRem=range.rem;
-        paxItem.seatRemStatus=paxItem.getASVCStatus(range.rem);
         paxItem.seatRanges.push_back(range);
       }
       else
@@ -7938,7 +7934,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       currTlgSeatRanges.add(cltPNLCkin, paxItem.seatRanges);
                       TCompLayerType rem_layer=getSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
                                                                                       pnr.market_flt.airline,
-                                                               paxItem.seatRem, paxItem.seatRemStatus);
+                                                               paxItem.seatRem, paxItem.getASVCStatus(paxItem.seatRem));
                       if (rem_layer==cltPNLBeforePay ||
                           rem_layer==cltPNLAfterPay)
                         currTlgSeatRanges.add(rem_layer, TSeatRange(paxItem.seat));
