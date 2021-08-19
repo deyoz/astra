@@ -386,6 +386,9 @@ namespace PgOra
                 "TYPEB_ORIGINATORS",
                 "HIST_TYPEB_ORIGINATORS"
         }},
+        { "SP_PG_GROUP_TRIP_COMP_RFISC", {
+                "TRIP_COMP_RFISC", // COMP_RFISC
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
