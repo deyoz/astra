@@ -5455,8 +5455,12 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
         if ( cl != NoClass )
           countersClass[ cl ]++;
       }
-      Qry.SetVariable( "xname", iseat->xname );
-      Qry.SetVariable( "yname", iseat->yname );
+      const auto row = SeatNumber::normalizeIataRow(iseat->yname);
+      const auto line = SeatNumber::normalizeIataLine(iseat->xname);
+      const string yname = row ? *row : iseat->yname;
+      const string xname = line ? string(1, *line) : iseat->xname;
+      Qry.SetVariable( "xname", xname );
+      Qry.SetVariable( "yname", yname );
       Qry.Execute();
 
       iseat->GetRemarks( remarks );
