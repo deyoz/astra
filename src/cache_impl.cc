@@ -45,6 +45,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="DEV_FMT_OPERS")       return new CacheTable::DevFmtOpers;
   if (cacheCode=="DEV_FMT_TYPES")       return new CacheTable::DevFmtTypes;
   if (cacheCode=="DEV_MODELS")          return new CacheTable::DevModels;
+  if (cacheCode=="PACTS")               return new CacheTable::Pacts;
   if (cacheCode=="BAG_NORMS")           return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::AllAirlines);
   if (cacheCode=="AIRLINE_BAG_NORMS")   return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::SingleAirline);
   if (cacheCode=="BASIC_BAG_NORMS")     return new CacheTable::BagNorms(CacheTable::BaggageWt::Type::Basic);
