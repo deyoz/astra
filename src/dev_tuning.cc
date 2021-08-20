@@ -1029,102 +1029,60 @@ void TBPTypes::copy(string src, string dest)
 
 void TBRTypes::ToBase()
 {
-    DB::TQuery Qry(PgOra::getRWSession("FORM_TYPES"), STDLOG);
-    Qry.DeclareVariable("code", otString);
-    Qry.DeclareVariable("name", otString);
-    Qry.DeclareVariable("series_len", otInteger);
-    Qry.DeclareVariable("no_len", otInteger);
-    Qry.DeclareVariable("pr_check_bit", otInteger);
-    Qry.DeclareVariable("validator", otString);
-    Qry.DeclareVariable("basic_type", otString);
+    for (vector<TBRTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        QParams params;
+        params << QParam("code", otString, iv->code)
+               << QParam("name", otString, iv->name)
+               << QParam("series_len", otInteger, iv->series_len)
+               << QParam("no_len", otInteger, iv->no_len)
+               << QParam("pr_check_bit", otInteger, iv->pr_check_bit)
+               << QParam("validator", otString, iv->validator)
+               << QParam("basic_type", otString, iv->basic_type);
 
-    if (PgOra::supportsPg("FORM_TYPES")) {
-        Qry.SQLText =
-            "INSERT INTO form_types ("
-                "code,"
-                "name,"
-                "series_len,"
-                "no_len,"
-                "pr_check_bit,"
-                "validator,"
-                "basic_type,"
-                "id) "
-            "VALUES ("
-                ":code,"
-                ":name,"
-                ":series_len,"
-                ":no_len,"
-                ":pr_check_bit,"
-                ":validator,"
-                ":basic_type,"
-                ":id) "
-            "ON CONFLICT (code) DO UPDATE "
-            "SET name = :name, "
-                "series_len = :series_len, "
-                "no_len = :no_len, "
-                "pr_check_bit = :pr_check_bit, "
-                "validator = :validator, "
-                "basic_type = :basic_type "
-            "RETURNING id AS vid";
-        for(vector<TBRTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            Qry.SetVariable("code", iv->code);
-            Qry.SetVariable("name", iv->name);
-            Qry.SetVariable("series_len", iv->series_len);
-            Qry.SetVariable("no_len", iv->no_len);
-            Qry.SetVariable("pr_check_bit", iv->pr_check_bit);
-            Qry.SetVariable("validator", iv->validator);
-            Qry.SetVariable("basic_type", iv->basic_type);
-            Qry.SetVariable("id", PgOra::getSeqNextVal_int("ID__SEQ"));
-            Qry.Execute();
-            ASTRA::syncHistory("form_types", Qry.FieldAsInteger("vid"), TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
-        }
-    } else {
-        Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-        Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-        Qry.SQLText =
-            "declre "
-            "  vid form_types.id%TYPE; "
-            "begin "
-            "  update form_types set "
-            "    name = :name, "
-            "    series_len = :series_len, "
-            "    no_len = :no_len, "
-            "    pr_check_bit = :pr_check_bit, "
-            "    validator = :validator, "
-            "    basic_type = :basic_type "
-            "  where code = :code returning id into vid; "
-            "  if sql%notfound then "
-            "    insert into form_types( "
-            "      code, "
-            "      name, "
-            "      series_len, "
-            "      no_len, "
-            "      pr_check_bit, "
-            "      validator, "
-            "      basic_type, "
-            "      id "
-            "    ) values ( "
-            "      :code, "
-            "      :name, "
-            "      :series_len, "
-            "      :no_len, "
-            "      :pr_check_bit, "
-            "      :validator, "
-            "      :basic_type, "
-            "      id__seq.nextval "
-            "    ) returning id into vid; "
-            "  end if; "
-            "  hist.synchronize_history('form_types',vid,:SYS_user_descr,:SYS_desk_code); "
-            "end; ";
-        for(vector<TBRTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            Qry.SetVariable("code", iv->code);
-            Qry.SetVariable("name", iv->name);
-            Qry.SetVariable("series_len", iv->series_len);
-            Qry.SetVariable("no_len", iv->no_len);
-            Qry.SetVariable("pr_check_bit", iv->pr_check_bit);
-            Qry.SetVariable("validator", iv->validator);
-            Qry.SetVariable("basic_type", iv->basic_type);
-            Qry.Execute();
+        DB::TCachedQuery QryLock(
+                PgOra::getRWSession("FORM_TYPES"),
+                "SELECT id FROM form_types "
+                "WHERE code=:code "
+                "FOR UPDATE",
+                QParams() << QParam("code", otString, iv->code),
+                STDLOG);
+        QryLock.get().Execute();
+
+        if (QryLock.get().RowsProcessed() == 1) {
+            RowId_t id(QryLock.get().FieldAsInteger("id"));
+
+            DB::TCachedQuery QryUpd(
+                PgOra::getRWSession("FORM_TYPES"),
+                "UPDATE form_types "
+                "SET name = :name, "
+                    "series_len = :series_len, "
+                    "no_len = :no_len, "
+                    "pr_check_bit = :pr_check_bit, "
+                    "validator = :validator, "
+                    "basic_type = :basic_type "
+                "WHERE code=:code",
+                 params,
+                 STDLOG);
+
+            QryUpd.get().Execute();
+            HistoryTable("form_types").synchronize(id);
+        } else {
+            RowId_t id(PgOra::getSeqNextVal_int("ID__SEQ"));
+            params << QParam("id", otInteger, id.get());
+
+            DB::TCachedQuery QryIns(
+                PgOra::getRWSession("FORM_TYPES"),
+                "INSERT INTO form_types ("
+                    "code, name, series_len, no_len, "
+                    "pr_check_bit, validator, basic_type, id) "
+                "VALUES ("
+                    ":code, :name, :series_len, :no_len, "
+                    ":pr_check_bit, :validator, :basic_type, :id)",
+                params,
+                STDLOG);
+
+            QryIns.get().Execute();
+            HistoryTable("form_types").synchronize(id);
         }
     }
     br_models.ToBase();

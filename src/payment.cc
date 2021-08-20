@@ -2065,23 +2065,48 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
         double next_no=GetNextNo(rcpt.form_type, rcpt.no);
         //изменяем номер бланка в пачке
-        DB::TQuery Qry(PgOra::getRWSession("FORM_PACKS"), STDLOG);
-        Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-        Qry.CreateVariable("type",otString,rcpt.form_type);
-        if (next_no!=-1.0)
-        {
-            Qry.CreateVariable("next_no",otFloat,next_no);
-            Qry.SQLText = "INSERT INTO form_packs(user_id,curr_no,type) "
-                          "VALUES(:user_id,:next_no,:type) "
-                          "ON CONFLICT (user_id,type) DO UPDATE "
-                          "SET curr_no=:next_no";
+        QParams qparams;
+        qparams << QParam("user_id", otInteger, reqInfo->user.user_id)
+                << QParam("type", otString, rcpt.form_type);
+
+        if (next_no != -1.0) {
+            DB::TCachedQuery QryLock(
+                PgOra::getRWSession("FORM_PACKS"),
+                "SELECT * FROM form_packs "
+                "WHERE user_id=:user_id AND type=:type "
+                "FOR UPDATE",
+                qparams,
+                STDLOG);
+
+            QryLock.get().Execute();
+            qparams << QParam("next_no", otFloat, next_no);
+
+            if (QryLock.get().RowsProcessed() == 1) {
+                DB::TCachedQuery QryUpd(
+                    PgOra::getRWSession("FORM_PACKS"),
+                    "UPDATE form_packs SET curr_no=:next_no "
+                    "WHERE user_id=:user_id AND type=:type",
+                    qparams,
+                    STDLOG);
+                QryUpd.get().Execute();
+            } else {
+                DB::TCachedQuery QryIns(
+                    PgOra::getRWSession("FORM_PACKS"),
+                    "INSERT INTO form_packs(user_id,curr_no,type) "
+                    "VALUES(:user_id,:next_no,:type) ",
+                    qparams,
+                    STDLOG);
+                QryIns.get().Execute();
+            }
+        } else {
+            DB::TCachedQuery QryDel(
+                PgOra::getRWSession("FORM_PACKS"),
+                "DELETE FROM form_packs "
+                "WHERE user_id=:user_id AND type=:type",
+                qparams,
+                STDLOG);
+            QryDel.get().Execute();
         }
-        else
-        {
-            Qry.CreateVariable("next_no",otFloat,FNull);
-            Qry.SQLText = "DELETE FROM form_packs WHERE user_id=:user_id AND type=:type";
-        }
-        Qry.Execute();
     }
     else
     {
