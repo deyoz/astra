@@ -401,6 +401,9 @@ namespace PgOra
         { "SP_PG_GROUP_UNACCOMP_BAG_INFO", {
                 "UNACCOMP_BAG_INFO",
         }},
+        { "SP_PG_GROUP_VALUE_BAG", {
+                "VALUE_BAG",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

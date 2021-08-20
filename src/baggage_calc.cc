@@ -2162,9 +2162,9 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     paid_bag.push_back( make_pair(bag_type, QryPaid.FieldAsInteger("weight")) );
   };
 
-  DB::TQuery Qry(PgOra::getROSession({"PAX_GRP", "VALUE_BAG", "BAG2"}), STDLOG);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.SQLText=
+  DB::TQuery Qry3Tab(PgOra::getROSession({"PAX_GRP", "VALUE_BAG", "BAG2"}), STDLOG);
+  Qry3Tab.CreateVariable("grp_id", otInteger, grp_id);
+  Qry3Tab.SQLText=
     "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur, "
     " bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse, bag2.grp_id as bag_grp_id "
     "FROM pax_grp "
@@ -2175,10 +2175,10 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     "WHERE (bag2.grp_id IS NULL OR " +
     CKIN::bag_pool_not_refused_query() + ") AND " +
     "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  Qry3Tab.Execute();
+  for(;!Qry3Tab.Eof;Qry3Tab.Next())
   {
-    value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
+    value_bag.push_back( make_pair(Qry3Tab.FieldAsFloat("value"), Qry3Tab.FieldAsString("value_cur")) );
   };
   if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
 
@@ -2271,25 +2271,32 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     map< pair< double, string >, int > rcpt_value_bag;
     for(int pass=0;pass<=2;pass++)
     {
+      std::string sql, table_name;
       switch (pass)
       {
-        case 0: Qry.SQLText=
+        case 0: sql=
                   "SELECT rate AS value,rate_cur AS value_cur "
                   "FROM bag_receipts "
                   "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type=3 AND kit_id IS NULL";
+                  table_name="BAG_RECEIPTS";
                   break;
-        case 1: Qry.SQLText=
+        case 1: sql=
                   "SELECT MIN(rate) AS value, MIN(rate_cur) AS value_cur, kit_id "
                   "FROM bag_receipts "
                   "WHERE grp_id=:grp_id AND service_type=3 AND kit_id IS NOT NULL "
                   "GROUP BY kit_id";
+                  table_name="BAG_RECEIPTS";
                   break;
-        case 2: Qry.SQLText=
+        case 2: sql=
                   "SELECT value,value_cur "
                   "FROM bag_prepay "
                   "WHERE grp_id=:grp_id AND value IS NOT NULL";
+                  table_name="BAG_PREPAY";
                   break;
       };
+      DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
+      Qry.SQLText = sql;
+      Qry.CreateVariable("grp_id", otInteger, grp_id);
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {

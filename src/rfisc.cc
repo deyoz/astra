@@ -2673,7 +2673,7 @@ bool need_for_payment(const GrpId_t& grp_id,
     }
   }
 
-  DB::TQuery Qry(PgOra::getROSession("VALUE_BAG-BAG2"), STDLOG);
+  DB::TQuery Qry(PgOra::getROSession({"VALUE_BAG","BAG2"}), STDLOG);
   Qry.SQLText = "SELECT 1, bag2.grp_id, bag2.bag_pool_num "
                 "FROM value_bag "
                 "LEFT OUTER JOIN bag2 ON ( "
