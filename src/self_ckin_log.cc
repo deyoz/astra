@@ -513,7 +513,7 @@ void TSelfCkinLog::fromDB(const TParams &params)
 void SelfCkinLogInterface::Run(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     get_compatible_report_form("SelfCkinLog", reqNode, resNode);
-    xmlNodePtr formDataNode = STAT::set_variables(resNode);
+    STAT::set_variables(resNode);
 
     TParams params;
     params.fromXML(reqNode);

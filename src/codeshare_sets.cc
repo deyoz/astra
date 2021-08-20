@@ -231,9 +231,9 @@ CodeshareSetsData FromDB(DB::TQuery& Qry) {
         .airline_mark = Qry.FieldAsString("airline_mark"),
         .flt_no_mark = Qry.FieldAsInteger("flt_no_mark"),
         .suffix_mark = Qry.FieldAsString("suffix_mark"),
-        .pr_mark_norms = Qry.FieldAsInteger("pr_mark_norms"),
-        .pr_mark_bp = Qry.FieldAsInteger("pr_mark_bp"),
-        .pr_mark_rpt = Qry.FieldAsInteger("pr_mark_rpt"),
+        .pr_mark_norms = Qry.FieldAsInteger("pr_mark_norms") ? true : false,
+        .pr_mark_bp = Qry.FieldAsInteger("pr_mark_bp") ? true : false,
+        .pr_mark_rpt = Qry.FieldAsInteger("pr_mark_rpt") ? true : false,
     };
 }
 

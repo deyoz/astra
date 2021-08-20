@@ -209,7 +209,7 @@ int stat_belgorod(int argc, char **argv)
             {
                 move_ids.get_for_airp(min_date, min_date+1.0, belgorod_airp);
             }
-            catch(AstraLocale::UserException) {}
+            catch(const AstraLocale::UserException &) {}
 
             printf("%s: move_ids.size()=%zu\n", DateTimeToStr(min_date, "dd.mm.yyyy").c_str(), move_ids.size());
             for(TMoveIds::const_iterator i=move_ids.begin(); i!=move_ids.end(); ++i)

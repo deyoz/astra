@@ -398,6 +398,9 @@ namespace PgOra
         { "SP_PG_GROUP_BAG_TAGS", {
                 "BAG_TAGS",
         }},
+        { "SP_PG_GROUP_UNACCOMP_BAG_INFO", {
+                "UNACCOMP_BAG_INFO",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

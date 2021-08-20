@@ -286,8 +286,8 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
     aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
     if (aircode<=0 || aircode>999) throw EXCEPTIONS::EConvertError("");
   }
-  catch(EBaseTableError) { aircode=ASTRA::NoExists; }
-  catch(EXCEPTIONS::EConvertError)   { aircode=ASTRA::NoExists; };
+  catch(const EBaseTableError &) { aircode=ASTRA::NoExists; }
+  catch(const EXCEPTIONS::EConvertError &)   { aircode=ASTRA::NoExists; };
 
   if (aircode==ASTRA::NoExists) aircode=954;
 

@@ -900,15 +900,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
   string sql_str;
   xmlNodePtr paramsNode;
   xmlNodePtr queryNode, sqlNode, rollbackNode;
-  string dbf_type = type;
+  std::string dbf_type = type;
   tst();
   string tablename = string("SPP") + day + dbf_type;
   if ( xml_oldtrip )
-    nodeP = GetNode( (char*)dbf_type.c_str(), xml_oldtrip );
+    nodeP = GetNode( (const char*)dbf_type.c_str(), xml_oldtrip );
   else
     nodeP = 0;
   if ( xml_newtrip )
-    nodeN = GetNode( (char*)dbf_type.c_str(), xml_newtrip );
+    nodeN = GetNode( (const char*)dbf_type.c_str(), xml_newtrip );
   else
     nodeN = 0;
   bool pr_insert = ( (!nodeP && nodeN) ||
@@ -996,12 +996,12 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
     dbf_type = "DK";
   tablename = string("SPP") + day + dbf_type;
   // маршрут на прилет
-  vector<xmlNodePtr>::iterator nodePK, nodeNK;
-  vector<xmlNodePtr> nodesPK, nodesNK;
+  std::vector<xmlNodePtr>::iterator nodePK, nodeNK;
+  std::vector<xmlNodePtr> nodesPK, nodesNK;
   if ( nodeP )
-    GetNodes( (char*)dbf_type.c_str(), nodesPK, nodeP );
+    GetNodes( (const char*)dbf_type.c_str(), nodesPK, nodeP );
   if ( nodeN )
-    GetNodes( (char*)dbf_type.c_str(), nodesNK, nodeN );
+    GetNodes( (const char*)dbf_type.c_str(), nodesNK, nodeN );
   nodePK = nodesPK.begin();
   nodeNK = nodesNK.begin();
   while ( nodePK != nodesPK.end() || nodeNK != nodesNK.end() ) {
@@ -1226,9 +1226,9 @@ void createSQLs( const vector<TTripDay> &xmltrips, xmlDocPtr &sqldoc )
   for( vector<TTripDay>::const_iterator iv=xmltrips.begin(); iv!=xmltrips.end(); iv++ ) {
     ProgTrace( TRACE5, "iv->xml_oldtrip=%p, iv->xml_newtrip=%p", iv->xml_oldtrip, iv->xml_newtrip );
     if ( iv->xml_oldtrip )
-      ProgTrace( TRACE5, "iv->xml_oldtrip->name=%s", (char*)iv->xml_oldtrip->name );
+      ProgTrace( TRACE5, "iv->xml_oldtrip->name=%s", (const char*)iv->xml_oldtrip->name );
     if ( iv->xml_newtrip )
-      ProgTrace( TRACE5, "iv->xml_newtrip->name=%s", (char*)iv->xml_newtrip->name );
+      ProgTrace( TRACE5, "iv->xml_newtrip->name=%s", (const char*)iv->xml_newtrip->name );
     createDBF( sqldoc, iv->xml_oldtrip, iv->xml_newtrip, iv->spp_date, iv->type );
   }
 }
