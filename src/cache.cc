@@ -666,6 +666,8 @@ CacheTable::RefreshStatus TCacheTable::refreshDataIndividual()
 
   if (callbacks)
     callbacks->onSelectOrRefresh(SQLParams, selectedRows.value());
+  else
+    throw Exception("Need to add creation of %s into SpawnCacheTableCallbacks", code().c_str());
 
   return selectedRows.value().status();
 }

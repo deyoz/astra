@@ -73,6 +73,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="SALE_POINTS")         return new CacheTable::SalePoints;
   if (cacheCode=="SALE_DESKS")          return new CacheTable::SaleDesks;
   if (cacheCode=="OPERATORS")           return new CacheTable::Operators;
+  if (cacheCode=="PAY_METHODS_TYPES")   return new CacheTable::PayMethodsTypes;
+  if (cacheCode=="PAY_METHODS_SET")     return new CacheTable::PayMethodsSet;
   if (cacheCode=="PAY_CLIENTS")         return new CacheTable::PayClients;
   if (cacheCode=="POS_TERM_VENDORS")    return new CacheTable::PosTermVendors;
   if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
@@ -956,9 +958,9 @@ void DeskPlusDeskGrpWritable::checkAccess(const std::string& fieldDeskGrpId,
                                           const std::optional<CacheTable::Row>& oldRow,
                                           std::optional<CacheTable::Row>& newRow) const
 {
-  checkDeskAndDeskGrp(fieldDesk, fieldDeskGrpId, newRow);
+  checkDeskAndDeskGrp(fieldDesk, fieldDeskGrpId, false, newRow);
   checkDeskAccess(fieldDesk, oldRow, newRow);
-  checkNotNullDeskGrpAccess(fieldDeskGrpId, oldRow, newRow);
+  checkDeskGrpAccess(fieldDeskGrpId, false, oldRow, newRow);
 }
 
 //CryptSets
@@ -3514,6 +3516,75 @@ void Operators::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                         const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("operators").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//PayMethodsTypes
+
+bool PayMethodsTypes::userDependence() const {
+  return false;
+}
+std::string PayMethodsTypes::selectSql() const {
+  return "SELECT id, name, name_lat, descr, descr_lat FROM pay_methods_types ORDER BY name";
+}
+std::list<std::string> PayMethodsTypes::dbSessionObjectNames() const {
+  return {"PAY_METHODS_TYPES"};
+}
+
+//PayMethodsSet
+
+bool PayMethodsSet::userDependence() const {
+  return true;
+}
+std::string PayMethodsSet::selectSql() const {
+  return
+   "SELECT id, desk_grp_id, desk_grp_id descr, desk, airline, airp_dep, method_type "
+   "FROM pay_methods_set "
+   "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+            + getSQLFilter("airp_dep", AccessControl::PermittedAirportsOrNull) +
+   "ORDER BY id";
+}
+std::string PayMethodsSet::insertSql() const {
+  return "INSERT INTO pay_methods_set(id, desk_grp_id, desk, airline, airp_dep, method_type) "
+         "VALUES(:id, :desk_grp_id, :desk, :airline, :airp_dep, :method_type)";
+}
+std::string PayMethodsSet::updateSql() const {
+  return "UPDATE pay_methods_set "
+         "SET desk_grp_id = :desk_grp_id, desk = :desk, airline=:airline, airp_dep=:airp_dep, method_type=:method_type "
+         "WHERE id=:OLD_id";
+}
+std::string PayMethodsSet::deleteSql() const {
+  return "DELETE FROM pay_methods_set WHERE id=:OLD_id";
+}
+std::list<std::string> PayMethodsSet::dbSessionObjectNames() const {
+  return {"PAY_METHODS_SET"};
+}
+
+void PayMethodsSet::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    if (newRow.value().getAsString("airline").empty() &&
+        newRow.value().getAsString("airp_dep").empty())
+      throw UserException("MSG.AIRLINE_OR_AIRPORT_REQUIRED");
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  checkDeskAndDeskGrp("desk", "desk_grp_id", true, newRow);
+  checkDeskAccess("desk", oldRow, newRow);
+  checkDeskGrpAccess("desk_grp_id", true, oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void PayMethodsSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("pay_methods_set").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //PayClients

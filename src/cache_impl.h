@@ -877,6 +877,31 @@ class Operators : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class PayMethodsTypes : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class PayMethodsSet : public CacheTableWritable
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const override;
+};
+
 class PayClients : public CacheTableWritable
 {
   public:

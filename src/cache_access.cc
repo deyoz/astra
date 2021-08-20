@@ -395,20 +395,21 @@ namespace CacheTable
 
 //проверка прав работы с группой пультов
 
-void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
-                               const std::optional<CacheTable::Row>& oldRow,
-                               const std::optional<CacheTable::Row>& newRow)
+void checkDeskGrpAccess(const std::string& deskGrpIdFieldName,
+                        const bool deskGrpIdFieldIsNullable,
+                        const std::optional<CacheTable::Row>& oldRow,
+                        const std::optional<CacheTable::Row>& newRow)
+
 {
   for(bool isNewRow : {false, true})
   {
     const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
     if (!row) continue;
 
-    std::optional<int> valueOpt=row.value().getAsInteger(deskGrpIdFieldName);
-    if (!valueOpt)
-      throw Exception("%s: empty field '%s'", __func__, deskGrpIdFieldName.c_str());
+    if (deskGrpIdFieldIsNullable &&
+        row.value().getAsString(deskGrpIdFieldName).empty()) continue;
 
-    DeskGrpId_t deskGrpId(valueOpt.value());
+    DeskGrpId_t deskGrpId(row.value().getAsInteger_ThrowOnEmpty(deskGrpIdFieldName));
 
     if (!Access(deskGrpId).check(deskGrpId))
       throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_DESK_GRP":
@@ -438,6 +439,7 @@ void checkDeskAccess(const std::string& deskFieldName,
 
 void checkDeskAndDeskGrp(const std::string& deskFieldName,
                          const std::string& deskGrpIdFieldName,
+                         const bool deskGrpIdFieldIsNullable,
                          std::optional<CacheTable::Row>& row)
 {
   if (!row) return;
@@ -446,7 +448,7 @@ void checkDeskAndDeskGrp(const std::string& deskFieldName,
   std::optional<int> deskGrpIdOpt=row.value().getAsInteger(deskGrpIdFieldName);
   if (desk.empty())
   {
-    if (!deskGrpIdOpt)
+    if (!deskGrpIdFieldIsNullable && !deskGrpIdOpt)
       throw UserException("MSG.NEED_SET_DESK_OR_DESK_GRP");
     return;
   }
@@ -465,7 +467,8 @@ void checkDeskAndDeskGrp(const std::string& deskFieldName,
   if (deskGrpIdOpt && deskGrpIdOpt.value()!=grpId)
     throw UserException("MSG.DESK_GRP_DOES_NOT_MEET_DESK");
 
-  row.value().setFromInteger(deskGrpIdFieldName, grpId);
+  if (!deskGrpIdFieldIsNullable)
+    row.value().setFromInteger(deskGrpIdFieldName, grpId);
 }
 
 void checkUserTypesAccess(const std::string& userTypeFieldName1,

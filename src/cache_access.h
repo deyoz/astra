@@ -98,9 +98,10 @@ bool ViewAccess<T>::check(const T& id)
 namespace CacheTable
 {
 
-void checkNotNullDeskGrpAccess(const std::string& deskGrpIdFieldName,
-                               const std::optional<CacheTable::Row>& oldRow,
-                               const std::optional<CacheTable::Row>& newRow);
+void checkDeskGrpAccess(const std::string& deskGrpIdFieldName,
+                        const bool deskGrpIdFieldIsNullable,
+                        const std::optional<CacheTable::Row>& oldRow,
+                        const std::optional<CacheTable::Row>& newRow);
 
 void checkDeskAccess(const std::string& deskFieldName,
                      const std::optional<CacheTable::Row>& oldRow,
@@ -108,6 +109,7 @@ void checkDeskAccess(const std::string& deskFieldName,
 
 void checkDeskAndDeskGrp(const std::string& deskFieldName,
                          const std::string& deskGrpIdFieldName,
+                         const bool deskGrpIdFieldIsNullable,
                          std::optional<CacheTable::Row>& row);
 
 void checkUserTypesAccess(const std::string& userTypeFieldName1,
