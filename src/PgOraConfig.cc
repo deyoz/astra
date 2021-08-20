@@ -206,6 +206,8 @@ namespace PgOra
                 "DESKS",                // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr, desks.ldr
                                         // 7Proc: ADM
                 "DESK_GRP",
+                "DESK_BP_SET",          // 4load: history_tables.ldr, cache_tables.ldr
+                "DESK_GRP_SETS",        // 4load: cache_fields.ldr, adm_cache_tables.ldr, history_tables.ldr, cache_tables.ldr
                 "TERM_EXPIRE_DATES",    // +
         }},
         { "SP_PG_GROUP_PROFILES", {

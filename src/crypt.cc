@@ -873,7 +873,7 @@ std::string composeGroupName(const int groupId)
        "SELECT descr, city, airline, airp "
        "FROM desk_grp "
        "WHERE grp_id=:grp_id",
-        PgOra::getRWSession("DESK_GRP")
+        PgOra::getROSession("DESK_GRP")
     );
 
     cur.stb()

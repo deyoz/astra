@@ -777,7 +777,26 @@ void TPrnTagStore::save_foreign_scan()
     suffix.append(1, bcbp_flt_no.second);
     suffix = StrUtils::trim(suffix); // пустой суффикс почему-то хранится как пробел ' '
 
-    TCachedQuery Qry(
+
+    DB::TQuery Desk_Qry(PgOra::getROSession({"DESK_GRP", "DESKS"}),STDLOG);
+    Desk_Qry.SQLText = "select airp from DESK_GRP, DESKS where DESK_GRP.grp_id = DESKS.grp_id AND code = :desk";
+    Desk_Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    Desk_Qry.Execute();
+    std::string airp;
+    if(!Desk_Qry.Eof) {
+        airp = Desk_Qry.FieldAsString("airp");
+    }
+
+    DB::TQuery Web_Qry(PgOra::getROSession("WEB_CLIENTS"), STDLOG);
+    Web_Qry.SQLText = "select descr from WEB_CLIENTS where desk = :desk";
+    Web_Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    Web_Qry.Execute();
+    std::string descr;
+    if(!Web_Qry.Eof) {
+        descr = Web_Qry.FieldAsString("descr");
+    }
+
+    DB::TCachedQuery Qry(PgOra::getRWSession("FOREIGN_SCAN"),
             "insert into foreign_scan ( "
             "   id, "
             "   time_print, "
@@ -797,8 +816,8 @@ void TPrnTagStore::save_foreign_scan()
             "   cycle_id__seq.nextval, "
             "   :time_print, "
             "   :desk, "
-            "   (select airp from desk_grp where grp_id = (select grp_id from desks where code = :desk)), "
-            "   (select descr from web_clients where desk = :desk), "
+            "   :desks_airp, "
+            "   :web_clients_descr, "
             "   :client_type, "
             "   :airline, "
             "   :flt_no, "
@@ -812,6 +831,8 @@ void TPrnTagStore::save_foreign_scan()
         QParams()
             << QParam("time_print", otDate, time_print.val)
             << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+            << QParam("desks_airp", otString, airp)
+            << QParam("web_clients_descr", otString, descr)
             << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type))
             << QParam("airline", otString, getElemId(etAirline, StrUtils::trim(scan_data->operating_carrier_designator(0))))
             << QParam("flt_no", otInteger, bcbp_flt_no.first)
@@ -820,7 +841,7 @@ void TPrnTagStore::save_foreign_scan()
             << QParam("airp_dep", otString, getElemId(etAirp, scan_data->from_city_airport(0)))
             << QParam("airp_arv", otString, getElemId(etAirp, scan_data->to_city_airport(0)))
             << QParam("scan_data", otString, scan)
-            << QParam("errors", otString, errorsToString()));
+            << QParam("errors", otString, errorsToString()), STDLOG);
 
     Qry.get().Execute();
 }
