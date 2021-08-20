@@ -4,6 +4,7 @@
 #include "astra_consts.h"
 #include "date_time.h"
 #include "hist.h"
+#include <optional>
 
 using BASIC::date_time::TDateTime;
 
@@ -17,12 +18,12 @@ void checkSitaAddr(const std::string &str,
 void modifyOriginator(const RowId_t &id,
                       const TDateTime lastDate,
                       const std::string &lang,
-                      const RowId_t &tid = RowId_t(ASTRA::NoExists));
+                      const std::optional<RowId_t> &tid);
 
 void deleteOriginator(const RowId_t &id,
-                      const RowId_t &tid = RowId_t(ASTRA::NoExists));
+                      const std::optional<RowId_t> &tid);
 
-void addOriginator(RowId_t &id,
+void addOriginator(std::optional<RowId_t> &id,
                    const std::string &airline,
                    const std::string &airpDep,
                    const std::string &tlgType,
@@ -31,7 +32,7 @@ void addOriginator(RowId_t &id,
                    const std::string &addr,
                    const std::string &doubleSign,
                    const std::string &descr,
-                   const RowId_t &tid,
+                   const std::optional<RowId_t> &tid,
                    const std::string &lang);
 } // namespace TypeB
 

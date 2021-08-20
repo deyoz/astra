@@ -14,9 +14,6 @@ using AstraLocale::LParams;
 using AstraLocale::UserException;
 
 namespace TypeB {
-namespace {
-bool DateIsNull(TDateTime datetime) { return static_cast<int>(datetime) == ASTRA::NoExists; }
-} // namespace
 
 void checkSitaAddr(const std::string &str,
                    const std::string &cacheTable,
@@ -30,7 +27,7 @@ void checkSitaAddr(const std::string &str,
 void modifyOriginator(const RowId_t &id,
                       const TDateTime lastDate,
                       const std::string &lang,
-                      const RowId_t &tid)
+                      const std::optional<RowId_t> &tid)
 {
     DB::TQuery QryLock(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
     QryLock.SQLText =
@@ -45,7 +42,7 @@ void modifyOriginator(const RowId_t &id,
     if (QryLock.RowsProcessed() != 1)
         return;
 
-    auto sid = RowId_t(QryLock.FieldAsInteger("id"));
+    auto sid = std::make_optional(RowId_t(QryLock.FieldAsInteger("id")));
     addOriginator(sid,
                   QryLock.FieldAsString("airline"),
                   QryLock.FieldAsString("airp_dep"),
@@ -60,7 +57,7 @@ void modifyOriginator(const RowId_t &id,
 }
 
 void deleteOriginator(const RowId_t &id,
-                      const RowId_t &tid)
+                      const std::optional<RowId_t> &tid)
 {
     auto now = BASIC::date_time::NowUTC();
 
@@ -78,13 +75,10 @@ void deleteOriginator(const RowId_t &id,
         return;
 
     auto firstDate = QryLock.FieldAsDateTime("first_date");
-    auto lastDate  = QryLock.FieldAsDateTime("last_date");
+    auto lastDate = !QryLock.FieldIsNULL("last_date") ? std::make_optional(QryLock.FieldAsDateTime("last_date")) : std::nullopt;
+    int tidh = tid ? tid->get() : PgOra::getSeqNextVal_int("TID__SEQ");
 
-    int tidh = tid.get();
-    if (tidh == ASTRA::NoExists)
-        tidh = PgOra::getSeqNextVal_int("TID__SEQ");
-
-    if (DateIsNull(lastDate) || lastDate > now) {
+    if (!lastDate || *lastDate > now) {
         DB::TQuery QryUpd(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
 
         if (firstDate < now) {
@@ -119,7 +113,7 @@ void deleteOriginator(const RowId_t &id,
     }
 }
 
-void addOriginator(RowId_t &id,
+void addOriginator(std::optional<RowId_t> &id,
                    const std::string &airline,
                    const std::string &airpDep,
                    const std::string &tlgType,
@@ -128,14 +122,15 @@ void addOriginator(RowId_t &id,
                    const std::string &addr,
                    const std::string &doubleSign,
                    const std::string &descr,
-                   const RowId_t &tid,
+                   const std::optional<RowId_t> &tid,
                    const std::string &lang)
 {
     TDateTime first = ASTRA::NoExists;
-    TDateTime last = ASTRA::NoExists;
+    TDateTime tmpd = ASTRA::NoExists;
     bool prOpd = false;
 
-    checkPeriod(id.get() == ASTRA::NoExists, firstDate, lastDate, BASIC::date_time::NowUTC(), first, last, prOpd);
+    checkPeriod((id ? true : false), firstDate, lastDate, BASIC::date_time::NowUTC(), first, tmpd, prOpd);
+    auto last = static_cast<int>(tmpd) != ASTRA::NoExists ? std::make_optional(tmpd) : std::nullopt;
 
     if (prOpd == false) {
         if (addr.empty())
@@ -153,219 +148,194 @@ void addOriginator(RowId_t &id,
                                 LParams() << LParam("fieldname", getCacheInfo("TYPEB_ORIGINATORS").fieldTitle.at("DESCR")));
     }
 
-    int tidh = tid.get();
-    if (tidh == ASTRA::NoExists)
-        tidh = PgOra::getSeqNextVal_int("TID__SEQ");
+    std::optional<int> idh = std::nullopt;
+    int tidh = tid ? tid->get() : PgOra::getSeqNextVal_int("TID__SEQ");
 
     DB::TQuery QryLock(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
     QryLock.SQLText =
         "SELECT id, first_date, last_date "
         "FROM typeb_originators "
-        "WHERE (airline  IS NULL AND NULLIF(:airline, '')  IS NULL OR airline=:airline) AND "
-              "(airp_dep IS NULL AND NULLIF(:airp_dep, '') IS NULL OR airp_dep=:airp_dep) AND "
-              "(tlg_type IS NULL AND NULLIF(:tlg_type, '') IS NULL OR tlg_type=:tlg_type) AND "
-              "(last_date IS NULL OR last_date>:first) AND ";
+        "WHERE (airline   IS NULL AND :airline  IS NULL OR airline=:airline)   AND "
+              "(airp_dep  IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+              "(tlg_type  IS NULL AND :tlg_type IS NULL OR tlg_type=:tlg_type) AND "
+              "(last_date IS NULL                       OR last_date>:first)   AND "
+              "(:last     IS NULL                       OR :last>first_date)   AND "
+              "pr_del=0 "
+        "FOR UPDATE";
 
-    if (DateIsNull(last))
-        QryLock.SQLText += "(1=1 OR :last>first_date) AND pr_del=0 FOR UPDATE";
+    QryLock.CreateVariable("airline", otString, airline);
+    QryLock.CreateVariable("airp_dep", otString, airpDep);
+    QryLock.CreateVariable("tlg_type", otString, tlgType);
+    QryLock.CreateVariable("first", otDate, first);
+    if (last)
+        QryLock.CreateVariable("last", otDate, *last);
     else
-        QryLock.SQLText += "(0=1 OR :last>first_date) AND pr_del=0 FOR UPDATE";
-
-    QryLock.CreateVariable(":airline", otString, airline);
-    QryLock.CreateVariable(":airp_dep", otString, airpDep);
-    QryLock.CreateVariable(":tlg_type", otString, tlgType);
-    QryLock.CreateVariable(":first", otDate, first);
-    QryLock.CreateVariable(":last", otDate, last);
+        QryLock.CreateVariable("last", otDate, FNull);
     QryLock.Execute();
 
     /* пробуем разбить на отрезки */
     for (; QryLock.Eof; QryLock.Next()) {
-        auto rowId = QryLock.FieldAsInteger("id");
-        auto rowFirstDate = QryLock.FieldAsInteger("first_date");
-        auto rowLastDate = QryLock.FieldAsInteger("last_date");
-        auto idh = rowId;
+        RowId_t crId(QryLock.FieldAsInteger("id"));
+        auto crFirstDate = QryLock.FieldAsDateTime("first_date");
+        auto crLastDate = !QryLock.FieldIsNULL("last_date") ? std::make_optional(QryLock.FieldAsDateTime("last_date")) : std::nullopt;
+        idh = crId.get();
 
-        if (id.get() == ASTRA::NoExists || (id.get() != ASTRA::NoExists && id.get() != rowId)) {
-
-            if (rowFirstDate < first) {
+        if (!id || id != crId) {
+            if (crFirstDate < first) {
                 /* отрезок [first_date,first) */
-                if (idh != ASTRA::NoExists) {
+                if (idh) {
                     DB::TQuery QryUpd(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
                     QryUpd.SQLText =
                         "UPDATE typeb_originators "
-                        "SET first_date=:rowFirstDate, last_date=:first, tid=:tidh "
-                        "WHERE id=:rowId";
-                    QryUpd.CreateVariable(":rowFirstDate", otDate, rowFirstDate);
-                    QryUpd.CreateVariable(":first", otDate, first);
-                    QryUpd.CreateVariable(":tidh", otInteger, tidh);
-                    QryUpd.CreateVariable(":rowId", otInteger, rowId);
+                        "SET first_date=:crFirstDate, last_date=:first, tid=:tidh "
+                        "WHERE id=:crId";
+                    QryUpd.CreateVariable("crFirstDate", otDate, crFirstDate);
+                    QryUpd.CreateVariable("first", otDate, first);
+                    QryUpd.CreateVariable("tidh", otInteger, tidh);
+                    QryUpd.CreateVariable("crId", otInteger, crId.get());
                     QryUpd.Execute();
 
-                    HistoryTable("typeb_originators").synchronize(RowId_t(rowId));
-                    idh = ASTRA::NoExists;
+                    HistoryTable("typeb_originators").synchronize(crId);
+                    idh.reset();
                 } else {
                     idh = PgOra::getSeqNextVal_int("ID__SEQ");
                     DB::TQuery QryIns(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
                     QryIns.SQLText =
                         "INSERT INTO typeb_originators ("
-                            "id, "
-                            "airline, "
-                            "airp_dep, "
-                            "tlg_type, "
-                            "first_date, "
-                            "last_date, "
-                            "addr, "
-                            "double_sign, "
-                            "descr, "
-                            "pr_del, "
-                            "tid) "
+                            "id, airline, airp_dep, tlg_type, "
+                            "first_date, last_date, "
+                            "addr, double_sign, descr, "
+                            "pr_del, tid) "
                         "SELECT "
-                            ":idh, "
-                            "airline, "
-                            "airp_dep, "
-                            "tlg_type, "
-                            ":rowFirstDate, "
-                            ":first, "
-                            "addr, "
-                            "double_sign, "
-                            "descr, "
-                            "0, "
-                            ":tidh "
+                            ":idh, airline, airp_dep, tlg_type, "
+                            ":crFirstDate, :first, "
+                            "addr, double_sign, descr, "
+                            "0, :tidh "
                         "FROM typeb_originators "
-                        "WHERE id=:rowId";
+                        "WHERE id=:crId";
 
-                    QryIns.CreateVariable("idh", otInteger, idh);
-                    QryIns.CreateVariable("rowFirstDate", otDate, rowFirstDate);
+                    QryIns.CreateVariable("idh", otInteger, *idh);
+                    QryIns.CreateVariable("crFirstDate", otDate, crFirstDate);
                     QryIns.CreateVariable("first", otDate, first);
                     QryIns.CreateVariable("tidh", otInteger, tidh);
-                    QryIns.CreateVariable("rowId", otInteger, rowId);
+                    QryIns.CreateVariable("crId", otInteger, crId.get());
                     QryIns.Execute();
 
-                    HistoryTable("typeb_originators").synchronize(RowId_t(idh));
-                    idh = ASTRA::NoExists;
+                    HistoryTable("typeb_originators").synchronize(RowId_t(*idh));
+                    idh.reset();
                 }
             }
 
-            if (DateIsNull(last) == false && (DateIsNull(rowLastDate) || rowLastDate > last)) {
+            if (last && (!crLastDate || *crLastDate > last)) {
                 /* отрезок [last,last_date)  */
-                if (idh != ASTRA::NoExists) {
+                if (idh) {
                     DB::TQuery QryUpd(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
                     QryUpd.SQLText =
                         "UPDATE typeb_originators "
-                        "SET first_date=:last, last_date=:rowLastDate, tid=:tidh "
-                        "WHERE id=:rowId";
-                    QryUpd.CreateVariable(":last", otDate, last);
-                    QryUpd.CreateVariable(":rowLastDate", otDate, rowLastDate);
-                    QryUpd.CreateVariable(":tidh", otInteger, tidh);
-                    QryUpd.CreateVariable(":rowId", otInteger, rowId);
+                        "SET first_date=:last, last_date=:crLastDate, tid=:tidh "
+                        "WHERE id=:crId";
+
+                    if (last)
+                        QryUpd.CreateVariable("last", otDate, *last);
+                    else
+                        QryUpd.CreateVariable("last", otDate, FNull);
+
+                    if (crLastDate)
+                        QryUpd.CreateVariable("crLastDate", otDate, *crLastDate);
+                    else
+                        QryUpd.CreateVariable("crLastDate", otDate, FNull);
+
+                    QryUpd.CreateVariable("tidh", otInteger, tidh);
+                    QryUpd.CreateVariable("crId", otInteger, crId.get());
                     QryUpd.Execute();
 
-                    HistoryTable("typeb_originators").synchronize(RowId_t(rowId));
-                    idh = ASTRA::NoExists;
+                    HistoryTable("typeb_originators").synchronize(crId);
+                    idh.reset();
                 } else {
                     idh = PgOra::getSeqNextVal_int("ID__SEQ");
                     DB::TQuery QryIns(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
                     QryIns.SQLText =
                         "INSERT INTO typeb_originators ("
-                            "id, "
-                            "airline, "
-                            "airp_dep, "
-                            "tlg_type, "
-                            "first_date, "
-                            "last_date, "
-                            "addr, "
-                            "double_sign, "
-                            "descr, "
-                            "pr_del, "
-                            "tid) "
+                            "id, airline, airp_dep, tlg_type, "
+                            "first_date, last_date, "
+                            "addr, double_sign, descr, "
+                            "pr_del, tid) "
                         "SELECT "
-                            ":idh, "
-                            "airline, "
-                            "airp_dep, "
-                            "tlg_type, "
-                            ":last, "
-                            ":rowLastDate, "
-                            "addr, "
-                            "double_sign, "
-                            "descr, "
-                            "0, "
-                            ":tidh "
+                            ":idh, airline, airp_dep, tlg_type, "
+                            ":last, :crLastDate, "
+                            "addr, double_sign, descr, "
+                            "0, :tidh "
                         "FROM typeb_originators "
-                        "WHERE id=:rowId";
+                        "WHERE id=:crId";
 
-                    QryIns.CreateVariable("idh", otInteger, idh);
-                    QryIns.CreateVariable("last", otDate, last);
-                    QryIns.CreateVariable("rowLastDate", otDate, rowLastDate);
+                    if (last)
+                        QryIns.CreateVariable("last", otDate, *last);
+                    else
+                        QryIns.CreateVariable("last", otDate, FNull);
+
+                    if (crLastDate)
+                        QryIns.CreateVariable("crLastDate", otDate, *crLastDate);
+                    else
+                        QryIns.CreateVariable("crLastDate", otDate, FNull);
+
+                    QryIns.CreateVariable("idh", otInteger, *idh);
                     QryIns.CreateVariable("tidh", otInteger, tidh);
-                    QryIns.CreateVariable("rowId", otInteger, rowId);
+                    QryIns.CreateVariable("crId", otInteger, crId.get());
                     QryIns.Execute();
 
-                    HistoryTable("typeb_originators").synchronize(RowId_t(idh));
-                    idh = ASTRA::NoExists;
+                    HistoryTable("typeb_originators").synchronize(RowId_t(*idh));
+                    idh.reset();
                 }
             }
 
-            if (idh != ASTRA::NoExists) {
+            if (idh) {
                 DB::TQuery QryUpd(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
                 QryUpd.SQLText =
                     "UPDATE typeb_originators "
                     "SET pr_del=1, tid=:tidh "
-                    "WHERE id=:rowId";
+                    "WHERE id=:crId";
                 QryUpd.CreateVariable(":tidh", otInteger, tidh);
-                QryUpd.CreateVariable(":rowId", otInteger, rowId);
+                QryUpd.CreateVariable(":crId", otInteger, crId.get());
                 QryUpd.Execute();
 
-                HistoryTable("typeb_originators").synchronize(RowId_t(rowId));
+                HistoryTable("typeb_originators").synchronize(crId);
             }
         }
     }
 
-    if (id.get() == ASTRA::NoExists) {
+    if (!id) {
         if (prOpd == false) {
             /*новый отрезок [first,last) */
             id = RowId_t(PgOra::getSeqNextVal_int("ID__SEQ"));
             DB::TQuery QryIns(PgOra::getRWSession("TYPEB_ORIGINATORS"), STDLOG);
             QryIns.SQLText =
                 "INSERT INTO typeb_originators ("
-                    "id, "
-                    "airline, "
-                    "airp_dep, "
-                    "tlg_type, "
-                    "first_date, "
-                    "last_date, "
-                    "addr, "
-                    "double_sign, "
-                    "descr, "
-                    "pr_del, "
-                    "tid) "
+                    "id, airline, airp_dep, tlg_type, "
+                    "first_date, last_date, "
+                    "addr, double_sign, descr, "
+                    "pr_del, tid) "
                 "VALUES ("
-                    ":id, "
-                    ":airline, "
-                    ":airp_dep, "
-                    ":tlg_type, "
-                    ":first, "
-                    ":last, "
-                    ":addr, "
-                    ":double_sign, "
-                    ":descr, "
-                    "0, "
-                    ":tidh) "
-                "RETURNING id AS vid";
+                    ":id, :airline, :airp_dep, :tlg_type, "
+                    ":first, :last, "
+                    ":addr, :double_sign, :descr, "
+                    "0, :tidh)";
 
-            QryIns.CreateVariable("id", otInteger, id.get());
+            QryIns.CreateVariable("id", otInteger, id->get());
             QryIns.CreateVariable("airline", otString, airline);
             QryIns.CreateVariable("airp_dep", otString, airpDep);
             QryIns.CreateVariable("tlg_type", otString, tlgType);
             QryIns.CreateVariable("first", otDate, first);
-            QryIns.CreateVariable("last", otDate, last);
+            if (last)
+                QryIns.CreateVariable("last", otDate, *last);
+            else
+                QryIns.CreateVariable("last", otDate, FNull);
             QryIns.CreateVariable("addr", otString, addr);
             QryIns.CreateVariable("double_sign", otString, doubleSign);
             QryIns.CreateVariable("descr", otString, descr);
             QryIns.CreateVariable("tidh", otInteger, tidh);
             QryIns.Execute();
 
-            id = RowId_t(QryIns.FieldAsInteger("vid"));
-            HistoryTable("typeb_originators").synchronize(id);
+            HistoryTable("typeb_originators").synchronize(*id);
         }
     } else {
         /* при редактировании апдейтим строку */
@@ -374,12 +344,16 @@ void addOriginator(RowId_t &id,
             "UPDATE typeb_originators "
             "SET last_date=:last, tid=:tidh "
             "WHERE id=:id";
-        QryUpd.CreateVariable(":last", otDate, last);
-        QryUpd.CreateVariable(":tidh", otInteger, tidh);
-        QryUpd.CreateVariable(":id", otInteger, id.get());
+
+        if (last)
+            QryUpd.CreateVariable("last", otDate, *last);
+        else
+            QryUpd.CreateVariable("last", otDate, FNull);
+        QryUpd.CreateVariable("tidh", otInteger, tidh);
+        QryUpd.CreateVariable("id", otInteger, id->get());
         QryUpd.Execute();
 
-        HistoryTable("typeb_originators").synchronize(id);
+        HistoryTable("typeb_originators").synchronize(*id);
     }
 }
 
