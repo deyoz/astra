@@ -427,6 +427,9 @@ namespace PgOra
         { "SP_PG_GROUP_PAY_METHODS", {
                 "PAY_METHODS_SET","PAY_METHODS_TYPES",
         }},
+        { "SP_PG_GROUP_TRIP_COMP_REM", {
+                "TRIP_COMP_REM", // COMP_REM
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
