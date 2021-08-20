@@ -110,6 +110,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="BT_BLANK_LIST")       return new CacheTable::BtBlankList;
   if (cacheCode=="PRN_FORM_VERS")       return new CacheTable::PrnFormVers;
   if (cacheCode=="PRN_FORMS")           return new CacheTable::PrnForms;
+  if (cacheCode=="TRIP_BT")             return new CacheTable::TripBt;
 
   return nullptr;
 }
@@ -2180,6 +2181,81 @@ void PrnForms::beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                         std::optional<Row>& newRow) const
 {
   setRowId("id", status, newRow);
+}
+
+//TripBt
+
+bool TripBt::userDependence() const
+{
+  return false;
+}
+
+std::string TripBt::selectSql() const
+{
+  return "";
+}
+
+std::string TripBt::insertSql() const
+{
+  return "INSERT INTO trip_bt(point_id,tag_type) "
+         "VALUES(:point_id,:bt_code) ";
+}
+
+std::string TripBt::updateSql() const
+{
+  return "UPDATE trip_bt "
+         "SET tag_type=:bt_code "
+         "WHERE point_id=:OLD_point_id ";
+}
+
+std::string TripBt::deleteSql() const
+{
+  return "DELETE FROM trip_bt "
+         "WHERE point_id=:OLD_point_id ";
+}
+
+std::list<std::string> TripBt::dbSessionObjectNames() const
+{
+  return {"TRIP_BT"};
+}
+
+void TripBt::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const
+{
+  DB::TQuery tagsQry(PgOra::getROSession("TAG_TYPES"), STDLOG);
+  tagsQry.SQLText =
+          "SELECT code, name "
+          "FROM tag_types ";
+  tagsQry.Execute();
+  std::map<std::string,std::string> tagsMap;
+  for(; !tagsQry.Eof; tagsQry.Next()) {
+      const std::string code = tagsQry.FieldAsString("code");
+      const std::string name = tagsQry.FieldAsString("name");
+      tagsMap[code] = name;
+  }
+
+  DB::TQuery btQry(PgOra::getROSession("TRIP_BT"), STDLOG);
+  btQry.SQLText =
+          "SELECT point_id, trip_bt.tag_type AS bt_code "
+          "FROM trip_bt "
+          "WHERE point_id=:point_id ";
+
+  CreateVariablesFromParams({"point_id"}, sqlParams, btQry);
+  btQry.Execute();
+  const int idxPointId = btQry.FieldIndex("point_id");
+  const int idxBtCode = btQry.FieldIndex("bt_code");
+  for(; !btQry.Eof; btQry.Next())
+  {
+    const std::string bt_code = btQry.FieldAsString("bt_code");
+    auto pos = tagsMap.find(bt_code);
+    if (pos == tagsMap.end()) {
+        continue;
+    }
+    const std::string& bt_name = pos->second;
+    rows.setFromInteger(btQry, idxPointId)
+        .setFromString(btQry, idxBtCode)
+        .setFromString(bt_name)
+        .addRow();
+  }
 }
 
 //BaggageWt

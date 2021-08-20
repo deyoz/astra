@@ -52,6 +52,20 @@ $(cache PIKE RU $(code) "" ""
 
 })
 
+$(defmacro LOAD_TRIP_BT
+  point_id
+  lang=RU
+{
+!! capture=on err=ignore
+$(cache PIKE $(lang) TRIP_BT "" ""
+        $(cache_sql_param point_id integer $(point_id)))
+
+>> lines=auto
+    <data>
+      <code>TRIP_BT</code>
+
+})
+
 ### test 1
 ### первоначальная загрузка всех кэшей
 #########################################################################################
@@ -281,7 +295,8 @@ $(LOAD_CACHE TRIP_BAG_UNACCOMP)
 $(LOAD_CACHE TRIP_BI)
 $(LOAD_CACHE TRIP_BP)
 $(LOAD_CACHE TRIP_BRD_WITH_REG)
-$(LOAD_CACHE TRIP_BT)
+$(db_sql TRIP_BT "INSERT INTO TRIP_BT (point_id, tag_type) VALUES (12345, 'ЧЛБ')")
+$(LOAD_TRIP_BT 12345)
 $(LOAD_CACHE TRIP_EMDA)
 $(LOAD_CACHE TRIP_EXAM_WITH_BRD)
 $(LOAD_TRIP_BAG_NORMS_ETC TRIP_EXCHANGE_RATES 123 0 ЮТ 580)

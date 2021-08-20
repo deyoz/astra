@@ -589,6 +589,18 @@ public:
                                  const std::optional<CacheTable::Row>& newRow) const {}
 };
 
+class TripBt : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+};
+
 class BaggageWt : public CacheTableWritableHandmade
 {
   public:

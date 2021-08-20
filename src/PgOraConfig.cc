@@ -124,6 +124,7 @@ namespace PgOra
                 "PRN_TESTS",
                 "PRN_TAG_PROPS",
                 "DEL_VO",
+                "TRIP_BT",       // "BT_MODELS","PRN_FORM_VERS"
         } },
 
         { "SP_PG_GROUP_PRN_TEST_TAGS",{
@@ -132,7 +133,6 @@ namespace PgOra
 
         { "SP_PG_GROUP_BP_BT_VO",{
                 "BP_TYPES",
-                "TRIP_BT",       // "BT_MODELS", "PRN_FORM_VERS", "TRIP_BT"
                 "TRIP_BP"
         } },
 
@@ -177,7 +177,7 @@ namespace PgOra
         { "SP_PG_GROUP_BASETABLES", { "AIRLINES",         "AIRPS",        "CITIES",
                                       "CRAFTS",           "COUNTRIES"     "PERS_TYPES",
                                       "PAX_CATS",         "TRIP_TYPES",   "DELAYS",
-                                      "TRIP_LITERS",      "REFUSAL_TYPES","TAG_TYPES",
+                                      "TRIP_LITERS",      "REFUSAL_TYPES",
                                       "RFIC_TYPES",       "PAY_TYPES",    "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
