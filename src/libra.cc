@@ -404,13 +404,15 @@ std::string makeHttpQueryString(const std::map<std::string,std::string>& dict)
 }
 
 std::vector<RowData> getHttpRequestDataRows(const std::string& request,
-                                            const std::string& params)
+                                            const std::string& params,
+                                            HttpMethod method)
 {
     LogTrace(TRACE6) << __func__
                     << ": request='" << request << "'"
                     << ", params='" << params << "'";
     std::vector<RowData> result;
-    const std::string answer = synchronousHttpGetExchange("", request + params);
+    const std::string answer = method == HttpMethod::Get ? synchronousHttpGetExchange("", request + params)
+                                                         : synchronousHttpPostExchange("", request + params);
     LogTrace(TRACE6) << __func__
                      << ": answer='" << answer << "'";
     if (answer.empty()) {
@@ -444,9 +446,11 @@ std::vector<RowData> getHttpRequestDataRows(const std::string& request,
     return result;
 }
 
-RowData getHttpRequestDataRow(const std::string& request, const std::string& params)
+RowData getHttpRequestDataRow(const std::string& request,
+                              const std::string& params,
+                              HttpMethod method)
 {
-    const std::vector<RowData> rows = getHttpRequestDataRows(request, params);
+    const std::vector<RowData> rows = getHttpRequestDataRows(request, params, method);
     if (rows.empty()) {
         throw EXMLError(std::string(__func__) + ": Data not found");
     }

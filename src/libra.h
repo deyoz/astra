@@ -32,6 +32,14 @@ bool LIBRA_ENABLED();
 
 //---------------------------------------------------------------------------------------
 
+enum class HttpMethod
+{
+    Get =  1,
+    Post = 2
+};
+
+//---------------------------------------------------------------------------------------
+
 struct LibraHttpResponse
 {
     struct Status
@@ -111,8 +119,10 @@ typedef std::map<FieldName_t, FieldData> RowData;
 
 std::string makeHttpQueryString(const std::map<std::string,std::string>& dict);
 std::vector<RowData> getHttpRequestDataRows(const std::string& request,
-                                            const std::string& params);
+                                            const std::string& params,
+                                            HttpMethod method = HttpMethod::Get);
 RowData getHttpRequestDataRow(const std::string& request,
-                              const std::string& params);
+                              const std::string& params,
+                              HttpMethod method = HttpMethod::Get);
 
 }//namespace LIBRA

@@ -907,4 +907,7 @@ $(run_daemon libra_log_events_handler)
 GET /libra/get_log_events?from=xxxxxxxx_xxxxxx&to=xxxxxxxx_xxxxxx HTTP/1.1
 
 
-# $(run_daemon libra_log_events_cleaner)
+$(run_daemon libra_log_events_cleaner)
+
+>> lines=auto
+POST /libra/remove_log_events?to=xxxxxxxx_xxxxxx HTTP/1.1
