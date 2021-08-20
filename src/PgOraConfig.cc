@@ -424,6 +424,9 @@ namespace PgOra
         { "SP_PG_GROUP_VALUE_BAG", {
                 "VALUE_BAG",
         }},
+        { "SP_PG_GROUP_PAY_METHODS", {
+                "PAY_METHODS_SET","PAY_METHODS_TYPES",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
