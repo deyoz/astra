@@ -730,8 +730,10 @@ void move_pos(const string &code, int &xpos, int &ypos)
 
 int prn_tags(int argc, char **argv)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select op_type, code from prn_tag_props order by op_type, code";
+    DB::TQuery Qry(PgOra::getROSession("PRN_TAG_PROPS"), STDLOG);
+    Qry.SQLText = "SELECT op_type, code "
+                  "FROM prn_tag_props "
+                  "ORDER BY op_type, code";
     Qry.Execute();
     boost::optional<ofstream> prn_tags;
     int ypos = 20;
@@ -762,58 +764,6 @@ int prn_tags(int argc, char **argv)
     if(prn_tags) prn_tags.get().close();
     return 1;
 }
-
-/*
-int prn_tags(int argc, char **argv)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select code from prn_tag_props where op_type = 'PRINT_BP' order by code";
-    Qry.Execute();
-    ostringstream prn_tags;
-    int ypos = 20;
-    int xpos = 0;
-    int file_idx = 0;
-    for(; not Qry.Eof; Qry.Next(), ypos += 15) {
-        string code = Qry.FieldAsString("code");
-        string date_format;
-        if(
-                code == "ACT" or
-                code == "EST" or
-                code == "SCD" or
-                code == "TIME_PRINT"
-          )
-            date_format = "dd mmm yy hh:nn:ss";
-        ostringstream current_tag;
-        current_tag
-            << xpos << "," << ypos << ",0, " << setw(20) << left << capt_code(code) << "'[<" << code << tag_params(date_format) << ">]'" << endl
-            << xpos << "," <<  ypos + 5 << ",0, " << setw(20) << left << capt_code(code, "RU") << "'[<" << code << tag_params(date_format, "R") << ">]'" << endl
-            << xpos << "," <<  ypos + 10 << ",0, " << setw(20) << left << capt_code(code, "EN") << "'[<" << code << tag_params(date_format, "E") << ">]'" << endl;
-        if(prn_tags.str().size() + current_tag.str().size() > 4000) {
-            ostringstream file_name;
-            file_name << "prn_tags." << file_idx++;
-            ofstream of(file_name.str().c_str());
-            of << prn_tags.str();
-            prn_tags.str("");
-        }
-        prn_tags << current_tag.str();
-        //        move_pos(code, xpos, ypos);
-    }
-    if(not prn_tags.str().empty()) {
-        ostringstream file_name;
-        file_name << "prn_tags." << file_idx++;
-        ofstream of(file_name.str().c_str());
-        of << prn_tags.str();
-    }
-    return 1;
-}
-*/
-
-/*
-int IsNosir(void)
-{
-  return LocalIsNosir==1;
-}
-*/
 
 int tzdump(int argc,char **argv)
 {

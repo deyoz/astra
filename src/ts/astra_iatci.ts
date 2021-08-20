@@ -5902,7 +5902,7 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 
 
 
-$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ž’')")
+$(db_sql TRIP_BT "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ž’')")
 
 $(set pax_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
 $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))

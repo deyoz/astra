@@ -192,17 +192,17 @@ void TPrnTagStore::TTagProps::Init(TDevOper::Enum vop)
     if(op == vop) return;
     op = vop;
     ProgTrace(TRACE5, "TTagProps::Init: load from base");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("PRN_TAG_PROPS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   code, "
         "   length, "
         "   EXCEPT_WHEN_GREAT_LEN, "
         "   EXCEPT_WHEN_ONLY_LAT, "
         "   convert_char_view "
-        "from "
+        "FROM "
         "   prn_tag_props "
-        "where "
+        "WHERE "
         "   op_type = :op_type";
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op));
     Qry.Execute();

@@ -115,7 +115,26 @@ namespace PgOra
                 "KUF_STAT_AIRPS",
                 "KUF_STAT_TEXT",           // "KUF_STAT"
         } },
+        { "SP_PG_GROUP_PRN_FORM_BX_MODELS",{
+                "BP_MODELS",     // "PRN_FORMS","PRN_FORM_VERS"
+                "BR_MODELS",     // "PRN_FORMS","PRN_FORM_VERS"
+                "BT_MODELS",     // "PRN_FORMS","PRN_FORM_VERS","TRIP_BT"
+                "PRN_FORM_VERS", // "PRN_FORMS","PRN_FORM_VERS","TRIP_BT","BP_MODELS","BR_MODELS","BT_MODELS"
+                "PRN_FORMS",     // "PRN_FORM_VERS","BP_MODELS","BR_MODELS","BT_MODELS"
+                "PRN_TESTS",
+                "PRN_TAG_PROPS",
+                "DEL_VO",
+        } },
 
+        { "SP_PG_GROUP_PRN_TEST_TAGS",{
+                "PRN_TEST_TAGS", // "PAX",
+        } },
+
+        { "SP_PG_GROUP_BP_BT_VO",{
+                "BP_TYPES",
+                "TRIP_BT",       // "BT_MODELS", "PRN_FORM_VERS", "TRIP_BT"
+                "TRIP_BP"
+        } },
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
@@ -165,8 +184,8 @@ namespace PgOra
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES"
         } },
-        { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_BP", "TRIP_SETS", "TRIP_STATIONS"
-                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_BT", "TRIP_HALL",
+        { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_SETS", "TRIP_STATIONS"
+                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_HALL",
         } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
         { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES", "CLIENT_ERROR_LIST" } },
@@ -284,6 +303,7 @@ namespace PgOra
                 "TCKIN_PAX_GRP",  // "PAX","PAX_GRP","BAG2","EVENTS_BILINGUAL","STATIONS","WEB_CLIENTS","DESKS","DESK_GRP","POINTS","CRS_PAX","PAX_CALC_DATA","USERS2","PAX_ASVC","CLS_GRP","HALLS2","TRANSFER","TRFER_TRIPS"
                 "TCKIN_SEGMENTS", // "PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TRFER_TRIPS"
                 "MARK_TRIPS",     // "PAX","PAX_GRP","TRANSFER","TRFER_TRIPS","TCKIN_SEGMENTS","POINTS"
+                "TAG_TYPES",      // "PAX_GRP","BAG_TAGS","TAG_TYPES","BAG2","TRANSFER"
         }},
         { "SP_PG_GROUP_TRIP_TASK", {
                 "TRIP_CLASSES",

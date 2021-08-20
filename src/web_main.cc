@@ -1837,8 +1837,11 @@ class BPTags {
 
 BPTags::BPTags()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select code from prn_tag_props where op_type = :op_type order by code";
+    DB::TQuery Qry(PgOra::getROSession("PRN_TAG_PROPS"), STDLOG);
+    Qry.SQLText = "SELECT code "
+                  "FROM prn_tag_props "
+                  "WHERE op_type = :op_type "
+                  "ORDER BY code";
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {

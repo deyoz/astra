@@ -29,8 +29,10 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, DB::TQuery &applyQr
         if(
                 row.status == usDeleted
           ) {
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select * from prn_form_vers where id = :id";
+            DB::TQuery Qry(PgOra::getROSession("PRN_FORM_VERS"), STDLOG);
+            Qry.SQLText =
+                "SELECT * FROM prn_form_vers "
+                "WHERE id = :id";
             Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
             Qry.Execute();
             if(!Qry.Eof)
@@ -55,9 +57,11 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, DB::TQuery &applyQr
             if(row.status == usDeleted) {
                 if(cache.FieldOldValue("read_only", row) == "0")
                     throw AstraLocale::UserException("MSG.TUNE.VERS_EDIT_DENIED", LParams() << LParam("vers", cache.FieldOldValue("version", row)));
-                TQuery Qry(&OraSession);
+                DB::TQuery Qry(PgOra::getROSession("BP_MODELS"), STDLOG);
                 Qry.SQLText =
-                    "select * from bp_models where id = :id and version = :version"; //!!!den  bt_models??? br_models???
+                    "SELECT * "
+                    "FROM bp_models "
+                    "WHERE id = :id AND version = :version"; //!!!den  bt_models??? br_models???
                 Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
                 Qry.CreateVariable("version", otString, ToInt(cache.FieldOldValue("version", row)));
                 Qry.Execute();
@@ -79,12 +83,14 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, DB::TQuery &applyQr
             string fmt_type = cache.FieldValue("fmt_type", row);
             int id = ToInt(cache.FieldValue("id", row));
             int version = ToInt(cache.FieldValue("version", row));
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select * from prn_form_vers where id = :id and version = :version and form is null and data is null";
-            Qry.CreateVariable("id", otInteger, id);
-            Qry.CreateVariable("version", otInteger, version);
-            Qry.Execute();
-            if(!Qry.Eof) {
+            DB::TQuery QryFormVer(PgOra::getROSession("PRN_FORM_VERS"), STDLOG);
+            QryFormVer.SQLText = "SELECT * "
+                          "FROM prn_form_vers "
+                          "WHERE id = :id AND version = :version AND form IS NULL AND data IS NULL";
+            QryFormVer.CreateVariable("id", otInteger, id);
+            QryFormVer.CreateVariable("version", otInteger, version);
+            QryFormVer.Execute();
+            if(!QryFormVer.Eof) {
                 string err;
                 if(cache.code() == "BLANK_LIST")
                     err = getLocaleText("MSG.TUNE.VER_NO", LParams() << LParam("ver", IntToString(version)));
@@ -95,32 +101,32 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, DB::TQuery &applyQr
                     row.status == usInserted and
                     cache.code() == "BLANK_LIST"
               ) {
-                Qry.Clear();
-                Qry.SQLText =
-                    "select "
+                DB::TQuery QryForms(PgOra::getROSession({"PRN_FORMS","BP_MODELS"}), STDLOG);
+                QryForms.SQLText =
+                    "SELECT "
                     "   prn_forms.name form_name, "
                     "   bp_models.version "
-                    "from "
+                    "FROM "
                     "   prn_forms, "
                     "   bp_models "
-                    "where "
-                    "   bp_models.form_type = :form_type and "
-                    "   bp_models.op_type = :op_type and "
-                    "   bp_models.dev_model = :dev_model and "
-                    "   bp_models.fmt_type = :fmt_type and "
+                    "WHERE "
+                    "   bp_models.form_type = :form_type AND "
+                    "   bp_models.op_type = :op_type AND "
+                    "   bp_models.dev_model = :dev_model AND "
+                    "   bp_models.fmt_type = :fmt_type AND "
                     "   bp_models.id = prn_forms.id ";
-                Qry.CreateVariable("form_type", otString, form_type);
-                Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-                Qry.CreateVariable("dev_model", otString, dev_model);
-                Qry.CreateVariable("fmt_type", otString, fmt_type);
-                Qry.Execute();
-                if(!Qry.Eof) {
+                QryForms.CreateVariable("form_type", otString, form_type);
+                QryForms.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
+                QryForms.CreateVariable("dev_model", otString, dev_model);
+                QryForms.CreateVariable("fmt_type", otString, fmt_type);
+                QryForms.Execute();
+                if(!QryForms.Eof) {
                     throw AstraLocale::UserException("MSG.TUNE.BLANK_ALREADY_ASSIGNED_BY_FORM",
                             LParams()
                             << LParam("form_type", cache.FieldValue("form_type", row))  //!!!param
                             << LParam("dev_model", dev_model)
                             << LParam("fmt_type", fmt_type)
-                            << LParam("form_name", Qry.FieldAsString("form_name")) //!!!param
+                            << LParam("form_name", QryForms.FieldAsString("form_name")) //!!!param
                             << LParam("vers", IntToString(version))
                             );
                 }
@@ -167,59 +173,62 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
     int id = NodeAsInteger("id", reqNode);
     int version = NodeAsInteger("version", reqNode);
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
+    DB::TQuery formVerQry(PgOra::getROSession({"PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
+    formVerQry.SQLText =
+        "SELECT "
         "   prn_forms.fmt_type, "
         "   prn_form_vers.descr, "
         "   prn_form_vers.form, "
         "   prn_form_vers.data, "
         "   prn_form_vers.read_only "
-        "from "
+        "FROM "
         "   prn_form_vers, "
         "   prn_forms "
-        "where "
-        "   prn_forms.id = :id and "
-        "   prn_form_vers.id = prn_forms.id and "
+        "WHERE "
+        "   prn_forms.id = :id AND "
+        "   prn_form_vers.id = prn_forms.id AND "
         "   prn_form_vers.version = :version";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("version", otInteger, version);
-    Qry.Execute();
-    if(Qry.Eof)
+    formVerQry.CreateVariable("id", otInteger, id);
+    formVerQry.CreateVariable("version", otInteger, version);
+    formVerQry.Execute();
+    if(formVerQry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
 
-    TDevFmt::Enum fmt_type = DevFmtTypes().decode(Qry.FieldAsString("fmt_type"));
+    TDevFmt::Enum fmt_type = DevFmtTypes().decode(formVerQry.FieldAsString("fmt_type"));
     if(
             not TReqInfo::Instance()->desk.compatible(GRAPHICS2D_VERSION) and
             fmt_type == TDevFmt::Graphics2D
       )
         throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
-    NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
-    NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
-    NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
-    NewTextChild(prnFormNode, "descr", Qry.FieldAsString("descr"));
-    NewTextChild(prnFormNode, "read_only", Qry.FieldAsInteger("read_only"));
-    Qry.Clear();
-    Qry.SQLText = "select name from prn_forms where id = :id";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.Execute();
-    if(Qry.Eof)
+    NewTextChild(prnFormNode, "fmt_type", formVerQry.FieldAsString("fmt_type"));
+    NewTextChild(prnFormNode, "form", formVerQry.FieldAsString("form"));
+    NewTextChild(prnFormNode, "data", formVerQry.FieldAsString("data"));
+    NewTextChild(prnFormNode, "descr", formVerQry.FieldAsString("descr"));
+    NewTextChild(prnFormNode, "read_only", formVerQry.FieldAsInteger("read_only"));
+    DB::TQuery formQry(PgOra::getROSession("PRN_FORMS"), STDLOG);
+    formQry.SQLText = "SELECT name FROM prn_forms WHERE id = :id";
+    formQry.CreateVariable("id", otInteger, id);
+    formQry.Execute();
+    if(formQry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
-    NewTextChild(prnFormNode, "name", Qry.FieldAsString("name"));
-    Qry.Clear();
-    Qry.SQLText = "select id, version, descr, read_only from prn_form_vers where id = :id order by version";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.Execute();
-    if(Qry.Eof)
+    NewTextChild(prnFormNode, "name", formQry.FieldAsString("name"));
+    DB::TQuery verQry(PgOra::getROSession("PRN_FORM_VERS"), STDLOG);
+    verQry.SQLText = "SELECT id, version, descr, read_only "
+                      "FROM prn_form_vers "
+                      "WHERE id = :id "
+                      "ORDER BY version";
+    verQry.CreateVariable("id", otInteger, id);
+    verQry.Execute();
+    if(verQry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
     xmlNodePtr verLstNode = NewTextChild(prnFormNode, "verLst");
-    for(; not Qry.Eof; Qry.Next()) {
+    for(; not verQry.Eof; verQry.Next()) {
         xmlNodePtr itemNode = NewTextChild(verLstNode, "item");
-        NewTextChild(itemNode, "id", Qry.FieldAsInteger("id"));
-        NewTextChild(itemNode, "version", Qry.FieldAsInteger("version"));
-        NewTextChild(itemNode, "descr", Qry.FieldAsString("descr"));
-        NewTextChild(itemNode, "read_only", Qry.FieldAsInteger("read_only"));
+        NewTextChild(itemNode, "id", verQry.FieldAsInteger("id"));
+        NewTextChild(itemNode, "version", verQry.FieldAsInteger("version"));
+        NewTextChild(itemNode, "descr", verQry.FieldAsString("descr"));
+        NewTextChild(itemNode, "read_only", verQry.FieldAsInteger("read_only"));
     }
 }
 
@@ -235,13 +244,19 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         throw UserException("MSG.FORM_TOO_LONG");
     if(data.size() > 4000)
         throw UserException("MSG.FORM_DATA_TOO_LONG");
-    TQuery Qry(&OraSession);
-    if(*(const char*)reqNode->name == 'U') // Update
+    DB::TQuery Qry(PgOra::getRWSession("PRN_FORM_VERS"), STDLOG);
+    if(*(const char*)reqNode->name == 'U') { // Update
         Qry.SQLText =
-            "update prn_form_vers set form = :form, data = :data, descr = :descr where id = :id and version = :vers";
-    else // Copy
+            "UPDATE prn_form_vers "
+            "SET form = :form, "
+            "    data = :data, "
+            "    descr = :descr "
+            "WHERE id = :id AND version = :vers";
+    } else { // Copy
         Qry.SQLText =
-            "insert into prn_form_vers(id, version, descr, form, data, read_only) values(:id, :vers, :descr, :form, :data, 0)";
+            "INSERT INTO prn_form_vers(id, version, descr, form, data, read_only) "
+            "VALUES(:id, :vers, :descr, :form, :data, 0) ";
+    }
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("vers", otInteger, vers);
     Qry.CreateVariable("form", otString, form);
@@ -354,38 +369,40 @@ struct TPrnForms {
 
 void TPrnForms::ToBase()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update prn_forms set "
-        "    op_type = :op_type, "
-        "    fmt_type = :fmt_type, "
-        "    name = :name "
-        "  where id = :id; "
-        "  if sql%notfound then "
-        "    insert into prn_forms ( "
-        "      id, "
-        "      op_type, "
-        "      fmt_type, "
-        "      name "
-        "    ) values ( "
-        "      :id, "
-        "      :op_type, "
-        "      :fmt_type, "
-        "      :name "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("op_type", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("name", otString);
     for(map<int, TPrnFormsItem>::iterator im = items.begin(); im != items.end(); im++) {
-        Qry.SetVariable("id", im->first);
-        Qry.SetVariable("op_type", im->second.op_type);
-        Qry.SetVariable("fmt_type", im->second.fmt_type);
-        Qry.SetVariable("name", im->second.name);
-        Qry.Execute();
+      QParams params;
+      params << QParam("id", otInteger, im->first)
+             << QParam("op_type", otString, im->second.op_type)
+             << QParam("fmt_type", otString, im->second.fmt_type)
+             << QParam("name", otString, im->second.name);
+      DB::TCachedQuery updQry(
+            PgOra::getRWSession("PRN_FORMS"),
+            "UPDATE prn_forms SET "
+            "  op_type = :op_type, "
+            "  fmt_type = :fmt_type, "
+            "  name = :name "
+            "WHERE id = :id ",
+            params,
+            STDLOG);
+      updQry.get().Execute();
+      if (updQry.get().RowsProcessed() == 0) {
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("PRN_FORMS"),
+              "INSERT INTO prn_forms ( "
+              "  id, "
+              "  op_type, "
+              "  fmt_type, "
+              "  name "
+              ") VALUES ( "
+              "  :id, "
+              "  :op_type, "
+              "  :fmt_type, "
+              "  :name "
+              ") ",
+              params,
+              STDLOG);
+        insQry.get().Execute();
+      }
     }
 }
 
@@ -425,49 +442,50 @@ struct TPrnFormVers {
 
 void TPrnFormVers::ToBase()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update prn_form_vers set "
-        "    descr = :descr, "
-        "    form = :form, "
-        "    data = :data, "
-        "    read_only = :read_only "
-        "  where "
-        "    id = :id and "
-        "    version = :version; "
-        "  if sql%notfound then "
-        "    insert into prn_form_vers ( "
-        "      id, "
-        "      version, "
-        "      descr, "
-        "      form, "
-        "      data, "
-        "      read_only "
-        "    ) values ( "
-        "      :id, "
-        "      :version, "
-        "      :descr, "
-        "      :form, "
-        "      :data, "
-        "      :read_only "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
-    Qry.DeclareVariable("descr", otString);
-    Qry.DeclareVariable("form", otString);
-    Qry.DeclareVariable("data", otString);
-    Qry.DeclareVariable("read_only", otString);
     for(map<TPrnFormVersKey, TPrnFormVersRow, TPrnFormVersCmp>::iterator im = items.begin(); im != items.end(); im++) {
-        Qry.SetVariable("id", im->first.id);
-        Qry.SetVariable("version", im->first.version);
-        Qry.SetVariable("descr", im->second.descr);
-        Qry.SetVariable("form", im->second.form);
-        Qry.SetVariable("data", im->second.data);
-        Qry.SetVariable("read_only", im->second.read_only);
-        Qry.Execute();
+        QParams params;
+        params << QParam("id", otInteger, im->first.id)
+               << QParam("version", otInteger, im->first.version)
+               << QParam("descr", otString, im->second.descr)
+               << QParam("form", otString, im->second.form)
+               << QParam("data", otString, im->second.data)
+               << QParam("read_only", otString, im->second.read_only);
+
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("PRN_FORM_VERS"),
+              "UPDATE prn_form_vers SET "
+              "  descr = :descr, "
+              "  form = :form, "
+              "  data = :data, "
+              "  read_only = :read_only "
+              "WHERE "
+              "  id = :id AND "
+              "  version = :version ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+        if (updQry.get().RowsProcessed() == 0) {
+          DB::TCachedQuery insQry(
+                PgOra::getRWSession("PRN_FORM_VERS"),
+                "INSERT INTO prn_form_vers ( "
+                "  id, "
+                "  version, "
+                "  descr, "
+                "  form, "
+                "  data, "
+                "  read_only "
+                ") VALUES ( "
+                "  :id, "
+                "  :version, "
+                "  :descr, "
+                "  :form, "
+                "  :data, "
+                "  :read_only "
+                ") ",
+                params,
+                STDLOG);
+          insQry.get().Execute();
+        }
     }
 }
 
@@ -536,44 +554,47 @@ void TBRModels::ToBase()
 {
     prn_forms.ToBase();
     prn_form_vers.ToBase();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update br_models set "
-        "    id = :id, "
-        "    version = :version "
-        "  where "
-        "    form_type = :form_type and "
-        "    dev_model = :dev_model and "
-        "    fmt_type = :fmt_type; "
-        "  if sql%notfound then "
-        "    insert into br_models ( "
-        "      form_type, "
-        "      dev_model, "
-        "      fmt_type, "
-        "      id, "
-        "      version "
-        "    ) values ( "
-        "      :form_type, "
-        "      :dev_model, "
-        "      :fmt_type, "
-        "      :id, "
-        "      :version "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
     for(vector<TBRModelsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("form_type", iv->form_type);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+
+      QParams params;
+      params << QParam("form_type", otString, iv->form_type)
+             << QParam("dev_model", otString, iv->dev_model)
+             << QParam("fmt_type", otString, iv->fmt_type)
+             << QParam("id", otInteger, iv->id)
+             << QParam("version", otInteger, iv->version);;
+
+      DB::TCachedQuery updQry(
+            PgOra::getRWSession("BR_MODELS"),
+            "UPDATE br_models SET "
+            "  id = :id, "
+            "  version = :version "
+            "WHERE "
+            "  form_type = :form_type AND "
+            "  dev_model = :dev_model AND "
+            "  fmt_type = :fmt_type ",
+            params,
+            STDLOG);
+      updQry.get().Execute();
+      if (updQry.get().RowsProcessed() == 0) {
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("BR_MODELS"),
+              "INSERT INTO br_models ( "
+              "  form_type, "
+              "  dev_model, "
+              "  fmt_type, "
+              "  id, "
+              "  version "
+              ") VALUES ( "
+              "  :form_type, "
+              "  :dev_model, "
+              "  :fmt_type, "
+              "  :id, "
+              "  :version "
+              ") ",
+              params,
+              STDLOG);
+        insQry.get().Execute();
+      }
     }
 }
 
@@ -581,48 +602,49 @@ void TBIModels::ToBase()
 {
     prn_forms.ToBase();
     prn_form_vers.ToBase();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update bp_models set "
-        "    id = :id, "
-        "    version = :version "
-        "  where "
-        "    form_type = :form_type and "
-        "    op_type = :op_type and "
-        "    dev_model = :dev_model and "
-        "    fmt_type = :fmt_type; "
-        "  if sql%notfound then "
-        "    insert into bp_models ( "
-        "      form_type, "
-        "      op_type, "
-        "      dev_model, "
-        "      fmt_type, "
-        "      id, "
-        "      version "
-        "    ) values ( "
-        "      :form_type, "
-        "      :op_type, "
-        "      :dev_model, "
-        "      :fmt_type, "
-        "      :id, "
-        "      :version "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
     for(vector<TBIModelsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("form_type", iv->form_type);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        QParams params;
+        params << QParam("form_type", otString, iv->form_type)
+               << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI))
+               << QParam("dev_model", otString, iv->dev_model)
+               << QParam("fmt_type", otString, iv->fmt_type)
+               << QParam("id", otInteger, iv->id)
+               << QParam("version", otInteger, iv->version);
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("BP_MODELS"),
+              "UPDATE bp_models SET "
+              "  id = :id, "
+              "  version = :version "
+              "WHERE "
+              "  form_type = :form_type and "
+              "  op_type = :op_type and "
+              "  dev_model = :dev_model and "
+              "  fmt_type = :fmt_type ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+        if (updQry.get().RowsProcessed() == 0) {
+          DB::TCachedQuery insQry(
+                PgOra::getRWSession("BP_MODELS"),
+                "INSERT INTO bp_models ( "
+                "  form_type, "
+                "  op_type, "
+                "  dev_model, "
+                "  fmt_type, "
+                "  id, "
+                "  version "
+                ") VALUES ( "
+                "  :form_type, "
+                "  :op_type, "
+                "  :dev_model, "
+                "  :fmt_type, "
+                "  :id, "
+                "  :version "
+                ") ",
+                params,
+                STDLOG);
+          insQry.get().Execute();
+        }
     }
 }
 
@@ -630,48 +652,49 @@ void TBPModels::ToBase()
 {
     prn_forms.ToBase();
     prn_form_vers.ToBase();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update bp_models set "
-        "    id = :id, "
-        "    version = :version "
-        "  where "
-        "    form_type = :form_type and "
-        "    op_type = :op_type and "
-        "    dev_model = :dev_model and "
-        "    fmt_type = :fmt_type; "
-        "  if sql%notfound then "
-        "    insert into bp_models ( "
-        "      form_type, "
-        "      op_type, "
-        "      dev_model, "
-        "      fmt_type, "
-        "      id, "
-        "      version "
-        "    ) values ( "
-        "      :form_type, "
-        "      :op_type, "
-        "      :dev_model, "
-        "      :fmt_type, "
-        "      :id, "
-        "      :version "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
     for(vector<TBPModelsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("form_type", iv->form_type);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        QParams params;
+        params << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP))
+               << QParam("form_type", otString, iv->form_type)
+               << QParam("dev_model", otString, iv->dev_model)
+               << QParam("fmt_type", otString, iv->fmt_type)
+               << QParam("id", otInteger, iv->id)
+               << QParam("version", otInteger, iv->version);
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("BP_MODELS"),
+              "UPDATE bp_models SET "
+              "  id = :id, "
+              "  version = :version "
+              "WHERE "
+              "  form_type = :form_type AND "
+              "  op_type = :op_type AND "
+              "  dev_model = :dev_model AND "
+              "  fmt_type = :fmt_type ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+        if (updQry.get().RowsProcessed() == 0) {
+          DB::TCachedQuery insQry(
+                PgOra::getRWSession("BP_MODELS"),
+                "INSERT INTO bp_models ( "
+                "  form_type, "
+                "  op_type, "
+                "  dev_model, "
+                "  fmt_type, "
+                "  id, "
+                "  version "
+                ") VALUES ( "
+                "  :form_type, "
+                "  :op_type, "
+                "  :dev_model, "
+                "  :fmt_type, "
+                "  :id, "
+                "  :version "
+                ") ",
+                params,
+                STDLOG);
+          insQry.get().Execute();
+        }
     }
 }
 
@@ -819,39 +842,41 @@ void TBRTypes::PrnFormsToBase()
 
 void TBRTypes::copy(string src, string dest)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "delete from br_models where form_type = :dest";
-    Qry.CreateVariable("dest", otString, dest);
-    Qry.Execute();
-    Qry.Clear();
-    Qry.SQLText =
-        "insert into br_models ( "
+    DB::TQuery delQry(PgOra::getRWSession("BR_MODELS"), STDLOG);
+    delQry.SQLText =
+        "DELETE FROM br_models "
+        "WHERE form_type = :dest ";
+    delQry.CreateVariable("dest", otString, dest);
+    delQry.Execute();
+    DB::TQuery insQry(PgOra::getRWSession("BR_MODELS"), STDLOG);
+    insQry.SQLText =
+        "INSERT INTO br_models ( "
         "  form_type, "
         "  dev_model, "
         "  fmt_type, "
         "  id, "
         "  version "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type, "
         "  :dev_model, "
         "  :fmt_type, "
         "  :id, "
         "  :version "
         ") ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
+    insQry.DeclareVariable("form_type", otString);
+    insQry.DeclareVariable("dev_model", otString);
+    insQry.DeclareVariable("fmt_type", otString);
+    insQry.DeclareVariable("id", otInteger);
+    insQry.DeclareVariable("version", otInteger);
     for(vector<TBRModelsItem>::iterator iv = br_models.items.begin(); iv != br_models.items.end(); iv++) {
         if(iv->form_type != src)
             continue;
-        Qry.SetVariable("form_type", dest);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        insQry.SetVariable("form_type", dest);
+        insQry.SetVariable("dev_model", iv->dev_model);
+        insQry.SetVariable("fmt_type", iv->fmt_type);
+        insQry.SetVariable("id", iv->id);
+        insQry.SetVariable("version", iv->version);
+        insQry.Execute();
     }
 }
 
@@ -935,89 +960,70 @@ void TBPTypes::PrnFormsToBase()
     bp_models.prn_form_vers.ToBase();
 }
 
+static void deleteBPModels(const std::string& dest, TDevOper::Enum oper_type)
+{
+    DB::TQuery delQry(PgOra::getRWSession("BP_MODELS"), STDLOG);
+    delQry.SQLText =
+        "DELETE FROM bp_models "
+        "WHERE form_type = :dest AND op_type = :op_type";
+    delQry.CreateVariable("dest", otString, dest);
+    delQry.CreateVariable("op_type", otString, DevOperTypes().encode(oper_type));
+    delQry.Execute();
+}
+
+static void saveBPModels(const std::string& dest, const std::string& dev_model,
+                         const std::string& fmt_type, int id, int version,
+                         TDevOper::Enum oper_type)
+{
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("BP_MODELS"),
+          "INSERT INTO bp_models ( "
+          "  form_type, "
+          "  op_type, "
+          "  dev_model, "
+          "  fmt_type, "
+          "  id, "
+          "  version "
+          ") VALUES ( "
+          "  :form_type, "
+          "  :op_type, "
+          "  :dev_model, "
+          "  :fmt_type, "
+          "  :id, "
+          "  :version "
+          ") ",
+          QParams()
+          << QParam("op_type", otString, DevOperTypes().encode(oper_type))
+          << QParam("form_type", otString, dest)
+          << QParam("dev_model", otString, dev_model)
+          << QParam("fmt_type", otString, fmt_type)
+          << QParam("id", otInteger, id)
+          << QParam("version", otInteger, version),
+          STDLOG);
+    insQry.get().Execute();
+}
+
 void TBITypes::copy(string src, string dest)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "  delete from bp_models where form_type = :dest AND op_type = :op_type";
-    Qry.CreateVariable("dest", otString, dest);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
-    Qry.Execute();
-    Qry.Clear();
-    Qry.SQLText =
-        "insert into bp_models ( "
-        "  form_type, "
-        "  op_type, "
-        "  dev_model, "
-        "  fmt_type, "
-        "  id, "
-        "  version "
-        ") values ( "
-        "  :form_type, "
-        "  :op_type, "
-        "  :dev_model, "
-        "  :fmt_type, "
-        "  :id, "
-        "  :version "
-        ") ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
+    deleteBPModels(dest, TDevOper::PrnBI);
+
     for(vector<TBIModelsItem>::iterator iv = bi_models.items.begin(); iv != bi_models.items.end(); iv++) {
-        if(iv->form_type != src)
+        if(iv->form_type != src) {
             continue;
-        Qry.SetVariable("form_type", dest);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        }
+        saveBPModels(dest, iv->dev_model, iv->fmt_type, iv->id, iv->version, TDevOper::PrnBI);
     }
 }
 
 void TBPTypes::copy(string src, string dest)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "  delete from bp_models where form_type = :dest AND op_type = :op_type";
-    Qry.CreateVariable("dest", otString, dest);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    Qry.Execute();
-    Qry.Clear();
-    Qry.SQLText =
-        "insert into bp_models ( "
-        "  form_type, "
-        "  op_type, "
-        "  dev_model, "
-        "  fmt_type, "
-        "  id, "
-        "  version "
-        ") values ( "
-        "  :form_type, "
-        "  :op_type, "
-        "  :dev_model, "
-        "  :fmt_type, "
-        "  :id, "
-        "  :version "
-        ") ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
+    deleteBPModels(dest, TDevOper::PrnBP);
+
     for(vector<TBPModelsItem>::iterator iv = bp_models.items.begin(); iv != bp_models.items.end(); iv++) {
-        if(iv->form_type != src)
+        if(iv->form_type != src) {
             continue;
-        Qry.SetVariable("form_type", dest);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        }
+        saveBPModels(dest, iv->dev_model, iv->fmt_type, iv->id, iv->version, TDevOper::PrnBP);
     }
 }
 
@@ -1124,98 +1130,74 @@ void TBRTypes::ToBase()
     br_models.ToBase();
 }
 
+void saveBPTypes(const std::string& code, const std::string& airline, const std::string& airp,
+                 const std::string& name, TDevOper::Enum oper_type)
+{
+    int id = ASTRA::NoExists;
+    QParams params;
+    params << QParam("code", otString, code)
+           << QParam("op_type", otString, DevOperTypes().encode(oper_type));
+    DB::TCachedQuery lockQry(
+          PgOra::getRWSession("BP_TYPES"),
+          "SELECT * FROM bp_types "
+          "WHERE code = :code AND op_type=:op_type ",
+          params,
+          STDLOG);
+    lockQry.get().Execute();
+    params << QParam("airline", otString, airline)
+           << QParam("airp", otString, airp)
+           << QParam("name", otString, name);
+    if (lockQry.get().Eof) {
+      id = PgOra::getSeqNextVal_int("ID__SEQ");
+      params << QParam("id", otInteger, id);
+      DB::TCachedQuery insQry(
+            PgOra::getRWSession("BP_TYPES"),
+            "INSERT INTO bp_types( "
+            "  code, "
+            "  op_type, "
+            "  airline, "
+            "  airp, "
+            "  name, "
+            "  id "
+            ") VALUES ( "
+            "  :code, "
+            "  :op_type, "
+            "  :airline, "
+            "  :airp, "
+            "  :name, "
+            "  :id "
+            ") ",
+            params,
+            STDLOG);
+      insQry.get().Execute();
+    } else {
+      id = lockQry.get().FieldAsInteger("id");
+      DB::TCachedQuery updQry(
+            PgOra::getRWSession("BP_TYPES"),
+            "UPDATE bp_types SET "
+            "  airline = :airline, "
+            "  airp = :airp, "
+            "  name = :name "
+            "WHERE code = :code AND op_type=:op_type ",
+            params,
+            STDLOG);
+      updQry.get().Execute();
+    }
+    ASTRA::syncHistory("bp_types", id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
+}
+
 void TBITypes::ToBase()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "declare "
-        "  vid bp_types.id%TYPE; "
-        "begin "
-        "  update bp_types set "
-        "    airline = :airline, "
-        "    airp = :airp, "
-        "    name = :name "
-        "  where code = :code AND op_type=:op_type returning id into vid; "
-        "  if sql%notfound then "
-        "    insert into bp_types( "
-        "      code, "
-        "      op_type, "
-        "      airline, "
-        "      airp, "
-        "      name, "
-        "      id "
-        "    ) values ( "
-        "      :code, "
-        "      :op_type, "
-        "      :airline, "
-        "      :airp, "
-        "      :name, "
-        "      id__seq.nextval "
-        "    ) returning id into vid; "
-        "  end if; "
-        "  hist.synchronize_history('bp_types',vid,:SYS_user_descr,:SYS_desk_code); "
-        "end; ";
-    Qry.DeclareVariable("code", otString);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("airp", otString);
-    Qry.DeclareVariable("name", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBITypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("code", iv->code);
-        Qry.SetVariable("airline", iv->airline);
-        Qry.SetVariable("airp", iv->airp);
-        Qry.SetVariable("name", iv->name);
-        Qry.Execute();
+        saveBPTypes(iv->code, iv->airline, iv->airp, iv->name, TDevOper::PrnBI);
     }
     bi_models.ToBase();
 }
 
 void TBPTypes::ToBase()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "declare "
-        "  vid bp_types.id%TYPE; "
-        "begin "
-        "  update bp_types set "
-        "    airline = :airline, "
-        "    airp = :airp, "
-        "    name = :name "
-        "  where code = :code AND op_type=:op_type returning id into vid; "
-        "  if sql%notfound then "
-        "    insert into bp_types( "
-        "      code, "
-        "      op_type, "
-        "      airline, "
-        "      airp, "
-        "      name, "
-        "      id "
-        "    ) values ( "
-        "      :code, "
-        "      :op_type, "
-        "      :airline, "
-        "      :airp, "
-        "      :name, "
-        "      id__seq.nextval "
-        "    ) returning id into vid; "
-        "  end if; "
-        "  hist.synchronize_history('bp_types',vid,:SYS_user_descr,:SYS_desk_code); "
-        "end; ";
-    Qry.DeclareVariable("code", otString);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("airp", otString);
-    Qry.DeclareVariable("name", otString);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBPTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("code", iv->code);
-        Qry.SetVariable("airline", iv->airline);
-        Qry.SetVariable("airp", iv->airp);
-        Qry.SetVariable("name", iv->name);
-        Qry.Execute();
+        saveBPTypes(iv->code, iv->airline, iv->airp, iv->name, TDevOper::PrnBP);
     }
     bp_models.ToBase();
 }
@@ -1347,23 +1329,29 @@ void TBRTypes::add(string type)
     br_models.add(type);
 }
 
+void loadBPTypes(DB::TQuery& Qry, const std::string& type, TDevOper::Enum oper_type)
+{
+  Qry.SQLText =
+      "SELECT "
+      "   airline, "
+      "   airp, "
+      "   name "
+      "FROM "
+      "   bp_types "
+      "WHERE "
+      "   code = :code AND op_type=:op_type";
+  Qry.CreateVariable("code", otString, type);
+  Qry.CreateVariable("op_type", otString, DevOperTypes().encode(oper_type));
+  Qry.Execute();
+  if (Qry.Eof) {
+      throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));
+  }
+}
+
 void TBITypes::add(string type)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   airline, "
-        "   airp, "
-        "   name "
-        "from "
-        "   bp_types "
-        "where "
-        "   code = :code AND op_type=:op_type";
-    Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
+    DB::TQuery Qry(PgOra::getROSession("BP_TYPES"), STDLOG);
+    loadBPTypes(Qry, type, TDevOper::PrnBI);
     TBITypesItem item;
     item.code = type;
     item.airline = Qry.FieldAsString("airline");
@@ -1375,21 +1363,8 @@ void TBITypes::add(string type)
 
 void TBPTypes::add(string type)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   airline, "
-        "   airp, "
-        "   name "
-        "from "
-        "   bp_types "
-        "where "
-        "   code = :code AND op_type=:op_type";
-    Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
+  DB::TQuery Qry(PgOra::getROSession("BP_TYPES"), STDLOG);
+  loadBPTypes(Qry, type, TDevOper::PrnBP);
     TBPTypesItem item;
     item.code = type;
     item.airline = Qry.FieldAsString("airline");
@@ -1402,7 +1377,7 @@ void TBPTypes::add(string type)
 struct TTagTypesItem {
     string code, airline, name, airp;
     int no_len, printable;
-    TTagTypesItem(): no_len(NoExists), printable(NoExists) {};
+    TTagTypesItem(): no_len(NoExists), printable(NoExists) {}
 };
 
 struct TBTModels {
@@ -1419,49 +1394,50 @@ void TBTModels::ToBase()
 {
     prn_forms.ToBase();
     prn_form_vers.ToBase();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "  update bt_models set "
-        "    id = :id, "
-        "    version = :version "
-        "  where "
-        "    form_type = :form_type and "
-        "    dev_model = :dev_model and "
-        "    num = :num and "
-        "    fmt_type = :fmt_type; "
-        "  if sql%notfound then "
-        "    insert into bt_models ( "
-        "      form_type, "
-        "      dev_model, "
-        "      num, "
-        "      fmt_type, "
-        "      id, "
-        "      version "
-        "    ) values ( "
-        "      :form_type, "
-        "      :dev_model, "
-        "      :num, "
-        "      :fmt_type, "
-        "      :id, "
-        "      :version "
-        "    ); "
-        "  end if; "
-        "end; ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("num", otInteger);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
     for(vector<TBTModelsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("form_type", iv->form_type);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("num", iv->num);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        QParams params;
+        params << QParam("form_type", otString, iv->form_type)
+               << QParam("dev_model", otString, iv->dev_model)
+               << QParam("num", otInteger, iv->num)
+               << QParam("fmt_type", otString, iv->fmt_type)
+               << QParam("id", otInteger, iv->id)
+               << QParam("version", otInteger, iv->version);
+
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("BT_MODELS"),
+              "UPDATE bt_models SET "
+              "  id = :id, "
+              "  version = :version "
+              "WHERE "
+              "  form_type = :form_type AND "
+              "  dev_model = :dev_model AND "
+              "  num = :num AND "
+              "  fmt_type = :fmt_type ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+        if (updQry.get().RowsProcessed() == 0) {
+          DB::TCachedQuery insQry(
+                PgOra::getRWSession("BT_MODELS"),
+                "INSERT INTO bt_models ( "
+                "  form_type, "
+                "  dev_model, "
+                "  num, "
+                "  fmt_type, "
+                "  id, "
+                "  version "
+                ") VALUES ( "
+                "  :form_type, "
+                "  :dev_model, "
+                "  :num, "
+                "  :fmt_type, "
+                "  :id, "
+                "  :version "
+                ") ",
+                params,
+                STDLOG);
+          insQry.get().Execute();
+        }
     }
 }
 
@@ -1544,20 +1520,22 @@ void TTagTypes::PrnFormsToBase()
 
 void TTagTypes::copy(string src, string dest)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "delete from bt_models where form_type = :dest";
-    Qry.CreateVariable("dest", otString, dest);
-    Qry.Execute();
-    Qry.Clear();
-    Qry.SQLText =
-        "insert into bt_models ( "
+    DB::TQuery delQry(PgOra::getRWSession("BT_MODELS"), STDLOG);
+    delQry.SQLText =
+        "DELETE FROM bt_models "
+        "WHERE form_type = :dest";
+    delQry.CreateVariable("dest", otString, dest);
+    delQry.Execute();
+    DB::TQuery insQry(PgOra::getRWSession("BT_MODELS"), STDLOG);
+    insQry.SQLText =
+        "INSERT INTO bt_models ( "
         "  form_type, "
         "  dev_model, "
         "  num, "
         "  fmt_type, "
         "  id, "
         "  version "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type, "
         "  :dev_model, "
         "  :num, "
@@ -1565,79 +1543,88 @@ void TTagTypes::copy(string src, string dest)
         "  :id, "
         "  :version "
         ") ";
-    Qry.DeclareVariable("form_type", otString);
-    Qry.DeclareVariable("dev_model", otString);
-    Qry.DeclareVariable("num", otInteger);
-    Qry.DeclareVariable("fmt_type", otString);
-    Qry.DeclareVariable("id", otInteger);
-    Qry.DeclareVariable("version", otInteger);
+    insQry.DeclareVariable("form_type", otString);
+    insQry.DeclareVariable("dev_model", otString);
+    insQry.DeclareVariable("num", otInteger);
+    insQry.DeclareVariable("fmt_type", otString);
+    insQry.DeclareVariable("id", otInteger);
+    insQry.DeclareVariable("version", otInteger);
     for(vector<TBTModelsItem>::iterator iv = bt_models.items.begin(); iv != bt_models.items.end(); iv++) {
         if(iv->form_type != src)
             continue;
-        Qry.SetVariable("form_type", dest);
-        Qry.SetVariable("dev_model", iv->dev_model);
-        Qry.SetVariable("num", iv->num);
-        Qry.SetVariable("fmt_type", iv->fmt_type);
-        Qry.SetVariable("id", iv->id);
-        Qry.SetVariable("version", iv->version);
-        Qry.Execute();
+        insQry.SetVariable("form_type", dest);
+        insQry.SetVariable("dev_model", iv->dev_model);
+        insQry.SetVariable("num", iv->num);
+        insQry.SetVariable("fmt_type", iv->fmt_type);
+        insQry.SetVariable("id", iv->id);
+        insQry.SetVariable("version", iv->version);
+        insQry.Execute();
     }
 }
 
 void TTagTypes::ToBase()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "declare "
-        "  vid tag_types.id%TYPE; "
-        "begin "
-        "  update tag_types set "
-        "    airline = :airline, "
-        "    name = :name, "
-        "    no_len = :no_len, "
-        "    printable = :printable, "
-        "    airp = :airp "
-        "  where code = :code returning id into vid; "
-        "  if sql%notfound then "
-        "    insert into tag_types ( "
-        "      code, "
-        "      airline, "
-        "      name, "
-        "      no_len, "
-        "      printable, "
-        "      airp, "
-        "      id "
-        "    ) values ( "
-        "      :code, "
-        "      :airline, "
-        "      :name, "
-        "      :no_len, "
-        "      :printable, "
-        "      :airp, "
-        "      id__seq.nextval "
-        "    ) returning id into vid; "
-        "  end if; "
-        "  hist.synchronize_history('tag_types',vid,:SYS_user_descr,:SYS_desk_code); "
-        "end; ";
-    Qry.DeclareVariable("code", otString);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("name", otString);
-    Qry.DeclareVariable("no_len", otInteger);
-    Qry.DeclareVariable("printable", otInteger);
-    Qry.DeclareVariable("airp", otString);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TTagTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        Qry.SetVariable("code", iv->code);
-        Qry.SetVariable("airline", iv->airline);
-        Qry.SetVariable("name", iv->name);
-        Qry.SetVariable("no_len", iv->no_len);
-        if (iv->printable!=NoExists)
-          Qry.SetVariable("printable", iv->printable);
-        else
-          Qry.SetVariable("printable", FNull);
-        Qry.SetVariable("airp", iv->airp);
-        Qry.Execute();
+      int id = ASTRA::NoExists;
+      QParams params;
+      params << QParam("code", otString, iv->code);
+      DB::TCachedQuery lockQry(
+            PgOra::getRWSession("TAG_TYPES"),
+            "SELECT * FROM tag_types "
+            "WHERE code = :code ",
+            params,
+            STDLOG);
+      lockQry.get().Execute();
+      params << QParam("airline", otString, iv->airline)
+             << QParam("airp", otString, iv->airp)
+             << QParam("name", otString, iv->name)
+             << QParam("no_len", otInteger, iv->no_len);
+      if (iv->printable != ASTRA::NoExists) {
+        params << QParam("printable", otInteger, iv->printable);
+      } else {
+        params << QParam("printable", otInteger, FNull);
+      }
+      if (lockQry.get().Eof) {
+        id = PgOra::getSeqNextVal_int("ID__SEQ");
+        params << QParam("id", otInteger, id);
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("TAG_TYPES"),
+              "INSERT INTO tag_types ( "
+              "  code, "
+              "  airline, "
+              "  name, "
+              "  no_len, "
+              "  printable, "
+              "  airp, "
+              "  id "
+              ") VALUES ( "
+              "  :code, "
+              "  :airline, "
+              "  :name, "
+              "  :no_len, "
+              "  :printable, "
+              "  :airp, "
+              "  :id "
+              ") ",
+              params,
+              STDLOG);
+        insQry.get().Execute();
+      } else {
+        id = lockQry.get().FieldAsInteger("id");
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("TAG_TYPES"),
+              "UPDATE tag_types "
+              "SET airline = :airline, "
+              "    name = :name, "
+              "    no_len = :no_len, "
+              "    printable = :printable, "
+              "    airp = :airp "
+              "WHERE code = :code ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+      }
+      ASTRA::syncHistory("tag_types", id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
     }
     bt_models.ToBase();
 }
@@ -1681,18 +1668,18 @@ void TTagTypes::ToXML(xmlNodePtr resNode)
 
 void TTagTypes::add(string type)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TAG_TYPES"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   code, "
         "   airline, "
         "   name, "
         "   no_len, "
         "   printable, "
         "   airp "
-        "from "
+        "FROM "
         "   tag_types "
-        "where "
+        "WHERE "
         "   code = :code ";
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
@@ -1714,15 +1701,15 @@ void TPrnForms::add(int id)
     ProgTrace(TRACE5, "TPrnForms::add: id %d", id);
     if(items.find(id) == items.end()) {
         ProgTrace(TRACE5, "TPrnForms::add: id %d not found", id);
-        TQuery PrnFormQry(&OraSession);
+        DB::TQuery PrnFormQry(PgOra::getROSession("PRN_FORMS"), STDLOG);
         PrnFormQry.SQLText =
-            "select "
+            "SELECT "
             "   op_type, "
             "   fmt_type, "
             "   name "
-            "from "
+            "FROM "
             "   prn_forms "
-            "where "
+            "WHERE "
             "   id = :id ";
         PrnFormQry.CreateVariable("id", otInteger, id);
         PrnFormQry.Execute();
@@ -1741,17 +1728,17 @@ void TPrnFormVers::add(int id, int version)
     vers_key.id = id;
     vers_key.version = version;
     if(items.find(vers_key) == items.end()) {
-        TQuery VersQry(&OraSession);
+        DB::TQuery VersQry(PgOra::getROSession("PRN_FORM_VERS"), STDLOG);
         VersQry.SQLText =
-            "select "
+            "SELECT "
             "   descr, "
             "   form, "
             "   data, "
             "   read_only "
-            "from "
+            "FROM "
             "   prn_form_vers "
-            "where "
-            "   id = :id and "
+            "WHERE "
+            "   id = :id AND "
             "   version = :version ";
         VersQry.CreateVariable("id", otInteger, id);
         VersQry.CreateVariable("version", otInteger, version);
@@ -1768,17 +1755,17 @@ void TPrnFormVers::add(int id, int version)
 
 void TBRModels::add(string type)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("BR_MODELS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   form_type, "
         "   dev_model, "
         "   fmt_type, "
         "   id, "
         "   version "
-        "from "
+        "FROM "
         "   br_models "
-        "where "
+        "WHERE "
         "   form_type = :code ";
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
@@ -1797,17 +1784,17 @@ void TBRModels::add(string type)
 
 void TBIModels::add(string type)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   form_type, "
         "   dev_model, "
         "   fmt_type, "
         "   id, "
         "   version "
-        "from "
+        "FROM "
         "   bp_models "
-        "where "
+        "WHERE "
         "   form_type = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
@@ -1827,17 +1814,17 @@ void TBIModels::add(string type)
 
 void TBPModels::add(string type)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   form_type, "
         "   dev_model, "
         "   fmt_type, "
         "   id, "
         "   version "
-        "from "
+        "FROM "
         "   bp_models "
-        "where "
+        "WHERE "
         "   form_type = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
@@ -1857,18 +1844,18 @@ void TBPModels::add(string type)
 
 void TBTModels::add(string type)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("BT_MODELS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   form_type, "
         "   dev_model, "
         "   num, "
         "   fmt_type, "
         "   id, "
         "   version "
-        "from "
+        "FROM "
         "   bt_models "
-        "where "
+        "WHERE "
         "   form_type = :code ";
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
@@ -1972,19 +1959,19 @@ struct TPrnFormType {
 
 boost::shared_ptr<TVersionType> TVersionType::find_dst_vers()
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "  prn_form_vers.id, "
         "  prn_form_vers.version "
-        "from "
+        "FROM "
         "  prn_forms, "
         "  prn_form_vers "
-        "where "
-        "  prn_forms.id = prn_form_vers.id and "
-        "  prn_forms.op_type = :op_type and "
-        "  prn_forms.fmt_type = :fmt_type and "
-        "  prn_form_vers.form = :form and "
+        "WHERE "
+        "  prn_forms.id = prn_form_vers.id AND "
+        "  prn_forms.op_type = :op_type AND "
+        "  prn_forms.fmt_type = :fmt_type AND "
+        "  prn_form_vers.form = :form AND "
         "  prn_form_vers.data = :data ";
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -2043,40 +2030,49 @@ void TVersionType::update()
             name != dst_vers->name
       ) {
 
-        TQuery Qry(&OraSession);
-        string SQLText =
-            "declare "
-            "  new_name prn_forms.name%type; "
-            "  copy_num number; "
-            "  names_count number; "
-            "begin "
-            "  new_name := :name; "
-            "  copy_num := 1; "
-            "  loop "
-            "    select count(*) into names_count from prn_forms where name = new_name and id <> :id; "
-            "    if names_count = 0 then exit; end if; "
-            "    new_name := :name || ' " + getLocaleText("CAP.COPY") + "' || copy_num; "
-            "    copy_num := copy_num + 1; "
-            "  end loop; "
-            "  :name := new_name; "
-            "  update prn_forms set "
-            "    fmt_type = :fmt_type, "
-            "    name = :name "
-            "  where id = :id; "
-            "  update prn_form_vers set "
-            "    form = :form, "
-            "    data = :data "
-            "  where id = :id and version = :version; "
-            "end; ";
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("form", otString, form);
-        Qry.CreateVariable("data", otString, data);
-        Qry.CreateVariable("fmt_type", otString, fmt_type);
-        Qry.CreateVariable("name", otString, name);
-        Qry.CreateVariable("id", otInteger, dst_vers->id);
-        Qry.CreateVariable("version", otInteger, dst_vers->version);
         try {
-            Qry.Execute();
+          int copy_num = 1;
+          std::string new_name = name;
+          while(true) {
+            DB::TQuery countQry(PgOra::getROSession("PRN_FORMS"), STDLOG);
+            countQry.SQLText =
+                "SELECT count(*) AS names_count "
+                "FROM prn_forms "
+                "WHERE name = :new_name AND id <> :id ";
+            countQry.CreateVariable("new_name", otString, new_name);
+            countQry.CreateVariable("id", otInteger, dst_vers->id);
+            countQry.Execute();
+            if (countQry.FieldAsInteger("names_count") == 0) {
+              break;
+            }
+            new_name = name + " " + getLocaleText("CAP.COPY") + " " + std::to_string(copy_num);
+            copy_num++;
+          }
+
+          DB::TQuery updFormQry(PgOra::getRWSession("PRN_FORMS"), STDLOG);
+          updFormQry.SQLText =
+              "UPDATE prn_forms "
+              "SET "
+              "  fmt_type = :fmt_type, "
+              "  name = :name "
+              "WHERE id = :id ";
+          updFormQry.CreateVariable("id", otInteger, dst_vers->id);
+          updFormQry.CreateVariable("fmt_type", otString, fmt_type);
+          updFormQry.CreateVariable("name", otString, new_name);
+          updFormQry.Execute();
+
+          DB::TQuery updVerQry(PgOra::getRWSession("PRN_FORM_VERS"), STDLOG);
+          updVerQry.SQLText =
+              "UPDATE prn_form_vers "
+              "SET "
+              "  form = :form, "
+              "  data = :data "
+              "WHERE id = :id AND` version = :version ";;
+          updVerQry.CreateVariable("id", otInteger, dst_vers->id);
+          updVerQry.CreateVariable("version", otInteger, dst_vers->version);
+          updVerQry.CreateVariable("form", otString, form);
+          updVerQry.CreateVariable("data", otString, data);
+          updVerQry.Execute();
         } catch(Exception &E) {
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
@@ -2089,21 +2085,31 @@ void TVersionType::update()
 void TVersionType::del()
 {
     ProgTrace(TRACE5, "delete version");
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "declare "
-        "  vers_count integer; "
-        "begin"
-        "  delete from prn_form_vers where id = :id and version = :version; "
-        "  select count(*) into vers_count from prn_form_vers where id = :id; "
-        "  if vers_count = 0 then "
-        "    delete from prn_forms where id = :id; "
-        "  end if; "
-        "end; ";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("version", otInteger, version);
     try {
-        Qry.Execute();
+        DB::TQuery delVerQry(PgOra::getRWSession("PRN_FORM_VERS"), STDLOG);
+        delVerQry.SQLText =
+            "DELETE FROM prn_form_vers "
+            "WHERE id = :id AND version = :version ";
+        delVerQry.CreateVariable("id", otInteger, id);
+        delVerQry.CreateVariable("version", otInteger, version);
+        delVerQry.Execute();
+
+        DB::TQuery countQry(PgOra::getROSession("PRN_FORM_VERS"), STDLOG);
+        countQry.SQLText =
+            "SELECT COUNT(*) AS vers_count "
+            "FROM prn_form_vers "
+            "WHERE id = :id ";
+        countQry.CreateVariable("id", otInteger, id);
+        countQry.Execute();
+
+        if (countQry.FieldAsInteger("vers_count") == 0) {
+            DB::TQuery delFormQry(PgOra::getRWSession("PRN_FORMS"), STDLOG);
+            delFormQry.SQLText =
+                "DELETE FROM prn_forms "
+                "WHERE id = :id ";
+            delFormQry.CreateVariable("id", otInteger, id);
+            delFormQry.Execute();
+        }
     } catch(Exception &E) {
         throw Exception("Не могу удалить версию %s: %s", name.c_str(), E.what());
     }
@@ -2216,16 +2222,16 @@ struct TBTPrnFormType:TPrnFormType {
 
 void TBIPrnFormType::insert(TVersionType &vers)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "insert into bp_models ( "
+        "INSERT INTO bp_models ( "
         "  form_type,  "
         "  op_type, "
         "  dev_model,  "
         "  fmt_type,  "
         "  id,  "
         "  version "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type,  "
         "  :op_type, "
         "  :dev_model,  "
@@ -2248,16 +2254,16 @@ void TBIPrnFormType::insert(TVersionType &vers)
 
 void TBPPrnFormType::insert(TVersionType &vers)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "insert into bp_models ( "
+        "INSERT INTO bp_models ( "
         "  form_type,  "
         "  op_type, "
         "  dev_model,  "
         "  fmt_type,  "
         "  id,  "
         "  version "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type,  "
         "  :op_type, "
         "  :dev_model,  "
@@ -2280,16 +2286,16 @@ void TBPPrnFormType::insert(TVersionType &vers)
 
 void TBRPrnFormType::insert(TVersionType &vers)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BR_MODELS"), STDLOG);
     Qry.SQLText =
-        "insert into br_models ( "
+        "INSERT INTO br_models ( "
         "  form_type,  "
         "  dev_model,  "
         "  fmt_type,  "
         "  id,  "
         "  version,  "
         "  mode_id  "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type,  "
         "  :dev_model,  "
         "  :fmt_type,  "
@@ -2311,16 +2317,16 @@ void TBRPrnFormType::insert(TVersionType &vers)
 
 void TBTPrnFormType::insert(TVersionType &vers)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BT_MODELS"), STDLOG);
     Qry.SQLText =
-        "insert into bt_models ( "
+        "INSERT INTO bt_models ( "
         "  form_type,  "
         "  dev_model,  "
         "  num,  "
         "  fmt_type,  "
         "  id,  "
         "  version "
-        ") values ( "
+        ") VALUES ( "
         "  :form_type,  "
         "  :dev_model,  "
         "  :num,  "
@@ -2344,12 +2350,13 @@ void TBTPrnFormType::insert(TVersionType &vers)
 void TBIPrnFormType::del()
 {
     ProgTrace(TRACE5, "TBIPrnFormType::del entrance");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "delete from bp_models where "
-        "  form_type = :form_type and "
-        "  op_type = :op_type and "
-        "  dev_model = :dev_model and "
+        "DELETE FROM bp_models "
+        "WHERE "
+        "  form_type = :form_type AND "
+        "  op_type = :op_type AND "
+        "  dev_model = :dev_model AND "
         "  fmt_type = :fmt_type ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
@@ -2365,12 +2372,13 @@ void TBIPrnFormType::del()
 void TBPPrnFormType::del()
 {
     ProgTrace(TRACE5, "TBPPrnFormType::del entrance");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BP_MODELS"), STDLOG);
     Qry.SQLText =
-        "delete from bp_models where "
-        "  form_type = :form_type and "
-        "  op_type = :op_type and "
-        "  dev_model = :dev_model and "
+        "DELETE FROM bp_models "
+        "WHERE "
+        "  form_type = :form_type AND "
+        "  op_type = :op_type AND "
+        "  dev_model = :dev_model AND "
         "  fmt_type = :fmt_type ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
@@ -2385,11 +2393,12 @@ void TBPPrnFormType::del()
 
 void TBRPrnFormType::del()
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BR_MODELS"), STDLOG);
     Qry.SQLText =
-        "delete from br_models where "
-        "  form_type = :form_type and "
-        "  dev_model = :dev_model and "
+        "DELETE FROM br_models "
+        "WHERE "
+        "  form_type = :form_type AND "
+        "  dev_model = :dev_model AND "
         "  fmt_type = :fmt_type ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -2403,12 +2412,13 @@ void TBRPrnFormType::del()
 
 void TBTPrnFormType::del()
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("BT_MODELS"), STDLOG);
     Qry.SQLText =
-        "delete from bt_models where "
-        "  form_type = :form_type and "
-        "  dev_model = :dev_model and "
-        "  fmt_type = :fmt_type and "
+        "DELETE FROM bt_models "
+        "WHERE "
+        "  form_type = :form_type AND "
+        "  dev_model = :dev_model AND "
+        "  fmt_type = :fmt_type AND "
         "  num = :num ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -2423,65 +2433,69 @@ void TBTPrnFormType::del()
 
 void TVersionType::get_form_list(vector<boost::shared_ptr<TPrnFormType> > &form_list)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select"
+    DB::TQuery bpQry(PgOra::getROSession("BP_MODELS"), STDLOG);
+    bpQry.SQLText =
+        "SELECT"
         "  form_type, "
         "  dev_model, "
         "  fmt_type "
-        "from "
+        "FROM "
         "  bp_models "
-        "where "
-        "  id = :id and "
+        "WHERE "
+        "  id = :id AND "
         "  version = :version "; //!!!den  op_type нужно вставлять??? form_type+op_type
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("version", otInteger, version);
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) {
+    bpQry.CreateVariable("id", otInteger, id);
+    bpQry.CreateVariable("version", otInteger, version);
+    bpQry.Execute();
+    for(; not bpQry.Eof; bpQry.Next()) {
         boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
-        form->form_type = Qry.FieldAsString("form_type");
-        form->dev_model = Qry.FieldAsString("dev_model");
-        form->fmt_type = Qry.FieldAsString("fmt_type");
+        form->form_type = bpQry.FieldAsString("form_type");
+        form->dev_model = bpQry.FieldAsString("dev_model");
+        form->fmt_type = bpQry.FieldAsString("fmt_type");
         form_list.push_back(form);
     }
-    Qry.SQLText =
-        "select"
+    DB::TQuery btQry(PgOra::getROSession("BT_MODELS"), STDLOG);
+    btQry.SQLText =
+        "SELECT"
         "  form_type, "
         "  dev_model, "
         "  num, "
         "  fmt_type "
-        "from "
+        "FROM "
         "  bt_models "
-        "where "
-        "  id = :id and "
+        "WHERE "
+        "  id = :id AND "
         "  version = :version ";
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) {
+    btQry.CreateVariable("id", otInteger, id);
+    btQry.CreateVariable("version", otInteger, version);
+    btQry.Execute();
+    for(; not btQry.Eof; btQry.Next()) {
         boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
-        form->form_type = Qry.FieldAsString("form_type");
-        form->dev_model = Qry.FieldAsString("dev_model");
-        form->fmt_type = Qry.FieldAsString("fmt_type");
-        form->num = Qry.FieldAsInteger("num");
+        form->form_type = btQry.FieldAsString("form_type");
+        form->dev_model = btQry.FieldAsString("dev_model");
+        form->fmt_type = btQry.FieldAsString("fmt_type");
+        form->num = btQry.FieldAsInteger("num");
         form_list.push_back(form);
     }
-    Qry.SQLText =
-        "select"
+    DB::TQuery brQry(PgOra::getROSession("BR_MODELS"), STDLOG);
+    brQry.SQLText =
+        "SELECT"
         "  form_type, "
         "  dev_model, "
         "  fmt_type "
-        "from "
+        "FROM "
         "  br_models "
-        "where "
-        "  id = :id and "
+        "WHERE "
+        "  id = :id AND "
         "  version = :version ";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("version", otInteger, version);
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) {
+    brQry.CreateVariable("id", otInteger, id);
+    brQry.CreateVariable("version", otInteger, version);
+    brQry.Execute();
+    for(; not brQry.Eof; brQry.Next()) {
         boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
-        form->form_type = Qry.FieldAsString("form_type");
-        form->dev_model = Qry.FieldAsString("dev_model");
-        form->fmt_type = Qry.FieldAsString("fmt_type");
+        form->form_type = brQry.FieldAsString("form_type");
+        form->dev_model = brQry.FieldAsString("dev_model");
+        form->fmt_type = brQry.FieldAsString("fmt_type");
         form_list.push_back(form);
     }
 }
@@ -2517,24 +2531,24 @@ boost::shared_ptr<TPrnFormType> TBRPrnFormType::Copy()
 void TBRPrnFormType::get_version(TVersionType &ver)
 {
     ProgTrace(TRACE5, "TBRPrnFormType::get_version starting");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BR_MODELS","PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "  br_models.id, "
         "  br_models.version, "
         "  prn_forms.name, "
         "  prn_form_vers.form, "
         "  prn_form_vers.data "
-        "from "
+        "FROM "
         "  br_models, "
         "  prn_forms, "
         "  prn_form_vers "
-        "where "
-        "  form_type = :form_type and "
-        "  dev_model = :dev_model and "
-        "  br_models.fmt_type = :fmt_type and "
-        "  prn_forms.id = prn_form_vers.id and "
-        "  br_models.id = prn_form_vers.id and "
+        "WHERE "
+        "  form_type = :form_type AND "
+        "  dev_model = :dev_model AND "
+        "  br_models.fmt_type = :fmt_type AND "
+        "  prn_forms.id = prn_form_vers.id AND "
+        "  br_models.id = prn_form_vers.id AND "
         "  br_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -2552,25 +2566,25 @@ void TBRPrnFormType::get_version(TVersionType &ver)
 void TBIPrnFormType::get_version(TVersionType &ver)
 {
     ProgTrace(TRACE5, "TBIPrnFormType::get_version starting");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "  bp_models.id, "
         "  bp_models.version, "
         "  prn_forms.name, "
         "  prn_form_vers.form, "
         "  prn_form_vers.data "
-        "from "
+        "FROM "
         "  bp_models, "
         "  prn_forms, "
         "  prn_form_vers "
-        "where "
-        "  bp_models.form_type = :form_type and "
-        "  bp_models.op_type = :op_type and "
-        "  bp_models.dev_model = :dev_model and "
-        "  bp_models.fmt_type = :fmt_type and "
-        "  prn_forms.id = prn_form_vers.id and "
-        "  bp_models.id = prn_form_vers.id and "
+        "WHERE "
+        "  bp_models.form_type = :form_type AND "
+        "  bp_models.op_type = :op_type AND "
+        "  bp_models.dev_model = :dev_model AND "
+        "  bp_models.fmt_type = :fmt_type AND "
+        "  prn_forms.id = prn_form_vers.id AND "
+        "  bp_models.id = prn_form_vers.id AND "
         "  bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
@@ -2589,25 +2603,25 @@ void TBIPrnFormType::get_version(TVersionType &ver)
 void TBPPrnFormType::get_version(TVersionType &ver)
 {
     ProgTrace(TRACE5, "TBPPrnFormType::get_version starting");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "  bp_models.id, "
         "  bp_models.version, "
         "  prn_forms.name, "
         "  prn_form_vers.form, "
         "  prn_form_vers.data "
-        "from "
+        "FROM "
         "  bp_models, "
         "  prn_forms, "
         "  prn_form_vers "
-        "where "
-        "  bp_models.form_type = :form_type and "
-        "  bp_models.op_type = :op_type and "
-        "  bp_models.dev_model = :dev_model and "
-        "  bp_models.fmt_type = :fmt_type and "
-        "  prn_forms.id = prn_form_vers.id and "
-        "  bp_models.id = prn_form_vers.id and "
+        "WHERE "
+        "  bp_models.form_type = :form_type AND "
+        "  bp_models.op_type = :op_type AND "
+        "  bp_models.dev_model = :dev_model AND "
+        "  bp_models.fmt_type = :fmt_type AND "
+        "  prn_forms.id = prn_form_vers.id AND "
+        "  bp_models.id = prn_form_vers.id AND "
         "  bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
@@ -2626,19 +2640,19 @@ void TBPPrnFormType::get_version(TVersionType &ver)
 void TBTPrnFormType::get_version(TVersionType &ver)
 {
     ProgTrace(TRACE5, "TBTPrnFormType::get_version starting");
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BT_MODELS","PRN_FORMS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select  "
+        "SELECT  "
         "  bt_models.id,  "
         "  bt_models.version,  "
         "  prn_forms.name,  "
         "  prn_form_vers.form,  "
         "  prn_form_vers.data  "
-        "from  "
+        "FROM  "
         "  bt_models,  "
         "  prn_forms,  "
         "  prn_form_vers  "
-        "where  "
+        "WHERE  "
         "  form_type = :form_type and  "
         "  dev_model = :dev_model and  "
         "  bt_models.fmt_type = :fmt_type and  "
@@ -2707,41 +2721,46 @@ void TVersionType::insert()
         return;
     }
     ProgTrace(TRACE5, "insert version");
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "declare "
-        "  new_name prn_forms.name%type; "
-        "  copy_num number; "
-        "  names_count number; "
-        "begin "
-        "  new_name := :name; "
-        "  copy_num := 1; "
-        "  loop "
-        "    select count(*) into names_count from prn_forms where name = new_name; "
-        "    if names_count = 0 then exit; end if; "
-        "    new_name := :name || ' " + getLocaleText("CAP.COPY") + "' || copy_num; "
-        "    copy_num := copy_num + 1; "
-        "  end loop; "
-        "  :name := new_name; "
-        "  insert into prn_forms( id, op_type, fmt_type, name) "
-        "    values(id__seq.nextval, :op_type, :fmt_type, :name) "
-        "  returning id into :id; "
-        "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
-        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
-        "end; ";
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-    Qry.CreateVariable("fmt_type", otString, fmt_type);
-    Qry.CreateVariable("name", otString, name);
-    Qry.CreateVariable("form", otString, form);
-    Qry.CreateVariable("data", otString, data);
-    Qry.DeclareVariable("id", otInteger);
     try {
-        Qry.Execute();
+        int copy_num = 1;
+        std::string new_name = name;
+        while(true) {
+          DB::TQuery countQry(PgOra::getROSession("PRN_FORMS"), STDLOG);
+          countQry.SQLText =
+              "SELECT count(*) AS names_count "
+              "FROM prn_forms "
+              "WHERE name = :new_name ";
+          countQry.CreateVariable("new_name", otString, new_name);
+          countQry.Execute();
+          if (countQry.FieldAsInteger("names_count") == 0) {
+            break;
+          }
+          new_name = name + " " + getLocaleText("CAP.COPY") + " " + std::to_string(copy_num);
+          copy_num++;
+        }
+
+        id = PgOra::getSeqNextVal_int("ID__SEQ");
+        DB::TQuery insFormQry(PgOra::getRWSession("PRN_FORMS"), STDLOG);
+        insFormQry.SQLText =
+            "INSERT INTO prn_forms( id, op_type, fmt_type, name) "
+            "VALUES(:id, :op_type, :fmt_type, :name) ";
+        insFormQry.CreateVariable("id", otInteger, id);
+        insFormQry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
+        insFormQry.CreateVariable("fmt_type", otString, fmt_type);
+        insFormQry.CreateVariable("name", otString, new_name);
+        insFormQry.Execute();
+
+        DB::TQuery insVerQry(PgOra::getRWSession("PRN_FORM_VERS"), STDLOG);
+        insVerQry.SQLText =
+            "INSERT INTO prn_form_vers(id, version, descr, form, data, read_only) "
+            "VALUES(:id, 0, 'Inserted by prnc', :form, :data, 1) ";
+        insVerQry.CreateVariable("id", otInteger, id);
+        insVerQry.CreateVariable("form", otString, form);
+        insVerQry.CreateVariable("data", otString, data);
+        insVerQry.Execute();
     } catch(Exception &E) {
         throw Exception("Не могу вставить версию %s: %s", name.c_str(), E.what());
     }
-    id = Qry.GetVariableAsInteger("id");
     version = 0;
     for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
         i_form->second->insert(*this);

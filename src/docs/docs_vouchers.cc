@@ -111,64 +111,64 @@ void TVouchers::clear()
 void TVouchers::to_deleted() const
 {
     if(items.empty()) return;
-    TCachedQuery Qry(
-            "begin "
-            "  insert into del_vo ( "
-            "    point_id, "
-            "    full_name, "
-            "    pers_type, "
-            "    reg_no, "
-            "    ticket_no, "
-            "    coupon_no, "
-            "    rem_codes, "
-            "    voucher, "
-            "    total "
-            "  ) values ( "
-            "    :point_id, "
-            "    :full_name, "
-            "    :pers_type, "
-            "    :reg_no, "
-            "    :ticket_no, "
-            "    :coupon_no, "
-            "    :rem_codes, "
-            "    :voucher, "
-            "    :total "
-            "  ); "
-            "exception "
-            "  when dup_val_on_index then "
-            "    update del_vo set total = total + :total where "
-            "      point_id = :point_id and "
-            "      full_name = :full_name and "
-            "      pers_type = :pers_type and "
-            "      reg_no = :reg_no and "
-            "      nvl(ticket_no, ' ') = nvl(:ticket_no, ' ') and "
-            "      nvl(coupon_no, 0) = nvl(:coupon_no, 0) and "
-            "      nvl(rem_codes, ' ') = nvl(:rem_codes, ' ') and "
-            "      voucher = :voucher;"
-            "end; ",
-        QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("full_name", otString)
-            << QParam("pers_type", otString)
-            << QParam("reg_no", otInteger)
-            << QParam("ticket_no", otString)
-            << QParam("coupon_no", otInteger)
-            << QParam("rem_codes", otString)
-            << QParam("voucher", otString)
-            << QParam("total", otInteger));
+
     for(const auto &i: items) {
-        Qry.get().SetVariable("full_name", i.first.full_name);
-        Qry.get().SetVariable("pers_type", i.first.pers_type);
-        Qry.get().SetVariable("reg_no", i.first.reg_no);
-        Qry.get().SetVariable("ticket_no", i.first.ticket_no);
-        if(i.first.coupon_no != NoExists)
-            Qry.get().SetVariable("coupon_no", i.first.coupon_no);
-        else
-            Qry.get().SetVariable("coupon_no", FNull);
-        Qry.get().SetVariable("rem_codes", i.first.rem_codes.substr(0, 500));
-        Qry.get().SetVariable("voucher", i.first.voucher);
-        Qry.get().SetVariable("total", i.second);
-        Qry.get().Execute();
+        QParams params;
+        params << QParam("point_id", otInteger, point_id)
+               << QParam("full_name", otString, i.first.full_name)
+               << QParam("pers_type", otString, i.first.pers_type)
+               << QParam("reg_no", otInteger, i.first.reg_no)
+               << QParam("ticket_no", otString, i.first.ticket_no)
+               << QParam("coupon_no", otInteger, i.first.coupon_no, QParam::BindOption::NullOnEmpty)
+               << QParam("rem_codes", otString, i.first.rem_codes.substr(0, 500))
+               << QParam("voucher", otString, i.first.voucher)
+               << QParam("total", otInteger, i.second);
+
+        DB::TCachedQuery updQry(
+              PgOra::getRWSession("DEL_VO"),
+              "UPDATE del_vo "
+              "SET total = total + :total "
+              "WHERE "
+              "  point_id = :point_id AND "
+              "  full_name = :full_name AND "
+              "  pers_type = :pers_type AND "
+              "  reg_no = :reg_no AND "
+              "  COALESCE(ticket_no, ' ') = COALESCE(:ticket_no, ' ') AND "
+              "  COALESCE(coupon_no, 0) = COALESCE(:coupon_no, 0) AND "
+              "  COALESCE(rem_codes, ' ') = COALESCE(:rem_codes, ' ') AND "
+              "  voucher = :voucher ",
+              params,
+              STDLOG);
+        updQry.get().Execute();
+
+        if (updQry.get().RowsProcessed() == 0) {
+            DB::TCachedQuery insQry(
+                  PgOra::getRWSession("DEL_VO"),
+                  "INSERT INTO del_vo ( "
+                  "  point_id, "
+                  "  full_name, "
+                  "  pers_type, "
+                  "  reg_no, "
+                  "  ticket_no, "
+                  "  coupon_no, "
+                  "  rem_codes, "
+                  "  voucher, "
+                  "  total "
+                  ") VALUES ( "
+                  "  :point_id, "
+                  "  :full_name, "
+                  "  :pers_type, "
+                  "  :reg_no, "
+                  "  :ticket_no, "
+                  "  :coupon_no, "
+                  "  :rem_codes, "
+                  "  :voucher, "
+                  "  :total "
+                  ") ",
+                  params,
+                  STDLOG);
+            insQry.get().Execute();
+        }
     }
 }
 

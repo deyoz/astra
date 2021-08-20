@@ -384,6 +384,211 @@ class Pacts : public CacheTableWritableHandmade
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class BiTypes : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const { return ""; }
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class CacheTableWritableWoCallbacks : public CacheTableWritable
+{
+  public:
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
+};
+
+class BiModels : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BiBlankList : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BpTypes : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const { return ""; }
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BpModels : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BpBlankList : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class VoModels : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class VoBlankList : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class EmdAModels : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class EmdABlankList : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BrModels : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BrBlankList : public CacheTableWritableWoCallbacks
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BtModels : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BtBlankList : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class PrnFormVers : public CacheTableWritableWoCallbacks
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class PrnForms : public CacheTableWritable
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
+};
+
 class BaggageWt : public CacheTableWritableHandmade
 {
   public:

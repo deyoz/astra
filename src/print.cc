@@ -954,20 +954,20 @@ void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_mo
       };
     };
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BP_MODELS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   prn_form_vers.form "
-        "from "
+        "FROM "
         "   bp_models, "
         "   prn_form_vers "
-        "where "
-        "   bp_models.form_type = :form_type and "
-        "   bp_models.op_type = :op_type and "
-        "   bp_models.dev_model = :dev_model and "
-        "   bp_models.fmt_type = :fmt_type and "
-        "   bp_models.id = prn_form_vers.id and "
-        "   bp_models.version = prn_form_vers.version and "
+        "WHERE "
+        "   bp_models.form_type = :form_type AND "
+        "   bp_models.op_type = :op_type AND "
+        "   bp_models.dev_model = :dev_model AND "
+        "   bp_models.fmt_type = :fmt_type AND "
+        "   bp_models.id = prn_form_vers.id AND "
+        "   bp_models.version = prn_form_vers.version AND "
         "   prn_form_vers.form IS NOT NULL";
     Qry.DeclareVariable("form_type", otString);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
@@ -1031,20 +1031,20 @@ void previewDeviceSets(bool conditional, string msg)
 void get_bt_forms(const string &tag_type, const string &dev_model, const string &fmt_type, const xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
     prn_forms.clear();
-    TQuery FormsQry(&OraSession);
+    DB::TQuery FormsQry(PgOra::getROSession({"BT_MODELS","PRN_FORM_VERS"}), STDLOG);
     FormsQry.SQLText =
-        "select "
+        "SELECT "
         "   bt_models.num, "
         "   prn_form_vers.form, "
         "   prn_form_vers.data "
-        "from "
+        "FROM "
         "   bt_models, "
         "   prn_form_vers "
-        "where "
-        "   bt_models.form_type = :form_type and "
-        "   bt_models.dev_model = :dev_model and "
-        "   bt_models.fmt_type = :fmt_type and "
-        "   bt_models.id = prn_form_vers.id and "
+        "WHERE "
+        "   bt_models.form_type = :form_type AND "
+        "   bt_models.dev_model = :dev_model AND "
+        "   bt_models.fmt_type = :fmt_type AND "
+        "   bt_models.id = prn_form_vers.id AND "
         "   bt_models.version = prn_form_vers.version ";
     FormsQry.CreateVariable("form_type", otString, tag_type);
     FormsQry.CreateVariable("dev_model", otString, dev_model);
@@ -1122,78 +1122,8 @@ struct TTagKey {
     bool pr_lat;
     double no; //no = Float!
     string type, color;
-    TTagKey(): grp_id(0), pr_lat(false), no(-1.0) {};
+    TTagKey(): grp_id(0), pr_lat(false), no(-1.0) {}
 };
-
-void big_test(PrintDataParser &parser, TDevOper::Enum op_type)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   id, "
-        "   version, "
-        "   connect_string, "
-        "   fmt_type, "
-        "   data "
-        "from "
-        "   drop_all_pectabs "
-        "where "
-        "   op_type = :op_type "
-//        "   and connect_string not in ('beta/beta@beta') "
-//        "   and connect_string = 'beta/beta@beta' "
-        "order by "
-        "   connect_string, "
-        "   op_type, "
-        "   fmt_type, "
-        "   id, "
-        "   version";
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-    Qry.Execute();
-    ofstream out("check_parse");
-    for(; not Qry.Eof; Qry.Next()) {
-        int id = Qry.FieldAsInteger("id");
-        int version = NoExists;
-        if(not Qry.FieldIsNULL("version"))
-            version = Qry.FieldAsInteger("version");
-        string connect_string = Qry.FieldAsString("connect_string");
-        if(
-                false and
-                not (
-                    id == 173941 and
-                    version == 1 and
-                    connect_string == "stand/llrkxwsp@stand"
-                    )
-          )
-            continue;
-        string data = AdjustCR_LF::DoIt(Qry.FieldAsString("fmt_type"), Qry.FieldAsString("data"));
-        string parse_result;
-        ostringstream idx;
-        idx
-            << "id: " << id << " "
-            << "version: " << version << " "
-            << "connect_string: '" << connect_string << "'";
-        try {
-            parse_result = parser.parse(data);
-        } catch(Exception &E) {
-            out
-                << "parse failed: "
-                << idx.str()
-                << " err msg: " << E.what()
-                << endl
-                << "err data:" << endl
-                << data << endl;
-            continue;
-        }
-        string result;
-        for(string::iterator is = parse_result.begin(); is != parse_result.end(); is++) {
-            if(*is == '#')
-                result += "#\n";
-            else
-                result += *is;
-        }
-        out << idx.str() << endl << result << endl;
-    }
-}
 
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
@@ -1325,7 +1255,6 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-//            big_test(parser, TDevOper::PrnBT);
             string prn_form = parser.parse(prn_forms.back());
 //            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
@@ -1760,19 +1689,19 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
 
     TPrnParams prnParams(reqNode);
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"BR_MODELS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   prn_form_vers.form, "
         "   prn_form_vers.data "
-        "from "
+        "FROM "
         "   br_models, "
         "   prn_form_vers "
-        "where "
-        "   br_models.form_type = :form_type and "
-        "   br_models.dev_model = :dev_model and "
-        "   br_models.fmt_type = :fmt_type and "
-        "   br_models.id = prn_form_vers.id and "
+        "WHERE "
+        "   br_models.form_type = :form_type AND "
+        "   br_models.dev_model = :dev_model AND "
+        "   br_models.fmt_type = :fmt_type AND "
+        "   br_models.id = prn_form_vers.id AND "
         "   br_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -1971,21 +1900,20 @@ void PrintInterface::get_pectab(
         string &pectab
         )
 {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession({"BP_MODELS","PRN_FORM_VERS"}), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "   prn_form_vers.form, "
         "   prn_form_vers.data "
-        "from "
+        "FROM "
         "   bp_models, "
         "   prn_form_vers "
-        "where "
-        "   bp_models.form_type = :form_type and "
-        "   bp_models.op_type = :op_type and "
-        "   bp_models.dev_model = :dev_model and "
-        "   bp_models.fmt_type = :fmt_type and "
-        "   bp_models.id = prn_form_vers.id and "
+        "WHERE "
+        "   bp_models.form_type = :form_type AND "
+        "   bp_models.op_type = :op_type AND "
+        "   bp_models.dev_model = :dev_model AND "
+        "   bp_models.fmt_type = :fmt_type AND "
+        "   bp_models.id = prn_form_vers.id AND "
         "   bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, params.get_form_type());
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
@@ -2081,7 +2009,6 @@ void PrintInterface::GetPrintDataBP(
 
         parser->set_space_if_empty(params.isGraphics2D());
 
-        //        big_test(parser, TDevOper::PrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if (iPax->gate.second)
@@ -3134,21 +3061,21 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 {
     TOps ops(reqNode);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("PRN_TESTS"), STDLOG);
     Qry.SQLText =
-        "select "
+        "SELECT "
         "  desk_grp_id, "
         "  op_type, "
         "  fmt_type, "
         "  dev_model, "
         "  form, "
         "  data "
-        "from "
+        "FROM "
         "  prn_tests "
-        "where "
-        "  desk_grp_id = :desk_grp_id or desk_grp_id is null "
-        "order by "
-        "  desk_grp_id nulls last, "
+        "WHERE "
+        "  desk_grp_id = :desk_grp_id OR desk_grp_id IS NULL "
+        "ORDER BY "
+        "  desk_grp_id NULLS LAST, "
         "  op_type, "
         "  fmt_type, "
         "  dev_model ";
