@@ -7708,35 +7708,57 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
   node=GetNode("tag_packs",node);
   if (node==NULL) return;
   TReqInfo* reqInfo = TReqInfo::Instance();
-  DB::TQuery Qry(PgOra::getRWSession("TAG_PACKS"), STDLOG);
-  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-  Qry.DeclareVariable("airline",otString);
-  Qry.DeclareVariable("target",otString);
-  Qry.DeclareVariable("tag_type",otString);
-  Qry.DeclareVariable("color",otString);
-  Qry.DeclareVariable("no",otFloat);
-  for(node=node->children;node!=NULL;node=node->next)
-  {
+
+  for(node=node->children;node!=NULL;node=node->next) {
     xmlNodePtr node2=node->children;
-    Qry.SetVariable("airline",NodeAsStringFast("airline",node2));
-    Qry.SetVariable("target",NodeAsStringFast("target",node2));
-    Qry.SetVariable("tag_type",NodeAsStringFast("tag_type",node2));
-    Qry.SetVariable("color",NodeAsStringFast("color",node2));
+
+    QParams params;
+    params << QParam("desk",otString,reqInfo->desk.code)
+           << QParam("airline",otString,NodeAsStringFast("airline",node2))
+           << QParam("target",otString,NodeAsStringFast("target",node2));
+
     if (!NodeIsNULLFast("no",node2)) {
-        Qry.SetVariable("no",NodeAsFloatFast("no",node2));
-        Qry.SQLText = "INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
-                      "VALUES (:desk,:airline,:target,:tag_type,:color,:no) "
-                      "ON CONFLICT (desk,airline,target) DO UPDATE "
-                      "SET tag_type=:tag_type, color=:color, no=:no";
-        Qry.Execute();
+      DB::TCachedQuery QryLock(
+          PgOra::getRWSession("TAG_PACKS"),
+          "SELECT * FROM tag_packs "
+          "WHERE desk=:desk AND airline=:airline AND target=:target "
+          "FOR UPDATE",
+          params,
+          STDLOG);
+      QryLock.get().Execute();
+
+      params << QParam("tag_type",otString,NodeAsStringFast("tag_type",node2))
+             << QParam("color",otString,NodeAsStringFast("color",node2))
+             << QParam("no",otFloat,NodeAsFloatFast("no",node2));
+
+      if (QryLock.get().RowsProcessed() == 1) {
+          DB::TCachedQuery QryUpd(
+              PgOra::getRWSession("TAG_PACKS"),
+              "UPDATE tag_packs "
+              "SET tag_type=:tag_type, color=:color, no=:no "
+              "WHERE desk=:desk AND airline=:airline AND target=:target",
+              params,
+              STDLOG);
+          QryUpd.get().Execute();
+      } else {
+          DB::TCachedQuery QryIns(
+              PgOra::getRWSession("TAG_PACKS"),
+              "INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
+              "VALUES (:desk,:airline,:target,:tag_type,:color,:no)",
+              params,
+              STDLOG);
+          QryIns.get().Execute();
+      }
     } else {
-        Qry.SetVariable("no",FNull);
-        Qry.SQLText = "DELETE FROM tag_packs "
-                      "WHERE desk=:desk AND airline=:airline AND target=:target";
-        Qry.Execute();
+      DB::TCachedQuery QryDel(
+          PgOra::getRWSession("TAG_PACKS"),
+          "DELETE FROM tag_packs "
+          "WHERE desk=:desk AND airline=:airline AND target=:target",
+          params,
+          STDLOG);
+      QryDel.get().Execute();
     }
   }
-  Qry.Close();
 }
 
 void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
