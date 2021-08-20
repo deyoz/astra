@@ -192,6 +192,7 @@ namespace PgOra
         { "SP_PG_GROUP_LIBRA", { "LIBRA_PROC_LOG_EVENTS", "AHM_DICT", "AHM_ID__SEQ" } },
         { "SP_PG_GROUP_EVENTS", { "EVENTS_BILINGUAL" } },
         { "SP_PG_GROUP_EVENTS_SEQ", { "EVENTS_SEQ" } },
+        { "SP_PG_GROUP_REMRES", { "REMOTE_RESULTS" } },
 
 
         // ASTRA MINIMUM

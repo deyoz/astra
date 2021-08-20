@@ -524,7 +524,7 @@ $(NEW_CHECKIN_2986145212943 $(get pax_id_2943))
 
 $(USER_ERROR_RESPONSE MSG.ETICK.NEED_DISPLAY)
 
-$(sql "DELETE FROM remote_results") ### !!! это специально, скорее всего из-за того что RAC_ERROR выше откатил транзакцию, в т.ч. и очистку remote_results
+$(pg_sql "DELETE FROM remote_results") ### !!! это специально, скорее всего из-за того что RAC_ERROR выше откатил транзакцию, в т.ч. и очистку remote_results
 
 $(SEARCH_ET_BY_TICK_NO_ADVANCED $(get point_dep) 2986145212943 1)
 

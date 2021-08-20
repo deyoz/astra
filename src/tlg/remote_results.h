@@ -165,7 +165,8 @@ public:
         Status = st;
     }
 private:
-    friend struct defsupport;
+    friend struct oradefsupport;
+    friend struct pgdefsupport;
     std::string MsgId;
     std::string Pult;
     std::string EdiErrCode;

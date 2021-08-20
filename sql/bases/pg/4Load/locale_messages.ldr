@@ -1645,8 +1645,8 @@ BEGINDATA
 "MSG.PULT_NOT_REGISTERED"|"RU"|"Пульт не зарегистрирован в системе. Обратитесь к администратору."|0|0|0
 "MSG.PULT_NOT_REGISTERED"|"EN"|"The terminal is not registered in the system. Refer to administrator"|0|4709994|0
 "MSG.PULT_SWAP"|"EN"|"Change of terminal"|0|0|0
-"MSG.QRY_HANDLER_ERR.CALL_ADMIN"|"RU"|"Операция недоступна для пользователя"|0|4195150|0
-"MSG.QRY_HANDLER_ERR.CALL_ADMIN"|"EN"|"The operation is not available to the user"|0|4195149|0
+"MSG.QRY_HANDLER_ERR.CALL_ADMIN"|"RU"|"Ошибка обработки запроса. Обратитесь к разработчикам"|0|4195150|0
+"MSG.QRY_HANDLER_ERR.CALL_ADMIN"|"EN"|"Inquiry processing error. Contact developers"|0|4195149|0
 "MSG.QUEUE_CLEARED"|"RU"|"Очередь сообщений очищена"|0|0|1
 "MSG.QUEUE_CLEARED"|"EN"|"Message queue cleared"|0|0|1
 "MSG.RECEIPT_BLANK_NO_ALREADY_USED"|"RU"|"Бланк квитанции с номером [no%010.0f] уже использован"|0|0|0
