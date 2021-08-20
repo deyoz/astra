@@ -5,7 +5,7 @@
 #include "trip_tasks.h"
 #include "astra_utils.h"
 #include "astra_main.h"
-
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -74,8 +74,7 @@ void check_trip_tasks(const std::string& handler_id)
     list< pair<int, TTripTaskKey> > tasks;
 
     {
-      TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession("TRIP_TASKS"),STDLOG);
       if (handler_id==all_other_handler_id)
         Qry.SQLText =
             "SELECT id, point_id, name, params "
@@ -105,19 +104,19 @@ void check_trip_tasks(const std::string& handler_id)
       return;
     }
 
-    TQuery SelQry(&OraSession);
-    SelQry.Clear();
+    DB::TQuery SelQry(PgOra::getROSession("TRIP_TASKS"),STDLOG);
     SelQry.SQLText =
         "SELECT last_exec, next_exec, tid FROM trip_tasks "
         "WHERE id=:id AND next_exec<=:now_utc";
     SelQry.DeclareVariable("id", otInteger);
     SelQry.CreateVariable("now_utc", otDate, nowUTC);
 
-    TQuery UpdQry(&OraSession);
-    UpdQry.Clear();
+    DB::TQuery UpdQry(PgOra::getRWSession("TRIP_TASKS"),STDLOG);
     UpdQry.SQLText =
         "UPDATE trip_tasks "
-        "SET next_exec=DECODE(tid, :tid, DECODE(next_exec, :next_exec, TO_DATE(NULL), next_exec), next_exec), last_exec=:last_exec "
+        "SET next_exec = CASE WHEN tid = :tid THEN "
+        " (CASE WHEN next_exec = :next_exec THEN NULL ELSE next_exec END) ELSE next_exec END, "
+        " last_exec=:last_exec "
         "WHERE id=:id";
     UpdQry.DeclareVariable("id", otInteger);
     UpdQry.DeclareVariable("tid", otInteger);

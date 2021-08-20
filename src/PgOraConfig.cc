@@ -416,7 +416,7 @@ namespace PgOra
                 "TRIP_COMP_RFISC", // COMP_RFISC
         }},
         { "SP_PG_GROUP_BAG_TAGS", {
-                "BAG_TAGS",
+                "BAG_TAGS",   //BAG2, PAX_GRP, TAG_TYPES, PAX, PAX_DOC, POINTS, USERS2, UNACCOMP_BAG_INFO,TRANSFER,TRFER_TRIPS, TRANSFER
         }},
         { "SP_PG_GROUP_UNACCOMP_BAG_INFO", {
                 "UNACCOMP_BAG_INFO",
