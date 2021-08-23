@@ -1372,7 +1372,7 @@ std::string lastDateSelectSQL(const std::string& objectName)
 
 bool Pacts::userDependence() const
 {
-    return true;
+  return true;
 }
 
 std::list<std::string> Pacts::dbSessionObjectNames() const
@@ -1380,10 +1380,9 @@ std::list<std::string> Pacts::dbSessionObjectNames() const
   return {"PACTS"};
 }
 
-
 std::string Pacts::selectSql() const {
   return
-   "SELECT id, airline, airp, first_date, last_date - 1/86400 last_date, descr "
+   "SELECT id, airline, airp, first_date, " + lastDateSelectSQL("PACTS") + ", descr "
    "FROM pacts "
    "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
             + getSQLFilter("airp",    AccessControl::PermittedAirports) +
