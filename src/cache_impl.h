@@ -333,7 +333,7 @@ public:
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class DevFmtTypes : public CacheTableReadonly
+class DevFmtTypes : public CacheTableWritableWoCallbacks
 {
 public:
     bool userDependence() const;
