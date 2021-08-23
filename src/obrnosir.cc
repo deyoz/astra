@@ -115,7 +115,7 @@ const
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
-    {"-lci",                    TypeB::lci,             NULL,                       NULL},    
+    {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},
@@ -161,9 +161,10 @@ const
     {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
     {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
     {"-pg-tables",              print_pg_tables,        NULL,                       NULL},
-#ifdef XP_TESTING
-    {"-pg_sessions_check", pg_sessions_check, NULL, "Check main PG session consistency for different methods of usage PG" },
-#endif
+  #ifdef XP_TESTING
+     {"-pg_sessions_check", pg_sessions_check, NULL, "Check main PG session consistency for different methods of usage PG" },
+ #endif
+
   };
 
 int nosir_test(int argc,char **argv)
@@ -321,8 +322,9 @@ int seat_no_test_single(int argc, char **argv)
 {
   tst();
     TQuery PointIdQry(&OraSession);
+    //scd_out IS NOT NULL AND scd_out > sysdate-2
     PointIdQry.SQLText=
-      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL and point_id=4912602 ORDER BY point_id";
+      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL AND scd_out > sysdate-2 AND scd_out < sysdate +1 ORDER BY point_id";
     PointIdQry.Execute();
   int c = 0;
   for (;!PointIdQry.Eof;PointIdQry.Next()) {
@@ -352,7 +354,7 @@ int seat_no_test_single(int argc, char **argv)
     c++;
     LogTrace(TRACE5) << c << " " << PointIdQry.FieldAsInteger("point_id");
     try {
-/*      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+      /*viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc1.docPtr()->children, false );
       viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc2.docPtr()->children, true );*/
@@ -362,10 +364,11 @@ int seat_no_test_single(int argc, char **argv)
       LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
       continue;
     }
-    if ( resDoc1.text() != resDoc2.text() )
+    if ( resDoc1.text() != resDoc2.text() ) {
       LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
-    LogError(STDLOG) <<  resDoc2.text();
-    LogError(STDLOG) <<  resDoc1.text();
+      //LogError(STDLOG) << resDoc1.text();
+      //LogError(STDLOG) << resDoc2.text();
+    }
   }
   tst();
   return 0;

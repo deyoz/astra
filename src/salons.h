@@ -1704,10 +1704,13 @@ struct TSalonListReadParams {
   bool for_calc_waitlist;
   int prior_compon_props_point_id;
   bool read_all_notPax_layers;
+  bool for_get_crs_seat_no;
   TSalonListReadParams() {
+    tariff_pax_id = ASTRA::NoExists;
     for_calc_waitlist = false;
     prior_compon_props_point_id = ASTRA::NoExists;
     read_all_notPax_layers = false;
+    for_get_crs_seat_no = false;
   }
 };
 
@@ -1726,7 +1729,8 @@ class TSalonList {
                       int prior_compon_props_point_id );
     void ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterSegments,
                      TFilterLayers &filterLayers, TPaxList &pax_list,
-                     int prior_compon_props_point_id );
+                     const TSalonListReadParams &params,
+                     bool is_tlg_ranges=false);
     void ReadTariff( DB::TQuery &Qry, FilterRoutesProperty &filterSegments,
                      int prior_compon_props_point_id );
     void ReadRFISCColors( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes,
