@@ -95,8 +95,10 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
   //      нет - отображаем самый приоритетный слой пассажира инвалидный
   TWaitListReason waitListReason;
   if ( pr_checkin ) {
-    seat_no = salonPax.seat_no( format, salonList.isCraftLat(), waitListReason );
-    layer_type = waitListReason.layerType();
+    tst();
+    seat_no = salonPax.seat_no( format, salonList.isCraftLat(),
+                                waitListReason, layer_type );
+    LogTrace(TRACE5) << EncodeCompLayerType(layer_type);
     if ( waitListReason.status == layerValid )
       return seat_no;
     tst();

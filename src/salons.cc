@@ -2255,7 +2255,7 @@ void TSalonList::ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes
       bool inRoute = ( col_point_id < 0 ||
                        layer.point_id == filterRoutes.getDepartureId() ||
                        filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
-      LogTrace(TRACE5) << inRoute << " " << EncodeCompLayerType(layer.layer_type);
+      //LogTrace(TRACE5) << inRoute << " " << EncodeCompLayerType(layer.layer_type);
       if ( params.prior_compon_props_point_id != ASTRA::NoExists ) { // подмена
         if ( !inRoute ) {
           continue;
@@ -2280,7 +2280,7 @@ void TSalonList::ReadLayers( DB::TQuery &Qry, FilterRoutesProperty &filterRoutes
       point_s.x = invalid_layer?ASTRA::NoExists:Qry.FieldAsInteger( col_x );
       point_s.y = invalid_layer?ASTRA::NoExists:Qry.FieldAsInteger( col_y );
       TPoint seat_p( point_s.x, point_s.y );
-      LogTrace(TRACE5) << layerPrioritySeat.toString();
+      //LogTrace(TRACE5) << layerPrioritySeat.toString();
       if ( layerPrioritySeat.getPaxId() != NoExists &&
            pax_list.find( layerPrioritySeat.getPaxId() ) != pax_list.end() ) { //слой принадлежит пассажиру
         TSeatRange seatRange( TSeat(Qry.FieldAsString( idx_first_yname ),
@@ -8232,8 +8232,10 @@ bool isFreeSeating( int point_id )
 }
 
 void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
+                               TCompLayerType &pax_layer_type,
                                vector<TPlace*> &seats, bool with_crs ) const {
   waitListReason = TWaitListReason();
+  pax_layer_type = cltUnknown;
   seats.clear();
   ASTRA::TCompLayerType grp_layer_type = cltUnknown;
   if ( !with_crs ) {
@@ -8258,13 +8260,12 @@ void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
     }
   }
   if ( ilayer != layers.end() ) {
+    pax_layer_type = ilayer->first.layerType();
     waitListReason = ilayer->second.waitListReason;
     if ( ilayer->second.waitListReason.status == layerValid ) { //нашли слой
-      tst();
       waitListReason = ilayer->first; //возвращаем валидный слой
       for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin();
             iseat!=ilayer->second.seats.end(); iseat++ ) {
-        tst();
         seats.push_back( *iseat );
       }
     }
@@ -8272,15 +8273,23 @@ void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
 }
 
 void TSalonPax::get_seats( TWaitListReason &waitListReason,
+                           TCompLayerType &pax_layer_type,
                            TPassSeats &ranges,
                            bool with_crs) const {
   ranges.clear();
   vector<TPlace*> seats;
-  int_get_seats( waitListReason, seats, with_crs );
+  int_get_seats( waitListReason, pax_layer_type, seats, with_crs );
   for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
         iseat!=seats.end(); iseat++ ) {
     ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
   }
+}
+
+void TSalonPax::get_seats( TWaitListReason &waitListReason,
+                           TPassSeats &ranges,
+                           bool with_crs) const {
+  TCompLayerType pax_layer_type;
+  get_seats(waitListReason,pax_layer_type,ranges,with_crs);
 }
 
 void TSalonPax::get_seats( TWaitListReason &waitListReason,
@@ -8290,7 +8299,8 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
   ranges.clear();
   descrs.clear();
   vector<TPlace*> seats;
-  int_get_seats( waitListReason, seats, with_crs );
+  TCompLayerType pax_layer_type;
+  int_get_seats( waitListReason, pax_layer_type, seats, with_crs );
   for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
         iseat!=seats.end(); iseat++ ) {
     TSeat seat( (*iseat)->yname, (*iseat)->xname );
@@ -8299,7 +8309,9 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
   }
 }
 
-std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
+std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat,
+                                TWaitListReason &waitListReason,
+                                TCompLayerType &pax_layer_type) const
 {
   if ( is_jmp ) {
     tst();
@@ -8307,18 +8319,38 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
   }
   TPassSeats seats;
   TSeatRanges ranges;
-  get_seats( waitListReason, seats );
+  get_seats( waitListReason, pax_layer_type, seats );
   for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
     ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
   }
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
-std::string TSalonPax::crs_seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
+std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat,
+                                TWaitListReason &waitListReason) const
+{
+  if ( is_jmp ) {
+    tst();
+    return "JMP";
+  }
+  TCompLayerType pax_layer_type;
+  TPassSeats seats;
+  TSeatRanges ranges;
+  get_seats( waitListReason, pax_layer_type, seats );
+  for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
+    ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
+  }
+  return GetSeatRangeView(ranges, format, pr_lat_seat);
+}
+
+
+std::string TSalonPax::crs_seat_no( const std::string &format, bool pr_lat_seat,
+                                    TWaitListReason &waitListReason,
+                                    TCompLayerType &pax_layer_type) const
 {
   TPassSeats seats;
   TSeatRanges ranges;
-  get_seats( waitListReason, seats, true );
+  get_seats( waitListReason, pax_layer_type, seats, true );
   for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
     ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
   }
@@ -8330,7 +8362,8 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitList
   evntPrms.clear();
   TSeatRanges ranges;
   vector<TPlace*> seats;
-  int_get_seats( waitListReason, seats );
+  TCompLayerType pax_layer_type;
+  int_get_seats( waitListReason, pax_layer_type, seats );
   ostringstream res;
   for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
         iseat!=seats.end(); iseat++ ) {
