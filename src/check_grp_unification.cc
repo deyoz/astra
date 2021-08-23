@@ -139,7 +139,7 @@ bool clearEventsBilingual(GrpId_t grp_id, PointId_t point_id, RegNo_t reg_no)
           "   SELECT reg_no FROM pax "
           "   WHERE grp_id=:grp_id "
           "   AND reg_no=:reg_no) ", // из-за возможного дублирования reg_no
-          PgOra::getRWSession("EVENTS_BILINGUAL"));
+          PgOra::getRWSession({"EVENTS_BILINGUAL","PAX"}));
     cur.stb()
         .bind(":grp_id", grp_id.get())
         .bind(":point_id", point_id.get())

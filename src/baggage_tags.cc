@@ -254,7 +254,6 @@ void TGeneratedTags::generate(int grp_id, int tag_count)
   if (tag_count<=0) return;
 
   DB::TQuery Qry(PgOra::getROSession({"POINTS","PAX_GRP","TRANSFER"}),STDLOG);
-  //Qry.ClearParams();
   Qry.SQLText=
       "SELECT "
         "POINTS.AIRLINE, "

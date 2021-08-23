@@ -2307,14 +2307,16 @@ void PrintInterface::GetPrintDataVO(
     if(not currNode)
         throw Exception("PrintInterface::GetPrintDataVO: vouchers tag not found");
     if(not currNode->children) {
-        TCachedQuery Qry(
-                "SELECT pax_id, point_dep "
-                " FROM pax, pax_grp "
-                "WHERE pax.grp_id = :grp_id AND "
-                "      refuse IS NULL and "
-                "      pax.grp_id = pax_grp.grp_id "
-                "ORDER BY pax.reg_no ",
-                QParams() << QParam("grp_id", otInteger, first_seg_grp_id));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession({"PAX","PAX_GRP"}),
+              "SELECT pax_id, point_dep "
+              "FROM pax, pax_grp "
+              "WHERE pax.grp_id = :grp_id AND "
+              "      refuse IS NULL and "
+              "      pax.grp_id = pax_grp.grp_id "
+              "ORDER BY pax.reg_no ",
+              QParams() << QParam("grp_id", otInteger, first_seg_grp_id),
+              STDLOG);
         Qry.get().Execute();
 
         int point_id = NoExists;
@@ -2363,8 +2365,13 @@ void PrintInterface::GetPrintDataVO(
                     v++) {
                 if(not v->second) continue;
 
-                TCachedQuery Qry("select grp_id, reg_no from pax where pax_id = :pax_id",
-                        QParams() << QParam("pax_id", otInteger, pax->first));
+                DB::TCachedQuery Qry(
+                      PgOra::getROSession("PAX"),
+                      "SELECT grp_id, reg_no "
+                      "FROM pax "
+                      "WHERE pax_id = :pax_id",
+                      QParams() << QParam("pax_id", otInteger, pax->first),
+                      STDLOG);
                 Qry.get().Execute();
                 if(Qry.get().Eof)
                     throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
