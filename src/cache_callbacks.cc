@@ -216,12 +216,12 @@ bool notEmptyParamAsBoolean(const std::string& name, const TParams &SQLParams)
 
 RowId_t newRowId()
 {
-  return RowId_t(PgOra::getSeqNextVal("id__seq"));
+  return RowId_t(PgOra::getSeqNextVal_int("id__seq"));
 }
 
 int GeneratedTid::get() const
 {
-  if (!tid) tid=PgOra::getSeqNextVal("tid__seq");
+  if (!tid) tid=PgOra::getSeqNextVal_int("tid__seq");
 
   return tid.value();
 }

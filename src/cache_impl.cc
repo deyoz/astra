@@ -3732,4 +3732,99 @@ std::list<std::string> CodeshareSets::dbSessionObjectNames() const {
     return {"CODESHARE_SETS"};
 }
 
+
+void DeskOwnersAdd::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    rows.setFromInteger(0)
+        .setFromInteger(0)
+        .setFromString("")
+        .setFromInteger(0)
+        .setFromInteger(0)
+            .addRow();
+}
+
+void DeskOwnersAdd::onApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                         const std::optional<Row> &newRow) const
+{
+    if(!newRow) return;
+    Row row = *newRow;
+    int desk_grp_id = row.getAsInteger("desk_grp_id", 0);
+    int descr = row.getAsInteger("descr",0);
+    std::string desk_prefix = row.getAsString("desk_prefix", "");
+    int desk_begin_num = row.getAsInteger("desk_begin_num", 0);
+    int desk_amount = row.getAsInteger("desk_amount", 0);
+    bool processed = false;
+    std::string desk_code;
+    for(int i = desk_begin_num; i < desk_begin_num + desk_amount-1; i++) {
+        int id_next_val = newRowId().get();
+        processed = true;
+        desk_code = desk_prefix + StrUtils::lpad(std::to_string(i), 6-desk_prefix.size(), '0');
+
+        DB::TQuery QryDesks(PgOra::getRWSession("DESKS"), STDLOG);
+        QryDesks.SQLText = "INSERT INTO desks(code, grp_id, currency, id) "
+                           " VALUES(:desk_code, :desk_grp_id, '“', :id_next_val); ";
+        QryDesks.CreateVariable("desk_code", otString, desk_code);
+        QryDesks.CreateVariable("desk_grp_id", otInteger, desk_grp_id);
+        QryDesks.CreateVariable("id_next_val", otInteger, id_next_val);
+        QryDesks.Execute();
+        HistoryTable("DESKS").synchronize(getRowId("id", oldRow, newRow));
+
+        DB::TQuery QryDeskOwn(PgOra::getRWSession("DESK_OWNERS"), STDLOG);
+        QryDeskOwn.SQLText = " INSERT INTO desk_owners(id, desk, airline, pr_denial) "
+                             " VALUES(:id_next_val, :desk_code, null, 1); ";
+        QryDeskOwn.CreateVariable("desk_code", otString, desk_code);
+        QryDeskOwn.CreateVariable("id_next_val", otInteger, id_next_val);
+        QryDeskOwn.Execute();
+        HistoryTable("DESK_OWNERS").synchronize(getRowId("id", oldRow, newRow));
+    }
+    if(processed) {
+        int tid = generatedTid.get();
+        DB::TQuery Qry(PgOra::getRWSession("DESKS"), STDLOG);
+        Qry.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESK_OWNERS' ";
+        Qry.CreateVariable("tid_next_val", otInteger, tid);
+        Qry.Execute();
+
+        DB::TQuery Qry2(PgOra::getRWSession("DESKS"), STDLOG);
+        Qry2.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESKS' ";
+        Qry2.CreateVariable("tid_next_val", otInteger, tid);
+        Qry2.Execute();
+    }
+}
+
+std::string DeskOwnersAdd::updateSql() const
+{
+      return "";
+}
+
+std::list<std::string> DeskOwnersAdd::dbSessionObjectNames() const
+{
+    return {"DESKS", "DESK_OWNERS"};
+}
+
+void DeskOwnersAdd::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                             std::optional<Row> &newRow) const
+{
+      checkDeskGrpAccess("desk_grp_id", false, std::nullopt, newRow);
+      setRowId("id", status, newRow);
+
+      if(!newRow) return;
+      Row row = *newRow;
+      std::string desk_prefix = row.getAsString("desk_prefix", "");
+      int desk_begin_num = row.getAsInteger("desk_begin_num", 0);
+      int desk_amount = row.getAsInteger("desk_amount", 0);
+
+      if (desk_prefix.size() < 4 ) {
+          throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.WRONG_DESK_PREFIX_LEN");
+      }
+      if(desk_begin_num == 0) {
+           throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.DESK_BEGIN_NUM_NOT_SET");
+      }
+      if(desk_amount == 0) {
+          throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.DESK_AMOUNT_NOT_SET");
+      }
+      if((desk_prefix.size() + desk_begin_num + desk_amount - 1) > 6) {
+          throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.WRONG_INTERVAL");
+      }
+}
+
 } //namespace CacheTables

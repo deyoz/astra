@@ -1009,5 +1009,21 @@ class CodeshareSets : public CacheTableWritableHandmade
     std::list<std::string> dbSessionObjectNames() const;
 };
 
+class DeskOwnersAdd : public CacheTableWritableHandmade
+{
+public:
+    bool userDependence() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+
+    std::string updateSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+};
+
 }
 
