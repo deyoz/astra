@@ -27,10 +27,31 @@ namespace SEATSPAX {
    * раньше в начитке списка пассажиров определялся статус пассажира, если зарегистрирован, то get_seat_no, иначе get_crs_seat_no
    * Внутри get_crs_seat_no слой cltPNLCkin обрабатывался отдельно. (почему?)
    */
-std::string PaxListSeatNo::get( PaxId_t pax_id, const std::string& format,
+
+std::string PaxListSeatNo::get( const PointId_t& point_id, PaxId_t pax_id, const std::string& format,
                                 ASTRA::TCompLayerType& layer_type )
 {
-  return PaxListSeatNo::get( salonList, pax_id, format, free_seating, layer_type );
+  auto ret = salonLists.insert(std::make_pair(point_id.get(),std::make_pair(false,SALONS2::TSalonList(true))));
+  if ( ret.second ) {
+    TSalonListReadParams params;
+    params.for_calc_waitlist = true; //не ругаемся если isFreeSeating || или нет салона
+    params.for_get_crs_seat_no = true; //начитка tlg_comp_layers
+    LogTrace(TRACE5) << point_id;
+    ret.first->second.first = isFreeSeating(point_id.get());
+    ret.first->second.second.ReadFlight(TFilterRoutesSets(point_id.get()),params);
+  }
+
+  return PaxListSeatNo::get( ret.first->second.second, pax_id, format, ret.first->second.first, layer_type );
+}
+
+std::string PaxListSeatNo::get( const PointIdTlg_t& point_id_tlg, PaxId_t pax_id, const std::string& format,
+                                ASTRA::TCompLayerType& layer_type )
+{
+  std::set<PointId_t> point_ids_spp;
+  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+  if ( point_ids_spp.empty() )
+    return "";
+  return get(*point_ids_spp.begin(),pax_id,format); //??? или пробег по point_id_spp?
 }
 
 std::string PaxListSeatNo::get( const  TSalonList& salonList,
@@ -39,6 +60,7 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
                                 bool free_seating,
                                 ASTRA::TCompLayerType& layer_type )
 {
+  LogTrace(TRACE5) << __func__ << " point_id " << salonList.getDepartureId() << " pax_id " << pax_id.get();
   if (free_seating)
     return "";
   std::set<TCompLayerType> checkinLayers { ASTRA::cltGoShow, ASTRA::cltTranzit, ASTRA::cltCheckin, ASTRA::cltTCheckin };
@@ -77,6 +99,7 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
     layer_type = waitListReason.layerType();
     if ( waitListReason.status == layerValid )
       return seat_no;
+    tst();
     seat_no = salonPax.prior_seat_no( format, salonList.isCraftLat() );
     if ( seat_no.empty() )
       seat_no = AstraLocale::getLocaleText("ЛО");
