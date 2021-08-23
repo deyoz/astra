@@ -185,7 +185,7 @@ class KioskParams
       return this->version == version;
     }
     void fromDB() {
-      DB::TQuery Qry(PgOra::getROSession({table_name, "KIOSK_APP_LIST", "KIOSK_GRP"}), STDLOG);
+      DB::TQuery Qry(PgOra::getROSession({table_name, "KIOSK_APP_LIST", "KIOSK_GRP", "KIOSK_LANG"}), STDLOG);
       Qry.SQLText = getSQL();
       Qry.CreateVariable("application", otString, application );
       Qry.CreateVariable("kiosk_id", otString, kioskId );

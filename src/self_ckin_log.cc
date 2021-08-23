@@ -493,11 +493,14 @@ void TSelfCkinLog::fromDB(const TParams &params)
     DB::TCachedQuery Qry(PgOra::getROSession("KIOSK_EVENTS"), SQLText, QryParams, STDLOG);
     fromDB(params, Qry);
     if(not params.sessionId.empty() and not items.empty()) {
+        bool is_pg_kiosk_events = PgOra::supportsPg("KIOSK_EVENTS");
         DB::TCachedQuery devQry(PgOra::getROSession("KIOSK_EVENTS"),
-                "select * from kiosk_events where "
+                std::string("select * from kiosk_events where "
                 "   kioskid = :kiosk_id and "
-                "   type in(:statusDevices, :statusOperation) and "
-                "   time > :time_from - 5 * interval '1 minute' and time <= :time_to + 5 * interval '1 minute' ",
+                "   type in(:statusDevices, :statusOperation) and " 
+                + is_pg_kiosk_events ?
+                  " time > :time_from - 5 * interval '1 minute' and time <= :time_to + 5 * interval '1 minute' "
+                : " time > :time_from - 5/1440 and time <= :time_to + 5/1440 "),
                 QParams()
                 << QParam("kiosk_id", otString, items.begin()->second.begin()->second.begin()->second.kiosk_id)
                 << QParam("time_from", otDate, items.begin()->second.begin()->first)
