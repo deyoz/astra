@@ -306,6 +306,17 @@ class HotelRoomTypes : public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const;
 };
 
+class CacheTableWritableWoCallbacks : public CacheTableWritable
+{
+  public:
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
+};
+
 class DevOperTypes : public CacheTableReadonly
 {
 public:
@@ -384,7 +395,7 @@ class Pacts : public CacheTableWritableHandmade
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
-class BiTypes : public CacheTableWritable
+class BpTypes : public CacheTableWritable
 {
   public:
     bool userDependence() const;
@@ -399,56 +410,8 @@ class BiTypes : public CacheTableWritable
     void afterApplyingRowChanges(const TCacheUpdateStatus status,
                                  const std::optional<CacheTable::Row>& oldRow,
                                  const std::optional<CacheTable::Row>& newRow) const;
-};
-
-class CacheTableWritableWoCallbacks : public CacheTableWritable
-{
-  public:
-    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
-                                  const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const {}
-    void afterApplyingRowChanges(const TCacheUpdateStatus status,
-                                 const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const {}
-};
-
-class BiModels : public CacheTableWritableWoCallbacks
-{
-  public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
-};
-
-class BiBlankList : public CacheTableWritableWoCallbacks
-{
-public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
-};
-
-class BpTypes : public CacheTableWritableWoCallbacks
-{
-public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const { return ""; }
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
-    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
-                                  const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const;
-    void afterApplyingRowChanges(const TCacheUpdateStatus status,
-                                 const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const;
+  protected:
+    virtual std::string operType() const { return "PRINT_BP"; }
 };
 
 class BpModels : public CacheTableWritableWoCallbacks
@@ -459,7 +422,10 @@ class BpModels : public CacheTableWritableWoCallbacks
     std::string insertSql() const;
     std::string updateSql() const;
     std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
     std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    virtual std::string operType() const { return "PRINT_BP"; }
 };
 
 class BpBlankList : public CacheTableWritableWoCallbacks
@@ -471,50 +437,50 @@ class BpBlankList : public CacheTableWritableWoCallbacks
     std::string updateSql() const;
     std::string deleteSql() const;
     std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    virtual std::string operType() const { return "PRINT_BP"; }
 };
 
-class VoModels : public CacheTableWritableWoCallbacks
+class BiTypes : public BpTypes
 {
-public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    std::string operType() const { return "PRINT_BI"; }
 };
 
-class VoBlankList : public CacheTableWritableWoCallbacks
+class BiModels : public BpModels
 {
-  public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    std::string operType() const { return "PRINT_BI"; }
 };
 
-class EmdAModels : public CacheTableWritableWoCallbacks
+class BiBlankList : public BpBlankList
 {
-  public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    std::string operType() const { return "PRINT_BI"; }
 };
 
-class EmdABlankList : public CacheTableWritableWoCallbacks
+class VoModels : public BpModels
 {
-  public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::string insertSql() const;
-    std::string updateSql() const;
-    std::string deleteSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+  protected:
+    std::string operType() const { return "PRINT_VO"; }
+};
+
+class VoBlankList : public BpBlankList
+{
+  protected:
+    std::string operType() const { return "PRINT_VO"; }
+};
+
+class EmdAModels : public BpModels
+{
+  protected:
+    std::string operType() const { return "PRINT_EMDA"; }
+};
+
+class EmdABlankList : public BpBlankList
+{
+  protected:
+    std::string operType() const { return "PRINT_EMDA"; }
 };
 
 class BrModels : public CacheTableWritableWoCallbacks
@@ -525,6 +491,7 @@ class BrModels : public CacheTableWritableWoCallbacks
     std::string insertSql() const;
     std::string updateSql() const;
     std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
     std::list<std::string> dbSessionObjectNames() const;
 };
 
@@ -541,18 +508,19 @@ class BrBlankList : public CacheTableWritableWoCallbacks
 
 class BtModels : public CacheTableWritableWoCallbacks
 {
-public:
+  public:
     bool userDependence() const;
     std::string selectSql() const;
     std::string insertSql() const;
     std::string updateSql() const;
     std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
     std::list<std::string> dbSessionObjectNames() const;
 };
 
 class BtBlankList : public CacheTableWritableWoCallbacks
 {
-public:
+  public:
     bool userDependence() const;
     std::string selectSql() const;
     std::string insertSql() const;
@@ -563,7 +531,7 @@ public:
 
 class PrnFormVers : public CacheTableWritableWoCallbacks
 {
-public:
+  public:
     bool userDependence() const;
     std::string selectSql() const;
     std::string insertSql() const;
@@ -574,7 +542,7 @@ public:
 
 class PrnForms : public CacheTableWritable
 {
-public:
+  public:
     bool userDependence() const;
     std::string selectSql() const;
     std::string insertSql() const;
@@ -591,7 +559,7 @@ public:
 
 class TripBt : public CacheTableWritableWoCallbacks
 {
-public:
+  public:
     bool userDependence() const;
     std::string selectSql() const;
     std::string insertSql() const;

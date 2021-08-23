@@ -96,12 +96,12 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CKIN_REM_TYPES")      return new CacheTable::CkinRemTypes;
   if (cacheCode=="CRS_SET")          return new CacheTable::CrsSet;
 
-  if (cacheCode=="BI_TYPES")            return new CacheTable::BiTypes;
-  if (cacheCode=="BI_MODELS")           return new CacheTable::BiModels;
-  if (cacheCode=="BI_BLANK_LIST")       return new CacheTable::BiBlankList;
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
   if (cacheCode=="BP_MODELS")           return new CacheTable::BpModels;
   if (cacheCode=="BP_BLANK_LIST")       return new CacheTable::BpBlankList;
+  if (cacheCode=="BI_TYPES")            return new CacheTable::BiTypes;
+  if (cacheCode=="BI_MODELS")           return new CacheTable::BiModels;
+  if (cacheCode=="BI_BLANK_LIST")       return new CacheTable::BiBlankList;
   if (cacheCode=="VO_MODELS")           return new CacheTable::VoModels;
   if (cacheCode=="VO_BLANK_LIST")       return new CacheTable::VoBlankList;
   if (cacheCode=="EMDA_MODELS")         return new CacheTable::EmdAModels;
@@ -1446,146 +1446,6 @@ void Pacts::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("pacts").synchronize(getRowId("id", oldRow, newRow));
 }
 
-//BiTypes
-
-bool BiTypes::userDependence() const
-{
-  return false;
-}
-
-std::string BiTypes::selectSql() const
-{
-  return "SELECT code,airline,airp,name,id "
-         "FROM bp_types "
-         "WHERE op_type='PRINT_BI' "
-         "ORDER BY code ";
-}
-
-std::string BiTypes::insertSql() const
-{
-  return "INSERT INTO bp_types(code, op_type, airline, airp, name, id) "
-         "VALUES(:code, 'PRINT_BI', :airline, :airp, :name, :id) ";
-}
-
-std::string BiTypes::deleteSql() const
-{
-  return "DELETE FROM bp_types "
-         "WHERE code = :OLD_code AND op_type='PRINT_BI' ";
-}
-
-std::list<std::string> BiTypes::dbSessionObjectNames() const
-{
-  return {"BP_TYPES"};
-}
-
-void BiTypes::beforeApplyingRowChanges(const TCacheUpdateStatus status,
-                                       const std::optional<CacheTable::Row>& oldRow,
-                                       std::optional<CacheTable::Row>& newRow) const
-{
-  setRowId("id", status, newRow);
-}
-
-void BiTypes::afterApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row>& oldRow, const std::optional<Row>& newRow) const
-{
-  HistoryTable("bp_types").synchronize(getRowId("id", oldRow, newRow));
-}
-
-//BiModels
-
-bool BiModels::userDependence() const
-{
-  return false;
-}
-
-std::string BiModels::selectSql() const
-{
-  return "SELECT bp_models.form_type code, bp_models.dev_model, bp_models.fmt_type, "
-         "prn_forms.name form_name, bp_models.id, bp_models.version, prn_form_vers.descr "
-         "FROM bp_models, prn_forms, prn_form_vers "
-         "WHERE bp_models.id = prn_forms.id "
-         "AND bp_models.id = prn_form_vers.id "
-         "AND bp_models.version = prn_form_vers.version "
-         "AND bp_models.op_type = 'PRINT_BI' "
-         "ORDER BY bp_models.dev_model, bp_models.fmt_type, prn_forms.name, bp_models.version ";
-}
-
-std::string BiModels::insertSql() const
-{
-  return "INSERT INTO bp_models(form_type, op_type, dev_model, fmt_type, id, version) "
-         "VALUES (:code, 'PRINT_BI', :dev_model, :fmt_type, :id, :version) ";
-}
-
-std::string BiModels::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET id = :id, "
-         "    version = :version "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_BI' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string BiModels::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_BI' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> BiModels::dbSessionObjectNames() const
-{
-  return {"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"};
-}
-
-//BiBlankList
-
-bool BiBlankList::userDependence() const
-{
-  return false;
-}
-
-std::string BiBlankList::selectSql() const
-{
-  return "SELECT id, version, form_type, dev_model, fmt_type "
-         "FROM bp_models "
-         "WHERE op_type='PRINT_BI'";
-}
-
-std::string BiBlankList::insertSql() const
-{
-  return "INSERT INTO bp_models(id, version, form_type, op_type, dev_model, fmt_type) "
-         "VALUES(:id, :version, :form_type, 'PRINT_BI', :dev_model, :fmt_type) ";
-}
-
-std::string BiBlankList::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET form_type = :form_type, "
-         "    dev_model = :dev_model, "
-         "    fmt_type = :fmt_type "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_BI' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string BiBlankList::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_BI' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> BiBlankList::dbSessionObjectNames() const
-{
-  return {"BP_MODELS"};
-}
-
 //BpTypes
 
 bool BpTypes::userDependence() const
@@ -1597,20 +1457,20 @@ std::string BpTypes::selectSql() const
 {
   return "SELECT code,airline,airp,name,id "
          "FROM bp_types "
-         "WHERE op_type='PRINT_BP' "
+         "WHERE op_type='" + operType() + "' "
          "ORDER BY code ";
 }
 
 std::string BpTypes::insertSql() const
 {
   return "INSERT INTO bp_types(code, op_type, airline, airp, name, id) "
-         "VALUES(:code, 'PRINT_BP', :airline, :airp, :name, :id) ";
+         "VALUES(:code, '" + operType() + "', :airline, :airp, :name, :id) ";
 }
 
 std::string BpTypes::deleteSql() const
 {
   return "DELETE FROM bp_types "
-         "WHERE code = :OLD_code AND op_type='PRINT_BP' ";
+         "WHERE code = :OLD_code AND op_type='" + operType() + "' ";
 }
 
 std::list<std::string> BpTypes::dbSessionObjectNames() const
@@ -1645,14 +1505,14 @@ std::string BpModels::selectSql() const
          "WHERE bp_models.id = prn_forms.id "
          "AND bp_models.id = prn_form_vers.id "
          "AND bp_models.version = prn_form_vers.version "
-         "AND bp_models.op_type = 'PRINT_BP' "
+         "AND bp_models.op_type = '" + operType() + "' "
          "ORDER BY bp_models.dev_model, bp_models.fmt_type, prn_forms.name, bp_models.version ";
 }
 
 std::string BpModels::insertSql() const
 {
   return "INSERT INTO bp_models(form_type, op_type, dev_model, fmt_type, id, version) "
-         "VALUES (:code, 'PRINT_BP', :dev_model, :fmt_type, :id, :version) ";
+         "VALUES (:code, '" + operType() + "', :dev_model, :fmt_type, :id, :version) ";
 }
 
 std::string BpModels::updateSql() const
@@ -1660,7 +1520,7 @@ std::string BpModels::updateSql() const
   return "UPDATE bp_models "
          "SET id = :id, version = :version "
          "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_BP' "
+         "AND op_type = '" + operType() + "' "
          "AND dev_model = :OLD_dev_model "
          "AND fmt_type = :OLD_fmt_type ";
 }
@@ -1669,14 +1529,19 @@ std::string BpModels::deleteSql() const
 {
   return "DELETE FROM bp_models "
          "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_BP' "
+         "AND op_type = '" + operType() + "' "
          "AND dev_model = :OLD_dev_model "
          "AND fmt_type = :OLD_fmt_type ";
 }
 
-std::list<std::string> BpModels::dbSessionObjectNames() const
+std::list<std::string> BpModels::dbSessionObjectNamesForRead() const
 {
   return {"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"};
+}
+
+std::list<std::string> BpModels::dbSessionObjectNames() const
+{
+  return {"BP_MODELS"};
 }
 
 //BpBlankList
@@ -1690,13 +1555,13 @@ std::string BpBlankList::selectSql() const
 {
   return "SELECT id, version, form_type, dev_model, fmt_type "
          "FROM bp_models "
-         "WHERE op_type='PRINT_BP' ";
+         "WHERE op_type='" + operType() + "' ";
 }
 
 std::string BpBlankList::insertSql() const
 {
   return "INSERT INTO bp_models(id, version, form_type, op_type, dev_model, fmt_type) "
-         "VALUES(:id, :version, :form_type, 'PRINT_BP', :dev_model, :fmt_type) ";
+         "VALUES(:id, :version, :form_type, '" + operType() + "', :dev_model, :fmt_type) ";
 }
 
 std::string BpBlankList::updateSql() const
@@ -1706,7 +1571,7 @@ std::string BpBlankList::updateSql() const
          "    dev_model = :dev_model, "
          "    fmt_type = :fmt_type "
          "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_BP' "
+         "AND op_type='" + operType() + "' "
          "AND dev_model = :OLD_dev_model "
          "AND fmt_type = :OLD_fmt_type ";
 }
@@ -1715,202 +1580,12 @@ std::string BpBlankList::deleteSql() const
 {
   return "DELETE FROM bp_models "
          "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_BP' "
+         "AND op_type='" + operType() + "' "
          "AND dev_model = :OLD_dev_model "
          "AND fmt_type = :OLD_fmt_type ";
 }
 
 std::list<std::string> BpBlankList::dbSessionObjectNames() const
-{
-  return {"BP_MODELS"};
-}
-
-//VoModels
-
-bool VoModels::userDependence() const
-{
-  return false;
-}
-
-std::string VoModels::selectSql() const
-{
-  return "SELECT bp_models.form_type code, bp_models.dev_model, bp_models.fmt_type, "
-         "       prn_forms.name form_name, bp_models.id, bp_models.version, prn_form_vers.descr "
-         "FROM bp_models, prn_forms, prn_form_vers "
-         "WHERE bp_models.id = prn_forms.id "
-         "AND bp_models.id = prn_form_vers.id "
-         "AND bp_models.version = prn_form_vers.version "
-         "AND bp_models.op_type = 'PRINT_VO' "
-         "ORDER BY bp_models.dev_model, bp_models.fmt_type, prn_forms.name, bp_models.version ";
-}
-
-std::string VoModels::insertSql() const
-{
-  return "INSERT INTO bp_models(form_type, op_type, dev_model, fmt_type, id, version) "
-         "VALUES (:code, 'PRINT_VO', :dev_model, :fmt_type, :id, :version) ";
-}
-
-std::string VoModels::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET id = :id, version = :version "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_VO' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string VoModels::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_VO' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> VoModels::dbSessionObjectNames() const
-{
-  return {"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"};
-}
-
-//VoBlankList
-
-bool VoBlankList::userDependence() const
-{
-  return false;
-}
-
-std::string VoBlankList::selectSql() const
-{
-  return "SELECT id, version, form_type, dev_model, fmt_type "
-         "FROM bp_models "
-         "WHERE op_type='PRINT_VO' ";
-}
-
-std::string VoBlankList::insertSql() const
-{
-  return "INSERT INTO bp_models(id, version, form_type, op_type, dev_model, fmt_type) "
-         "VALUES(:id, :version, :form_type, 'PRINT_VO', :dev_model, :fmt_type) ";
-}
-
-std::string VoBlankList::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET form_type = :form_type, "
-         "    dev_model = :dev_model, "
-         "    fmt_type = :fmt_type "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_VO' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string VoBlankList::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_VO' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> VoBlankList::dbSessionObjectNames() const
-{
-  return {"BP_MODELS"};
-}
-
-//EmdAModels
-
-bool EmdAModels::userDependence() const
-{
-  return false;
-}
-
-std::string EmdAModels::selectSql() const
-{
-  return "SELECT bp_models.form_type code, bp_models.dev_model, bp_models.fmt_type, "
-         "       prn_forms.name form_name, bp_models.id, bp_models.version, prn_form_vers.descr "
-         "FROM bp_models, prn_forms, prn_form_vers "
-         "WHERE bp_models.id = prn_forms.id "
-         "AND bp_models.id = prn_form_vers.id "
-         "AND bp_models.version = prn_form_vers.version "
-         "AND bp_models.op_type = 'PRINT_EMDA' "
-         "ORDER BY bp_models.dev_model, bp_models.fmt_type, prn_forms.name, bp_models.version ";
-}
-
-std::string EmdAModels::insertSql() const
-{
-  return "INSERT INTO bp_models(form_type, op_type, dev_model, fmt_type, id, version) "
-         "VALUES (:code, 'PRINT_EMDA', :dev_model, :fmt_type, :id, :version) ";
-}
-
-std::string EmdAModels::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET id = :id, version = :version "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_EMDA' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string EmdAModels::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_code "
-         "AND op_type = 'PRINT_EMDA' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> EmdAModels::dbSessionObjectNames() const
-{
-  return {"BP_MODELS","PRN_FORMS","PRN_FORM_VERS"};
-}
-
-//EmdABlankList
-
-bool EmdABlankList::userDependence() const
-{
-  return false;
-}
-
-std::string EmdABlankList::selectSql() const
-{
-  return "SELECT id, version, form_type, dev_model, fmt_type "
-         "FROM bp_models "
-         "WHERE op_type='PRINT_EMDA' ";
-}
-
-std::string EmdABlankList::insertSql() const
-{
-  return "INSERT INTO bp_models(id, version, form_type, op_type, dev_model, fmt_type) "
-         "VALUES(:id, :version, :form_type, 'PRINT_EMDA', :dev_model, :fmt_type) ";
-}
-
-std::string EmdABlankList::updateSql() const
-{
-  return "UPDATE bp_models "
-         "SET form_type = :form_type, "
-         "    dev_model = :dev_model, "
-         "    fmt_type = :fmt_type "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_EMDA' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::string EmdABlankList::deleteSql() const
-{
-  return "DELETE FROM bp_models "
-         "WHERE form_type = :OLD_form_type "
-         "AND op_type='PRINT_EMDA' "
-         "AND dev_model = :OLD_dev_model "
-         "AND fmt_type = :OLD_fmt_type ";
-}
-
-std::list<std::string> EmdABlankList::dbSessionObjectNames() const
 {
   return {"BP_MODELS"};
 }
@@ -1956,9 +1631,14 @@ std::string BrModels::deleteSql() const
          "AND fmt_type = :OLD_fmt_type ";
 }
 
-std::list<std::string> BrModels::dbSessionObjectNames() const
+std::list<std::string> BrModels::dbSessionObjectNamesForRead() const
 {
   return {"BR_MODELS","PRN_FORMS","PRN_FORM_VERS"};
+}
+
+std::list<std::string> BrModels::dbSessionObjectNames() const
+{
+  return {"BR_MODELS"};
 }
 
 //BrBlankList
@@ -2047,9 +1727,14 @@ std::string BtModels::deleteSql() const
          "AND fmt_type = :OLD_fmt_type ";
 }
 
-std::list<std::string> BtModels::dbSessionObjectNames() const
+std::list<std::string> BtModels::dbSessionObjectNamesForRead() const
 {
   return {"BT_MODELS","PRN_FORMS","PRN_FORM_VERS"};
+}
+
+std::list<std::string> BtModels::dbSessionObjectNames() const
+{
+  return {"BT_MODELS"};
 }
 
 //BtBlankList
