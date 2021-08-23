@@ -432,52 +432,56 @@ public:
     return ( find_if( rems.begin(), rems.end(), [searchRems](const auto& item)
                         {return (find(searchRems.begin(), searchRems.end(), item.code) != searchRems.end());}) != rems.end() );
   }
-  void CheckResetLayer() {
+  void CheckResetLayer(const ASTRA::TCompLayerType& pax_layer_type) {
     LogTrace(TRACE5) << __func__;
     if ( !_layer_type || _layer_type.value() != cltProtCkin ) return;
-    ASTRA::TCompLayerType v_layer_type = cltUnknown;
-    SEATSPAX::PaxListSeatNo::get( salonList, PaxId_t(_pax_id), "one", false, v_layer_type );
     //терминал не умеет делать пересадку платного слоя, поэтому здесь идет расчет на основе тек. слоя места пассажира
-    if ( v_layer_type == cltProtAfterPay ||
-         v_layer_type == cltPNLAfterPay ) {
+    if ( pax_layer_type == cltProtAfterPay ||
+         pax_layer_type == cltPNLAfterPay ) {
       if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority(
-                    BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, v_layer_type ), flagCompLayerPriority ) <
+                    BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, pax_layer_type ), flagCompLayerPriority ) <
            BASIC_SALONS::TCompLayerTypes::Instance()->priority(
                     BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, _layer_type.value() ), flagCompLayerPriority ) )
-        _layer_type.emplace( v_layer_type );
+        _layer_type.emplace( pax_layer_type );
+      LogTrace(TRACE5) << EncodeCompLayerType(_layer_type.value());
     }
   }
   void fromDB() {
     LogTrace(TRACE5) << __func__;
     currSeats.reset();
     curr_layer_type.reset();
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( _point_id,
-                                                      _point_arv.value_or(ASTRA::NoExists) ),
+    if (!_point_arv) {
+      grp = CheckIn::TSimplePaxGrpItem();
+      if ( grp.value().getByPaxId(_pax_id) )
+        _point_arv.emplace(grp.value().point_arv);
+      else {
+        grp.reset();
+        _point_arv.emplace(SALONS2::getCrsPaxPointArv(_pax_id, _point_id));
+      }
+    }
+    if ( !_layer_type ) {// ЛО или DeleteProtLayer?
+      if ( !grp ) {
+        grp = CheckIn::TSimplePaxGrpItem();
+        if ( grp.value().getByPaxId(_pax_id) )
+          _layer_type.emplace(grp.value().getCheckInLayerType());
+        else
+          grp.reset();
+      }
+    }
+
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets(_point_id,_point_arv.value()),
                           "", _pax_id );
-    CheckResetLayer();
+    ASTRA::TCompLayerType pax_layer_type = cltUnknown;
+    SEATSPAX::PaxListSeatNo::get( salonList, PaxId_t(_pax_id), "one", false, pax_layer_type );
+    if ( !_layer_type ) _layer_type.emplace(pax_layer_type);
+    CheckResetLayer(pax_layer_type);
     std::set<SALONS2::TPlace*,SALONS2::CompareSeats> seats;
     SALONS2::TLayerPrioritySeat layerPrioritySeat = SALONS2::TLayerPrioritySeat::emptyLayer();
     salonList.getPaxLayer( _point_id, _pax_id, layerPrioritySeat, seats );
     if ( layerPrioritySeat.layerType() != cltUnknown ) {
+      curr_layer_type.emplace( layerPrioritySeat.layerType() );
       if ( !seats.empty() )
         currSeats.emplace( seats );
-    }
-
-    if ( layerPrioritySeat.layerType() != cltUnknown ) { //пересадка или назначение места
-      curr_layer_type.emplace( layerPrioritySeat.layerType() );
-      if ( !_layer_type  ) //слой в запросе не задан - тот же, что и текущий
-        _layer_type.emplace( curr_layer_type.value() );
-    }
-    if ( !_layer_type  ) {// ЛО или DeleteProtLayer?
-      grp = CheckIn::TSimplePaxGrpItem();
-      tst();
-      if ( grp.value().getByPaxId(_pax_id) ) //ЛО
-        _layer_type.emplace(grp.value().getCheckInLayerType());
-      else {
-        grp.reset();
-        LogError(STDLOG) << "reseat: _layer_type is not defined!";
-        return; //пассажир не зарегистрирован
-      }
     }
     LogTrace(TRACE5) << __func__ << " " <<_point_id << " " << _pax_id << " "
                      << EncodeCompLayerType(_layer_type.value())
@@ -655,31 +659,33 @@ private:
       std::map<int, TSetOfLayerPriority,classcomp > layers;
       seat->GetLayers( layers, glAll );
       tst();
-      const auto& lrs = layers.find( _point_id );
-      if ( lrs == layers.end() ||
-           lrs->second.empty() )
-        continue;
-      if ( lrs->second.begin()->getPaxId() == _pax_id &&
-           lrs->second.begin()->layerType() == _layer_type.value() &&
-           !_clientSets.isFlag(flSetPayLayer) )
-        throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
-      tst();
+      for (  const auto& lrs : layers ) {
+        LogTrace(TRACE5)  << lrs.first;
+        if ( lrs.second.empty() )
+          continue;
+        tst();
+        if ( lrs.second.begin()->getPaxId() == _pax_id &&
+             lrs.second.begin()->layerType() == _layer_type.value() &&
+             !_clientSets.isFlag(flSetPayLayer) )
+            throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
+        tst();
 
-      QrySeatRules.SetVariable( "old_layer", EncodeCompLayerType( lrs->second.begin()->layerType() ) );
-      ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( lrs->second.begin()->layerType() ) );
-      QrySeatRules.Execute();
-      tst();
-      if ( QrySeatRules.Eof ||
-         ( QrySeatRules.FieldAsInteger( "pr_owner" ) &&
-           _pax_id != lrs->second.begin()->getPaxId() ) ) {
-        if ( lrs->second.begin()->getPaxId() == NoExists )
-          throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
-        TTripInfo fltDep, fltArv;
-        fltDep.getByPointId( lrs->second.begin()->point_dep() );
-        fltArv.getByPointId( lrs->second.begin()->point_arv() );
-        throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_LEG_PASSENGER",
-                             LParams()<<LParam("airp_dep", ElemIdToCodeNative(etAirp,fltDep.airp) )
-                                      <<LParam("airp_arv", ElemIdToCodeNative(etAirp,fltArv.airp) ) );
+        QrySeatRules.SetVariable( "old_layer", EncodeCompLayerType( lrs.second.begin()->layerType() ) );
+        ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( lrs.second.begin()->layerType() ) );
+        QrySeatRules.Execute();
+        tst();
+        if ( QrySeatRules.Eof ||
+           ( QrySeatRules.FieldAsInteger( "pr_owner" ) &&
+             _pax_id != lrs.second.begin()->getPaxId() ) ) {
+          if ( lrs.second.begin()->getPaxId() == NoExists )
+            throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
+          TTripInfo fltDep, fltArv;
+          fltDep.getByPointId( lrs.second.begin()->point_dep() );
+          fltArv.getByPointId( lrs.second.begin()->point_arv() );
+          throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_LEG_PASSENGER",
+                               LParams()<<LParam("airp_dep", ElemIdToCodeNative(etAirp,fltDep.airp) )
+                                        <<LParam("airp_arv", ElemIdToCodeNative(etAirp,fltArv.airp) ) );
+        }
       }
       tst();
       if ( !UsedPayedPreseatForPassenger( fltInfo, flagCompLayerPriority, *seat, pass, false ) )
