@@ -257,8 +257,9 @@ int seat_no_test_single(int argc, char **argv)
 {
   tst();
     TQuery PointIdQry(&OraSession);
+    //scd_out IS NOT NULL AND scd_out > sysdate-2
     PointIdQry.SQLText=
-      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL and point_id=4912602 ORDER BY point_id";
+      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL AND scd_out > sysdate-2 AND scd_out < sysdate +1 ORDER BY point_id";
     PointIdQry.Execute();
   int c = 0;
   for (;!PointIdQry.Eof;PointIdQry.Next()) {
@@ -288,7 +289,7 @@ int seat_no_test_single(int argc, char **argv)
     c++;
     LogTrace(TRACE5) << c << " " << PointIdQry.FieldAsInteger("point_id");
     try {
-/*      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+      /*viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc1.docPtr()->children, false );
       viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc2.docPtr()->children, true );*/
@@ -298,10 +299,11 @@ int seat_no_test_single(int argc, char **argv)
       LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
       continue;
     }
-    if ( resDoc1.text() != resDoc2.text() )
+    if ( resDoc1.text() != resDoc2.text() ) {
       LogError(STDLOG) << PointIdQry.FieldAsInteger("point_id");
-    LogError(STDLOG) <<  resDoc2.text();
-    LogError(STDLOG) <<  resDoc1.text();
+      //LogError(STDLOG) << resDoc1.text();
+      //LogError(STDLOG) << resDoc2.text();
+    }
   }
   tst();
   return 0;

@@ -1214,6 +1214,7 @@ typedef std::map<TLayerPrioritySeat,TSeatRanges,LayerPrioritySeatCompare> TTotal
 struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
+                        TCompLayerType &pax_layer_type,
                         std::vector<TPlace*> &seats, bool with_crs = false ) const;
   public:
     int grp_id; //+ sort
@@ -1276,13 +1277,23 @@ struct TSalonPax {
       crew_type = pass.crew_type;
     }
     void get_seats( TWaitListReason &waitListReason,
+                    TCompLayerType &pax_layer_type,
+                    TPassSeats &ranges,
+                    bool with_crs = false ) const;
+    void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
                     bool with_crs = false ) const;
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
                     std::map<TSeat,TPlace*,CompareSeat> &descrs, bool with_crs = false ) const;
-    std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
-    std::string crs_seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
+    std::string seat_no( const std::string &format, bool pr_lat_seat,
+                         TWaitListReason &waitListReason,
+                         TCompLayerType &pax_layer_type) const;
+    std::string seat_no( const std::string &format, bool pr_lat_seat,
+                         TWaitListReason &waitListReason) const;
+    std::string crs_seat_no( const std::string &format, bool pr_lat_seat,
+                             TWaitListReason &waitListReason,
+                             TCompLayerType &pax_layer_type) const;
     std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
     std::string prior_crs_seat_no( const std::string &format, bool pr_lat_seat,
@@ -1711,10 +1722,13 @@ struct TSalonListReadParams {
   bool for_calc_waitlist;
   int prior_compon_props_point_id;
   bool read_all_notPax_layers;
+  bool for_get_crs_seat_no;
   TSalonListReadParams() {
+    tariff_pax_id = ASTRA::NoExists;
     for_calc_waitlist = false;
     prior_compon_props_point_id = ASTRA::NoExists;
     read_all_notPax_layers = false;
+    for_get_crs_seat_no = false;
   }
 };
 
@@ -1733,7 +1747,8 @@ class TSalonList {
                       int prior_compon_props_point_id );
     void ReadLayers( TQuery &Qry, FilterRoutesProperty &filterSegments,
                      TFilterLayers &filterLayers, TPaxList &pax_list,
-                     int prior_compon_props_point_id );
+                     const TSalonListReadParams &params,
+                     bool is_tlg_ranges=false);
     void ReadTariff( TQuery &Qry, FilterRoutesProperty &filterSegments,
                      int prior_compon_props_point_id );
     void ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoutes,
