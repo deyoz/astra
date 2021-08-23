@@ -436,6 +436,9 @@ namespace PgOra
         { "SP_PG_GROUP_BALANCE_SETS", {
                 "BALANCE_SETS",
         }},
+        { "SP_PG_GROUP_BALANCE_TYPES", {
+                "BALANCE_TYPES",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
