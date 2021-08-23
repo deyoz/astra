@@ -433,6 +433,9 @@ namespace PgOra
         { "SP_PG_GROUP_TRIP_COMP_REM", {
                 "TRIP_COMP_REM", // COMP_REM
         }},
+        { "SP_PG_GROUP_BALANCE_SETS", {
+                "BALANCE_SETS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

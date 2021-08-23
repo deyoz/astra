@@ -455,7 +455,7 @@ void getBalanceTypePermit( vector<string> &airlines,
   airlines.clear();
   airps.clear();
   flt_nos.clear();
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession({"BALANCE_SETS"}), STDLOG);
   Qry.SQLText =
     "SELECT airline,airp,flt_no FROM balance_sets "
     " WHERE balance_type=:balance_type AND pr_denial=0";
@@ -487,7 +487,7 @@ void getBalanceTypePermit( vector<string> &airlines,
     flt_nos.clear();
 }
 
-bool getBalanceFlightPermit( TQuery &FlightPermitQry,
+bool getBalanceFlightPermit( DB::TQuery &FlightPermitQry,
                              int point_id,
                              const string &airline,
                              const string &airp,
@@ -1013,16 +1013,16 @@ void importDBF( int external_point_id, string &dbf_file )
   vector<string> airps;
   vector<int> flt_nos;
   getBalanceTypePermit( airlines, airps, flt_nos );
-  TQuery FlightPermitQry( &OraSession );
+  DB::TQuery FlightPermitQry(PgOra::getROSession({"BALANCE_SETS"}), STDLOG);
   FlightPermitQry.SQLText =
-    "SELECT balance_type, "
-    "       DECODE( airp, NULL, 0, 8 ) + "
-    "       DECODE( bort, NULL, 0, 4 ) + "
-    "       DECODE( airline, NULL, 0, 2 ) + "
-    "       DECODE( flt_no, NULL, 0, 1 ) AS priority, "
-    "       pr_denial "
-    " FROM balance_sets "
-    " WHERE airp=:airp AND "
+      "SELECT balance_type, "
+      "       (CASE WHEN airp IS NULL THEN 0 ELSE 8 END + "
+      "       CASE WHEN bort IS NULL THEN 0 ELSE 4 END + "
+      "       CASE WHEN airline IS NULL THEN 0 ELSE 2 END + "
+      "       CASE WHEN flt_no IS NULL THEN 0 ELSE 1 END) AS priority, "
+      "       pr_denial "
+      " FROM balance_sets "
+      " WHERE airp=:airp AND "
       "       ( bort IS NULL OR bort=:bort ) AND "
       "       ( airline IS NULL OR airline=:airline ) AND "
       "       ( flt_no IS NULL OR flt_no=:flt_no ) "
