@@ -11,6 +11,7 @@
 #include "db_tquery.h"
 #include "PgOraConfig.h"
 #include "cache_access.h"
+#include <serverlib/dbcpp_session.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -980,19 +981,94 @@ void TUserData::create_var(TQuery &Qry, string name, int val)
         Qry.CreateVariable(name, otInteger, val);
 }
 
-void TUserData::del()
+int check_user_access(
+    const int user_id,
+    const int sys_user_id,
+    const int throw_exception)
 {
-    TQuery Qry(&OraSession);
+    TQuery Qry(&OraSession, STDLOG);
     Qry.SQLText =
         "BEGIN "
-        "  adm.delete_user(:old_user_id,:sys_user_id,:sys_user_descr,:sys_desk_code); "
+            ":user_id := adm.check_user_access(:user_id, :sys_user_id, :exception);"
         "END;";
-    Qry.CreateVariable("sys_user_id", otInteger, TReqInfo::Instance()->user.user_id);
-    Qry.CreateVariable("old_user_id", otInteger, user_id);
-    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("sys_user_id", otInteger, sys_user_id);
+    Qry.CreateVariable("exception", otInteger, throw_exception);
+    Qry.Execute();
+    return Qry.GetVariableAsInteger("user_id");
+}
+
+void deleteFromWebClients(const int user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("WEB_CLIENTS"), STDLOG);
+    Qry.SQLText = "DELETE FROM web_clients "
+                  "WHERE user_id = :user_id "
+                  "RETURNING id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    if (!Qry.Eof) {
+        HistoryTable("WEB_CLIENTS").synchronize(RowId_t(Qry.FieldAsInteger("id")));
+    }
+}
+
+void deleteFromFormPacks(const int user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("FORM_PACKS"), STDLOG);
+    Qry.SQLText = "DELETE FROM form_packs "
+                  "WHERE user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+}
+
+void deleteFromUserRoles(const int user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("USER_ROLES"), STDLOG);
+    Qry.SQLText = "DELETE FROM user_roles "
+                  "WHERE user_id = :user_id "
+                  "RETURNING id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    while (!Qry.Eof) {
+        HistoryTable("USER_ROLES").synchronize(RowId_t(Qry.FieldAsInteger("id")));
+        Qry.Next();
+    }
+}
+
+void deleteFromUserSets(const int user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("USER_SETS"), STDLOG);
+    Qry.SQLText = "DELETE FROM user_sets "
+                  "WHERE user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    HistoryTable("USER_SETS").synchronize(RowId_t(user_id));
+}
+
+void deleteFromUsers2(const int user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
+    Qry.SQLText = "UPDATE users2 "
+                  "SET login = NULL, passwd = NULL, pr_denial = -1, desk = NULL "
+                  "WHERE user_id = :user_id";
+    Qry.Execute();
+    HistoryTable("USERS2").synchronize(RowId_t(user_id));
+}
+
+void deleteUser(const int user_id, const int sys_user_id)
+{
+    check_user_access(user_id, sys_user_id, 2);
+    deleteFromWebClients(user_id);
+    deleteFromFormPacks(user_id);
+    deleteFromUserRoles(user_id);
+    deleteFromUserSets(user_id);
+    deleteFromUsers2(user_id);
+}
+
+void TUserData::del()
+{
     try {
-        Qry.Execute();
+        deleteUser(user_id, TReqInfo::Instance()->user.user_id);
+
         TReqInfo::Instance()->LocaleToLog("EVT.USER_DELETED", LEvntPrms()
                                           << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
                                           << PrmSmpl<int>("id", user_id), evtAccess);
@@ -1240,21 +1316,122 @@ void TUserData::update_aro(bool pr_insert)
     }
 }
 
-void TUserData::update()
+void updateUsers2(
+    const int user_id,
+    const std::string& login,
+    const int type,
+    const int pr_denial)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  adm.update_user(:old_user_id,:login,:type_code,:pr_denial,:sys_user_id, "
-        "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code, "
-        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:sys_user_descr,:sys_desk_code); "
-        "END;";
-    create_vars(Qry, true);
-    Qry.CreateVariable("old_user_id", otInteger, user_id);
-    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
+    DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
+    Qry.SQLText = "UPDATE users2 "
+                  "SET login = :login, type = :type, pr_denial = :pr_denial "
+                  "WHERE user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("login", otString, login);
+    Qry.CreateVariable("type", otInteger, type);
+    Qry.CreateVariable("pr_denial", otInteger, pr_denial);
     try {
         Qry.Execute();
+    } catch (EOracleError &e) {
+        if (CERR_DUPK == e.Code) {
+            throw AstraLocale::UserException("MSG.ACCESS.USERNAME_ALREADY_IN_SYSTEM");
+        }
+        throw;
+    }
+
+    HistoryTable("USERS2").synchronize(RowId_t(user_id));
+}
+
+bool lessThanZeroOrEquals(const int value, const int equalsTo) {
+    return value < 0 || value == equalsTo;
+}
+
+void updateUserSets(
+    const int user_id,
+    const int time_fmt,
+    const int airline_fmt,
+    const int airp_fmt,
+    const int craft_fmt,
+    const int suffix_fmt)
+{
+    auto& sess = PgOra::getRWSession("USER_SETS");
+    DB::TQuery Qry(sess, STDLOG);
+    if (lessThanZeroOrEquals(time_fmt, 1)
+     && lessThanZeroOrEquals(airline_fmt, 9)
+     && lessThanZeroOrEquals(airp_fmt, 9)
+     && lessThanZeroOrEquals(craft_fmt, 9)
+     && lessThanZeroOrEquals(suffix_fmt, 17)) {
+        Qry.SQLText = "DELETE FROM user_sets "
+                      "WHERE user_id = :user_id";
+        Qry.CreateVariable("user_id", otInteger, user_id);
+    } else {
+        Qry.SQLText = sess.isOracle()
+         ? "BEGIN "
+               "UPDATE user_sets "
+                  "SET time = :time_fmt, "
+                      "disp_airline = :airline_fmt, "
+                      "disp_airp = :airp_fmt, "
+                      "disp_craft = :craft_fmt, "
+                      "disp_suffix = :suffix_fmt "
+                "WHERE user_id = :user_id; "
+               "IF SQL%NOTFOUND THEN "
+                   "INSERT INTO user_sets("
+                          "user_id, time, disp_airline, "
+                          "disp_airp, disp_craft, disp_suffix) "
+                  "VALUES(:user_id,:time_fmt,:airline_fmt,"
+                         ":airp_fmt,:craft_fmt,:suffix_fmt); "
+               "END IF; "
+           "END;"
+         : "INSERT INTO user_sets"
+                  "(user_id, time, disp_airline, "
+                   "disp_airp, disp_craft, disp_suffix) "
+           "VALUES(:user_id,:time_fmt,:airline_fmt,"
+                  ":airp_fmt,:craft_fmt,:suffix_fmt) "
+           "ON CONFLICT (USER_ID) "
+           "DO UPDATE SET time = :time_fmt, "
+                         "disp_airline = :airline_fmt, "
+                         "disp_airp = :airp_fmt, "
+                         "disp_craft = :craft_fmt, "
+                         "disp_suffix = :suffix_fmt";
+
+        Qry.CreateVariable("user_id", otInteger, user_id);
+        Qry.CreateVariable("time_fmt", otInteger, time_fmt);
+        Qry.CreateVariable("airline_fmt", otInteger, airline_fmt);
+        Qry.CreateVariable("airp_fmt", otInteger, airp_fmt);
+        Qry.CreateVariable("craft_fmt", otInteger, craft_fmt);
+        Qry.CreateVariable("suffix_fmt", otInteger, suffix_fmt);
+    }
+    Qry.Execute();
+    HistoryTable("USER_SETS").synchronize(RowId_t(user_id));
+}
+
+void updateUser(
+    const int user_id,
+    const int sys_user_id,
+    const std::string& login,
+    const int type,
+    const int pr_denial,
+    const int time_fmt,
+    const int airline_fmt,
+    const int airp_fmt,
+    const int craft_fmt,
+    const int suffix_fmt)
+{
+    check_user_access(user_id, sys_user_id, 2);
+    updateUsers2(user_id, login, type, pr_denial);
+
+    if (!check_user_access(user_id, sys_user_id, 0)) {
+        throw AstraLocale::UserException("MSG.ACCESS.NO_PERM_ENTER_USER_TYPE");
+    }
+
+    updateUserSets(user_id, time_fmt, airline_fmt, airp_fmt, craft_fmt, suffix_fmt);
+}
+
+void TUserData::update()
+{
+    try {
+        updateUser(user_id, TReqInfo::Instance()->user.user_id, login, user_type,
+                   pr_denial, time_fmt, airline_fmt, airp_fmt, craft_fmt, suff_fmt);
     }
     catch(EOracleError &E)
     {
@@ -1292,20 +1469,107 @@ void TUserData::to_log(bool pr_update)
     TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtAccess);
 }
 
-void TUserData::insert()
+void insertIntoUsers2(
+    const int user_id,
+    const std::string& login,
+    const std::string& descr,
+    const int type,
+    const int pr_denial)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  adm.insert_user(:login,:descr,:type_code,:pr_denial,:sys_user_id, "
-        "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code, "
-        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:sys_user_descr,:sys_desk_code); "
-        "END;";
-    create_vars(Qry);
-    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
+    DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
+    Qry.SQLText = "INSERT INTO users2(user_id, login, passwd, descr, type, pr_denial) "
+                             "VALUES(:user_id,:login, :login,:descr,:type,:pr_denial)";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("login", otString, login);
+    Qry.CreateVariable("descr", otString, descr);
+    Qry.CreateVariable("type", otInteger, type);
+    Qry.CreateVariable("pr_denial", otInteger, pr_denial);
     try {
         Qry.Execute();
+    } catch (EOracleError &e) {
+        if (CERR_DUPK == e.Code) {
+            throw AstraLocale::UserException("MSG.ACCESS.USERNAME_ALREADY_IN_SYSTEM");
+        }
+        throw;
+    }
+
+    HistoryTable("USERS2").synchronize(RowId_t(user_id));
+}
+
+void insertIntoAroAirlines(
+    const int id,
+    const int user_id,
+    const int sys_user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("ARO_AIRLINES"), STDLOG);
+    Qry.SQLText = "INSERT INTO aro_airlines(aro_id, airline, id) "
+                  "SELECT :user_id, airline, :id "
+                  "FROM aro_airlines "
+                  "WHERE aro_id = :sys_user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("sys_user_id", otInteger, sys_user_id);
+    Qry.Execute();
+    HistoryTable("ARO_AIRLINES").synchronize(RowId_t(id));
+}
+
+void insertIntoAroAirps(
+    const int id,
+    const int user_id,
+    const int sys_user_id)
+{
+    DB::TQuery Qry(PgOra::getRWSession("ARO_AIRPS"), STDLOG);
+    Qry.SQLText = "INSERT INTO aro_airps(aro_id, airp, id)"
+                  "SELECT :user_id, airp, :id "
+                  "FROM aro_airps "
+                  "WHERE aro_id = :sys_user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("sys_user_id", otInteger, sys_user_id);
+    Qry.Execute();
+    HistoryTable("ARO_AIRPS").synchronize(RowId_t(id));
+}
+
+void insertIntoUserSets(
+    const int user_id,
+    const int time_fmt,
+    const int airline_fmt,
+    const int airp_fmt,
+    const int craft_fmt,
+    const int suffix_fmt)
+{
+    if (!lessThanZeroOrEquals(time_fmt, 1)
+     || !lessThanZeroOrEquals(airline_fmt, 9)
+     || !lessThanZeroOrEquals(airp_fmt, 9)
+     || !lessThanZeroOrEquals(craft_fmt, 9)
+     || !lessThanZeroOrEquals(suffix_fmt, 17)) {
+        DB::TQuery Qry(PgOra::getRWSession("USER_SETS"), STDLOG);
+        Qry.SQLText = "INSERT INTO user_sets(user_id, time, disp_airline, disp_airp, disp_craft, disp_suffix) "
+                                    "VALUES(:user_id,:time_fmt,:airline_fmt,:airp_fmt,:craft_fmt,:suffix_fmt)";
+        Qry.CreateVariable("user_id", otInteger, user_id);
+        Qry.CreateVariable("time_fmt", otInteger, time_fmt);
+        Qry.CreateVariable("airline_fmt", otInteger, airline_fmt);
+        Qry.CreateVariable("airp_fmt", otInteger, airp_fmt);
+        Qry.CreateVariable("craft_fmt", otInteger, craft_fmt);
+        Qry.CreateVariable("suffix_fmt", otInteger, suffix_fmt);
+        Qry.Execute();
+        HistoryTable("USER_SETS").synchronize(RowId_t(user_id));
+    }
+}
+
+void TUserData::insert()
+{
+    try {
+        int user_id = PgOra::getSeqNextVal_int("ID__SEQ");
+        insertIntoUsers2(user_id, login, descr, user_type, pr_denial);
+        int id = PgOra::getSeqNextVal_int("ID__SEQ");
+        insertIntoAroAirlines(id, user_id, TReqInfo::Instance()->user.user_id);
+        insertIntoAroAirps(id, user_id, TReqInfo::Instance()->user.user_id);
+        if (!check_user_access(user_id, TReqInfo::Instance()->user.user_id, false)) {
+            throw AstraLocale::UserException("MSG.ACCESS.NO_PERM_ENTER_USER_TYPE");
+        }
+
+        insertIntoUserSets(user_id, time_fmt, airline_fmt, airp_fmt, craft_fmt, suff_fmt);
     }
     catch(EOracleError &E)
     {
