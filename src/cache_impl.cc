@@ -98,6 +98,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
 #endif //ENABLE_ORACLE
   if (cacheCode=="COMP_REM_TYPES")      return new CacheTable::CompRemTypes;
   if (cacheCode=="CKIN_REM_TYPES")      return new CacheTable::CkinRemTypes;
+  if (cacheCode=="BALANCE_TYPES")       return new CacheTable::BalanceTypes;
   if (cacheCode=="CRS_SET")          return new CacheTable::CrsSet;
 
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
@@ -3643,6 +3644,18 @@ std::optional<RowId_t> CkinRemTypes::getRowIdBeforeInsert(const CacheTable::Row&
   if (cur.err() != DbCpp::ResultCode::NoDataFound) return RowId_t(id);
 
   return std::nullopt;
+}
+
+//BalanceTypes
+
+bool BalanceTypes::userDependence() const {
+  return false;
+}
+std::string BalanceTypes::selectSql() const {
+  return "SELECT code, name, name_lat FROM balance_types ORDER BY code";
+}
+std::list<std::string> BalanceTypes::dbSessionObjectNames() const {
+  return {"BALANCE_TYPES"};
 }
 
 //CodeshareSets

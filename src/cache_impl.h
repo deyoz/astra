@@ -988,6 +988,14 @@ class CkinRemTypes : public CacheTableKeepDeletedRows
     std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const override;
 };
 
+class BalanceTypes : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
 class CodeshareSets : public CacheTableWritableHandmade
 {
   public:
