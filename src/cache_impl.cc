@@ -127,6 +127,21 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
 namespace CacheTable
 {
 
+void checkInvalidSymbolInName(const std::string &value,
+                              const bool latinOnly,
+                              const std::string &additionalSymbols,
+                              const std::string &cacheTable,
+                              const std::string &cacheField)
+{
+  const std::optional<std::string> ch = invalidSymbolInName(value, latinOnly, additionalSymbols);
+  if (ch) {
+    std::string fieldName=getLocaleText(getCacheInfo(cacheTable).fieldTitle.at(cacheField));
+    throw UserException("MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
+                        LParams() << LParam("field_name", fieldName)
+                                  << LParam("symbol", *ch));
+  }
+}
+
 bool GrpBagTypesOutdated::userDependence() const {
   return false;
 }
@@ -2023,29 +2038,16 @@ std::list<std::string> BrandFares::dbSessionObjectNamesForRead() const
   return {"BRAND_FARES","BRANDS"};
 }
 
-void checkInvalidSymbolInName(const std::string& fieldName,
-                              bool latinOnly,
-                              const std::string &additionalSymbols,
-                              const std::optional<CacheTable::Row>& newRow)
-{
-  if (!newRow) return;
-
-  const std::string value = newRow.value().getAsString(fieldName);
-  const std::optional<char> ch = invalidSymbolInName(value, latinOnly, additionalSymbols);
-  if (ch) {
-    throw UserException("MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
-                        LParams() << LParam("field_name", fieldName)
-                        << LParam("symbol", *ch));
-  }
-}
-
 void BrandFares::beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                           const std::optional<CacheTable::Row>& oldRow,
                                           std::optional<CacheTable::Row>& newRow) const
 {
   checkAirlineAccess("airline", oldRow, newRow);
-  if (status == usInserted || status == usModified) {
-      checkInvalidSymbolInName("fare_basis", false /*latinOnly*/, "-/*", newRow);
+
+  if (newRow)
+  {
+    std::string fareBasis=newRow.value().getAsString_ThrowOnEmpty("fare_basis");
+    checkInvalidSymbolInName(fareBasis, false /*latinOnly*/, "-/*", "BRAND_FARES", "FARE_BASIS");
   }
 }
 

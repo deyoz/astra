@@ -2259,9 +2259,9 @@ bool isDoomedToWait()
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
 }
 
-std::optional<char> invalidSymbolInName(const std::string &value,
-                                        const bool latinOnly,
-                                        const std::string &additionalSymbols)
+std::optional<std::string> invalidSymbolInName(const std::string &value,
+                                               const bool latinOnly,
+                                               const std::string &additionalSymbols)
 {
 
   const string::const_iterator i=
@@ -2272,7 +2272,7 @@ std::optional<char> invalidSymbolInName(const std::string &value,
                               IsDigit(c) ||
                               additionalSymbols.find(c)!=string::npos;
                      });
-  if (i!=value.end()) return *i;
+  if (i!=value.end()) return std::string(1, *i);
 
   return std::nullopt;
 }
