@@ -2795,10 +2795,10 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
            "suffix, "
            "scd_out, "
            "act_out, "
-           "COALESCE(pr_lat_seat,1) AS pr_lat_seat, "
-           "COALESCE(comp_id, -1) AS comp_id, "
+           "COALESCE(pr_lat_seat,1) as pr_lat_seat, "
+           "COALESCE(comp_id, -1) comp_id, "
            "crc_comp, "
-           "COALESCE(crc_base_comp, crc_comp) AS crc_base_comp, "
+           "COALESCE(crc_base_comp, crc_comp) as crc_base_comp, "
            "craft, "
            "bort, "
            "airp, "
@@ -6254,7 +6254,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         //изменились места - удаляем старые, записываем новые
         DB::TCachedQuery DelQry(
               PgOra::getRWSession("PAX_SEATS"),
-              "DELETE FROM pax_seats "
+              "DELETE pax_seats "
               "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
               QParams() << QParam("point_id", otInteger, ipoint->point_id)
                         << QParam("pax_id", otInteger, inew->first),
@@ -6285,7 +6285,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
 
         DB::TCachedQuery DelQry(
               PgOra::getRWSession("PAX_SEATS"),
-              "DELETE FROM pax_seats "
+              "DELETE pax_seats "
               "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
               sqlParams,
               STDLOG);
@@ -8895,9 +8895,9 @@ void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
 void getPaxSeatsWL( int point_id, std::map< bool,std::map < int, TSeatRanges > > &seats ) //docs
 {
   seats.clear();
-  DB::TQuery Qry(PgOra::getROSession("PAX_SEATS"),STDLOG);
+  TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT pax_id, xname, yname, COALESCE(pr_wl,0) AS pr_wl FROM pax_seats "
+    "SELECT pax_id, xname, yname, NVL(pr_wl,0) pr_wl FROM pax_seats "
     "WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();

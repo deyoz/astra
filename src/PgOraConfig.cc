@@ -439,9 +439,6 @@ namespace PgOra
         { "SP_PG_GROUP_BALANCE_TYPES", {
                 "BALANCE_TYPES",
         }},
-        { "SP_PG_GROUP_PAX_SEATS", {
-                "PAX_SEATS", // PAX, PAX_GRP
-        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
