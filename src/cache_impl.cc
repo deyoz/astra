@@ -80,11 +80,15 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="POS_TERM_SETS")       return new CacheTable::PosTermSets;
   if (cacheCode=="PLACE_CALC")          return new CacheTable::PlaceCalc;
   if (cacheCode=="COMP_SUBCLS_SETS")    return new CacheTable::CompSubclsSets;
+  if (cacheCode=="KIOSK_LANG")          return new CacheTable::KioskLang;
   if (cacheCode=="KIOSK_ALIASES_LIST")  return new CacheTable::KioskAliasesList;
   if (cacheCode=="KIOSK_APP_LIST")      return new CacheTable::KioskAppList;
   if (cacheCode=="KIOSK_CONFIG_LIST")   return new CacheTable::KioskConfigList;
   if (cacheCode=="KIOSK_ADDR")          return new CacheTable::KioskAddr;
   if (cacheCode=="KIOSK_GRP_NAMES")     return new CacheTable::KioskGrpNames;
+  if (cacheCode=="KIOSK_ALIASES")       return new CacheTable::KioskAliases;
+  if (cacheCode=="KIOSK_CONFIG")        return new CacheTable::KioskConfig;
+  if (cacheCode=="KIOSK_GRP")           return new CacheTable::KioskGrp;
   if (cacheCode=="CODESHARE_SETS")      return new CacheTable::CodeshareSets;
 #ifndef ENABLE_ORACLE
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;

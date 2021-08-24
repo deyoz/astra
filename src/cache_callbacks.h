@@ -202,39 +202,39 @@ class CacheTableReadonly : public CacheTableCallbacks
 {
   public:
     std::string refreshSql() const { return ""; }
-    std::string insertSql() const { return ""; }
-    std::string updateSql() const { return ""; }
-    std::string deleteSql() const { return ""; }
+    std::string insertSql() const final { return ""; }
+    std::string updateSql() const final { return ""; }
+    std::string deleteSql() const final { return ""; }
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const {}
+                                  std::optional<CacheTable::Row>& newRow) const final {}
     void onApplyingRowChanges(const TCacheUpdateStatus status,
                               const std::optional<CacheTable::Row>& oldRow,
-                              const std::optional<CacheTable::Row>& newRow) const {}
+                              const std::optional<CacheTable::Row>& newRow) const final {}
     void afterApplyingRowChanges(const TCacheUpdateStatus status,
                                  const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const {}
+                                 const std::optional<CacheTable::Row>& newRow) const final {}
 };
 
 class CacheTableReadonlyHandmade : public CacheTableCallbacks
 {
   public:
-    std::string selectSql() const { return ""; };
-    std::string refreshSql() const { return ""; }
-    std::string insertSql() const { return ""; }
-    std::string updateSql() const { return ""; }
-    std::string deleteSql() const { return ""; }
+    std::string selectSql() const final { return ""; };
+    std::string refreshSql() const final { return ""; }
+    std::string insertSql() const final { return ""; }
+    std::string updateSql() const final { return ""; }
+    std::string deleteSql() const final { return ""; }
     std::list<std::string> dbSessionObjectNames() const { return {}; }
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const {}
+                                  std::optional<CacheTable::Row>& newRow) const final {}
     void onApplyingRowChanges(const TCacheUpdateStatus status,
                               const std::optional<CacheTable::Row>& oldRow,
-                              const std::optional<CacheTable::Row>& newRow) const {}
+                              const std::optional<CacheTable::Row>& newRow) const final {}
     void afterApplyingRowChanges(const TCacheUpdateStatus status,
                                  const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const {}
+                                 const std::optional<CacheTable::Row>& newRow) const final {}
 };
 
 class CacheTableWritable : public CacheTableCallbacks
@@ -245,6 +245,17 @@ class CacheTableWritable : public CacheTableCallbacks
     void onApplyingRowChanges(const TCacheUpdateStatus status,
                               const std::optional<CacheTable::Row>& oldRow,
                               const std::optional<CacheTable::Row>& newRow) const {}
+};
+
+class CacheTableWritableSimple : public CacheTableWritable
+{
+  public:
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
 };
 
 class CacheTableWritableHandmade : public CacheTableCallbacks
