@@ -1207,7 +1207,7 @@ struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
                         TCompLayerType &pax_layer_type,
-                        std::vector<TPlace*> &seats, bool with_crs = false ) const;
+                        std::vector<TPlace*> &seats) const;
   public:
     int grp_id; //+ sort
     int pax_id; //+
@@ -1228,7 +1228,7 @@ struct TSalonPax {
     int parent_pax_id;
     bool pr_web;
     ASTRA::TCrewType::Enum crew_type;
-    TLayersPax layers;
+    TLayersPax layers; // здесь только валидные + не валидные менее приоритетные commit-rollback из в save_layers
     TLayersPax save_layers;
     TTotalRanges total_ranges;
     TSalonPax() {
@@ -1270,31 +1270,30 @@ struct TSalonPax {
     }
     void get_seats( TWaitListReason &waitListReason,
                     TCompLayerType &pax_layer_type,
-                    TPassSeats &ranges,
-                    bool with_crs = false ) const;
+                    TPassSeats &ranges) const;
+    void get_seats( TWaitListReason &waitListReason,
+                    TPassSeats &ranges ) const;
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
-                    bool with_crs = false ) const;
-    void get_seats( TWaitListReason &waitListReason,
-                    TPassSeats &ranges,
-                    std::map<TSeat,TPlace*,CompareSeat> &descrs, bool with_crs = false ) const;
+                    std::map<TSeat,TPlace*,CompareSeat> &descrs ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat,
                          TWaitListReason &waitListReason,
                          TCompLayerType &pax_layer_type) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat,
                          TWaitListReason &waitListReason) const;
-    std::string crs_seat_no( const std::string &format, bool pr_lat_seat,
+/*    std::string crs_seat_no( const std::string &format, bool pr_lat_seat,
                              TWaitListReason &waitListReason,
-                             TCompLayerType &pax_layer_type) const;
+                             TCompLayerType &pax_layer_type) const;*/
     std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
     std::string prior_crs_seat_no( const std::string &format, bool pr_lat_seat,
-                                   ASTRA::TCompLayerType& layer_type ) const;
+                                   TCompLayerType& pax_layer_type ) const;
 };
                                 //pax_id,TSalonPax
 class TPaxList: public std::map<int,TSalonPax> {
   public:
     std::map<int,TSalonPax> infants;
+    std::set<int> refuseds; //pax_id с отмененной регистрацией
     void InfantToSeatDrawProps();
     void TranzitToSeatDrawProps( int point_dep );
     void dumpValidLayers();
@@ -1714,13 +1713,13 @@ struct TSalonListReadParams {
   bool for_calc_waitlist;
   int prior_compon_props_point_id;
   bool read_all_notPax_layers;
-  bool for_get_crs_seat_no;
+  bool for_get_seat_no;
   TSalonListReadParams() {
     tariff_pax_id = ASTRA::NoExists;
     for_calc_waitlist = false;
     prior_compon_props_point_id = ASTRA::NoExists;
     read_all_notPax_layers = false;
-    for_get_crs_seat_no = false;
+    for_get_seat_no = false;
   }
 };
 
@@ -1753,8 +1752,8 @@ class TSalonList {
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
                       int pax_id, std::string &airp_arv );
     void validateLayersSeats( bool read_all_notPax_layers );
-    void CommitLayers();
-    void RollbackLayers();
+    void CommitLayers(); // сохранение только валидных слоев в pax_lists[ point_id, pax_id ].save_layers
+    void RollbackLayers(); // восстановление в pax_lists[ point_id, pax_id ].layers из pax_lists[ point_id, pax_id ].save_layers
   public:
     SALONS2::CraftSeats _seats; //private!!!
     std::map<int,TPaxList> pax_lists;
@@ -1769,6 +1768,7 @@ class TSalonList {
       salonPax = ipax->second;
       return true;
     }
+    bool isRefused( int point_dep, int pax_id ) const;
     bool isCraftLat() const {
       return pr_craft_lat;
     }
