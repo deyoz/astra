@@ -428,7 +428,7 @@ namespace PgOra
                 "VALUE_BAG",
         }},
         { "SP_PG_GROUP_PAY_METHODS", {
-                "PAY_METHODS_SET","PAY_METHODS_TYPES",
+                "PAY_METHODS_SET","PAY_METHODS_TYPES","HIST_PAY_METHODS_SET",
         }},
         { "SP_PG_GROUP_TRIP_COMP_REM", {
                 "TRIP_COMP_REM", // COMP_REM

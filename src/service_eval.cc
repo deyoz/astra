@@ -63,13 +63,13 @@ bool isPaymentAtDesk( int point_id, int &method_type )
   if (!fltInfo.getByPointId(point_id))
     throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   if ( GetTripSets(tsPayAtDesk, fltInfo) ) {
-     TQuery Qry(&OraSession);
+     DB::TQuery Qry(PgOra::getROSession("PAY_METHODS_SET"),STDLOG);
      Qry.SQLText =
        "SELECT method_type, "
-       " DECODE(airline,:airline,100,NULL,50,0) + "
-       " DECODE(airp_dep,:airp_dep,100,NULL,50,0)+ "
-       " DECODE(desk,:desk,1000,NULL,50,0) + "
-       " DECODE(desk_grp_id,:desk_grp_id,500,NULL,50,0) AS priority "
+       " (CASE WHEN airline=:airline THEN 100 WHEN airline is NULL THEN 50 ELSE 0 END) + "
+       " (CASE WHEN airp_dep=:airp_dep THEN 100 WHEN airp_dep IS NULL THEN 50 ELSE 0 END)+ "
+       " (CASE WHEN desk=:desk THEN 1000 WHEN desc IS NULL THEN 50 ELSE 0 END ) + "
+       " (CASE WHEN desk_grp_id=:desk_grp_id THEN 500 WHEN desk_grp_id IS NULL THEN 50 ELSE 0 END ) AS priority "
        " FROM pay_methods_set "
        " WHERE (airline=:airline OR airline IS NULL) AND "
        "       (airp_dep=:airp_dep OR airp_dep IS NULL) AND "
