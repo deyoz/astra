@@ -385,8 +385,9 @@ namespace PgOra
         { "SP_PG_GROUP_COMP_SUBCLS_SETS", {
                 "COMP_SUBCLS_SETS",
         }},
-        { "SP_PG_GROUP_COMP_RFISC_COMP_PROPS", {
-                "RFISC_COMP_PROPS", // BRAND_FARES, RFISC_RATES
+        { "SP_PG_GROUP_RFISC_BRANDS", {
+                "RFISC_COMP_PROPS", // "BRAND_FARES", "RFISC_RATES"
+                "BRAND_FARES",      // "BRANDS", "RFISC_RATES", "RFISC_COMP_PROPS", ADM.insert_brand_fares
         }},
         { "SP_PG_GROUP_COMP_TRIP_COMP_RATES", {
                 "TRIP_COMP_RATES", // COMP_RATES

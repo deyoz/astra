@@ -2294,6 +2294,13 @@ void checkDateRange(TDateTime first_date, TDateTime last_date)
   }
 }
 
+void dateTimeToDatePeriod(TDateTime first_datetime, TDateTime last_datetime,
+                          TDateTime& first_date, TDateTime& last_date)
+{
+  std::modf(first_datetime, &first_date);
+  std::modf(last_datetime, &last_date);
+}
+
 void checkPeriod(bool pr_new,
                  TDateTime first_datetime,
                  TDateTime last_datetime,
@@ -2305,8 +2312,8 @@ void checkPeriod(bool pr_new,
     if (first_datetime == ASTRA::NoExists && last_datetime == ASTRA::NoExists) {
         throw AstraLocale::UserException("MSG.TABLE.NOT_SET_RANGE");
     }
-    std::modf(first_datetime, &first_date);
-    std::modf(last_datetime, &last_date);
+    dateTimeToDatePeriod(first_datetime, last_datetime,
+                         first_date, last_date);
 
     if (first_datetime != ASTRA::NoExists
         && last_datetime != ASTRA::NoExists)

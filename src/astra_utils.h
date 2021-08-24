@@ -877,6 +877,8 @@ bool isValidName(const std::string &value, const bool latinOnly, const std::stri
 bool isValidAirlineName(const std::string &value, const bool latinOnly);
 
 void checkDateRange(TDateTime first_date, TDateTime last_date);
+void dateTimeToDatePeriod(TDateTime first_datetime, TDateTime last_datetime,
+                          TDateTime& first_date, TDateTime& last_date);
 void checkPeriod(bool pr_new,
                  TDateTime first_date,
                  TDateTime last_date,

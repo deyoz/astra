@@ -569,6 +569,33 @@ class TripBt : public CacheTableWritableWoCallbacks
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
 };
 
+class BrandFares : public CacheTableWritableHandmade
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string deleteSql() const;
+
+    bool insertImplemented() const;
+    bool updateImplemented() const;
+
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
+
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
 class BaggageWt : public CacheTableWritableHandmade
 {
   public:

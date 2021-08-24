@@ -3274,53 +3274,5 @@ BEGIN
   END IF;
 END insert_rfisc_rates;
 
-PROCEDURE insert_brand_fares(vid              IN brand_fares.id%TYPE,
-                             vsys_user_id     IN users2.user_id%TYPE,
-                             vairline         IN brand_fares.airline%TYPE,
-                             vairline_view    IN VARCHAR2,
-                             vfare_basis      IN brand_fares.fare_basis%TYPE,
-                             vbrand           IN brand_fares.brand%TYPE,
-                             vsale_first_date IN brand_fares.sale_first_date%TYPE,
-                             vsale_last_date  IN brand_fares.sale_last_date%TYPE,
-                             vlang            IN lang_types.code%TYPE,
-                             vsetting_user    IN history_events.open_user%TYPE,
-                             vstation         IN history_events.open_desk%TYPE)
-IS
-existing_periods     periods_cur;
-new_period           periods_row;
-vairlineh            brand_fares.airline%TYPE;
-BEGIN
-  vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
-
-  check_chars_in_name(vfare_basis, NULL, '-/*', 'BRAND_FARES', 'FARE_BASIS', vlang);
-
---  SELECT COUNT(*) FROM eticks_display WHERE last_display>TO_DATE('16.01.19','DD.MM.YY') AND system.invalid_char_in_name(fare_basis, NULL, '-/') IS NOT NULL;
-
-  OPEN existing_periods FOR
-    SELECT id, sale_first_date, sale_last_date
-    FROM brand_fares
-    WHERE airline=vairline AND fare_basis=vfare_basis;
-
-  normalize_and_check_period(vid,
-                             vsale_first_date,
-                             vsale_last_date,
-                             existing_periods,
-                             new_period.first_date,
-                             new_period.last_date);
-
-  IF vid IS NULL THEN
-    SELECT id__seq.nextval INTO new_period.id FROM dual;
-    INSERT INTO brand_fares(id, airline, fare_basis, brand, sale_first_date, sale_last_date)
-    VALUES(new_period.id, vairline, vfare_basis, vbrand, new_period.first_date, new_period.last_date);
-    hist.synchronize_history('brand_fares', new_period.id, vsetting_user, vstation);
-  ELSE
-    UPDATE brand_fares
-    SET airline=vairline, fare_basis=vfare_basis, brand=vbrand,
-        sale_first_date=new_period.first_date, sale_last_date=new_period.last_date
-    WHERE id=vid;
-    hist.synchronize_history('brand_fares', vid, vsetting_user, vstation);
-  END IF;
-END insert_brand_fares;
-
 END adm;
 /

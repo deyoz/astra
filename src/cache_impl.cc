@@ -3,6 +3,7 @@
 #include "astra_elems.h"
 #include "astra_types.h"
 #include "kassa.h"
+#include "brands.h"
 #include "kiosk/kiosk_cache_impl.h"
 #include "stat/stat_general.h"
 #include "codeshare_sets.h"
@@ -118,6 +119,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="PRN_FORM_VERS")       return new CacheTable::PrnFormVers;
   if (cacheCode=="PRN_FORMS")           return new CacheTable::PrnForms;
   if (cacheCode=="TRIP_BT")             return new CacheTable::TripBt;
+  if (cacheCode=="BRAND_FARES")         return new CacheTable::BrandFares;
 
   return nullptr;
 }
@@ -1367,10 +1369,11 @@ void CrsSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("crs_set").synchronize(getRowId("id", oldRow, newRow));
 }
 
-std::string lastDateSelectSQL(const std::string& objectName)
+std::string lastDateSelectSQL(const std::string& objectName, const std::string& field_name = "last_date")
 {
-  return PgOra::supportsPg(objectName)?"last_date - interval '1 second' AS last_date":
-                                       "last_date-1/86400 AS last_date";
+  return PgOra::supportsPg(objectName)
+          ? (field_name + " - interval '1 second' AS " + field_name)
+          : (field_name + " - 1 / 86400 AS " + field_name);
 }
 
 //Pacts
@@ -1947,6 +1950,110 @@ void TripBt::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRow
         .setFromString(bt_name)
         .addRow();
   }
+}
+
+//BrandFares
+
+bool BrandFares::userDependence() const
+{
+  return true;
+}
+
+std::string BrandFares::selectSql() const
+{
+  return "SELECT brand_fares.id, brand_fares.airline, brand_fares.fare_basis, brand_fares.brand, "
+         "       brands.id AS brand_view, brand_fares.sale_first_date, "
+         "       " + lastDateSelectSQL("BRAND_FARES", "sale_last_date") + " "
+         "FROM brand_fares, brands "
+         "WHERE brand_fares.airline=brands.airline AND "
+         "      brand_fares.brand=brands.code AND "
+         "      " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY brand_fares.airline, brand_fares.brand, brand_fares.fare_basis ";
+}
+
+std::string BrandFares::deleteSql() const
+{
+  return "DELETE FROM brand_fares "
+         "WHERE id = :OLD_id ";
+}
+
+bool BrandFares::insertImplemented() const
+{
+  return true;
+}
+
+bool BrandFares::updateImplemented() const
+{
+  return true;
+}
+
+void BrandFares::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<Row>& oldRow,
+                                      const std::optional<Row>& newRow) const
+{
+  if (status == usInserted)
+  {
+    const CacheTable::Row& row = newRow.value();
+    insert_brand_fare(ASTRA::NoExists,
+                      row.getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                      row.getAsDateTime("sale_last_date", ASTRA::NoExists),
+                      row.getAsString("airline"),
+                      row.getAsString("fare_basis"),
+                      row.getAsString("brand"));
+  }
+
+  if (status == usModified)
+  {
+    insert_brand_fare(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                      newRow.value().getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                      newRow.value().getAsDateTime("sale_last_date", ASTRA::NoExists),
+                      newRow.value().getAsString("airline"),
+                      newRow.value().getAsString("fare_basis"),
+                      newRow.value().getAsString("brand"));
+  }
+}
+
+std::list<std::string> BrandFares::dbSessionObjectNames() const
+{
+  return {"BRAND_FARES"};
+}
+
+std::list<std::string> BrandFares::dbSessionObjectNamesForRead() const
+{
+  return {"BRAND_FARES","BRANDS"};
+}
+
+void checkInvalidSymbolInName(const std::string& fieldName,
+                              bool latinOnly,
+                              const std::string &additionalSymbols,
+                              const std::optional<CacheTable::Row>& newRow)
+{
+  if (!newRow) return;
+
+  const std::string value = newRow.value().getAsString(fieldName);
+  const std::optional<char> ch = invalidSymbolInName(value, latinOnly, additionalSymbols);
+  if (ch) {
+    throw UserException("MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
+                        LParams() << LParam("field_name", fieldName)
+                        << LParam("symbol", *ch));
+  }
+}
+
+void BrandFares::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  if (status == usInserted || status == usModified) {
+      checkInvalidSymbolInName("fare_basis", false /*latinOnly*/, "-/*", newRow);
+  }
+}
+
+void BrandFares::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("brand_fares").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //BaggageWt

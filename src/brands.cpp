@@ -40,6 +40,31 @@ void TBrands::get(int pax_id)
     }
 }
 
+static int countNotAsterisk(const std::string& text)
+{
+  int result = 0;
+  for (size_t i = 0; i < text.size(); i++) {
+    if (text.at(i) == '*') {
+      continue;
+    }
+    result++;
+  }
+  return result;
+}
+
+int calcBrandPriority(const std::string& fare_basis)
+{
+  return (fare_basis.size() - countNotAsterisk(fare_basis));
+}
+
+static bool compareBrands(const BrandIdWithDateRange& b1, const BrandIdWithDateRange& b2)
+{
+  if (b1.priority != b2.priority) {
+    return b1.priority < b2.priority;
+  }
+  return b1.brand < b2.brand;
+}
+
 void TBrands::get(const std::string &airline, const TETickItem& etick)
 {
     clear();
@@ -53,12 +78,14 @@ void TBrands::get(const std::string &airline, const TETickItem& etick)
 
     if (i.second)
     {
-      TCachedQuery brandQry(
+      DB::TCachedQuery brandQry(
+            PgOra::getROSession({"BRAND_FARES","BRANDS"}),
             "SELECT "
             "   brands.id, "
             "   brand_fares.sale_first_date, "
             "   brand_fares.sale_last_date, "
-            "   LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority "
+            "   brand_fares.fare_basis, "
+            "   brand_fares.brand "
             "FROM "
             "   brand_fares, "
             "   brands "
@@ -67,9 +94,10 @@ void TBrands::get(const std::string &airline, const TETickItem& etick)
             "   :fare_basis LIKE REPLACE(fare_basis, '*', '%') AND "
             "   brand_fares.airline = brands.airline AND "
             "   brand_fares.brand = brands.code "
-            "ORDER BY brand_priority, brand_fares.brand",
+            "ORDER BY brand_fares.brand ",
             QParams() << QParam("airline", otString, airline)
-                      << QParam("fare_basis", otString, etick.fare_basis));
+                      << QParam("fare_basis", otString, etick.fare_basis),
+            STDLOG);
       brandQry.get().Execute();
       for(; not brandQry.get().Eof; brandQry.get().Next())
       {
@@ -82,14 +110,24 @@ void TBrands::get(const std::string &airline, const TETickItem& etick)
             boost::none:
             boost::optional<TDateTime>(brandQry.get().FieldAsDateTime("sale_last_date"));
 
-        i.first->second.emplace_back(brandQry.get().FieldAsInteger("id"),
-                                     ASTRA::Range<TDateTime>(first_date, last_date));
+        const int id = brandQry.get().FieldAsInteger("id");
+        const ASTRA::Range<TDateTime> date_range(first_date, last_date);
+        const std::string fare_basis = brandQry.get().FieldAsString("fare_basis");
+        const std::string brand = brandQry.get().FieldAsString("brand");
+        i.first->second.push_back(BrandIdWithDateRange {
+                                    id,
+                                    date_range,
+                                    calcBrandPriority(fare_basis),
+                                    brand
+                                  });
       }
+      i.first->second.sort(compareBrands);
     }
     else getsCached++;
 
+
     for(const auto& j : i.first->second)
-      if (j.second.contains(etick.issue_date)) emplace_back(j.first, airline);
+      if (j.date_range.contains(etick.issue_date)) emplace_back(j.id , airline);
 }
 
 TBrand TBrands::getSingleBrand() const
@@ -129,4 +167,66 @@ std::ostream& operator<<(std::ostream& os, const TBrand::Key& brand)
 {
   os << brand.airlineOper << ":" << brand.code;
   return os;
+}
+
+void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                       const string& airline, const string& fare_basis, const string& brand)
+{
+  TDateTime first_date = ASTRA::NoExists;
+  TDateTime last_date  = ASTRA::NoExists;
+  dateTimeToDatePeriod(first_datetime, last_datetime,
+                       first_date, last_date);
+  checkDateRange(first_date, last_date);
+
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("fare_basis", otString, fare_basis);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("BRAND_FARES"),
+        "SELECT id, sale_first_date, sale_last_date "
+        "FROM brand_fares "
+        "WHERE airline=:airline AND fare_basis=:fare_basis ",
+        qryParams,
+        STDLOG);
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    const int brand_fare_id = Qry.get().FieldAsInteger("id");
+    if (id == brand_fare_id) {
+      continue;
+    }
+    const TDateTime prev_first_date = Qry.get().FieldIsNULL("sale_first_date") ? ASTRA::NoExists
+                                                                               : Qry.get().FieldAsDateTime("sale_first_date");
+    const TDateTime prev_last_date = Qry.get().FieldIsNULL("sale_last_date") ? ASTRA::NoExists
+                                                                             : Qry.get().FieldAsDateTime("sale_last_date");
+    checkPeriodOverlaps(first_date, last_date, prev_first_date, prev_last_date);
+  }
+
+  qryParams << QParam("first_date", otInteger, first_date);
+  if (last_date == ASTRA::NoExists) {
+    qryParams << QParam("last_date", otInteger, FNull);
+  } else {
+    qryParams << QParam("last_date", otInteger, last_date + 1);
+  }
+  qryParams << QParam("brand", otString, brand);
+  if (id == ASTRA::NoExists) {
+    const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("BRAND_FARES"),
+          "INSERT INTO brand_fares(id, airline, fare_basis, brand, sale_first_date, sale_last_date) "
+          "VALUES(:id, :airline, :fare_basis, :brand, :first_date, :last_date) ",
+          qryParams << QParam("id", otInteger, new_id),
+          STDLOG);
+    insQry.get().Execute();
+  } else {
+    DB::TCachedQuery updQry(
+          PgOra::getRWSession("BRAND_FARES"),
+          "UPDATE brand_fares "
+          "SET airline=:airline, fare_basis=:fare_basis, brand=:brand, "
+          "    sale_first_date=:first_date, sale_last_date=:last_date "
+          "WHERE id=:id ",
+          qryParams << QParam("id", otInteger, id),
+          STDLOG);
+    updQry.get().Execute();
+  }
 }

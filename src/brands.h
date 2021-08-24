@@ -81,7 +81,17 @@ class TBrand
 
 std::ostream& operator<<(std::ostream& os, const TBrand::Key& brand);
 
-typedef std::list<std::pair<int, ASTRA::Range<TDateTime> > > BrandIdsWithDateRanges;
+int calcBrandPriority(const std::string& fare_basis);
+
+struct BrandIdWithDateRange
+{
+  int id;
+  ASTRA::Range<TDateTime> date_range;
+  int priority;
+  std::string brand;
+};
+
+typedef std::list<BrandIdWithDateRange> BrandIdsWithDateRanges;
 
 class TBrands : public std::list<TBrand>
 {
@@ -95,5 +105,10 @@ class TBrands : public std::list<TBrand>
     TBrand getSingleBrand() const;
     void traceCaching() const;
 };
+
+void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                       const std::string& airline,
+                       const std::string& fare_basis,
+                       const std::string& brand);
 
 #endif
