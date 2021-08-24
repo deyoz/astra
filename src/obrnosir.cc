@@ -313,9 +313,11 @@ int seat_no_test_single(int argc, char **argv)
     TQuery PointIdQry(&OraSession);
     //scd_out IS NOT NULL AND scd_out > sysdate-2
     PointIdQry.SQLText=
-      "SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL AND scd_out > sysdate-2 AND scd_out < sysdate +1 ORDER BY point_id";
-    PointIdQry.Execute();
+      //"SELECT point_id FROM points WHERE airline is NOT NULL AND pr_del=0 AND scd_out IS NOT NULL ORDER BY point_id";
+       "SELECT 4911653 point_id FROM dual ";
   int c = 0;
+  for ( int i=0; i<10; i++ ) {
+      PointIdQry.Execute();
   for (;!PointIdQry.Eof;PointIdQry.Next()) {
     tst();
 /*    XMLDoc reqDoc;
@@ -343,10 +345,16 @@ int seat_no_test_single(int argc, char **argv)
     c++;
     LogTrace(TRACE5) << c << " " << PointIdQry.FieldAsInteger("point_id");
     try {
+      boost::posix_time::ptime mcsTime = boost::posix_time::microsec_clock::universal_time();
       /*viewCRSList( PointIdQry.FieldAsInteger("point_id"),
-                   {}, resDoc1.docPtr()->children, false );
-      viewCRSList( PointIdQry.FieldAsInteger("point_id"),
+                   {}, resDoc1.docPtr()->children, false );*/
+      int exec_time = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+      LogTrace(TRACE5) << "old algo exec time=" <<exec_time;
+      mcsTime = boost::posix_time::microsec_clock::universal_time();
+      /*viewCRSList( PointIdQry.FieldAsInteger("point_id"),
                    {}, resDoc2.docPtr()->children, true );*/
+      exec_time = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+      LogTrace(TRACE5) << "new algo exec time=" <<exec_time;
     }
     catch(const EXCEPTIONS::Exception &e) {
       LogError(STDLOG) << e.what();
@@ -359,6 +367,7 @@ int seat_no_test_single(int argc, char **argv)
       //LogError(STDLOG) << resDoc2.text();
     }
   }
+    }
   tst();
   return 0;
 }
