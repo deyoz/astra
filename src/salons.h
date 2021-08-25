@@ -1208,7 +1208,8 @@ struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
                         TCompLayerType &pax_layer_type,
-                        std::vector<TPlace*> &seats) const;
+                        std::vector<TPlace*> &seats,
+                        bool with_crs=false) const;
   public:
     int grp_id; //+ sort
     int pax_id; //+
@@ -1273,10 +1274,11 @@ struct TSalonPax {
                     TCompLayerType &pax_layer_type,
                     TPassSeats &ranges) const;
     void get_seats( TWaitListReason &waitListReason,
-                    TPassSeats &ranges ) const;
+                    TPassSeats &ranges) const;
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
-                    std::map<TSeat,TPlace*,CompareSeat> &descrs ) const;
+                    std::map<TSeat,TPlace*,CompareSeat> &descrs,
+                    bool with_crs=false ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat,
                          TWaitListReason &waitListReason,
                          TCompLayerType &pax_layer_type) const;
