@@ -1064,14 +1064,28 @@ class CodeshareSets : public CacheTableWritableHandmade
 class DeskOwnersAdd : public CacheTableWritableHandmade
 {
 public:
-    bool userDependence() const;
+    bool updateImplemented() const override { return true; }
+    bool userDependence() const override { return false; }
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
     void onApplyingRowChanges(const TCacheUpdateStatus status,
                               const std::optional<CacheTable::Row>& oldRow,
                               const std::optional<CacheTable::Row>& newRow) const;
 
-    std::string updateSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+};
+
+class DeskOwnersGrp : public CacheTableWritableHandmade
+{
+public:
+    bool updateImplemented() const override { return true; }
+    bool userDependence() const override { return false; }
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
                                   std::optional<CacheTable::Row>& newRow) const;

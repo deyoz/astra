@@ -3916,7 +3916,7 @@ std::list<std::string> CodeshareSets::dbSessionObjectNames() const {
 void DeskOwnersAdd::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
 {
     rows.setFromInteger(0)
-        .setFromInteger(0)
+        .setFromString("")
         .setFromString("")
         .setFromInteger(0)
         .setFromInteger(0)
@@ -3928,11 +3928,10 @@ void DeskOwnersAdd::onApplyingRowChanges(const TCacheUpdateStatus status, const 
 {
     if(!newRow) return;
     Row row = *newRow;
-    int desk_grp_id = row.getAsInteger("desk_grp_id", 0);
-    int descr = row.getAsInteger("descr",0);
-    std::string desk_prefix = row.getAsString("desk_prefix", "");
-    int desk_begin_num = row.getAsInteger("desk_begin_num", 0);
-    int desk_amount = row.getAsInteger("desk_amount", 0);
+    int desk_grp_id = row.getAsInteger_ThrowOnEmpty("desk_grp_id");
+    std::string desk_prefix = row.getAsString_ThrowOnEmpty("desk_prefix");
+    int desk_begin_num = row.getAsInteger_ThrowOnEmpty("desk_begin_num");
+    int desk_amount = row.getAsInteger_ThrowOnEmpty("desk_amount");
     bool processed = false;
     std::string desk_code;
     for(int i = desk_begin_num; i < desk_begin_num + desk_amount-1; i++) {
@@ -3947,51 +3946,36 @@ void DeskOwnersAdd::onApplyingRowChanges(const TCacheUpdateStatus status, const 
         QryDesks.CreateVariable("desk_grp_id", otInteger, desk_grp_id);
         QryDesks.CreateVariable("id_next_val", otInteger, id_next_val);
         QryDesks.Execute();
-        HistoryTable("DESKS").synchronize(getRowId("id", oldRow, newRow));
+        HistoryTable("DESKS").synchronize(RowId_t(id_next_val));
 
+        id_next_val = newRowId().get();
         DB::TQuery QryDeskOwn(PgOra::getRWSession("DESK_OWNERS"), STDLOG);
         QryDeskOwn.SQLText = " INSERT INTO desk_owners(id, desk, airline, pr_denial) "
                              " VALUES(:id_next_val, :desk_code, null, 1); ";
         QryDeskOwn.CreateVariable("desk_code", otString, desk_code);
         QryDeskOwn.CreateVariable("id_next_val", otInteger, id_next_val);
         QryDeskOwn.Execute();
-        HistoryTable("DESK_OWNERS").synchronize(getRowId("id", oldRow, newRow));
+        HistoryTable("DESK_OWNERS").synchronize(RowId_t(id_next_val));
     }
     if(processed) {
         int tid = generatedTid.get();
-        DB::TQuery Qry(PgOra::getRWSession("DESKS"), STDLOG);
-        Qry.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESK_OWNERS' ";
+        DB::TQuery Qry(PgOra::getRWSession("CACHE_TABLES"), STDLOG);
+        Qry.SQLText = "update cache_tables set tid = :tid_next_val where code in ('DESK_OWNERS', 'DESKS') ";
         Qry.CreateVariable("tid_next_val", otInteger, tid);
         Qry.Execute();
-
-        DB::TQuery Qry2(PgOra::getRWSession("DESKS"), STDLOG);
-        Qry2.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESKS' ";
-        Qry2.CreateVariable("tid_next_val", otInteger, tid);
-        Qry2.Execute();
     }
-}
-
-std::string DeskOwnersAdd::updateSql() const
-{
-      return "";
-}
-
-std::list<std::string> DeskOwnersAdd::dbSessionObjectNames() const
-{
-    return {"DESKS", "DESK_OWNERS"};
 }
 
 void DeskOwnersAdd::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
                                              std::optional<Row> &newRow) const
 {
       checkDeskGrpAccess("desk_grp_id", false, std::nullopt, newRow);
-      setRowId("id", status, newRow);
 
       if(!newRow) return;
       Row row = *newRow;
-      std::string desk_prefix = row.getAsString("desk_prefix", "");
-      int desk_begin_num = row.getAsInteger("desk_begin_num", 0);
-      int desk_amount = row.getAsInteger("desk_amount", 0);
+      std::string desk_prefix = row.getAsString_ThrowOnEmpty("desk_prefix");
+      int desk_begin_num = row.getAsInteger_ThrowOnEmpty("desk_begin_num");
+      int desk_amount = row.getAsInteger_ThrowOnEmpty("desk_amount");
 
       if (desk_prefix.size() < 4 ) {
           throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.WRONG_DESK_PREFIX_LEN");
@@ -4005,6 +3989,102 @@ void DeskOwnersAdd::beforeApplyingRowChanges(const TCacheUpdateStatus status, co
       if((desk_prefix.size() + desk_begin_num + desk_amount - 1) > 6) {
           throw AstraLocale::UserException("MSG.DESK_OWNERS_ADD.WRONG_INTERVAL");
       }
+}
+
+void DeskOwnersGrp::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    rows.setFromInteger(0)
+        .setFromString("")
+        .setFromString("")
+        .setFromString("")
+        .setFromBoolean(1)
+        .addRow();
+}
+
+void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                         const std::optional<Row> &newRow) const
+{
+    if(!newRow) return;
+    Row row = *newRow;
+    int desk_grp_id = row.getAsInteger_ThrowOnEmpty("desk_grp_id");
+    std::string airline = row.getAsString_ThrowOnEmpty("airline");
+    int pr_denial = row.getAsInteger_ThrowOnEmpty("pr_denial");
+
+    bool pr_found = false;
+
+    DB::TQuery QryMain(PgOra::getROSession({"DESK_OWNERS","DESKS"}), STDLOG);
+    QryMain.SQLText = " select desk_owners.id, desk_owners.desk from desk_owners, desks where "
+                      " desk_owners.desk = desks.code and desks.grp_id = :desk_grp_id and "
+                      " desk_owners.airline = :airline OR (desk_owners.airline IS NULL AND :airline IS NULL)";
+    QryMain.CreateVariable("desk_grp_id",otInteger, desk_grp_id);
+    QryMain.CreateVariable("airline",otString, airline);
+    QryMain.Execute();
+    for(;!QryMain.Eof; QryMain.Next()) {
+        pr_found = true;
+        int id = QryMain.FieldAsInteger("id");
+
+        auto cur = make_db_curs( " update DESK_OWNERS set pr_denial = :pr_denial "
+                                 " where id = :id and coalesce(airline, ' ') = coalesce(:airline, ' ') ",
+                              PgOra::getRWSession("DESK_OWNERS"));
+
+        cur.noThrowError(DbCpp::ResultCode::ConstraintFail)
+           .stb()
+           .bind(":id", id)
+           .bind(":pr_denial", pr_denial)
+           .bind(":airline", airline)
+           .exec();
+
+        HistoryTable("DESK_OWNERS").synchronize(RowId_t(id));
+    }
+
+    if(!pr_found) {
+        if(airline.empty()) {
+            throw AstraLocale::UserException("MSG.NOT_DATA");
+        } else {
+            pr_found = false;
+
+            DB::TQuery QryMain(PgOra::getROSession({"DESK_OWNERS","DESKS"}), STDLOG);
+            QryMain.SQLText = " select desk_owners.id, desk_owners.desk from desk_owners, desks where "
+                              " desk_owners.desk = desks.code and desks.grp_id = :desk_grp_id and "
+                              " desk_owners.airline is NULL ";
+            QryMain.CreateVariable("desk_grp_id",otInteger, desk_grp_id);
+            QryMain.Execute();
+
+            for(;!QryMain.Eof; QryMain.Next()) {
+                pr_found = true;
+                int id_next_val = newRowId().get();
+                std::string desk = QryMain.FieldAsString("desk");
+
+                DB::TQuery Qry(PgOra::getRWSession("DESK_OWNERS"), STDLOG);
+                Qry.SQLText = " insert into DESK_OWNERS(id, desk, airline, pr_denial) "
+                               " values(:id_next_val, :desk, :airline, :pr_denial) ";
+                Qry.CreateVariable("id_next_val", otInteger, id_next_val);
+                Qry.CreateVariable("desk", otString, desk);
+                Qry.CreateVariable("airline", otString, airline);
+                Qry.CreateVariable("pr_denial", otInteger, pr_denial);
+                Qry.Execute();
+                HistoryTable("DESK_OWNERS").synchronize(RowId_t(id_next_val));
+            }
+
+            if(!pr_found) {
+                throw AstraLocale::UserException("MSG.NOT_DATA");
+            } else {
+                int tid = generatedTid.get();
+                DB::TQuery Qry(PgOra::getRWSession("DESK_OWNERS"), STDLOG);
+                Qry.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESK_OWNERS' ";
+                Qry.CreateVariable("tid_next_val", otInteger, tid);
+                Qry.Execute();
+            }
+        }
+    }
+
+}
+
+void DeskOwnersGrp::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                             std::optional<Row> &newRow) const
+{
+    checkAirlineAccess("airline", std::nullopt, newRow);
+    checkDeskGrpAccess("desk_grp_id", false, std::nullopt, newRow);
 }
 
 } //namespace CacheTables
