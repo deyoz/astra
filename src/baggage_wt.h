@@ -52,9 +52,7 @@ class TBagTypeListKey
     const TBagTypeListKey& toXML(xmlNodePtr node) const;
     TBagTypeListKey& fromXML(xmlNodePtr node);
     TBagTypeListKey& fromXMLcompatible(xmlNodePtr node);
-    const TBagTypeListKey& toDB(TQuery &Qry) const;
     const TBagTypeListKey& toDB(DB::TQuery &Qry) const;
-    TBagTypeListKey& fromDB(TQuery &Qry);
     TBagTypeListKey& fromDB(DB::TQuery &Qry);
     const TBagTypeListKey& key() const { return *this; }
     void key(const TBagTypeListKey& _key) { *this=_key; }
@@ -138,10 +136,8 @@ class TBagTypeKey : public TBagTypeListKey
     const TBagTypeKey& toXML(xmlNodePtr node) const;
     const TBagTypeKey& toDB(DB::TQuery &Qry) const;
     const TBagTypeKey& toDBcompatible(DB::TQuery &Qry, const std::string &where) const;
-    const TBagTypeKey& toDBcompatible(TQuery &Qry, const std::string &where) const;
     TBagTypeKey& fromDB(DB::TQuery &Qry);
     TBagTypeKey& fromDBcompatible(DB::TQuery &Qry);
-    TBagTypeKey& fromDBcompatible(TQuery &Qry);
     static boost::optional<TBagTypeListItem> getListItem(int list_id,
                                                          const std::string& bag_type,
                                                          const std::string& airline);
@@ -300,9 +296,7 @@ class TPaxNormItem : public TBagTypeKey
   const TPaxNormItem& toXML(xmlNodePtr node) const;
   TPaxNormItem& fromXML(xmlNodePtr node);
   const TPaxNormItem& toDB(DB::TQuery &Qry) const;
-  const TPaxNormItem& toDB(TQuery &Qry) const;
   TPaxNormItem& fromDB(DB::TQuery &Qry);
-  TPaxNormItem& fromDB(TQuery &Qry);
 
   bool normNotExists() const
   {
@@ -326,10 +320,6 @@ class TPaxNormComplex : public TPaxNormItem, public TNormItem
     TPaxNormComplex(const TPaxNormItem& paxNormItem, const TNormItem& normItem):
       TPaxNormItem(paxNormItem),
       TNormItem(normItem) {}
-    TPaxNormComplex(TQuery &Qry)
-    {
-      fromDB(Qry);
-    }
     TPaxNormComplex(DB::TQuery &Qry)
     {
       fromDB(Qry);
@@ -339,13 +329,6 @@ class TPaxNormComplex : public TPaxNormItem, public TNormItem
     {
       TPaxNormItem::clear();
       TNormItem::clear();
-    }
-
-    TPaxNormComplex& fromDB(TQuery &Qry)
-    {
-      TPaxNormItem::fromDB(Qry);
-      TNormItem::fromDB(Qry);
-      return *this;
     }
 
     TPaxNormComplex& fromDB(DB::TQuery &Qry)

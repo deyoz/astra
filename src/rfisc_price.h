@@ -82,8 +82,8 @@ class SvcFromSirena
     void fromXML(xmlNodePtr node);
     void toContextXML(xmlNodePtr node) const;
     void toXML(xmlNodePtr node) const;
-    void toDB(TQuery& Qry) const;
-    void fromDB(TQuery& Qry,const std::string& lang="");
+    void toDB(DB::TQuery& Qry) const;
+    void fromDB(DB::TQuery& Qry,const std::string& lang="");
     bool clientValid() const;
     bool only_for_cost() const;
     std::string toString() const;
@@ -163,8 +163,8 @@ class TPriceServiceItem : public TPaxSegRFISCKey
     const TPriceServiceItem& toContextXML(xmlNodePtr node) const;
     TPriceServiceItem& fromXML(xmlNodePtr node, const std::string& orderId);
     TPriceServiceItem& fromContextXML(xmlNodePtr node);
-    const TPriceServiceItem& toDB(TQuery &Qry, const SVCKey& svcKey) const;
-    TPriceServiceItem& fromDB(TQuery &Qry,const std::string& lang="");
+    const TPriceServiceItem& toDB(DB::TQuery &Qry, const SVCKey& svcKey) const;
+    TPriceServiceItem& fromDB(DB::TQuery &Qry,const std::string& lang="");
     std::string traceStr() const;
 };
 

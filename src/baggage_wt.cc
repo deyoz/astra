@@ -99,13 +99,6 @@ const TBagTypeListItem& TBagTypeListItem::toDB(DB::TQuery &Qry) const
   return *this;
 }
 
-const TBagTypeListKey& TBagTypeListKey::toDB(TQuery &Qry) const
-{
-  Qry.SetVariable("bag_type", bag_type);
-  Qry.SetVariable("airline", airline);
-  return *this;
-}
-
 const TBagTypeListKey& TBagTypeListKey::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("bag_type", bag_type);
@@ -134,20 +127,6 @@ const TBagTypeKey& TBagTypeKey::toDBcompatible(DB::TQuery &Qry, const std::strin
   {
     ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)", traceStr().c_str());
     ProgError(STDLOG, "SQL=%s", Qry.SQLText.c_str());
-  };
-  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
-                           Qry.SetVariable("list_id", FNull);
-  return *this;
-}
-
-const TBagTypeKey& TBagTypeKey::toDBcompatible(TQuery &Qry, const std::string &where) const
-{
-  BagTypeToDB(Qry, bag_type, where);
-  Qry.SetVariable("airline", airline);
-  if (!(*this==TBagTypeKey()) && list_id==ASTRA::NoExists) //!!!vlad
-  {
-    ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)", traceStr().c_str());
-    ProgError(STDLOG, "SQL=%s", Qry.SQLText.SQLText());
   };
   list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
                            Qry.SetVariable("list_id", FNull);
@@ -405,16 +384,6 @@ TBagTypeKey& TBagTypeKey::fromDB(DB::TQuery &Qry)
 }
 
 TBagTypeKey& TBagTypeKey::fromDBcompatible(DB::TQuery &Qry)
-{
-  clear();
-  bag_type=BagTypeFromDB(Qry);
-  airline=Qry.FieldAsString("airline");
-  if (!Qry.FieldIsNULL("list_id"))
-    list_id=Qry.FieldAsInteger("list_id");
-  return *this;
-}
-
-TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
 {
   clear();
   bag_type=BagTypeFromDB(Qry);
@@ -789,7 +758,7 @@ const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
     NewTextChild(node,"norm_trfer");
   };
   return *this;
-};
+}
 
 TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
 {
@@ -803,7 +772,7 @@ TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
     norm_trfer=NodeAsIntegerFast("norm_trfer",node2,0)!=0;
   };
   return *this;
-};
+}
 
 const TPaxNormItem& TPaxNormItem::toDB(DB::TQuery &Qry) const
 {
@@ -822,7 +791,7 @@ const TPaxNormItem& TPaxNormItem::toDB(DB::TQuery &Qry) const
     throw Exception("TPaxNormItem::toDB: !handmade");
   Qry.SetVariable("handmade",(int)handmade.get());
   return *this;
-};
+}
 
 TPaxNormItem& TPaxNormItem::fromDB(DB::TQuery &Qry)
 {
@@ -835,39 +804,7 @@ TPaxNormItem& TPaxNormItem::fromDB(DB::TQuery &Qry)
   };
   handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
-};
-
-const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
-{
-  TBagTypeKey::toDBcompatible(Qry, "TPaxNormItem::toDB");
-  if (norm_id!=ASTRA::NoExists)
-  {
-    Qry.SetVariable("norm_id",norm_id);
-    Qry.SetVariable("norm_trfer",(int)norm_trfer);
-  }
-  else
-  {
-    Qry.SetVariable("norm_id",FNull);
-    Qry.SetVariable("norm_trfer",FNull);
-  };
-  if (!handmade)
-    throw Exception("TPaxNormItem::toDB: !handmade");
-  Qry.SetVariable("handmade",(int)handmade.get());
-  return *this;
-};
-
-TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
-{
-  clear();
-  TBagTypeKey::fromDBcompatible(Qry);
-  if (!Qry.FieldIsNULL("norm_id"))
-  {
-    norm_id=Qry.FieldAsInteger("norm_id");
-    norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
-  };
-  handmade=Qry.FieldAsInteger("handmade")!=0;
-  return *this;
-};
+}
 
 std::ostream& operator<<(std::ostream& os, const TPaxNormItem& item)
 {

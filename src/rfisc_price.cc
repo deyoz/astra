@@ -61,7 +61,7 @@ void SvcFromSirena::toXML(xmlNodePtr node) const {
   NewTextChild(node,"valid", clientValid());
 }
 
-void SvcFromSirena::toDB( TQuery& Qry) const
+void SvcFromSirena::toDB(DB::TQuery& Qry) const
 {
   Qry.SetVariable("svc_id",svcKey.svcId);
   Qry.SetVariable("order_id",svcKey.orderId);
@@ -74,7 +74,7 @@ void SvcFromSirena::toDB( TQuery& Qry) const
   Qry.SetVariable("ticknum",ticknum);
 }
 
-void SvcFromSirena::fromDB(TQuery& Qry,const std::string& lang)
+void SvcFromSirena::fromDB(DB::TQuery& Qry,const std::string& lang)
 {
   svcKey.svcId = Qry.FieldAsString("svc_id");
   svcKey.orderId = Qry.FieldAsString("order_id");
@@ -195,7 +195,7 @@ void TPriceServiceItem::changeStatus( const std::string& from, const std::string
   }
 }
 
-const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const SVCKey& svcKey) const
+const TPriceServiceItem& TPriceServiceItem::toDB(DB::TQuery &Qry, const SVCKey& svcKey) const
 {
   Qry.SetVariable("name_view", name_view(AstraLocale::LANG_RU));
   Qry.SetVariable("name_view_lat", name_view(AstraLocale::LANG_EN));
@@ -208,7 +208,7 @@ const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const SVCKey& svcK
   return *this;
 }
 
-TPriceServiceItem& TPriceServiceItem::fromDB(TQuery &Qry, const std::string& lang)
+TPriceServiceItem& TPriceServiceItem::fromDB(DB::TQuery &Qry, const std::string& lang)
 {
   TPaxSegRFISCKey::fromDB(Qry);
   SvcFromSirena svc;
@@ -433,10 +433,13 @@ void TPriceRFISCList::toDB(int grp_id) const
   r.fromDB(grp_id);
   std::vector<SVCKey> bd_svcs;
   r.haveStatusDirect( "", bd_svcs ); //просто выбрали все те, которые записаны в БД, у них статусы пустые, т.к. не храняться в БД
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("PAY_SERVICES"), STDLOG);
   Qry.SQLText =
-    "INSERT INTO pay_services(grp_id,pax_id,transfer_num,rfisc,service_type,airline,name_view,name_view_lat,list_id,svc_id,order_id,doc_id,pass_id,seg_id,price,currency,ticknum,ticket_cpn,time_paid)"
-    "  VALUES(:grp_id,:pax_id,:transfer_num,:rfisc,:service_type,:airline,:name_view,:name_view_lat,:list_id,:svc_id,:order_id,:doc_id,:pass_id,:seg_id,:price,:currency,:ticknum,:ticket_cpn,:time_paid)";
+    "INSERT INTO pay_services("
+    "  grp_id,pax_id,transfer_num,rfisc,service_type,airline,name_view,name_view_lat,list_id,svc_id,order_id,doc_id,pass_id,seg_id,price,currency,ticknum,ticket_cpn,time_paid "
+    ") VALUES ( "
+    "  :grp_id,:pax_id,:transfer_num,:rfisc,:service_type,:airline,:name_view,:name_view_lat,:list_id,:svc_id,:order_id,:doc_id,:pass_id,:seg_id,:price,:currency,:ticknum,:ticket_cpn,:time_paid "
+    ") ";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.DeclareVariable("pax_id",otInteger);
   Qry.DeclareVariable("transfer_num",otInteger);
@@ -473,10 +476,10 @@ void TPriceRFISCList::toDB(int grp_id) const
 
 void TPriceRFISCList::fromDB(int grp_id)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PAY_SERVICES"), STDLOG);
   Qry.SQLText =
    "SELECT * FROM pay_services "
-   " WHERE grp_id=:grp_id";
+   "WHERE grp_id=:grp_id ";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   for (; !Qry.Eof; Qry.Next() ) {

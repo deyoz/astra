@@ -309,16 +309,6 @@ const TRFISCListItem& TRFISCListItem::toDB(DB::TQuery &Qry) const
   return *this;
 };
 
-const TRFISCListKey& TRFISCListKey::toDB(TQuery &Qry) const
-{
-  Qry.SetVariable("rfisc", RFISC);
-  service_type!=TServiceType::Unknown?
-    Qry.SetVariable("service_type", ServiceTypes().encode(service_type)):
-    Qry.SetVariable("service_type", FNull);
-  Qry.SetVariable("airline", airline);
-  return *this;
-}
-
 const TRFISCListKey& TRFISCListKey::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("rfisc", RFISC);
@@ -326,19 +316,6 @@ const TRFISCListKey& TRFISCListKey::toDB(DB::TQuery &Qry) const
     Qry.SetVariable("service_type", ServiceTypes().encode(service_type)):
     Qry.SetVariable("service_type", FNull);
   Qry.SetVariable("airline", airline);
-  return *this;
-}
-
-const TRFISCKey& TRFISCKey::toDB(TQuery &Qry) const
-{
-  TRFISCListKey::toDB(Qry);
-  if (!(*this==TRFISCKey()) && list_id==ASTRA::NoExists) //!!!vlad
-  {
-    ProgError(STDLOG, "TRFISCKey::toDB: list_id==%d! (%s)", list_id, traceStr().c_str());
-    ProgError(STDLOG, "SQL=%s", Qry.SQLText.SQLText());
-  }
-  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
-                           Qry.SetVariable("list_id", FNull);
   return *this;
 }
 
@@ -702,30 +679,12 @@ std::optional<TRFISCListItem> TRFISCListItem::load(int list_id, const string& rf
   return {};
 }
 
-TRFISCListKey& TRFISCListKey::fromDB(TQuery &Qry)
-{
-  clear();
-  RFISC=Qry.FieldAsString("rfisc");
-  service_type=ServiceTypes().decode(Qry.FieldAsString("service_type"));
-  airline=Qry.FieldAsString("airline");
-  return *this;
-}
-
 TRFISCListKey& TRFISCListKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   RFISC=Qry.FieldAsString("rfisc");
   service_type=ServiceTypes().decode(Qry.FieldAsString("service_type"));
   airline=Qry.FieldAsString("airline");
-  return *this;
-}
-
-TRFISCKey& TRFISCKey::fromDB(TQuery &Qry)
-{
-  clear();
-  TRFISCListKey::fromDB(Qry);
-  if (!Qry.FieldIsNULL("list_id"))
-    list_id=Qry.FieldAsInteger("list_id");
   return *this;
 }
 
@@ -1015,32 +974,10 @@ const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagPropsList(int list_id)
   return i->second.getBagPropsList();
 }
 
-const ServiceListId& ServiceListId::toDB(TQuery &Qry) const
-{
-  list_id==ASTRA::NoExists?Qry.SetVariable("list_id", FNull):
-                           Qry.SetVariable("list_id", list_id);
-  return *this;
-}
-
 const ServiceListId& ServiceListId::toDB(DB::TQuery &Qry) const
 {
   list_id==ASTRA::NoExists?Qry.SetVariable("list_id", FNull):
                            Qry.SetVariable("list_id", list_id);
-  return *this;
-}
-
-ServiceListId& ServiceListId::fromDB(TQuery &Qry)
-{
-  clear();
-  list_id=Qry.FieldIsNULL("list_id")?ASTRA::NoExists:
-                                     Qry.FieldAsInteger("list_id");
-  if (Qry.GetFieldIndex("term_list_id")>=0)
-  {
-    additional=Qry.FieldIsNULL("additional_list_id")?ASTRA::NoExists:
-                                                     Qry.FieldAsInteger("additional_list_id");
-    term_list_id=Qry.FieldIsNULL("term_list_id")?ASTRA::NoExists:
-                                                 Qry.FieldAsInteger("term_list_id");
-  }
   return *this;
 }
 
@@ -1278,24 +1215,10 @@ TGrpServiceItem& TGrpServiceItem::fromXML(xmlNodePtr node)
   return *this;
 }
 
-const TPaxSegRFISCKey& TPaxSegRFISCKey::toDB(TQuery &Qry) const
-{
-  TPaxSegKey::toDB(Qry);
-  TRFISCKey::toDB(Qry);
-  return *this;
-}
-
 const TPaxSegRFISCKey& TPaxSegRFISCKey::toDB(DB::TQuery &Qry) const
 {
   TPaxSegKey::toDB(Qry);
   TRFISCKey::toDB(Qry);
-  return *this;
-}
-
-const TGrpServiceItem& TGrpServiceItem::toDB(TQuery &Qry) const
-{
-  TPaxSegRFISCKey::toDB(Qry);
-  Qry.SetVariable("service_quantity",service_quantity);
   return *this;
 }
 
@@ -1306,28 +1229,11 @@ const TGrpServiceItem& TGrpServiceItem::toDB(DB::TQuery &Qry) const
   return *this;
 }
 
-TPaxSegRFISCKey& TPaxSegRFISCKey::fromDB(TQuery &Qry)
-{
-  clear();
-  TPaxSegKey::fromDB(Qry);
-  TRFISCKey::fromDB(Qry);
-  return *this;
-}
-
 TPaxSegRFISCKey& TPaxSegRFISCKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxSegKey::fromDB(Qry);
   TRFISCKey::fromDB(Qry);
-  return *this;
-}
-
-TGrpServiceItem& TGrpServiceItem::fromDB(TQuery &Qry)
-{
-  clear();
-  TPaxSegRFISCKey::fromDB(Qry);
-  getListItem();
-  service_quantity=Qry.FieldAsInteger("service_quantity");
   return *this;
 }
 
@@ -2179,16 +2085,19 @@ void TGrpServiceList::addBagInfo(int grp_id,
 {
   TGrpServiceList bagList;
 
-  TCachedQuery Qry("SELECT  bag2.grp_id, bag2.bag_pool_num, "
-                   "       0 AS transfer_num, "
-                   "       bag2.list_id, "
-                   "       bag2.rfisc, "
-                   "       bag2.service_type, "
-                   "       bag2.airline, "
-                   "       bag2.amount AS service_quantity "
-                   "FROM bag2 "
-                   "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("BAG2"),
+        "SELECT bag2.grp_id, bag2.bag_pool_num, "
+        "       0 AS transfer_num, "
+        "       bag2.list_id, "
+        "       bag2.rfisc, "
+        "       bag2.service_type, "
+        "       bag2.airline, "
+        "       bag2.amount AS service_quantity "
+        "FROM bag2 "
+        "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
+        QParams() << QParam("grp_id", otInteger, grp_id),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {

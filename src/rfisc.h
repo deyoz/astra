@@ -168,9 +168,7 @@ class TRFISCListKey
     const TRFISCListKey& toXML(xmlNodePtr node) const;
     TRFISCListKey& fromXML(xmlNodePtr node);
     TRFISCListKey& fromXMLcompatible(xmlNodePtr node);
-    const TRFISCListKey& toDB(TQuery &Qry) const;
     const TRFISCListKey& toDB(DB::TQuery &Qry) const;
-    TRFISCListKey& fromDB(TQuery &Qry);
     TRFISCListKey& fromDB(DB::TQuery &Qry);
     const TRFISCListKey& key() const { return *this; }
     void key(const TRFISCListKey& _key) { *this=_key; }
@@ -286,9 +284,7 @@ class TRFISCKey : public TRFISCListKey
     const TRFISCKey& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
 
     const TRFISCKey& toXML(xmlNodePtr node) const;
-    const TRFISCKey& toDB(TQuery &Qry) const;
     const TRFISCKey& toDB(DB::TQuery &Qry) const;
-    TRFISCKey& fromDB(TQuery &Qry);
     TRFISCKey& fromDB(DB::TQuery &Qry);
     static boost::optional<TRFISCListItem> getListItem(int list_id,
                                                        const std::string& rfisc,
@@ -344,9 +340,7 @@ class ServiceListId
     int primary() const { return list_id; }
     int forTerminal() const { return term_list_id!=ASTRA::NoExists?-term_list_id:list_id; }
 
-    const ServiceListId& toDB(TQuery &Qry) const;
     const ServiceListId& toDB(DB::TQuery &Qry) const;
-    ServiceListId& fromDB(TQuery &Qry);
     ServiceListId& fromDB(DB::TQuery &Qry);
     const ServiceListId& toXML(xmlNodePtr node) const;
     ServiceListId& fromXML(xmlNodePtr node);
@@ -517,9 +511,7 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
 
     const TPaxSegRFISCKey& toXML(xmlNodePtr node) const;
     TPaxSegRFISCKey& fromXML(xmlNodePtr node);
-    const TPaxSegRFISCKey& toDB(TQuery &Qry) const;
     const TPaxSegRFISCKey& toDB(DB::TQuery &Qry) const;
-    TPaxSegRFISCKey& fromDB(TQuery &Qry);
     TPaxSegRFISCKey& fromDB(DB::TQuery &Qry);
     std::string traceStr() const;
 };
@@ -564,9 +556,7 @@ class TGrpServiceItem : public TPaxSegRFISCKey
 
     const TGrpServiceItem& toXML(xmlNodePtr node) const;
     TGrpServiceItem& fromXML(xmlNodePtr node);
-    const TGrpServiceItem& toDB(TQuery &Qry) const;
     const TGrpServiceItem& toDB(DB::TQuery &Qry) const;
-    TGrpServiceItem& fromDB(TQuery &Qry);
     TGrpServiceItem& fromDB(DB::TQuery &Qry);
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
     bool similar(const TGrpServiceAutoItem& item) const

@@ -264,9 +264,7 @@ class TPaxSegKey
     const TPaxSegKey& toSirenaXML(xmlNodePtr node) const;
     TPaxSegKey& fromSirenaXML(xmlNodePtr node);
 
-    const TPaxSegKey& toDB(TQuery &Qry) const;
     const TPaxSegKey& toDB(DB::TQuery &Qry) const;
-    TPaxSegKey& fromDB(TQuery &Qry);
     TPaxSegKey& fromDB(DB::TQuery &Qry);
     const TPaxSegKey& toXML(xmlNodePtr node) const;
     TPaxSegKey& fromXML(xmlNodePtr node);
@@ -354,9 +352,7 @@ std::string getRFISCsFromBaggageNorm(const PaxId_t& pax_id);
 } //namespace Sirena
 
 std::string BagTypeFromXML(const std::string& bag_type);
-std::string BagTypeFromDB(TQuery &Qry);
 std::string BagTypeFromDB(DB::TQuery &Qry);
-void BagTypeToDB(TQuery &Qry, const std::string& bag_type, const std::string &where);
 void BagTypeToDB(DB::TQuery &Qry, const std::string& bag_type, const std::string &where);
 
 int get_max_tckin_num(int grp_id);
