@@ -2287,6 +2287,41 @@ bool isValidAirlineName(const std::string &value, const bool latinOnly)
   return isValidName(value, latinOnly, " ,.+-/:;()\"`'");
 }
 
+std::string checkAndNormalizeBort(const std::string& value)
+{
+  std::string normalValue=algo::transform(value, [](const auto &c)
+                                                 {
+                                                   if (c>=0 && c<' ')
+                                                     return ' ';
+                                                   else
+                                                     return c;
+                                                 });
+  std::optional<std::string> invalidSymbol=invalidSymbolInName(normalValue, false, " -");
+  if (invalidSymbol)
+    throw AstraLocale::UserException("MSG.INVALID_CHARS_IN_BOARD_NUM",
+                                     LParams() << LParam("symbol", invalidSymbol.value()));
+
+  std::string result;
+  std::string lastDelim;
+  for(const auto& c : normalValue)
+  {
+    if (c=='-' || c==' ')
+    {
+      if (lastDelim!="-") lastDelim=c;
+    }
+    else
+    {
+      if (result.empty()) result=c; else result+=lastDelim+c;
+      lastDelim.clear();
+    }
+  }
+
+  if (result.size()==1 || result.size()>10)
+    throw AstraLocale::UserException("MSG.INVALID_BOARD_NUM");
+
+  return result;
+}
+
 void checkDateRange(TDateTime first_date, TDateTime last_date)
 {
   if (first_date > last_date) {

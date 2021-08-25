@@ -100,7 +100,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="COMP_REM_TYPES")      return new CacheTable::CompRemTypes;
   if (cacheCode=="CKIN_REM_TYPES")      return new CacheTable::CkinRemTypes;
   if (cacheCode=="BALANCE_TYPES")       return new CacheTable::BalanceTypes;
-  if (cacheCode=="CRS_SET")          return new CacheTable::CrsSet;
+  if (cacheCode=="BALANCE_SETS")        return new CacheTable::BalanceSets;
+  if (cacheCode=="CRS_SET")             return new CacheTable::CrsSet;
 
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
   if (cacheCode=="BP_MODELS")           return new CacheTable::BpModels;
@@ -3765,6 +3766,59 @@ std::string BalanceTypes::selectSql() const {
 }
 std::list<std::string> BalanceTypes::dbSessionObjectNames() const {
   return {"BALANCE_TYPES"};
+}
+
+//BalanceSets
+
+bool BalanceSets::userDependence() const {
+  return true;
+}
+std::string BalanceSets::selectSql() const {
+  return
+   "SELECT id, airp, airline, flt_no, bort, balance_type, pr_denial "
+   "FROM balance_sets "
+   "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+            + getSQLFilter("airp",    AccessControl::PermittedAirports) +
+   "ORDER BY airp, airline, flt_no, bort";
+}
+std::string BalanceSets::insertSql() const {
+  return "INSERT INTO balance_sets(id, airp, airline, flt_no, bort, balance_type, pr_denial) "
+         "VALUES(:id, :airp, :airline, :flt_no, :bort, :balance_type, :pr_denial)";
+}
+std::string BalanceSets::updateSql() const {
+  return "UPDATE balance_sets "
+         "SET airline=:airline, airp=:airp, flt_no=:flt_no, bort=:bort, "
+             "balance_type=:balance_type, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id";
+}
+std::string BalanceSets::deleteSql() const {
+  return "DELETE FROM balance_sets WHERE id=:OLD_id";
+}
+std::list<std::string> BalanceSets::dbSessionObjectNames() const {
+  return {"BALANCE_SETS"};
+}
+
+void BalanceSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    std::string bort=checkAndNormalizeBort(newRow.value().getAsString("bort"));
+    newRow.value().setFromString("bort", bort);
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void BalanceSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("balance_sets").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //CodeshareSets

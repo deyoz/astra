@@ -1018,9 +1018,26 @@ class CkinRemTypes : public CacheTableKeepDeletedRows
 class BalanceTypes : public CacheTableReadonly
 {
   public:
-    bool userDependence() const;
-    std::string selectSql() const;
-    std::list<std::string> dbSessionObjectNames() const;
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class BalanceSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const override;
 };
 
 class CodeshareSets : public CacheTableWritableHandmade
