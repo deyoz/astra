@@ -9185,21 +9185,24 @@ bool isFreeSeating( int point_id )
 
 void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
                                TCompLayerType &pax_layer_type,
-                               vector<TPlace*> &seats) const {
+                               vector<TPlace*> &seats,
+                               bool with_crs) const {
   waitListReason = TWaitListReason();
   pax_layer_type = cltUnknown;
   seats.clear();
   ASTRA::TCompLayerType grp_layer_type = cltUnknown;
-  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  //!logProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
-  if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
-    throw EXCEPTIONS::Exception("TSalonPax::get_seats: DecodePaxStatus(grp_status) == psCrew");
-  const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
-  grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
+  if ( !with_crs ) {
+    TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+    if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
+      throw EXCEPTIONS::Exception("TSalonPax::get_seats: DecodePaxStatus(grp_status) == psCrew");
+    const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
+    grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
+  }
   TLayersPax::const_iterator ilayer=layers.begin();
   for ( ; ilayer!=layers.end(); ilayer++ ) { // а нужен ли здесь пробег по слоям или самы первый-приоритетный?
     LogTrace(TRACE5)  << ilayer->first.toString() << " " <<EncodeCompLayerType(grp_layer_type)  ;
-    if ( ilayer->first.layerType() == grp_layer_type ) break;
+    if ( with_crs ||
+         ilayer->first.layerType() == grp_layer_type ) break;
   }
   if ( ilayer != layers.end() ) {
     pax_layer_type = ilayer->first.layerType();
@@ -9234,12 +9237,13 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
 
 void TSalonPax::get_seats( TWaitListReason &waitListReason,
                            TPassSeats &ranges,
-                           std::map<TSeat,TPlace*,CompareSeat> &descrs ) const {
+                           std::map<TSeat,TPlace*,CompareSeat> &descrs,
+                           bool with_crs ) const {
   ranges.clear();
   descrs.clear();
   vector<TPlace*> seats;
   TCompLayerType pax_layer_type;
-  int_get_seats( waitListReason, pax_layer_type, seats );
+  int_get_seats( waitListReason, pax_layer_type, seats, with_crs );
   for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
         iseat!=seats.end(); iseat++ ) {
     TSeat seat( (*iseat)->yname, (*iseat)->xname );
