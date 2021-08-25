@@ -125,6 +125,7 @@ namespace PgOra
                 "PRN_TAG_PROPS",
                 "DEL_VO",
                 "TRIP_BT",       // "BT_MODELS","PRN_FORM_VERS"
+                "BI_PRINT_TYPES",
         } },
 
         { "SP_PG_GROUP_PRN_TEST_TAGS",{
@@ -388,6 +389,8 @@ namespace PgOra
         { "SP_PG_GROUP_RFISC_BRANDS", {
                 "RFISC_COMP_PROPS", // "BRAND_FARES", "RFISC_RATES"
                 "BRAND_FARES",      // "BRANDS", "RFISC_RATES", "RFISC_COMP_PROPS", ADM.insert_brand_fares
+                "BI_PRINT_RULES",   // "BRANDS"
+                "BRANDS",           // "BRAND_FARES", "BI_PRINT_RULES"
         }},
         { "SP_PG_GROUP_COMP_TRIP_COMP_RATES", {
                 "TRIP_COMP_RATES", // COMP_RATES

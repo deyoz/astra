@@ -53,35 +53,33 @@ namespace BIPrintRules {
             TRule &rule
             )
     {
-        TCachedQuery Qry(
-                "select "
-                "    id, "
-                "    print_type, "
-                "    decode(class, null, 0, 1) + "
-                "    decode(subclass, null, 0, 2) + "
-                "    decode(brand_code, null, 0, 3) + "
-                "    decode(fqt_airline, null, 0, 4) + "
-                "    decode(fqt_tier_level, null, 0, 5) + "
-                "    decode(aircode, null, 0, 6) + "
-                "    decode(rem_code, null, 0, 7) + "
-                "    decode(rfisc, null, 0, 8) "
-                "    priority "
-                "from "
-                "    bi_print_rules "
-                "where "
-                "    airline = :airline and "
-                "    pr_denial = 0 and "
-                "    (class is null or class = :class) and "
-                "    (subclass is null or subclass = :subclass) and "
-                "    (brand_code is null or brand_code = :brand) and "
-                "    (fqt_airline is null or fqt_airline = :fqt_airline) and "
-                "    (fqt_tier_level is null or fqt_tier_level = :tier_level) and "
-                "    (aircode is null or aircode = :aircode) and "
-                "    (rfisc is null or rfisc = :rfisc) and "
-                "    (rem_code is null or rem_code = :rem_code) "
-                "order by "
-                "    priority desc ",
-                QParams()
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("BI_PRINT_RULES"),
+              "SELECT "
+              "  id, print_type, "
+              "  (CASE WHEN class IS NULL THEN 0 ELSE 1 END "
+              "   + CASE WHEN subclass IS NULL THEN 0 ELSE 2 END "
+              "   + CASE WHEN brand_code IS NULL THEN 0 ELSE 3 END "
+              "   + CASE WHEN fqt_airline IS NULL THEN 0 ELSE 4 END "
+              "   + CASE WHEN fqt_tier_level IS NULL THEN 0 ELSE 5 END "
+              "   + CASE WHEN aircode IS NULL THEN 0 ELSE 6 END "
+              "   + CASE WHEN rem_code IS NULL THEN 0 ELSE 7 END "
+              "   + CASE WHEN rfisc IS NULL THEN 0 ELSE 8 END) AS priority "
+              "FROM bi_print_rules "
+              "WHERE "
+              "    airline = :airline AND "
+              "    pr_denial = 0 AND "
+              "    (class IS NULL OR class = :class) AND "
+              "    (subclass IS NULL OR subclass = :subclass) AND "
+              "    (brand_code IS NULL OR brand_code = :brand) AND "
+              "    (fqt_airline IS NULL OR fqt_airline = :fqt_airline) AND "
+              "    (fqt_tier_level IS NULL OR fqt_tier_level = :tier_level) AND "
+              "    (aircode IS NULL OR aircode = :aircode) AND "
+              "    (rfisc IS NULL OR rfisc = :rfisc) AND "
+              "    (rem_code IS NULL OR rem_code = :rem_code) "
+              "ORDER BY "
+              "    priority DESC ",
+              QParams()
                 << QParam("airline", otString, airline)
                 << QParam("class", otString, cls)
                 << QParam("subclass", otString, subcls)
@@ -90,8 +88,8 @@ namespace BIPrintRules {
                 << QParam("tier_level", otString, tier_level)
                 << QParam("aircode", otString, aircode)
                 << QParam("rfisc", otString, rfisc)
-                << QParam("rem_code", otString, rem_code)
-                );
+                << QParam("rem_code", otString, rem_code),
+              STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             rule.id = Qry.get().FieldAsInteger("id");

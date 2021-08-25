@@ -121,6 +121,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="PRN_FORMS")           return new CacheTable::PrnForms;
   if (cacheCode=="TRIP_BT")             return new CacheTable::TripBt;
   if (cacheCode=="BRAND_FARES")         return new CacheTable::BrandFares;
+  if (cacheCode=="BI_PRINT_TYPES")      return new CacheTable::BiPrintTypes;
+  if (cacheCode=="BI_PRINT_RULES")      return new CacheTable::BiPrintRules;
 
   return nullptr;
 }
@@ -2057,6 +2059,101 @@ void BrandFares::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                          const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("brand_fares").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//BiPrintTypes
+
+bool BiPrintTypes::userDependence() const
+{
+  return false;
+}
+
+std::string BiPrintTypes::selectSql() const
+{
+  return "SELECT code, name, name_lat "
+         "FROM bi_print_types "
+         "ORDER BY priority";
+}
+
+std::list<std::string> BiPrintTypes::dbSessionObjectNames() const
+{
+  return {"BI_PRINT_TYPES"};
+}
+
+//BiPrintRules
+
+bool BiPrintRules::userDependence() const
+{
+  return true;
+}
+
+std::string BiPrintRules::selectSql() const
+{
+  return "SELECT rules.id, rules.airline, rules.brand_airline, rules.brand_code, brands.id AS brand_view, rules.fqt_airline, rules.fqt_tier_level, "
+         "       rules.aircode, rules.rem_code, rules.class, rules.subclass, rules.rfisc, rules.print_type, rules.pr_denial "
+         "FROM bi_print_rules rules "
+         "LEFT OUTER JOIN brands "
+         "ON rules.brand_airline = brands.airline AND rules.brand_code = brands.code "
+         "WHERE " + getSQLFilter("rules.airline", AccessControl::PermittedAirlines) +
+         "ORDER BY rules.airline, rules.id ";
+}
+
+std::string BiPrintRules::insertSql() const
+{
+  return "INSERT INTO bi_print_rules( "
+         "id, airline, brand_airline, brand_code, fqt_airline, fqt_tier_level, aircode, rem_code, class, subclass, rfisc, print_type, pr_denial "
+         ") VALUES ("
+         ":id, :airline, :brand_airline, :brand_code, :fqt_airline, :fqt_tier_level, :aircode, :rem_code, :class, :subclass, :rfisc, :print_type, :pr_denial "
+         ") ";
+}
+
+std::string BiPrintRules::updateSql() const
+{
+  return "UPDATE bi_print_rules "
+         "SET airline=:airline, brand_airline=:brand_airline, brand_code=:brand_code, "
+         "    fqt_airline=:fqt_airline, fqt_tier_level=:fqt_tier_level, "
+         "    aircode=:aircode, rem_code=:rem_code, class=:class, subclass=:subclass, "
+         "    rfisc=:rfisc, print_type=:print_type, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id ";
+}
+
+std::string BiPrintRules::deleteSql() const
+{
+  return "DELETE FROM bi_print_rules "
+         "WHERE id=:OLD_id; ";
+}
+
+std::list<std::string> BiPrintRules::dbSessionObjectNames() const
+{
+  return {"BI_PRINT_RULES"};
+}
+
+std::list<std::string> BiPrintRules::dbSessionObjectNamesForRead() const
+{
+  return {"BI_PRINT_RULES","BRANDS"};
+}
+
+void BiPrintRules::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<Row>& oldRow,
+                                            std::optional<Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  if (newRow) {
+    const std::string airline = newRow.value().getAsString("airline");
+    const std::string brand_airline = newRow.value().getAsString("brand_airline");
+    if (!brand_airline.empty() && brand_airline != airline) {
+      throw UserException("MSG.BRAND_DOES_NOT_MEET_AIRLINE");
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void BiPrintRules::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<Row>& oldRow,
+                                           const std::optional<Row>& newRow) const
+{
+  HistoryTable("bi_print_rules").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //BaggageWt

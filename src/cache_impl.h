@@ -596,6 +596,32 @@ class BrandFares : public CacheTableWritableHandmade
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class BiPrintTypes: public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BiPrintRules : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
 class BaggageWt : public CacheTableWritableHandmade
 {
   public:

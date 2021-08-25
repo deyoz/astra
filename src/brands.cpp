@@ -54,7 +54,7 @@ static int countNotAsterisk(const std::string& text)
 
 int calcBrandPriority(const std::string& fare_basis)
 {
-  return (fare_basis.size() - countNotAsterisk(fare_basis));
+  return (countNotAsterisk(fare_basis) * (-1));
 }
 
 static bool compareBrands(const BrandIdWithDateRange& b1, const BrandIdWithDateRange& b2)
