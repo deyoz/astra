@@ -35,7 +35,7 @@ std::string PaxListSeatNo::get( const PointId_t& point_id, PaxId_t pax_id, const
   if ( ret.second ) {
     TSalonListReadParams params;
     params.for_calc_waitlist = true; //не ругаемся если isFreeSeating || или нет салона
-    params.for_get_crs_seat_no = true; //начитка tlg_comp_layers
+    params.for_get_seat_no = true; //начитка tlg_comp_layers
     LogTrace(TRACE5) << point_id;
     ret.first->second.first = isFreeSeating(point_id.get());
     ret.first->second.second.ReadFlight(TFilterRoutesSets(point_id.get()),params);
@@ -44,14 +44,19 @@ std::string PaxListSeatNo::get( const PointId_t& point_id, PaxId_t pax_id, const
   return PaxListSeatNo::get( ret.first->second.second, pax_id, format, ret.first->second.first, layer_type );
 }
 
-std::string PaxListSeatNo::get( const PointIdTlg_t& point_id_tlg, PaxId_t pax_id, const std::string& format,
-                                ASTRA::TCompLayerType& layer_type )
+std::string PaxListSeatNo::get( const PointIdTlg_t& point_id_tlg, PaxId_t pax_id,
+                                const std::string& format,
+                                ASTRA::TCompLayerType& layer_type)
 {
-  std::set<PointId_t> point_ids_spp;
-  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
-  if ( point_ids_spp.empty() )
+  auto pids = point_tlgs.find(point_id_tlg.get());
+  if ( pids == point_tlgs.end() ) {
+    std::set<PointId_t> point_ids_spp;
+    getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+    pids = point_tlgs.emplace(point_id_tlg.get(),point_ids_spp).first;
+  }
+  if ( pids->second.empty() )
     return "";
-  return get(*point_ids_spp.begin(),pax_id,format); //??? или пробег по point_id_spp?
+  return get(*pids->second.begin(),pax_id,format,layer_type); //??? или пробег по point_id_spp?
 }
 
 std::string PaxListSeatNo::get( const  TSalonList& salonList,
@@ -69,9 +74,12 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
   std::string seat_no;
   if ( !salonList.getPax(salonList.getDepartureId(), pax_id.get(), salonPax ) ) {
     //LogError(STDLOG) << __func__ << " point_id " << salonList.getDepartureId() << " pax_id " << pax_id.get();
+    tst();
     return "";
   }
   if (salonPax.seats == 0)
+    return "";
+  if (salonList.isRefused(salonList.getDepartureId(),pax_id.get()))
     return "";
   ASTRA::TPaxStatus grp_status = DecodePaxStatus(salonPax.grp_status.c_str());
   if ( grp_status == psCrew )
@@ -98,8 +106,8 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
     tst();
     seat_no = salonPax.seat_no( format, salonList.isCraftLat(),
                                 waitListReason, layer_type );
-    LogTrace(TRACE5) << EncodeCompLayerType(layer_type);
-    if ( waitListReason.status == layerValid )
+    LogTrace(TRACE5) << EncodeCompLayerType(layer_type) << " " << pax_id;
+    if ( !seat_no.empty() )
       return seat_no;
     tst();
     seat_no = salonPax.prior_seat_no( format, salonList.isCraftLat() );
@@ -109,12 +117,8 @@ std::string PaxListSeatNo::get( const  TSalonList& salonList,
       seat_no = "(" + seat_no + ")";
     return seat_no;
   }
-/*  seat_no = salonPax.crs_seat_no( format, salonList.isCraftLat(), waitListReason );
-  LogTrace(TRACE5) << seat_no;
-  if ( waitListReason.status == layerValid )
-    return seat_no;*/
   //самый приоритетный, пусть даже не валидный
-  seat_no = salonPax.prior_crs_seat_no( format, salonList.isCraftLat(), layer_type );
+  seat_no = salonPax.prior_crs_seat_no( format, salonList.isCraftLat(),layer_type);
   LogTrace(TRACE5) << seat_no;
   return seat_no;
 }
@@ -138,6 +142,7 @@ std::string PaxListSeatNo::int_checkin_seat_no( int point_id, PaxId_t pax_id, bo
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
+//еще один быстрый способ получения номера места для зарегистрированного пассажира
 std::string PaxListSeatNo::checkin_seat_no( int point_id, PaxId_t pax_id, const std::string& format, bool pr_lat_seat )
 {
   std::string seat_no = PaxListSeatNo::int_checkin_seat_no( point_id, pax_id, false, format, pr_lat_seat );

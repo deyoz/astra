@@ -10,7 +10,7 @@ namespace SEATSPAX
   class PaxListSeatNo { // для работы с номерапми мест при начитке списка пассажиров, использовать один экземпляр класса для всего списка!!!
     private: //point_dep, pair<free_seating,TSalonList>
       std::map<int,std::pair<bool,TSalonList>> salonLists;
-      bool free_seating;
+      std::map<int,std::set<PointId_t>> point_tlgs;
       static std::string int_checkin_seat_no( int point_id, PaxId_t pax_id, bool pr_wl,
                                               const std::string& format, bool pr_lat_seat );
     public:
