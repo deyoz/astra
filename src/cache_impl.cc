@@ -127,6 +127,8 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="EDI_ADDRS")           return new CacheTable::EdiAddrs;
   if (cacheCode=="ET_ADDR_SET")         return new CacheTable::EtAddrSet;
   if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
+  if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
+  if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
 
   return nullptr;
 }

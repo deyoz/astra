@@ -1090,6 +1090,7 @@ class CodeshareSets : public CacheTableWritableHandmade
 class DeskOwnersAdd : public CacheTableWritableHandmade
 {
 public:
+    std::string selectSql() const { return "";}
     bool updateImplemented() const override { return true; }
     bool userDependence() const override { return false; }
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
@@ -1105,6 +1106,7 @@ public:
 class DeskOwnersGrp : public CacheTableWritableHandmade
 {
 public:
+    std::string selectSql() const { return "";}
     bool updateImplemented() const override { return true; }
     bool userDependence() const override { return false; }
     void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
