@@ -2208,12 +2208,11 @@ void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, con
     }
 }
 
-void insert_pact(int id,
-                 TDateTime first_date,
-                 TDateTime last_date,
-                 const std::string& airline,
-                 const std::string& airp,
-                 const std::string& descr)
+void checkPactDates(int id,
+                    TDateTime first_date,
+                    TDateTime last_date,
+                    const std::string& airline,
+                    const std::string& airp)
 {
     checkDateRange(first_date, last_date);
 
@@ -2241,32 +2240,63 @@ void insert_pact(int id,
                                                                             : Qry.get().FieldAsDateTime("last_date");
         checkPeriodOverlaps(first_date, last_date, prev_first_date, prev_last_date);
     }
+}
 
-    qryParams << QParam("first_date", otInteger, first_date);
+void insertPact(int id,
+                TDateTime first_date,
+                TDateTime last_date,
+                const std::string& airline,
+                const std::string& airp,
+                const std::string& descr)
+{
+    checkPactDates(id, first_date, last_date, airline, airp);
+
+    QParams qryParams;
+    qryParams << QParam("airline", otString, airline)
+              << QParam("airp", otString, airp)
+              << QParam("first_date", otInteger, first_date);
     if (last_date == ASTRA::NoExists) {
         qryParams << QParam("last_date", otInteger, FNull);
     } else {
         qryParams << QParam("last_date", otInteger, last_date + 1);
     }
     if (id == ASTRA::NoExists) {
-      const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
-      DB::TCachedQuery insQry(
-                  PgOra::getRWSession("PACTS"),
-                  "INSERT INTO pacts(id, airline, airp, first_date, last_date, descr) "
-                  "VALUES(:id, :airline, :airp, :first_date, :last_date, :descr) ",
-                  qryParams << QParam("id", otInteger, new_id)
-                            << QParam("descr", otString, descr),
-                  STDLOG);
-      insQry.get().Execute();
-    } else {
-        DB::TCachedQuery updQry(
-                    PgOra::getRWSession("PACTS"),
-                    "UPDATE pacts "
-                    "SET first_date = :first_date, "
-                    "    last_date = :last_date "
-                    "WHERE id = :id",
-                    qryParams << QParam("id", otInteger, id),
-                    STDLOG);
-        updQry.get().Execute();
+      id = PgOra::getSeqNextVal_int("ID__SEQ");
     }
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("PACTS"),
+          "INSERT INTO pacts(id, airline, airp, first_date, last_date, descr) "
+          "VALUES(:id, :airline, :airp, :first_date, :last_date, :descr) ",
+          qryParams << QParam("id", otInteger, id)
+                    << QParam("descr", otString, descr),
+          STDLOG);
+    insQry.get().Execute();
+}
+
+void updatePact(int id,
+                TDateTime first_date,
+                TDateTime last_date,
+                const std::string& airline,
+                const std::string& airp)
+{
+    checkPactDates(id, first_date, last_date, airline, airp);
+
+    QParams qryParams;
+    qryParams << QParam("airline", otString, airline)
+              << QParam("airp", otString, airp)
+              << QParam("first_date", otInteger, first_date);
+    if (last_date == ASTRA::NoExists) {
+        qryParams << QParam("last_date", otInteger, FNull);
+    } else {
+        qryParams << QParam("last_date", otInteger, last_date + 1);
+    }
+    DB::TCachedQuery updQry(
+          PgOra::getRWSession("PACTS"),
+          "UPDATE pacts "
+          "SET first_date = :first_date, "
+          "    last_date = :last_date "
+          "WHERE id = :id",
+          qryParams << QParam("id", otInteger, id),
+          STDLOG);
+    updQry.get().Execute();
 }

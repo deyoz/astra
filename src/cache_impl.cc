@@ -1433,26 +1433,25 @@ bool Pacts::updateImplemented() const
 void Pacts::onApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row>& oldRow,
                                  const std::optional<Row>& newRow) const
 {
-    if (status==usInserted)
-    {
-      const CacheTable::Row& row=newRow.value();
-      insert_pact(ASTRA::NoExists,
-                  row.getAsDateTime_ThrowOnEmpty("first_date"),
-                  row.getAsDateTime("last_date", ASTRA::NoExists),
-                  row.getAsString("airline"),
-                  row.getAsString("airp"),
-                  row.getAsString("descr"));
-    }
+  if (status == usInserted)
+  {
+    const CacheTable::Row& row = newRow.value();
+    insertPact(row.getAsInteger_ThrowOnEmpty("id"),
+               row.getAsDateTime_ThrowOnEmpty("first_date"),
+               row.getAsDateTime("last_date", ASTRA::NoExists),
+               row.getAsString("airline"),
+               row.getAsString("airp"),
+               row.getAsString("descr"));
+  }
 
-    if (status==usModified)
-    {
-      insert_pact(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                  newRow.value().getAsDateTime_ThrowOnEmpty("first_date"),
-                  newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
-                  newRow.value().getAsString("airline"),
-                  newRow.value().getAsString("airp"),
-                  std::string());
-    }
+  if (status == usModified)
+  {
+    updatePact(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+               newRow.value().getAsDateTime_ThrowOnEmpty("first_date"),
+               newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+               newRow.value().getAsString("airline"),
+               newRow.value().getAsString("airp"));
+  }
 }
 
 void Pacts::beforeApplyingRowChanges(const TCacheUpdateStatus status,
