@@ -4109,7 +4109,7 @@ void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const 
     if(!newRow) return;
     Row row = *newRow;
     int desk_grp_id = row.getAsInteger_ThrowOnEmpty("desk_grp_id");
-    std::string airline = row.getAsString_ThrowOnEmpty("airline");
+    std::string airline = row.getAsString("airline", "");
     int pr_denial = row.getAsInteger_ThrowOnEmpty("pr_denial");
 
     bool pr_found = false;
@@ -4117,7 +4117,7 @@ void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const 
     DB::TQuery QryMain(PgOra::getROSession({"DESK_OWNERS","DESKS"}), STDLOG);
     QryMain.SQLText = " select desk_owners.id, desk_owners.desk from desk_owners, desks where "
                       " desk_owners.desk = desks.code and desks.grp_id = :desk_grp_id and "
-                      " desk_owners.airline = :airline OR (desk_owners.airline IS NULL AND :airline IS NULL)";
+                      " (desk_owners.airline = :airline OR (desk_owners.airline IS NULL AND :airline IS NULL))";
     QryMain.CreateVariable("desk_grp_id",otInteger, desk_grp_id);
     QryMain.CreateVariable("airline",otString, airline);
     QryMain.Execute();
@@ -4126,7 +4126,8 @@ void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const 
         int id = QryMain.FieldAsInteger("id");
 
         auto cur = make_db_curs( " update DESK_OWNERS set pr_denial = :pr_denial "
-                                 " where id = :id and coalesce(airline, ' ') = coalesce(:airline, ' ') ",
+                                 " where id = :id and "
+                                 " (airline = :airline OR (airline IS NULL AND :airline IS NULL))",
                               PgOra::getRWSession("DESK_OWNERS"));
 
         cur.noThrowError(DbCpp::ResultCode::ConstraintFail)
@@ -4148,7 +4149,7 @@ void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const 
             DB::TQuery QryMain(PgOra::getROSession({"DESK_OWNERS","DESKS"}), STDLOG);
             QryMain.SQLText = " select desk_owners.id, desk_owners.desk from desk_owners, desks where "
                               " desk_owners.desk = desks.code and desks.grp_id = :desk_grp_id and "
-                              " desk_owners.airline is NULL ";
+                              " desk_owners.airline IS NULL ";
             QryMain.CreateVariable("desk_grp_id",otInteger, desk_grp_id);
             QryMain.Execute();
 
@@ -4172,7 +4173,7 @@ void DeskOwnersGrp::onApplyingRowChanges(const TCacheUpdateStatus status, const 
                 throw AstraLocale::UserException("MSG.NOT_DATA");
             } else {
                 int tid = generatedTid.get();
-                DB::TQuery Qry(PgOra::getRWSession("DESK_OWNERS"), STDLOG);
+                DB::TQuery Qry(PgOra::getRWSession("CACHE_TABLES"), STDLOG);
                 Qry.SQLText = "update cache_tables set tid = :tid_next_val where code = 'DESK_OWNERS' ";
                 Qry.CreateVariable("tid_next_val", otInteger, tid);
                 Qry.Execute();
