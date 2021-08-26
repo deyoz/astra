@@ -30,6 +30,7 @@
 #include "seat_number.h"
 #include "astra_elems.h"
 #include "baggage_ckin.h"
+#include "brands.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -189,84 +190,45 @@ void TSelfCkinSalonTariff::setTariffMap( const std::string &airline,
   }
 }
 
-void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
-{
-  clear();
-
-  Qry.Execute();
-  int airps_priority_idx=Qry.GetFieldIndex("airps_priority");
-  int brand_priority_idx=Qry.GetFieldIndex("brand_priority");
-  int brand_code_idx=Qry.GetFieldIndex("brand_code");
-  for(; !Qry.Eof; Qry.Next())
-  {
-    TExtRFISC rfisc;
-    rfisc.color=Qry.FieldAsString("rate_color");
-    rfisc.rate=Qry.FieldAsFloat("rate");
-    rfisc.currency_id=Qry.FieldAsString("rate_cur");
-    rfisc.code=Qry.FieldAsString("rfisc");
-    rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
-    if (airps_priority_idx>=0)
-      rfisc.airps_priority=Qry.FieldAsInteger(airps_priority_idx);
-    if (brand_priority_idx>=0)
-      rfisc.brand_priority=Qry.FieldAsInteger(brand_priority_idx);
-    if (brand_code_idx>=0)
-      rfisc.brand_code=Qry.FieldAsString(brand_code_idx);
-
-    pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
-    if (!i.second && rfisc!=i.first->second &&
-        rfisc.brand_priority==i.first->second.brand_priority &&
-        rfisc.brand_code==i.first->second.brand_code &&
-        rfisc.airps_priority==i.first->second.airps_priority)
-    {
-      ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", rfisc.color.c_str(), traceDetail.c_str());
-      trace(TRACE5);
-      if (rfisc.rate<i.first->second.rate)
-      {
-        i.first->second=rfisc;
-        trace(TRACE5);
-      };
-    };
-  };
-}
-
 void TSeatTariffMap::get(DB::TQuery &Qry, const std::string &traceDetail)
 {
     clear();
 
     Qry.Execute();
-    for(; !Qry.Eof; Qry.Next())
-    {
-      // след.блок лучше выполнять до цикла, но проверяя Eof
-      int airps_priority_idx=Qry.GetFieldIndex("airps_priority");
-      int brand_priority_idx=Qry.GetFieldIndex("brand_priority");
-      int brand_code_idx=Qry.GetFieldIndex("brand_code");
-      TExtRFISC rfisc;
-      rfisc.color=Qry.FieldAsString("rate_color");
-      rfisc.rate=Qry.FieldAsFloat("rate");
-      rfisc.currency_id=Qry.FieldAsString("rate_cur");
-      rfisc.code=Qry.FieldAsString("rfisc");
-      rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
-      if (airps_priority_idx>=0)
-        rfisc.airps_priority=Qry.FieldAsInteger(airps_priority_idx);
-      if (brand_priority_idx>=0)
-        rfisc.brand_priority=Qry.FieldAsInteger(brand_priority_idx);
-      if (brand_code_idx>=0)
-        rfisc.brand_code=Qry.FieldAsString(brand_code_idx);
+    for (; !Qry.Eof; Qry.Next()) {
+        TExtRFISC rfisc;
+        rfisc.color = Qry.FieldAsString("rate_color");
+        rfisc.rate = Qry.FieldAsFloat("rate");
+        rfisc.currency_id = Qry.FieldAsString("rate_cur");
+        rfisc.code = Qry.FieldAsString("rfisc");
 
-      pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
-      if (!i.second && rfisc!=i.first->second &&
-          rfisc.brand_priority==i.first->second.brand_priority &&
-          rfisc.brand_code==i.first->second.brand_code &&
-          rfisc.airps_priority==i.first->second.airps_priority)
-      {
-        ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", rfisc.color.c_str(), traceDetail.c_str());
-        trace(TRACE5);
-        if (rfisc.rate<i.first->second.rate)
-        {
-          i.first->second=rfisc;
-          trace(TRACE5);
-        };
-      };
+        rfisc.pr_prot_ckin = Qry.FieldAsInteger("pr_prot_ckin");
+        if (Qry.GetFieldIndex("airps_priority") >= 0) {
+            rfisc.airps_priority = Qry.FieldAsInteger(Qry.GetFieldIndex("airps_priority"));
+        }
+        rfisc.brand_priority = calcBrandPriority(Qry.FieldAsString("fare_basis"));
+        if (Qry.GetFieldIndex("brand_code") >= 0) {
+            rfisc.brand_code = Qry.FieldAsString(Qry.GetFieldIndex("brand_code"));
+        }
+
+        const pair<TSeatTariffMapType::iterator, bool> it = this->insert({rfisc.color, rfisc});
+        if (not it.second) {
+            auto& prev_rfisc = it.first->second;
+            if (rfisc != prev_rfisc and
+                rfisc.brand_priority == prev_rfisc.brand_priority and
+                rfisc.brand_code == prev_rfisc.brand_code and
+                rfisc.airps_priority == prev_rfisc.airps_priority)
+                {
+                    const char* color = rfisc.color.c_str();
+                    const char* detail = traceDetail.c_str();
+                    ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", color, detail);
+                    trace(TRACE5);
+                    if (rfisc.rate < prev_rfisc.rate) {
+                        prev_rfisc = rfisc;
+                        trace(TRACE5);
+                    };
+                };
+        }
     };
 }
 
@@ -312,97 +274,118 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
 {
   clear();
 
-  if (is_rfisc_applied(operFlt.airline))
-  {
-    //компания завела хотя-бы один компоновочный RFISC
-    if (operFlt.airline!=markFlt.airline)
-    {
-      _status=stNotOperating;
-      return;
-    }
+  if (is_rfisc_applied(operFlt.airline)) {
+      //компания завела хотя-бы один компоновочный RFISC
+      if (operFlt.airline != markFlt.airline) {
+          _status = stNotOperating;
+          return;
+      }
 
-    if (!tkn.validET())
-    {
-      _status=stNotET;
-      return;
-    }
+      if (!tkn.validET()) {
+          _status = stNotET;
+          return;
+      }
 
-    _potential_queries++;
-    _real_queries++;
-    TETickItem etick;
-    etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
-    if (etick.empty())
-    {
-      _status=stUnknownETDisp;
-      return;
-    }
-    _potential_queries++;
-    _real_queries++;
-    DB::TCachedQuery Qry(PgOra::getROSession({"BRAND_FARES", "RFISC_RATES", "RFISC_COMP_PROPS"}),
-      "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc, "
-      "       (CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) +"
-      "       (CASE WHEN airp_arv IS NULL THEN 0 ELSE 2 END) AS airps_priority, "
-      "       LENGTH(:fare_basis)-LENGTH(brand_fares.fare_basis) AS brand_priority, brand_fares.brand AS brand_code "
-      "FROM brand_fares, rfisc_rates, rfisc_comp_props "
-      "WHERE brand_fares.airline=rfisc_rates.airline AND "
-      "      (rfisc_rates.airp_dep IS NULL OR rfisc_rates.airp_dep=:airp_dep) AND "
-      "      (rfisc_rates.airp_arv IS NULL OR rfisc_rates.airp_arv=:airp_arv) AND "
-      "      brand_fares.brand=rfisc_rates.brand AND "
-      "      rfisc_rates.airline=rfisc_comp_props.airline AND "
-      "      rfisc_rates.rfisc=rfisc_comp_props.code AND "
-      "      :issue_date>=rfisc_rates.sale_first_date AND "
-      "      (rfisc_rates.sale_last_date IS NULL OR :issue_date<rfisc_rates.sale_last_date) AND "
-      "      brand_fares.airline=:airline AND "
-      "      :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
-      "      :issue_date>=brand_fares.sale_first_date AND "
-      "      (brand_fares.sale_last_date IS NULL OR :issue_date<brand_fares.sale_last_date) "
-      "ORDER BY airps_priority DESC, brand_priority, brand_fares.brand",
-      QParams() << QParam("airline", otString, operFlt.airline)
-                << QParam("airp_dep", otString, operFlt.airp)
-                << QParam("airp_arv", otString, airp_arv)
-                << QParam("fare_basis", otString, etick.fare_basis)
-                << QParam("issue_date", otDate, etick.issue_date),
-      STDLOG
-    );
-
-    ostringstream s;
-    s << "status=stUseRFISC, "
-      << "airline=" << operFlt.airline << ", "
-      << "airp_dep="<< operFlt.airp << ", "
-      << "airp_arv="<< airp_arv << ", "
-      << "fare_basis=" << etick.fare_basis << ", "
-      << "issue_date=" << DateTimeToStr(etick.issue_date, "dd.mm.yy");
-    get(Qry.get(), s.str());
-
-    if (empty()) get_rfisc_colors_internal(operFlt.airline);
-
-    _status=stUseRFISC;
-  }
-  else
-  {
-    _potential_queries++;
-    std::map<int/*point_id_oper*/, TSeatTariffMapType>::const_iterator iTariffMap=tariff_map.find(operFlt.point_id);
-    if (iTariffMap==tariff_map.end())
-    {
+      _potential_queries++;
       _real_queries++;
-      DB::TCachedQuery Qry(PgOra::getROSession({"TRIP_COMP_RATES"}),
-        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc, 0 AS pr_prot_ckin "
-        "FROM trip_comp_rates "
-        "WHERE point_id=:point_id",
-        QParams() << QParam("point_id", otInteger, operFlt.point_id),
-        STDLOG
-      );
+
+      TETickItem etick;
+      etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
+
+      if (etick.empty()) {
+          _status = stUnknownETDisp;
+          return;
+      }
+
+      _potential_queries++;
+      _real_queries++;
+
+      DB::TCachedQuery Qry(
+          PgOra::getROSession({"BRAND_FARES", "RFISC_RATES", "RFISC_COMP_PROPS"}),
+          "SELECT "
+          "    rfisc_comp_props.rate_color, "
+          "    rfisc_comp_props.pr_prot_ckin, "
+          "    rfisc_rates.rate, "
+          "    rfisc_rates.rate_cur, "
+          "    rfisc_rates.rfisc, "
+          "    (CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) +"
+          "        (CASE WHEN airp_arv IS NULL THEN 0 ELSE 2 END) AS airps_priority, "
+          "    brand_fares.fare_basis, "
+          "    brand_fares.brand AS brand_code "
+          "FROM "
+          "    brand_fares, rfisc_rates, rfisc_comp_props "
+          "WHERE "
+          "    brand_fares.airline = rfisc_rates.airline AND "
+          "    (rfisc_rates.airp_dep IS NULL OR rfisc_rates.airp_dep = :airp_dep) AND "
+          "    (rfisc_rates.airp_arv IS NULL OR rfisc_rates.airp_arv = :airp_arv) AND "
+          "    brand_fares.brand = rfisc_rates.brand AND "
+          "    rfisc_rates.airline = rfisc_comp_props.airline AND "
+          "    rfisc_rates.rfisc = rfisc_comp_props.code AND "
+          "    :issue_date >= rfisc_rates.sale_first_date AND "
+          "    (rfisc_rates.sale_last_date IS NULL OR :issue_date < rfisc_rates.sale_last_date) AND "
+          "    brand_fares.airline = :airline AND "
+          "    :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
+          "    :issue_date >= brand_fares.sale_first_date AND "
+          "    (brand_fares.sale_last_date IS NULL OR :issue_date < brand_fares.sale_last_date) "
+          "ORDER BY "
+          "    airps_priority DESC, brand_fares.brand",
+          QParams()
+          << QParam("airline", otString, operFlt.airline)
+          << QParam("airp_dep", otString, operFlt.airp)
+          << QParam("airp_arv", otString, airp_arv)
+          << QParam("fare_basis", otString, etick.fare_basis)
+          << QParam("issue_date", otDate, etick.issue_date),
+          STDLOG);
 
       ostringstream s;
-      s << "status=stNotRFISC, "
-        << "point_id=" << operFlt.point_id;
+      s << "status=stUseRFISC, "
+        << "airline=" << operFlt.airline << ", "
+        << "airp_dep="<< operFlt.airp << ", "
+        << "airp_arv="<< airp_arv << ", "
+        << "fare_basis=" << etick.fare_basis << ", "
+        << "issue_date=" << DateTimeToStr(etick.issue_date, "dd.mm.yy");
+
       get(Qry.get(), s.str());
 
-      tariff_map.insert(make_pair(operFlt.point_id, *this));
-    }
-    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;
+      if (empty()) {
+          get_rfisc_colors_internal(operFlt.airline);
+      }
 
-    _status=stNotRFISC;
+      _status = stUseRFISC;
+  }
+  else {
+      _potential_queries++;
+      std::map<int/*point_id_oper*/, TSeatTariffMapType>::const_iterator iTariffMap = tariff_map.find(operFlt.point_id);
+      if (iTariffMap == tariff_map.end()) {
+          _real_queries++;
+          DB::TCachedQuery Qry(
+              PgOra::getROSession({"TRIP_COMP_RATES"}),
+              "SELECT DISTINCT "
+              "    color AS rate_color, "
+              "    rate, "
+              "    rate_cur, "
+              "    NULL AS rfisc, "
+              "    0 AS pr_prot_ckin "
+              "FROM "
+              "    trip_comp_rates "
+              "WHERE "
+              "    point_id=:point_id",
+              QParams() << QParam("point_id", otInteger, operFlt.point_id),
+              STDLOG);
+
+          ostringstream s;
+          s << "status=stNotRFISC, "
+            << "point_id=" << operFlt.point_id;
+
+          get(Qry.get(), s.str());
+
+          tariff_map.insert({operFlt.point_id, *this});
+      }
+      else {
+          static_cast<TSeatTariffMapType&>(*this) = iTariffMap->second;
+      }
+
+      _status = stNotRFISC;
   }
 }
 

@@ -384,7 +384,6 @@ class TSeatTariffMap : public TSeatTariffMapType
     std::map<std::string/*airline_oper*/, TSeatTariffMapType> rfisc_colors;
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
-    void get(TQuery &Qry, const std::string &traceDetail);
     void get(DB::TQuery &Qry, const std::string &traceDetail);
     void get_rfisc_colors_internal(const std::string &airline_oper);
   public:
