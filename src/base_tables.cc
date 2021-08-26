@@ -32,9 +32,9 @@ void TBaseTables::Clear()
     base_tables.clear();
 }
 
-TBaseTable &TBaseTables::get(string name)
+TBaseTable &TBaseTables::get(const std::string &nameIn)
 {
-    name = upperc(name);
+    std::string name = upperc(nameIn);
     TTables::iterator ti = base_tables.find(name);
     if(ti == base_tables.end()) {
         if(name == "AIRPS")
@@ -171,7 +171,7 @@ void TBaseTable::Invalidate()
   {
     prior_mem_count=mem.count();
     if (mem.is_trace_memory())
-      ProgTrace(TRACE5, "TBaseTable::Invalidate: %s: mem.count=%d", get_table_name(), mem.count());
+      ProgTrace(TRACE5, "TBaseTable::Invalidate: %s: mem.count=%d", get_bt_class_name(), mem.count());
   };
 };
 
@@ -179,16 +179,16 @@ void TBaseTable::load_table()
 {
   if(!pr_init || !pr_actual)
   {
-    DB::TQuery Qry(PgOra::getROSession("SP_PG_GROUP_BASETABLES"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession(get_db_table_name()), STDLOG);
     if (!pr_init)
     {
-      ProgTrace(TRACE5,"%s: Qry.SQLText = get_select_sql_text=%s",get_table_name(), get_select_sql_text() );
+      ProgTrace(TRACE5,"%s: Qry.SQLText = get_select_sql_text=%s",get_bt_class_name(), get_select_sql_text() );
       Qry.SQLText = get_select_sql_text();
       create_variables(Qry,false);
     }
     else
     {
-      ProgTrace(TRACE5,"%s: Qry.SQLText = get_refresh_sql_text=%s",get_table_name(), get_refresh_sql_text() );
+      ProgTrace(TRACE5,"%s: Qry.SQLText = get_refresh_sql_text=%s",get_bt_class_name(), get_refresh_sql_text() );
       Qry.SQLText = get_refresh_sql_text();
       create_variables(Qry,true);
     };
@@ -209,7 +209,7 @@ void TBaseTable::load_table()
         throw;
       };
     };
-    //ProgTrace(TRACE5,"TABLE %s UPDATED: %zu rows",get_table_name(),table.size());
+    //ProgTrace(TRACE5,"TABLE %s UPDATED: %zu rows",get_bt_class_name(),table.size());
     pr_init=true;
     pr_actual=true;
     after_update();
@@ -235,16 +235,16 @@ void TBaseTable::add_row(TBaseTableRow *row)
   table.push_back(row);
 };
 
-const TBaseTableRow& TBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
-                        get_table_name(),field.c_str());
+                        get_bt_class_name(),field.c_str());
 };
 
-const TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(const std::string &field, int value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
-                        get_table_name(),field.c_str());
+                        get_bt_class_name(),field.c_str());
 };
 
 //////////////////////////////////////////////////////////////
@@ -290,7 +290,7 @@ void TIdBaseTable::add_row(TBaseTableRow *row)
       id[((TIdBaseTableRow*)row)->id]=row;
   };
 }
-const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TIdBaseTable::get_row(const std::string &field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -300,7 +300,7 @@ const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool wi
     if (i==id.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%d not found",
-                            get_table_name(),field.c_str(),value);
+                            get_bt_class_name(),field.c_str(),value);
     return *(i->second);
   };
   return TBaseTable::get_row(field,value,with_deleted);
@@ -341,7 +341,7 @@ void TCodeBaseTable::add_row(TBaseTableRow *row)
   TBaseTable::add_row(row);
   if (row!=NULL && !row->deleted())
   {
-    if(strcmp(get_table_name(), "TClsGrp") != 0) {   //!!vlad плохое решение проблемы
+    if(strcmp(get_bt_class_name(), "TClsGrp") != 0) {   //!!vlad плохое решение проблемы
       if (!((TCodeBaseTableRow*)row)->code.empty())
         code[((TCodeBaseTableRow*)row)->code]=row;
       if (!((TCodeBaseTableRow*)row)->code_lat.empty())
@@ -350,7 +350,7 @@ void TCodeBaseTable::add_row(TBaseTableRow *row)
   };
 }
 
-const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCodeBaseTable::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code")
@@ -360,7 +360,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     if (i==code.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   if (lowerc(field)=="code_lat")
@@ -370,7 +370,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     if (i==code_lat.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   if (lowerc(field)=="code/code_lat")
@@ -384,7 +384,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
       if (i==code.end()||
           (!with_deleted && i->second->deleted()))
         throw EBaseTableError("%s::get_row: %s=%s not found",
-                              get_table_name(),field.c_str(),value.c_str());
+                              get_bt_class_name(),field.c_str(),value.c_str());
     };
     return *(i->second);
   };
@@ -434,11 +434,11 @@ void TTIDBaseTable::after_update()
 {
   TCodeBaseTable::after_update();
   //ProgTrace(TRACE5,"UPDATE TABLE %s tid=%d new_tid=%d",
-  //                 get_table_name(),tid,new_tid);
+  //                 get_bt_class_name(),tid,new_tid);
   tid=new_tid;
 };
 
-const TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TTIDBaseTable::get_row(const std::string &field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -448,7 +448,7 @@ const TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool w
     if (i==id.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%d not found",
-                            get_table_name(),field.c_str(),value);
+                            get_bt_class_name(),field.c_str(),value);
     return *(i->second);
   };
   return TBaseTable::get_row(field,value,with_deleted);
@@ -476,7 +476,7 @@ void TICAOBaseTable::add_row(TBaseTableRow *row)
     code_icao_lat[((TICAOBaseTableRow*)row)->code_icao_lat]=row;
 };
 
-const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TICAOBaseTable::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_icao")
@@ -486,7 +486,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     if (i==code_icao.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   if (lowerc(field)=="code_icao_lat")
@@ -496,7 +496,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     if (i==code_icao_lat.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   if (lowerc(field)=="code_icao/code_icao_lat")
@@ -510,7 +510,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
       if (i==code_icao.end()||
           (!with_deleted && i->second->deleted()))
         throw EBaseTableError("%s::get_row: %s=%s not found",
-                              get_table_name(),field.c_str(),value.c_str());
+                              get_bt_class_name(),field.c_str(),value.c_str());
     };
     return *(i->second);
   };
@@ -542,7 +542,7 @@ void TCountries::add_row(TBaseTableRow *row)
     code_iso[((TCountriesRow*)row)->code_iso]=row;
 };
 
-const TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCountries::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_iso")
@@ -552,7 +552,7 @@ const TBaseTableRow& TCountries::get_row(std::string field, std::string value, b
     if (i==code_iso.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   return TCodeBaseTable::get_row(field,value,with_deleted);
@@ -621,7 +621,7 @@ void TPaxDocCountries::add_row(TBaseTableRow *row)
     country[((TPaxDocCountriesRow*)row)->country]=row;
 };
 
-const TBaseTableRow& TPaxDocCountries::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TPaxDocCountries::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="country")
@@ -631,7 +631,7 @@ const TBaseTableRow& TPaxDocCountries::get_row(std::string field, std::string va
     if (i==country.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   return TCodeBaseTable::get_row(field,value,with_deleted);
@@ -723,7 +723,7 @@ void TAirlines::add_row(TBaseTableRow *row)
     aircode[((TAirlinesRow*)row)->aircode]=row;
 };
 
-const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TAirlines::get_row(const std::string &field, const std::string &value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="aircode")
@@ -733,7 +733,7 @@ const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bo
     if (i==aircode.end()||
         (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
-                            get_table_name(),field.c_str(),value.c_str());
+                            get_bt_class_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
   return TICAOBaseTable::get_row(field,value,with_deleted);
@@ -960,12 +960,42 @@ void TStationModes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableR
     TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
+TStationModes::TStationModes()
+{
+  Init();
+
+  select_sql = PgOra::supportsPg(get_db_table_name())
+    ?
+      "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat "
+      "UNION "
+      "SELECT 'П', 'Посадка', 'Boarding'"
+    :
+      "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
+      "UNION "
+      "SELECT 'П', 'Посадка', 'Boarding' FROM dual";
+}
+
 void TSeasonTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TSeasonTypesRow;
   mem.create(*row, STDLOG);
     TIdBaseTable::create_row(Qry,row,replaced_row);
 };
+
+TSeasonTypes::TSeasonTypes()
+{
+  Init();
+  select_sql = PgOra::supportsPg(get_db_table_name())
+    ?
+      "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat "
+      "UNION "
+      "SELECT 1, 'Лето', 'Summer'"
+    :
+      "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
+      "UNION "
+      "SELECT 1, 'Лето', 'Summer' FROM dual";
+}
+
 
 void TFormTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
@@ -1030,6 +1060,20 @@ void TPayMethodTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTabl
   mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 }
+
+TExtendedPersTypes::TExtendedPersTypes()
+{
+  Init();
+
+  select_sql =
+            "SELECT code, code_lat, name, name_lat, priority FROM pers_types "
+            "UNION "
+            "SELECT 'БГ', 'CBBG', 'Ручная кладь', 'Cabin baggage', 4";
+  if(!PgOra::supportsPg("PERS_TYPES"))
+    select_sql+=" FROM dual";
+}
+
+
 
 
 TBaseTables base_tables;

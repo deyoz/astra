@@ -185,6 +185,9 @@ namespace PgOra
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES"
         } },
+        { "SP_PG_GROUP_FAKE_DUAL_BT", { // FAKE DUAL USED IN base_tables.cc
+                "FAKE_DUAL_BT",
+        }},
         { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_SETS", "TRIP_STATIONS"
                                     "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_HALL",
         } },
