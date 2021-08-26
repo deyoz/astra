@@ -446,6 +446,12 @@ namespace PgOra
         { "SP_PG_GROUP_BALANCE_TYPES", {
                 "BALANCE_TYPES",
         }},
+        { "SP_PG_GROUP_APIS", {
+                "APIS_CUSTOMS",
+                "APIS_SETS",
+                "APIS_FORMATS",
+                "HIST_APIS_SETS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
