@@ -197,6 +197,10 @@ namespace PgOra
         { "SP_PG_GROUP_EVENTS", { "EVENTS_BILINGUAL" } },
         { "SP_PG_GROUP_EVENTS_SEQ", { "EVENTS_SEQ" } },
         { "SP_PG_GROUP_REMRES", { "REMOTE_RESULTS" } },
+        { "SP_PG_GROUP_EDICFG", { "EDIFACT_PROFILES", "HIST_EDIFACT_PROFILES",
+                                  "EDI_ADDRS"       , "HIST_EDI_ADDRS",
+                                  "ET_ADDR_SET"     , "HIST_ET_ADDR_SET",
+                                  "DCS_ADDR_SET"    , "HIST_DCS_ADDR_SET" } },
 
 
         // ASTRA MINIMUM

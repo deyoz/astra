@@ -1253,23 +1253,6 @@ EXCEPTION
     system.raise_user_exception('MSG.TLG.TYPE_WRONG_SPECIFIED');
 END check_typeb_addrs;
 
-FUNCTION check_edi_addr(vaddr IN et_addr_set.edi_addr%TYPE) RETURN et_addr_set.edi_addr%TYPE
-IS
-lparams system.TLexemeParams;
-BEGIN
-  IF vaddr IS NOT NULL THEN
-    IF LENGTH(vaddr)<2 THEN
-      lparams('addr'):=vaddr;
-      system.raise_user_exception('MSG.TLG.INVALID_ADDR_LENGTH', lparams);
-    END IF;
-    IF system.is_upp_let_dig(vaddr,1)=0 THEN
-      lparams('addr'):=vaddr;
-      system.raise_user_exception('MSG.TLG.INVALID_ADDR_CHARS', lparams);
-    END IF;
-  END IF;
-  RETURN vaddr;
-END check_edi_addr;
-
 FUNCTION check_apis_edi_addr(vaddr IN apis_sets.edi_addr%TYPE) RETURN apis_sets.edi_addr%TYPE
 IS
 pos BINARY_INTEGER;

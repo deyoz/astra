@@ -1117,5 +1117,60 @@ public:
                                   std::optional<CacheTable::Row>& newRow) const;
 };
 
-}
+class EdifactProfiles: public CacheTableWritableSimple
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
 
+class EdiAddrs: public CacheTableWritableSimple
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class EtAddrSet: public CacheTableWritable
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const override;
+};
+
+class DcsAddrSet: public CacheTableWritable
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const override;
+};
+
+}//namespace CacheTable

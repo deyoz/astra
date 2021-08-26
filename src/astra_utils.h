@@ -893,4 +893,6 @@ void checkPeriodOverlaps(TDateTime first_date,
                          TDateTime prev_first_date,
                          TDateTime prev_last_date);
 
+void checkEdiAddr(const std::string& addr);
+
 #endif /*_ASTRA_UTILS_H_*/

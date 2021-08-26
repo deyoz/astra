@@ -123,6 +123,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="BRAND_FARES")         return new CacheTable::BrandFares;
   if (cacheCode=="BI_PRINT_TYPES")      return new CacheTable::BiPrintTypes;
   if (cacheCode=="BI_PRINT_RULES")      return new CacheTable::BiPrintRules;
+  if (cacheCode=="EDIFACT_PROFILES")    return new CacheTable::EdifactProfiles;
+  if (cacheCode=="EDI_ADDRS")           return new CacheTable::EdiAddrs;
+  if (cacheCode=="ET_ADDR_SET")         return new CacheTable::EtAddrSet;
+  if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
 
   return nullptr;
 }
@@ -4181,6 +4185,185 @@ void DeskOwnersGrp::beforeApplyingRowChanges(const TCacheUpdateStatus status, co
 {
     checkAirlineAccess("airline", std::nullopt, newRow);
     checkDeskGrpAccess("desk_grp_id", false, std::nullopt, newRow);
+}
+
+// edifact_profiles
+
+bool EdifactProfiles::userDependence() const {
+    return false;
+}
+
+std::string EdifactProfiles::selectSql() const {
+    return "SELECT name, version, sub_version, ctrl_agency, syntax_name, syntax_ver "
+           "FROM EDIFACT_PROFILES "
+           "ORDER BY name";
+}
+
+std::string EdifactProfiles::insertSql() const {
+    return "INSERT INTO EDIFACT_PROFILES(name, version, sub_version, ctrl_agency, syntax_name, syntax_ver) "
+           "VALUES(:name, :version, :sub_version, :ctrl_agency, :syntax_name, :syntax_ver) ";
+}
+
+std::string EdifactProfiles::updateSql() const {
+    return "UPDATE EDIFACT_PROFILES SET "
+           "version=:version, "
+           "sub_version=:sub_version, "
+           "ctrl_agency=:ctrl_agency, "
+           "syntax_name=:syntax_name, "
+           "syntax_ver=:syntax_ver "
+           "WHERE name=:OLD_name";
+}
+
+std::string EdifactProfiles::deleteSql() const {
+    return "DELETE FROM EDIFACT_PROFILES "
+           "WHERE name=:OLD_name";
+}
+
+std::list<std::string> EdifactProfiles::dbSessionObjectNames() const {
+    return { "EDIFACT_PROFILES" };
+}
+
+// edi_addrs
+
+bool EdiAddrs::userDependence() const {
+    return false;
+}
+
+std::string EdiAddrs::selectSql() const {
+    return "SELECT addr,canon_name "
+           "FROM EDI_ADDRS "
+           "ORDER BY addr";
+}
+
+std::string EdiAddrs::insertSql() const {
+    return "INSERT INTO EDI_ADDRS(addr, canon_name) "
+           "VALUES(:addr, :canon_name)";
+}
+
+std::string EdiAddrs::updateSql() const {
+    return "UPDATE EDI_ADDRS SET "
+           "canon_name=:canon_name "
+           "WHERE addr=:OLD_addr";
+}
+
+std::string EdiAddrs::deleteSql() const {
+    return "DELETE FROM EDI_ADDRS "
+           "WHERE addr=:OLD_addr";
+}
+
+std::list<std::string> EdiAddrs::dbSessionObjectNames() const {
+    return { "EDI_ADDRS" };
+}
+
+// et_addr_set
+
+bool EtAddrSet::userDependence() const {
+    return true;
+}
+
+std::string EtAddrSet::selectSql() const {
+    return "SELECT id, airline, flt_no, edi_addr, edi_addr_ext, edi_own_addr, edi_own_addr_ext, edifact_profile "
+           "FROM et_addr_set "
+           "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " "
+           "ORDER BY airline, flt_no";
+}
+std::string EtAddrSet::insertSql() const {
+    return "INSERT INTO et_addr_set(id, airline, flt_no, edi_addr, edi_addr_ext, edi_own_addr, edi_own_addr_ext, edifact_profile) "
+           "VALUES(:id, :airline, :flt_no, :edi_addr, :edi_addr_ext, :edi_own_addr, :edi_own_addr_ext, :edifact_profile)";
+}
+std::string EtAddrSet::updateSql() const {
+    return "UPDATE et_addr_set "
+           "SET airline=:airline, flt_no=:flt_no, "
+           "    edi_addr=:edi_addr, edi_addr_ext=:edi_addr_ext, "
+           "    edi_own_addr=:edi_own_addr, edi_own_addr_ext=:edi_own_addr_ext, "
+           "    edifact_profile=:edifact_profile "
+           "WHERE id=:OLD_id";
+}
+
+std::string EtAddrSet::deleteSql() const {
+    return "DELETE FROM et_addr_set "
+           "WHERE id=:OLD_id";
+}
+
+std::list<std::string> EtAddrSet::dbSessionObjectNames() const {
+    return {"ET_ADDR_SET"};
+}
+
+void EtAddrSet::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+    checkAirlineAccess("airline", oldRow, newRow);
+    if(newRow)
+    {
+        checkEdiAddr(newRow.value().getAsString("edi_addr"));
+        checkEdiAddr(newRow.value().getAsString("edi_own_addr"));
+    }
+
+    setRowId("id", status, newRow);
+}
+
+void EtAddrSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+    HistoryTable("et_addr_set").synchronize(getRowId("id", oldRow, newRow));
+}
+
+// dcs_addr_set
+
+bool DcsAddrSet::userDependence() const {
+    return true;
+}
+
+std::string DcsAddrSet::selectSql() const {
+    return "SELECT id, airline, flt_no, edi_addr, edi_addr_ext, own_airline, own_flt_no, edi_own_addr, edi_own_addr_ext, edifact_profile "
+           "FROM dcs_addr_set "
+           "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " "
+           "ORDER BY airline, flt_no";
+}
+std::string DcsAddrSet::insertSql() const {
+    return "INSERT INTO dcs_addr_set(id, airline, flt_no, edi_addr, edi_addr_ext, own_airline, own_flt_no, edi_own_addr, edi_own_addr_ext, edifact_profile) "
+           "VALUES(:id, :airline, :flt_no, :edi_addr, :edi_addr_ext, :own_airline, :own_flt_no, :edi_own_addr, :edi_own_addr_ext, :edifact_profile)";
+}
+std::string DcsAddrSet::updateSql() const {
+    return "UPDATE dcs_addr_set "
+           "SET airline=:airline, flt_no=:flt_no, "
+           "    edi_addr=:edi_addr, edi_addr_ext=:edi_addr_ext, "
+           "    edi_own_addr=:edi_own_addr, edi_own_addr_ext=:edi_own_addr_ext, "
+           "    own_airline=:own_airline, own_flt_no=:own_flt_no, "
+           "    edifact_profile=:edifact_profile "
+           "WHERE id=:OLD_id";
+}
+
+std::string DcsAddrSet::deleteSql() const {
+    return "DELETE FROM dcs_addr_set "
+           "WHERE id=:OLD_id";
+}
+
+std::list<std::string> DcsAddrSet::dbSessionObjectNames() const {
+    return {"DCS_ADDR_SET"};
+}
+
+void DcsAddrSet::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         std::optional<CacheTable::Row>& newRow) const
+{
+    checkAirlineAccess("airline", oldRow, newRow);
+    if(newRow)
+    {
+        checkEdiAddr(newRow.value().getAsString("edi_addr"));
+        checkEdiAddr(newRow.value().getAsString("edi_own_addr"));
+    }
+
+    setRowId("id", status, newRow);
+}
+
+void DcsAddrSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        const std::optional<CacheTable::Row>& newRow) const
+{
+    HistoryTable("dcs_addr_set").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables

@@ -311,11 +311,11 @@ bool get_et_addr_set(const string &airline,
   addrs.first.clear();
   addrs.second.clear();
   id=ASTRA::NoExists;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("ET_ADDR_SET"), STDLOG);
   Qry.SQLText=
     "SELECT id, edi_addr, edi_own_addr, "
-    "       DECODE(airline,NULL,0,2)+ "
-    "       DECODE(flt_no,NULL,0,1) AS priority "
+    "       CASE WHEN airline IS NULL THEN 0 ELSE 2 END + "
+    "       CASE WHEN flt_no IS NULL THEN 0 ELSE 1 END AS priority "
     "FROM et_addr_set "
     "WHERE airline=:airline AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) "
@@ -338,7 +338,7 @@ bool get_et_addr_set(const string &airline,
 
 std::string get_canon_name(const std::string& edi_addr)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("EDI_ADDRS"), STDLOG);
   Qry.SQLText=
     "SELECT canon_name FROM edi_addrs WHERE addr=:addr";
   Qry.CreateVariable("addr",otString,edi_addr);

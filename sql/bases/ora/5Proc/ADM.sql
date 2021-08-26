@@ -148,7 +148,6 @@ PROCEDURE check_typeb_addrs(vtlg_type      IN typeb_addrs.tlg_type%TYPE,
                             vuser_id       IN users2.user_id%TYPE,
                             vexception     IN NUMBER);
 
-FUNCTION check_edi_addr(vaddr IN et_addr_set.edi_addr%TYPE) RETURN et_addr_set.edi_addr%TYPE;
 FUNCTION check_apis_edi_addr(vaddr IN apis_sets.edi_addr%TYPE) RETURN apis_sets.edi_addr%TYPE;
 PROCEDURE check_apis_sets(vairline      IN apis_sets.airline%TYPE,
                           vcountry_dep  IN apis_sets.country_dep%TYPE,

@@ -2413,3 +2413,16 @@ void checkPeriodOverlaps(TDateTime first_date,
     throw AstraLocale::UserException("MSG.PERIOD_OVERLAPS_WITH_INTRODUCED");
   }
 }
+
+void checkEdiAddr(const std::string& addr)
+{
+    if(addr.length() < 2) {
+        throw UserException("MSG.TLG.INVALID_ADDR_LENGTH",
+                            LParams() << LParam("addr", addr));
+    }
+
+    if(!IsLatinUpperLettersOrDigits(addr)) {
+        throw UserException("MSG.TLG.INVALID_ADDR_CHARS",
+                            LParams() << LParam("addr", addr));
+    }
+}

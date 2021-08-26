@@ -252,10 +252,10 @@ class CacheTableWritableSimple : public CacheTableWritable
   public:
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const {}
+                                  std::optional<CacheTable::Row>& newRow) const final {}
     void afterApplyingRowChanges(const TCacheUpdateStatus status,
                                  const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const {}
+                                 const std::optional<CacheTable::Row>& newRow) const final {}
 };
 
 class CacheTableWritableHandmade : public CacheTableCallbacks

@@ -57,11 +57,7 @@ void SystemContext::checkContinuity() const
 
 Ticketing::SystemAddrs_t SystemContext::getNextId()
 {
-    int val = 0;
-    DbCpp::CursCtl cur = make_db_curs("select SYST_ADDRS_SEQ.nextval from dual",
-                                      PgOra::getRWSession("SYST_ADDRS_SEQ"));
-    cur.def(val).EXfet();
-
+    int val = PgOra::getSeqNextVal_int("SYST_ADDRS_SEQ");
     return Ticketing::SystemAddrs_t(val);
 }
 
@@ -440,8 +436,8 @@ std::string EdsSystemContext::getSelectSql()
     return
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
-"       decode(AIRLINE,null,0,2) + "
-"       decode(FLT_NO,null,0,1) as PRIORITY "
+"       case when AIRLINE is null then 0 else 2 end + "
+"       case when FLT_NO is null then 0 else 1 end as PRIORITY "
 "from ET_ADDR_SET ";
 }
 
@@ -458,7 +454,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
-    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("DCS_ADDR_SET"));
     cur
         .stb()
         .bind(":airl", airl)
@@ -495,7 +491,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
-    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("DCS_ADDR_SET"));
     cur
         .stb()
         .bind(":airl", airl)
@@ -523,7 +519,7 @@ DcsSystemContext DcsSystemContext::read(Ticketing::SystemAddrs_t id)
     std::string sql = getSelectSql();
     sql += "where ID=:id";
 
-    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("DCS_ADDR_SET"));
     cur
         .stb()
         .bind(":id", id.get());
@@ -542,7 +538,7 @@ SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const
 "and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
     sql += "order by PRIORITY desc";
 
-    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("DCS_ADDR_SET"));
     cur.bind(":src", source)
        .bind(":src_ext", source_ext)
        .bind(":dest", dest)
@@ -623,7 +619,7 @@ void DcsSystemContext::addDb()
 "values "
 "(:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :edifact_profile, :id) ";
 
-    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("DCS_ADDR_SET"));
     cur.stb()
        .bind(":airline",         airline())
        .bind(":edi_addr",        remoteAddrEdifact())
@@ -657,10 +653,10 @@ std::string DcsSystemContext::getSelectSql()
     return
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
-"       decode(AIRLINE,null,0,2) + "
-"       decode(FLT_NO,null,0,1) + "
-"       decode(OWN_AIRLINE,null,0,2) + "
-"       decode(OWN_FLT_NO,null,0,1) as PRIORITY "
+"       case when AIRLINE is null then 0 else 2 end + "
+"       case when FLT_NO is null then 0 else 1 end + "
+"       case when OWN_AIRLINE is null then 0 else 2 end + "
+"       case when OWN_FLT_NO is null then 0 else 1 end as PRIORITY "
 "from DCS_ADDR_SET ";
 }
 
