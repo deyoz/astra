@@ -206,7 +206,7 @@ int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_da
             if (item_id.first_date < first) {
                 /* отрезок [first_date,first) */
                 if (idh != ASTRA::NoExists) {
-                    updateRange(item_id.id, tid, item_id.first_date, first);
+                    updateRange(item_id.id, tidh, item_id.first_date, first);
                     idh = ASTRA::NoExists;
                 } else {
                     copy(item_id.id, tidh, item_id.first_date, first);
@@ -218,7 +218,7 @@ int BaseRangedItem::add(int id, int tid, TDateTime first_date, TDateTime last_da
             {
                 /* отрезок [last,last_date)  */
                 if (idh != ASTRA::NoExists) {
-                    updateRange(item_id.id, tid, last, item_id.last_date);
+                    updateRange(item_id.id, tidh, last, item_id.last_date);
                     idh = ASTRA::NoExists;
                 } else {
                     copy(item_id.id, tidh, last, item_id.last_date);
