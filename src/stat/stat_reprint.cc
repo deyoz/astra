@@ -16,8 +16,10 @@ using namespace BASIC::date_time;
 
 void cleanForeignScan(int days)
 {
-    TCachedQuery Qry("delete from foreign_scan where time_print <= :time",
-            QParams() << QParam("time", otDate, NowUTC() - days));
+    DB::TCachedQuery Qry(PgOra::getRWSession("FOREIGN_SCAN"),
+                         "delete from foreign_scan where time_print <= :time",
+                         QParams() << QParam("time", otDate, NowUTC() - days),
+                         STDLOG);
     Qry.get().Execute();
 }
 
@@ -312,7 +314,7 @@ void RunReprintStat(
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         SQLText += " scd_out >= :FirstDate and scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("FOREIGN_SCAN"), SQLText, QryParams, STDLOG);
         LogTrace(TRACE5) << "SQLText: " << SQLText;
         Qry.get().Execute();
         if(not Qry.get().Eof) {

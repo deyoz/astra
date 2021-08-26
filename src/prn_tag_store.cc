@@ -796,6 +796,7 @@ void TPrnTagStore::save_foreign_scan()
         descr = Web_Qry.FieldAsString("descr");
     }
 
+    const int new_ida=PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
     DB::TCachedQuery Qry(PgOra::getRWSession("FOREIGN_SCAN"),
             "insert into foreign_scan ( "
             "   id, "
@@ -813,7 +814,7 @@ void TPrnTagStore::save_foreign_scan()
             "   scan_data, "
             "   errors "
             ") values ( "
-            "   cycle_id__seq.nextval, "
+            "   :new_ida, "
             "   :time_print, "
             "   :desk, "
             "   :desks_airp, "
@@ -829,6 +830,7 @@ void TPrnTagStore::save_foreign_scan()
             "   :errors "
             ") ",
         QParams()
+            << QParam("new_ida", otInteger, new_ida)
             << QParam("time_print", otDate, time_print.val)
             << QParam("desk", otString, TReqInfo::Instance()->desk.code)
             << QParam("desks_airp", otString, airp)
@@ -948,7 +950,7 @@ void TPrnTagStore::TRStationInfo::Init()
 {
     if(not pr_init) {
         pr_init = true;
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("STATIONS"),STDLOG);
         Qry.SQLText = "select name from stations where desk = :desk and work_mode = :wm";
         Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
         Qry.CreateVariable("wm", otString, "ê");

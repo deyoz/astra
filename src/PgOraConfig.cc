@@ -456,6 +456,9 @@ namespace PgOra
                 "APIS_FORMATS",
                 "HIST_APIS_SETS",
         }},
+        { "SP_PG_GROUP_FOREIGN_SCAN", {
+                "FOREIGN_SCAN",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
