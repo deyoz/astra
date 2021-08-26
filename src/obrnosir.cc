@@ -24,6 +24,7 @@
 #include "kiosk/kiosk_config.h"
 #include "db_pkg.h"
 #include "nosir_create_tlg.h"
+#include "nosir_crstxt.h"
 #include "stat/stat_rfisc.h"
 #include "stat/stat_self_ckin.h"
 #include "stat/stat_limited_capab.h"
@@ -157,6 +158,7 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+    {"-crstxt",                 nosir_crstxt,           NULL,                       NULL},
     {"-dump_typeb_out",         nosirDumpTypeBOut,      nosirDumpTypeBOutUsage,     NULL},
     {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
     {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},

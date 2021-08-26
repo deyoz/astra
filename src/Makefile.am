@@ -238,6 +238,7 @@ astra_SOURCES = \
   dbostructures.cpp \
   astra_calls.cc \
   wb_messages.cc \
+  nosir_crstxt.cc \
   hooked_session.cc \
   PgOraConfig.cc
 
@@ -474,5 +475,6 @@ noinst_HEADERS = \
   dbostructures.h \
   astra_calls.h \
   wb_messages.h \
+  nosir_crstxt.h \
   hooked_session.h \
   PgOraConfig.h
