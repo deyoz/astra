@@ -106,9 +106,11 @@ class TBrands : public std::list<TBrand>
     void traceCaching() const;
 };
 
-void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime,
-                       const std::string& airline,
-                       const std::string& fare_basis,
-                       const std::string& brand);
+void insertBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                     const std::string& airline, const std::string& fare_basis,
+                     const std::string& brand);
+void updateBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                     const std::string& airline, const std::string& fare_basis,
+                     const std::string& brand);
 
 #endif

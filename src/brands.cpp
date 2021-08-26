@@ -169,13 +169,9 @@ std::ostream& operator<<(std::ostream& os, const TBrand::Key& brand)
   return os;
 }
 
-void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime,
-                       const string& airline, const string& fare_basis, const string& brand)
+void checkBrandFareDates(int id, TDateTime first_date, TDateTime last_date,
+                            const string& airline, const string& fare_basis)
 {
-  TDateTime first_date = ASTRA::NoExists;
-  TDateTime last_date  = ASTRA::NoExists;
-  dateTimeToDatePeriod(first_datetime, last_datetime,
-                       first_date, last_date);
   checkDateRange(first_date, last_date);
 
   QParams qryParams;
@@ -201,8 +197,20 @@ void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime
                                                                              : Qry.get().FieldAsDateTime("sale_last_date");
     checkPeriodOverlaps(first_date, last_date, prev_first_date, prev_last_date);
   }
+}
 
-  qryParams << QParam("first_date", otInteger, first_date);
+void insertBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                     const string& airline, const string& fare_basis, const string& brand)
+{
+  TDateTime first_date = ASTRA::NoExists;
+  TDateTime last_date  = ASTRA::NoExists;
+  dateTimeToDatePeriod(first_datetime, last_datetime,
+                       first_date, last_date);
+  checkBrandFareDates(id, first_date, last_date, airline, fare_basis);
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("fare_basis", otString, fare_basis)
+            << QParam("first_date", otInteger, first_date);
   if (last_date == ASTRA::NoExists) {
     qryParams << QParam("last_date", otInteger, FNull);
   } else {
@@ -210,23 +218,42 @@ void insert_brand_fare(int id, TDateTime first_datetime, TDateTime last_datetime
   }
   qryParams << QParam("brand", otString, brand);
   if (id == ASTRA::NoExists) {
-    const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
-    DB::TCachedQuery insQry(
-          PgOra::getRWSession("BRAND_FARES"),
-          "INSERT INTO brand_fares(id, airline, fare_basis, brand, sale_first_date, sale_last_date) "
-          "VALUES(:id, :airline, :fare_basis, :brand, :first_date, :last_date) ",
-          qryParams << QParam("id", otInteger, new_id),
-          STDLOG);
-    insQry.get().Execute();
-  } else {
-    DB::TCachedQuery updQry(
-          PgOra::getRWSession("BRAND_FARES"),
-          "UPDATE brand_fares "
-          "SET airline=:airline, fare_basis=:fare_basis, brand=:brand, "
-          "    sale_first_date=:first_date, sale_last_date=:last_date "
-          "WHERE id=:id ",
-          qryParams << QParam("id", otInteger, id),
-          STDLOG);
-    updQry.get().Execute();
+    id = PgOra::getSeqNextVal_int("ID__SEQ");
   }
+  DB::TCachedQuery insQry(
+        PgOra::getRWSession("BRAND_FARES"),
+        "INSERT INTO brand_fares(id, airline, fare_basis, brand, sale_first_date, sale_last_date) "
+        "VALUES(:id, :airline, :fare_basis, :brand, :first_date, :last_date) ",
+        qryParams << QParam("id", otInteger, id),
+        STDLOG);
+  insQry.get().Execute();
+}
+
+void updateBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
+                     const string& airline, const string& fare_basis, const string& brand)
+{
+  TDateTime first_date = ASTRA::NoExists;
+  TDateTime last_date  = ASTRA::NoExists;
+  dateTimeToDatePeriod(first_datetime, last_datetime,
+                       first_date, last_date);
+  checkBrandFareDates(id, first_date, last_date, airline, fare_basis);
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("fare_basis", otString, fare_basis)
+            << QParam("first_date", otInteger, first_date);
+  if (last_date == ASTRA::NoExists) {
+    qryParams << QParam("last_date", otInteger, FNull);
+  } else {
+    qryParams << QParam("last_date", otInteger, last_date + 1);
+  }
+  qryParams << QParam("brand", otString, brand);
+  DB::TCachedQuery updQry(
+        PgOra::getRWSession("BRAND_FARES"),
+        "UPDATE brand_fares "
+        "SET airline=:airline, fare_basis=:fare_basis, brand=:brand, "
+        "    sale_first_date=:first_date, sale_last_date=:last_date "
+        "WHERE id=:id ",
+        qryParams << QParam("id", otInteger, id),
+        STDLOG);
+  updQry.get().Execute();
 }

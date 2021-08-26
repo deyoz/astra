@@ -2012,22 +2012,22 @@ void BrandFares::onApplyingRowChanges(const TCacheUpdateStatus status,
   if (status == usInserted)
   {
     const CacheTable::Row& row = newRow.value();
-    insert_brand_fare(ASTRA::NoExists,
-                      row.getAsDateTime_ThrowOnEmpty("sale_first_date"),
-                      row.getAsDateTime("sale_last_date", ASTRA::NoExists),
-                      row.getAsString("airline"),
-                      row.getAsString("fare_basis"),
-                      row.getAsString("brand"));
+    insertBrandFare(row.getAsInteger_ThrowOnEmpty("id"),
+                    row.getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                    row.getAsDateTime("sale_last_date", ASTRA::NoExists),
+                    row.getAsString("airline"),
+                    row.getAsString("fare_basis"),
+                    row.getAsString("brand"));
   }
 
   if (status == usModified)
   {
-    insert_brand_fare(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                      newRow.value().getAsDateTime_ThrowOnEmpty("sale_first_date"),
-                      newRow.value().getAsDateTime("sale_last_date", ASTRA::NoExists),
-                      newRow.value().getAsString("airline"),
-                      newRow.value().getAsString("fare_basis"),
-                      newRow.value().getAsString("brand"));
+    updateBrandFare(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                    newRow.value().getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                    newRow.value().getAsDateTime("sale_last_date", ASTRA::NoExists),
+                    newRow.value().getAsString("airline"),
+                    newRow.value().getAsString("fare_basis"),
+                    newRow.value().getAsString("brand"));
   }
 }
 
