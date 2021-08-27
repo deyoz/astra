@@ -230,10 +230,10 @@ $(defmacro ADD_HTTP_CLIENT
   http_pswd
 {
 
-$(sql {INSERT INTO web_clients(client_id, client_type, descr, desk, user_id, tracing_search, id)
-       VALUES('$(client_id)', 'HTTP', '$(client_id)', '$(desk)', $(get_user_id $(user_login)), 0, id__seq.nextval)})
+$(db_sql WEB_CLIENTS {INSERT INTO web_clients(client_id, client_type, descr, desk, user_id, tracing_search, id)
+       VALUES('$(client_id)', 'HTTP', '$(client_id)', '$(desk)', $(get_user_id $(user_login)), 0, $(db_seq_nextval ID__SEQ))})
 
-$(sql {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
+$(db_sql HTTP_CLIENTS {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
        VALUES('$(client_id)', '$(http_user)', '$(http_pswd)', '$(exchange_type)')})
 
 })
