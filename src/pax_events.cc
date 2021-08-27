@@ -48,8 +48,8 @@ void TPaxEvent::toDB(int pax_id, TPaxEventTypes::Enum pax_event)
     string gate;
     if(not gateQry.get().Eof)
         gate = gateQry.get().FieldAsString("name");
-    DB::TCachedQuery Qry(
-          PgOra::getROSession("PAX_EVENTS"),
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("PAX_EVENTS"),
           "INSERT INTO pax_events ( "
           "   ev_order, "
           "   pax_id, "
@@ -72,5 +72,5 @@ void TPaxEvent::toDB(int pax_id, TPaxEventTypes::Enum pax_event)
                     << QParam("desk", otString, TReqInfo::Instance()->desk.code)
                     << QParam("station", otString, gate),
           STDLOG);
-    Qry.get().Execute();
+    insQry.get().Execute();
 }

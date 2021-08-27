@@ -141,6 +141,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="DCS_ACTIONS2")        return new CacheTable::DcsActions2;
   if (cacheCode=="REM_TXT_SETS")        return new CacheTable::RemTxtSets;
   if (cacheCode=="CUSTOM_ALARM_SETS")   return new CacheTable::CustomAlarmSets;
+  if (cacheCode=="CUSTOM_ALARM_TYPES")  return new CacheTable::CustomAlarmTypes;
   if (cacheCode=="CONFIRMATION_SETS")   return new CacheTable::ConfirmationSets;
   if (cacheCode=="BRANDS")              return new CacheTable::Brands;
 
@@ -2855,6 +2856,89 @@ void CustomAlarmSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                          const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("custom_alarm_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//CustomAlarmTypes
+
+bool CustomAlarmTypes::userDependence() const
+{
+  return true;
+}
+
+std::string CustomAlarmTypes::selectSql() const
+{
+  return "SELECT id,airline,name,name_lat,pr_del,tid "
+         "FROM custom_alarm_types "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " "
+         "ORDER BY airline,name,name_lat ";
+}
+
+std::string CustomAlarmTypes::refreshSql() const
+{
+  return "";
+}
+
+std::string CustomAlarmTypes::insertSqlOnApplyingChanges() const
+{
+  return "INSERT INTO custom_alarm_types (airline, name, name_lat, id, tid, pr_del) "
+         "VALUES (:airline, :name, :name_lat, :id, :tid, :pr_del) ";
+}
+
+std::string CustomAlarmTypes::updateSqlOnApplyingChanges() const
+{
+  return "UPDATE custom_alarm_types "
+         "SET airline = :airline, name = :name, name_lat = :name_lat, tid = :tid, pr_del=:pr_del "
+         "WHERE id = :id ";
+}
+
+std::string CustomAlarmTypes::deleteSqlOnApplyingChanges() const
+{
+  return "DELETE FROM custom_alarm_types "
+         "WHERE id = :id ";
+}
+
+std::list<std::string> CustomAlarmTypes::dbSessionObjectNamesForRead() const
+{
+  return {"CUSTOM_ALARM_TYPES"};
+}
+
+std::string CustomAlarmTypes::tableName() const
+{
+  return "custom_alarm_types";
+}
+
+std::string CustomAlarmTypes::idFieldName() const
+{
+    return "id";
+}
+
+void CustomAlarmTypes::bind(const Row& row, DbCpp::CursCtl& cur) const
+{
+  cur.stb()
+     .bind(":airline",  row.getAsString("airline"))
+     .bind(":name",     row.getAsString("name"))
+     .bind(":name_lat", row.getAsString("name_lat"));
+}
+
+std::optional<RowId_t> CustomAlarmTypes::getRowIdBeforeInsert(const Row& row) const
+{
+  DB::TCachedQuery lockQry(
+              PgOra::getRWSession({"CUSTOM_ALARM_TYPES","PAX_CUSTOM_ALARMS"}),
+              "SELECT id FROM custom_alarm_types "
+              "WHERE pr_del <> 0 "
+              "AND NOT EXISTS ("
+              "  SELECT * FROM pax_custom_alarms "
+              "  WHERE alarm_type = custom_alarm_types.id "
+              "  FETCH FIRST 1 ROWS ONLY) "
+              "FETCH FIRST 1 ROWS ONLY "
+              "FOR UPDATE ",
+              STDLOG);
+  lockQry.get().Execute();
+  if (!lockQry.get().Eof) {
+    return RowId_t(lockQry.get().FieldAsInteger("id"));
+  }
+
+  return std::nullopt;
 }
 
 //ConfirmationSets
