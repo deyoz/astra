@@ -1049,11 +1049,10 @@ private:
 
         try {
             if (req_.useSSL) {
-#ifdef ENABLE_ORACLE
                 sslContext_.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
                 SSL_CTX* ctx = sslContext_.native_handle();
 
-                const std::vector<Certificate> caCerts = ReadCACerts(req_.domain);
+                const std::vector<Certificate> caCerts = HttpsrvDbCallbacks::instance()->readCACerts(req_.domain);
                 if (not caCerts.empty()) {
                     LogTrace(TRACE5) << __FUNCTION__ << ": loaded " << caCerts.size() << " CA certificates";
 
@@ -1077,12 +1076,8 @@ private:
 
                 }
                 stream_ = stream_holder::create_stream(io_, &sslContext_);
-#else // ENABLE_ORACLE
-                throw std::runtime_error("HttpsConn::init called without oracle support");
-#endif // ENABLE_ORACLE
             }
             else
-
                 stream_ = stream_holder::create_stream(io_);
 
             resolver_.async_resolve(
@@ -2773,6 +2768,94 @@ std::pair<unsigned, unsigned> status_and_offset(std::string const& txt)
 }
 
 HasNotSentAQueryBefore::HasNotSentAQueryBefore() : ServerFramework::Exception("httpsrv::HasNotSentAQueryBefore") {}
+
+
+//****************************************************************************
+//****************************************************************************
+
+class HttpsrvDbOraCallbacks: public HttpsrvDbCallbacks
+{
+public:
+    HttpsrvDbOraCallbacks()
+    {
+#ifdef ENABLE_ORACLE
+      OciCpp::createMainSession(STDLOG,get_connect_string());
+#endif // ENABLE_ORACLE
+    }
+
+    virtual std::vector<Certificate> readCACerts(const Domain& domain) const override;
+    virtual void deleteCACerts(const Domain& domain) const override;
+    virtual void insertCACert(const Domain& domain, const std::string &cert) const override;
+    virtual ~HttpsrvDbOraCallbacks() {}
+};
+
+/*******************************************************************************
+ * Чтение CA сертификатов
+ ******************************************************************************/
+
+std::vector<Certificate> HttpsrvDbOraCallbacks::readCACerts(const Domain& domain) const
+{
+    std::vector<Certificate> result;
+#ifdef ENABLE_ORACLE
+    std::string cert;
+    OciCpp::CursCtl curs = make_curs("SELECT CERT FROM HTTPCA WHERE DOMAIN = :domain OR DOMAIN IS NULL");
+    curs.stb()
+        .def(cert)
+        .bind(":domain", domain.str());
+    curs.exec();
+    while (!curs.fen())
+        result.push_back(Certificate(cert));
+#endif // ENABLE_ORACLE
+    return result;
+}
+
+void HttpsrvDbOraCallbacks::deleteCACerts(const Domain& domain) const
+{
+#ifdef ENABLE_ORACLE
+    OciCpp::CursCtl curs = make_curs("DELETE FROM HTTPCA WHERE DOMAIN = :domain");
+    curs.stb()
+        .bind(":domain", domain.str())
+        .exec();
+#endif // ENABLE_ORACLE
+}
+
+void HttpsrvDbOraCallbacks::insertCACert(const Domain& domain, const std::string &cert) const
+{
+#ifdef ENABLE_ORACLE
+    OciCpp::CursCtl curs = make_curs("INSERT INTO HTTPCA (DOMAIN, CERT) VALUES (:domain, :cert)");
+    curs.stb()
+        .bind(":domain", domain.str())
+        .bind(":cert", cert)
+        .exec();
+#endif // ENABLE_ORACLE
+}
+
+
+//****************************************************************************
+
+HttpsrvDbCallbacks *HttpsrvDbCallbacks::instance_ = nullptr;
+
+HttpsrvDbCallbacks *HttpsrvDbCallbacks::instance()
+{
+    if(HttpsrvDbCallbacks::instance_ == nullptr)
+    {
+      if(!ServerFramework::applicationCallbacks()->initHttpsrvDBcallbacks())
+        HttpsrvDbCallbacks::instance_ = new HttpsrvDbOraCallbacks(); // ora by default for backward compatibility
+    }
+    return instance_;
+}
+
+void HttpsrvDbCallbacks::setHttpsrvDbCallbacks(HttpsrvDbCallbacks *cb)
+{
+    if(HttpsrvDbCallbacks::instance_)
+    {
+      delete HttpsrvDbCallbacks::instance_;
+    }
+    HttpsrvDbCallbacks::instance_ = cb;
+}
+
+//****************************************************************************
+//****************************************************************************
 
 } /* namespace httpsrv */
 

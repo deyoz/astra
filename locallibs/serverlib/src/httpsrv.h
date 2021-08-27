@@ -272,6 +272,22 @@ std::vector<std::string> getOutgoingHttpRequests();
 #endif // XP_TESTING
 bool forkAllowed();
 
+
+class HttpsrvDbCallbacks
+{
+  static HttpsrvDbCallbacks *instance_;
+public:
+  // Чтение CA сертификатов
+  virtual std::vector<Certificate> readCACerts(const Domain& domain) const=0;
+  virtual void deleteCACerts(const Domain& domain) const=0;
+  virtual void insertCACert(const Domain& domain, const std::string &cert) const=0;
+
+  static HttpsrvDbCallbacks *instance();
+  static void setHttpsrvDbCallbacks(HttpsrvDbCallbacks *cb);
+
+  virtual ~HttpsrvDbCallbacks() {}
+};
+
 } /* namespace httpsrv */
 
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(httpsrv::protocol::Data)

@@ -128,6 +128,13 @@ class ApplicationCallbacks
     }
     virtual int nosir_proc(int argc,char **argv); //what to do in nosir mode
     virtual void help_nosir(); // help for nosir mode
+
+    virtual bool initHttpsrvDBcallbacks() const // returns false if no special initialization implemented (default),
+                                                // true - otherwise (then httpsrv should not use its own default initializer)
+    {
+      return false;
+    }
+
     int run (int argc,char **argv);
 };
 
