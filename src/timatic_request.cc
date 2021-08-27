@@ -1036,7 +1036,7 @@ void TTimaticAccess::clear()
     pr_denial = true;
 }
 
-const TTimaticAccess &TTimaticAccess::fromDB(TQuery &Qry)
+const TTimaticAccess &TTimaticAccess::fromDB(DB::TQuery &Qry)
 {
     clear();
     if(not Qry.Eof) {
@@ -1052,15 +1052,16 @@ const TTimaticAccess &TTimaticAccess::fromDB(TQuery &Qry)
     return *this;
 }
 
-vector<TTimaticAccess> GetTimaticAccessSets()
+std::vector<TTimaticAccess> GetTimaticAccessSets()
 {
-    vector<TTimaticAccess> result;
-    TCachedQuery Qry(
-            "select timatic_sets.*, "
-            "   DECODE( airline, NULL, 0, 8 )+ "
-            "   DECODE( airp, NULL, 0, 4 ) priority "
-            "from timatic_sets "
-            "order by priority desc");
+    std::vector<TTimaticAccess> result;
+    DB::TCachedQuery Qry(PgOra::getROSession("TIMATIC_SETS"),
+                         "select timatic_sets.*, "
+                           " (CASE WHEN airline IS  NULL THEN 0 ELSE 8 END) + "
+                           " (CASE WHEN airp IS NULL THEN 0 ELSE 4 END) AS priority "
+                           "from timatic_sets "
+                           "order by priority desc",
+                          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         result.push_back(TTimaticAccess().fromDB(Qry.get()));
@@ -1088,17 +1089,19 @@ boost::optional<TTimaticAccess> GetTimaticUserAccess()
 boost::optional<TTimaticAccess> GetTimaticAccess(const string &airline, const string &airp)
 {
     boost::optional<TTimaticAccess> result;
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(
+             PgOra::getROSession("TIMATIC_SETS"),
             "select timatic_sets.*, "
-            "   DECODE( airline, NULL, 0, 8 )+ "
-            "   DECODE( airp, NULL, 0, 4 ) priority "
+                           " (CASE WHEN airline IS  NULL THEN 0 ELSE 8 END) + "
+                           " (CASE WHEN airp IS NULL THEN 0 ELSE 4 END) AS priority "
             "from timatic_sets where "
             "   (airline IS NULL OR airline=:airline) AND "
             "   (airp IS NULL OR airp = :airp) "
             "order by priority desc",
             QParams()
-            << QParam("airline", otString, airline)
-            << QParam("airp", otString, airp)
+              << QParam("airline", otString, airline)
+              << QParam("airp", otString, airp),
+            STDLOG
             );
     Qry.get().Execute();
     if(not Qry.get().Eof and Qry.get().FieldAsInteger("pr_denial") == 0) {

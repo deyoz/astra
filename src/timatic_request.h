@@ -5,6 +5,10 @@
 #include "libtimatic/timatic_http.h"
 #include "oralib.h"
 
+namespace DB {
+class TQuery;
+} // namespace DB
+
 static const std::string TIMATIC_XML_RESOURCE = "/timatic_layout.xml";
 
 namespace Timatic {
@@ -20,7 +24,7 @@ namespace Timatic {
 
         void clear();
 
-        const TTimaticAccess &fromDB(TQuery &Qry);
+        const TTimaticAccess &fromDB(DB::TQuery &Qry);
 
         void fromXML(xmlNodePtr node);
         void toXML(xmlNodePtr node);

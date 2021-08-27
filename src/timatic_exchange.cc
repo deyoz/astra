@@ -209,7 +209,7 @@ namespace Timatic {
 
     ExtSession TimaticSession::fromDB() const
     {
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(PgOra::getROSession("TIMATIC_SESSION"),
                 "select * from timatic_session where "
                 "   host = :host and "
                 "   port = :port and "
@@ -223,7 +223,9 @@ namespace Timatic {
                 << QParam("username", otString, config.username)
                 << QParam("sub_username", otString, config.sub_username)
                 << QParam("pwd", otString, config.pwd)
-                << QParam("expire", otDate, NowUTC()));
+                << QParam("expire", otDate, NowUTC()),
+                STDLOG
+                );
         Qry.get().Execute();
 
         if(not Qry.get().Eof)
@@ -247,48 +249,79 @@ namespace Timatic {
         if(invalidate or not s.jsessionID.empty()) QryParams << QParam("jsessionID", otString, s.jsessionID);
         if(invalidate or not s.sessionID.empty()) QryParams << QParam("sessionID", otString, s.sessionID);
 
-        string SQLText =
-            "declare "
-            "   pragma autonomous_transaction; "
-            "begin "
-            "   insert into timatic_session ( "
-            "      host, "
-            "      port, "
-            "      username, "
-            "      sub_username, "
-            "      pwd, ";
-        if(invalidate or not s.jsessionID.empty()) SQLText += " jsessionID, ";
-        if(invalidate or not s.sessionID.empty()) SQLText += " sessionID, ";
-        SQLText +=
-            "      expire "
-            "   ) values ( "
-            "      :host, "
-            "      :port, "
-            "      :username, "
-            "      :sub_username, "
-            "      :pwd, ";
-        if(invalidate or not s.jsessionID.empty()) SQLText += " :jsessionID, ";
-        if(invalidate or not s.sessionID.empty()) SQLText += " :sessionID, ";
-        SQLText +=
-            "      :expire "
-            "      ); "
-            "   commit; "
-            "exception "
-            "   when dup_val_on_index then "
-            "       update timatic_session set ";
-        if(invalidate or not s.jsessionID.empty()) SQLText += " jsessionID = :jsessionID, ";
-        if(invalidate or not s.sessionID.empty()) SQLText += " sessionID = :sessionID, ";
-        SQLText += 
-            "           expire = :expire "
-            "       where "
-            "           host = :host and "
-            "           port = :port and "
-            "           username = :username and "
-            "           sub_username = :sub_username and "
-            "           pwd = :pwd; "
-            "       commit; "
-            "end; ";
-        TCachedQuery Qry(SQLText, QryParams);
-        Qry.get().Execute();
+        std::string insertSql=
+              "   insert into timatic_session ( "
+              "      host, "
+              "      port, "
+              "      username, "
+              "      sub_username, "
+              "      pwd, ";
+        if(invalidate or not s.jsessionID.empty()) insertSql += " jsessionID, ";
+        if(invalidate or not s.sessionID.empty()) insertSql += " sessionID, ";
+        insertSql +=
+              "      expire "
+              "   ) values ( "
+              "      :host, "
+              "      :port, "
+              "      :username, "
+              "      :sub_username, "
+              "      :pwd, ";
+        if(invalidate or not s.jsessionID.empty()) insertSql += " :jsessionID, ";
+        if(invalidate or not s.sessionID.empty()) insertSql += " :sessionID, ";
+        insertSql +=
+              "      :expire "
+              "      )";
+
+
+        std::string updateSql=
+              "       update timatic_session set ";
+        if(invalidate or not s.jsessionID.empty()) updateSql += " jsessionID = :jsessionID, ";
+        if(invalidate or not s.sessionID.empty()) updateSql += " sessionID = :sessionID, ";
+        updateSql += 
+              "           expire = :expire "
+              "       where "
+              "           host = :host and "
+              "           port = :port and "
+              "           username = :username and "
+              "           sub_username = :sub_username and "
+              "           pwd = :pwd";
+
+
+        if(!PgOra::supportsPg("TIMATIC_SESSION"))
+        {
+          std::string sqlText =
+              "declare "
+              "   pragma autonomous_transaction; "
+              "begin " +
+              insertSql +"; "
+              "   commit; "
+              "exception "
+              "   when dup_val_on_index then " +
+              updateSql +"; "
+              "       commit; "
+              "end; ";
+          DB::TCachedQuery qry(PgOra::getROSession("TIMATIC_SESSION"), sqlText, QryParams, STDLOG);
+          qry.get().Execute();
+        }
+        else
+        {
+          DbCpp::PgAutonomousSessionManager mngr = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+          DB::TCachedQuery qryInsert(mngr.session(),
+                                     insertSql+" ON CONFLICT DO NOTHING",
+                                     QryParams,
+                                     STDLOG);
+          qryInsert.get().Execute();
+          if(!qryInsert.get().RowsProcessed())
+          {
+            LogTrace(TRACE5)<<"failed to insert to TIMATIC_SESSION, update instead";
+            DB::TCachedQuery qryUpdate(mngr.session(),
+                                       updateSql,
+                                       QryParams,
+                                       STDLOG);
+            qryUpdate.get().Execute();
+          }
+          mngr.commit();
+        }
     }
-}
+
+} // namespace Timatic

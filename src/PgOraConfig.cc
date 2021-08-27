@@ -464,6 +464,10 @@ namespace PgOra
                 "HTTP_CLIENTS",
                 "HTTP_SETS",
         }},
+        { "SP_PG_GROUP_TIMATIC", {
+                "TIMATIC_SESSION",
+                "TIMATIC_SETS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
