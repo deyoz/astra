@@ -167,7 +167,7 @@ void HTTPClient::get(const request& req)
 
   if (client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("HTTP_CLIENTS"),STDLOG);
   Qry.SQLText =
     "SELECT http_user, http_pswd, exchange_type "
     "FROM http_clients "
@@ -398,9 +398,15 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
 
 void save_http_client_headers(const request &req)
 {
-    TCachedQuery Qry(
-            "begin "
-            "   insert into http_client_headers ( "
+    QParams qryParams;
+    qryParams << QParam("client_id", otString)
+              << QParam("host", otString)
+              << QParam("path", otString, req.uri)
+              << QParam("operation", otString)
+              << QParam("time", otDate, NowUTC());
+
+    DB::TCachedQuery qryIns(PgOra::getRWSession("HTTP_CLIENT_HEADERS"),
+            std::string("   insert into http_client_headers ( "
             "       client_id, "
             "       host, "
             "       path, "
@@ -412,40 +418,61 @@ void save_http_client_headers(const request &req)
             "       :path, "
             "       :operation, "
             "       :time "
-            "   ); "
-            "exception "
-            "   when dup_val_on_index then "
-            "       update http_client_headers "
-            "           set time = :time "
-            "       where "
-            "           client_id = :client_id and "
-            "           host = :host and "
-            "           path = :path and "
-            "           nvl(operation, ' ') = nvl(:operation, ' '); "
-            "end; ",
-        QParams()
-            << QParam("client_id", otString)
-            << QParam("host", otString)
-            << QParam("path", otString, req.uri)
-            << QParam("operation", otString)
-            << QParam("time", otDate, NowUTC())
+            "   )") + (PgOra::supportsPg("HTTP_CLIENT_HEADERS") ? " ON CONFLICT DO NOTHING" : ""),
+            qryParams,
+            STDLOG
             );
+
+    DB::TCachedQuery qryUpd(PgOra::getRWSession("HTTP_CLIENT_HEADERS"),
+            " update http_client_headers "
+            "     set time = :time "
+            " where "
+            "     client_id = :client_id and "
+            "     host = :host and "
+            "     path = :path and "
+            "     COALESCE(operation, ' ') = COALESCE(:operation, ' ') ",
+            qryParams,
+            STDLOG
+            );
+
     bool pr_kick = false;
     bool pr_client_id = false;
     httpParams p; // без учета регистра
     p << req.headers;
     if ( p.find(CLIENT_ID) != p.end() ) {
       pr_client_id = not  p[CLIENT_ID].empty();
-      Qry.get().SetVariable("client_id", p[CLIENT_ID]);
+      qryIns.get().SetVariable("client_id", p[CLIENT_ID]);
+      qryUpd.get().SetVariable("client_id", p[CLIENT_ID]);
     }
     if ( p.find(HOST) != p.end() ) {
-      Qry.get().SetVariable("host", p[HOST]);
+      qryIns.get().SetVariable("host", p[HOST]);
+      qryUpd.get().SetVariable("host", p[HOST]);
     }
     if ( p.find(OPERATION) != p.end() ) {
       pr_kick = p[OPERATION] == "kick";
-      Qry.get().SetVariable("operation", p[OPERATION]);
+      qryIns.get().SetVariable("operation", p[OPERATION]);
+      qryUpd.get().SetVariable("operation", p[OPERATION]);
     }
-    if(not pr_kick and pr_client_id) Qry.get().Execute();
+    if(not pr_kick and pr_client_id)
+    {
+      bool inserted_successfully=false;
+      try
+      {
+        qryIns.get().Execute();
+        if(qryIns.get().RowsProcessed()>0)
+          inserted_successfully=true;
+      }
+      catch(const EOracleError &error)
+      {
+        if(error.Code != CERR_U_CONSTRAINT)
+        {
+          LogError(STDLOG)<<"insert into HTTP_CLIENT_HEADERS failed";
+          throw;
+        }
+      }
+      if(!inserted_successfully)
+        qryUpd.get().Execute();
+    }
 }
 
 void http_main(reply& rep, const request& req)

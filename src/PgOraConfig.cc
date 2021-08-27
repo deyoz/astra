@@ -459,6 +459,11 @@ namespace PgOra
         { "SP_PG_GROUP_FOREIGN_SCAN", {
                 "FOREIGN_SCAN",
         }},
+        { "SP_PG_GROUP_HTTP", {
+                "HTTP_CLIENT_HEADERS",
+                "HTTP_CLIENTS",
+                "HTTP_SETS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

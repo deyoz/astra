@@ -1114,32 +1114,35 @@ void sync_sirena_rozysk( TDateTime utcdate )
 {
     ProgTrace(TRACE5,"sync_sirena_rozysk started");
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery qryLock(PgOra::getRWSession("HTTP_SETS"),STDLOG);
+    qryLock.SQLText=
         "SELECT last_create FROM http_sets WHERE code=:code AND pr_denial=0 FOR UPDATE";
-    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-    Qry.Execute();
-    if (Qry.Eof) return;
-    TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
-    TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
-        Qry.FieldAsDateTime("last_create");
+    qryLock.CreateVariable("code", otString, ROZYSK_SIRENA);
+    qryLock.Execute();
+    if (qryLock.Eof || !qryLock.RowsProcessed())
+      return;
 
-    if (first_time>=last_time) return;
+    TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
+    TDateTime first_time = qryLock.FieldIsNULL("last_create")
+                             ? last_time - 10.0/1440.0
+                             : qryLock.FieldAsDateTime("last_create");
+
+    if (first_time>=last_time)
+      return;
 
     rozysk::TPaxListTJKFilter filter;
     filter.first_time_utc=first_time;
     filter.last_time_utc=last_time;
 
-    vector<rozysk::TPax> paxs;
+    std::vector<rozysk::TPax> paxs;
     rozysk::get_pax_list(filter, false, paxs);
 
-    Qry.Clear();
-    Qry.SQLText =
+    DB::TQuery qryUpdate(PgOra::getRWSession("HTTP_SETS"),STDLOG);
+    qryUpdate.SQLText =
         "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
-    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-    Qry.CreateVariable("last_time", otDate, last_time);
-    Qry.Execute();
+    qryUpdate.CreateVariable("code", otString, ROZYSK_SIRENA);
+    qryUpdate.CreateVariable("last_time", otDate, last_time);
+    qryUpdate.Execute();
 
     ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
     if(not paxs.empty()) {
