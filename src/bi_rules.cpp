@@ -647,23 +647,26 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
     // Если не найдено ни одного бренда, добавляем пустой
     if(brands.empty()) brands.emplace_back();
 
-    TCachedQuery Qry(
-            "select * from rem_txt_sets where "
-            "   airline = :airline and "
-            "   tag_index = :tag_index and "
-            "   (rfisc is null or rfisc = :rfisc) and "
-            "   (brand_airline is null or brand_airline = :brand_airline) and "
-            "   (brand_code is null or brand_code = :brand_code) and "
-            "   (fqt_airline is null or fqt_airline = :fqt_airline) and "
-            "   (fqt_tier_level is null or fqt_tier_level = :fqt_tier_level) ",
-            QParams()
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("REM_TXT_SETS"),
+          "SELECT * FROM rem_txt_sets "
+          "WHERE "
+          "   airline = :airline AND "
+          "   tag_index = :tag_index AND "
+          "   (rfisc IS NULL OR rfisc = :rfisc) AND "
+          "   (brand_airline IS NULL OR brand_airline = :brand_airline) AND "
+          "   (brand_code IS NULL OR brand_code = :brand_code) AND "
+          "   (fqt_airline IS NULL OR fqt_airline = :fqt_airline) AND "
+          "   (fqt_tier_level IS NULL OR fqt_tier_level = :fqt_tier_level) ",
+          QParams()
             << QParam("airline", otString, airline)
             << QParam("tag_index", otInteger, tag_index)
             << QParam("rfisc", otString)
             << QParam("brand_airline", otString)
             << QParam("brand_code", otString)
             << QParam("fqt_airline", otString)
-            << QParam("fqt_tier_level", otString));
+            << QParam("fqt_tier_level", otString),
+          STDLOG);
     for(const auto &rfisc: paxRFISCs)
         for(const auto &fqt: fqts)
             for(const auto &brand: brands) {

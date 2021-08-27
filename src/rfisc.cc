@@ -1313,22 +1313,26 @@ const TGrpServiceAutoItem& TGrpServiceAutoItem::toDB(DB::TQuery &Qry) const
 
 bool TGrpServiceAutoItem::permittedForAutoCheckin(const TTripInfo& flt) const
 {
-  TCachedQuery Qry("SELECT auto_checkin, "
-                   "    DECODE(flt_no,NULL,0,2)+ "
-                   "    DECODE(airp_dep,NULL,0,4)+ "
-                   "    DECODE(rfisc,NULL,0,1) AS priority "
-                   "FROM rfisc_sets "
-                   "WHERE airline=:airline AND "
-                   "      rfic=:rfic AND "
-                   "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-                   "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-                   "      (rfisc IS NULL OR rfisc=:rfisc) "
-                   "ORDER BY priority DESC",
-                   QParams() << QParam("airline", otString, flt.airline)
-                             << QParam("flt_no", otInteger, flt.flt_no)
-                             << QParam("airp_dep", otString, flt.airp)
-                             << QParam("rfic", otString, RFIC)
-                             << QParam("rfisc", otString, RFISC));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("RFISC_SETS"),
+        "SELECT "
+        "  auto_checkin, "
+        "  (  CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END "
+        "   + CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END "
+        "   + CASE WHEN rfisc IS NULL THEN 0 ELSE 1 END) AS priority "
+        "FROM rfisc_sets "
+        "WHERE airline=:airline AND "
+        "      rfic=:rfic AND "
+        "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+        "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+        "      (rfisc IS NULL OR rfisc=:rfisc) "
+        "ORDER BY priority DESC",
+        QParams() << QParam("airline", otString, flt.airline)
+                  << QParam("flt_no", otInteger, flt.flt_no)
+                  << QParam("airp_dep", otString, flt.airp)
+                  << QParam("rfic", otString, RFIC)
+                  << QParam("rfisc", otString, RFISC),
+        STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   return Qry.get().FieldAsInteger("auto_checkin")!=0;
@@ -2607,3 +2611,114 @@ bool need_for_payment(const GrpId_t& grp_id,
   return false;
 }
 
+
+void checkRfiscRatesDates(int id, TDateTime first_date, TDateTime last_date, const string& airline,
+                          const string& airp_dep, const string& airp_arv, const string& brand,
+                          const string& rfisc)
+{
+  checkDateRange(first_date, last_date);
+
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("airp_dep", otString, airp_dep)
+            << QParam("airp_arv", otString, airp_arv)
+            << QParam("brand", otString, brand)
+            << QParam("rfisc", otString, rfisc);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("RFISC_RATES"),
+        "SELECT id, sale_first_date, sale_last_date "
+        "FROM rfisc_rates "
+        "WHERE airline=:airline AND "
+        "     (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+        "     (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND "
+        "      brand=:brand AND rfisc=:rfisc ",
+        qryParams,
+        STDLOG);
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    const int brand_fare_id = Qry.get().FieldAsInteger("id");
+    if (id == brand_fare_id) {
+      continue;
+    }
+    const TDateTime prev_first_date = Qry.get().FieldIsNULL("sale_first_date") ? ASTRA::NoExists
+                                                                               : Qry.get().FieldAsDateTime("sale_first_date");
+    const TDateTime prev_last_date = Qry.get().FieldIsNULL("sale_last_date") ? ASTRA::NoExists
+                                                                             : Qry.get().FieldAsDateTime("sale_last_date");
+    checkPeriodOverlaps(first_date, last_date, prev_first_date, prev_last_date);
+  }
+}
+
+void insertRfiscRates(int id, TDateTime first_datetime, TDateTime last_datetime,
+                      const string& airline, const string& airp_dep, const string& airp_arv,
+                      const string& brand, const string& rfisc_airline, const string& rfisc,
+                      int rate, const string& rate_cur)
+{
+  TDateTime first_date = ASTRA::NoExists;
+  TDateTime last_date  = ASTRA::NoExists;
+  dateTimeToDatePeriod(first_datetime, last_datetime,
+                       first_date, last_date);
+  checkRfiscRatesDates(id, first_date, last_date, airline, airp_dep, airp_arv, brand, rfisc);
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("airp_dep", otString, airp_dep)
+            << QParam("airp_arv", otString, airp_arv)
+            << QParam("brand", otString, brand)
+            << QParam("rfisc_airline", otString, rfisc_airline)
+            << QParam("rfisc", otString, rfisc)
+            << QParam("rate", otInteger, rate)
+            << QParam("rate_cur", otString, rate_cur)
+            << QParam("first_date", otDate, first_date);
+  if (last_date == ASTRA::NoExists) {
+    qryParams << QParam("last_date", otDate, FNull);
+  } else {
+    qryParams << QParam("last_date", otDate, last_date + 1);
+  }
+  if (id == ASTRA::NoExists) {
+    id = PgOra::getSeqNextVal_int("ID__SEQ");
+  }
+  DB::TCachedQuery insQry(
+        PgOra::getRWSession("RFISC_RATES"),
+        "INSERT INTO rfisc_rates(id, airline, airp_dep, airp_arv, brand, sale_first_date, sale_last_date, rfisc, rate, rate_cur) "
+        "VALUES(:id, :airline, :airp_dep, :airp_arv, :brand, :first_date, :last_date, :rfisc, :rate, :rate_cur) ",
+        qryParams << QParam("id", otInteger, id),
+        STDLOG);
+  insQry.get().Execute();
+}
+
+void updateRfiscRates(int id, TDateTime first_datetime, TDateTime last_datetime,
+                      const string& airline, const string& airp_dep, const string& airp_arv,
+                      const string& brand, const string& rfisc_airline, const string& rfisc,
+                      int rate, const string& rate_cur)
+{
+  TDateTime first_date = ASTRA::NoExists;
+  TDateTime last_date  = ASTRA::NoExists;
+  dateTimeToDatePeriod(first_datetime, last_datetime,
+                       first_date, last_date);
+  checkRfiscRatesDates(id, first_date, last_date, airline, airp_dep, airp_arv, brand, rfisc);
+  QParams qryParams;
+  qryParams << QParam("airline", otString, airline)
+            << QParam("airp_dep", otString, airp_dep)
+            << QParam("airp_arv", otString, airp_arv)
+            << QParam("brand", otString, brand)
+            << QParam("rfisc_airline", otString, rfisc_airline)
+            << QParam("rfisc", otString, rfisc)
+            << QParam("rate", otInteger, rate)
+            << QParam("rate_cur", otString, rate_cur)
+            << QParam("first_date", otDate, first_date);
+  if (last_date == ASTRA::NoExists) {
+    qryParams << QParam("last_date", otDate, FNull);
+  } else {
+    qryParams << QParam("last_date", otDate, last_date + 1);
+  }
+  DB::TCachedQuery updQry(
+        PgOra::getRWSession("RFISC_RATES"),
+        "UPDATE rfisc_rates "
+        "SET airline=:airline, airp_dep=:airp_dep, airp_arv=:airp_arv, brand=:brand, "
+        "    sale_first_date=:first_date, sale_last_date=:last_date, "
+        "    rfisc=:rfisc, rate=:rate, rate_cur=:rate_cur "
+        "WHERE id=:id ",
+        qryParams << QParam("id", otInteger, id),
+        STDLOG);
+  updQry.get().Execute();
+}

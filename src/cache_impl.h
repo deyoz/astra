@@ -306,17 +306,6 @@ class HotelRoomTypes : public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class CacheTableWritableWoCallbacks : public CacheTableWritable
-{
-  public:
-    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
-                                  const std::optional<CacheTable::Row>& oldRow,
-                                  std::optional<CacheTable::Row>& newRow) const {}
-    void afterApplyingRowChanges(const TCacheUpdateStatus status,
-                                 const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const {}
-};
-
 class DevOperTypes : public CacheTableReadonly
 {
 public:
@@ -333,7 +322,7 @@ public:
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class DevFmtTypes : public CacheTableWritableWoCallbacks
+class DevFmtTypes : public CacheTableWritableSimple
 {
 public:
     bool userDependence() const;
@@ -414,7 +403,7 @@ class BpTypes : public CacheTableWritable
     virtual std::string operType() const { return "PRINT_BP"; }
 };
 
-class BpModels : public CacheTableWritableWoCallbacks
+class BpModels : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -428,7 +417,7 @@ class BpModels : public CacheTableWritableWoCallbacks
     virtual std::string operType() const { return "PRINT_BP"; }
 };
 
-class BpBlankList : public CacheTableWritableWoCallbacks
+class BpBlankList : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -483,7 +472,7 @@ class EmdABlankList : public BpBlankList
     std::string operType() const { return "PRINT_EMDA"; }
 };
 
-class BrModels : public CacheTableWritableWoCallbacks
+class BrModels : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -495,7 +484,7 @@ class BrModels : public CacheTableWritableWoCallbacks
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class BrBlankList : public CacheTableWritableWoCallbacks
+class BrBlankList : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -506,7 +495,7 @@ class BrBlankList : public CacheTableWritableWoCallbacks
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class BtModels : public CacheTableWritableWoCallbacks
+class BtModels : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -518,7 +507,7 @@ class BtModels : public CacheTableWritableWoCallbacks
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class BtBlankList : public CacheTableWritableWoCallbacks
+class BtBlankList : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -529,7 +518,7 @@ class BtBlankList : public CacheTableWritableWoCallbacks
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class PrnFormVers : public CacheTableWritableWoCallbacks
+class PrnFormVers : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -557,7 +546,7 @@ class PrnForms : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const {}
 };
 
-class TripBt : public CacheTableWritableWoCallbacks
+class TripBt : public CacheTableWritableSimple
 {
   public:
     bool userDependence() const;
@@ -614,6 +603,245 @@ class BiPrintRules : public CacheTableWritable
     std::string deleteSql() const;
     std::list<std::string> dbSessionObjectNames() const;
     std::list<std::string> dbSessionObjectNamesForRead() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class RfiscRates : public CacheTableWritableHandmade
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string deleteSql() const;
+
+    bool insertImplemented() const;
+    bool updateImplemented() const;
+
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const {}
+
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class RfiscRatesSelfCkin : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class RficTypes : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class RfiscTypes : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class RfiscSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class RfiscCompProps : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class RfiscBagProps : public CacheTableWritable
+{
+public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class DcsServiceApplying : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class DcsActions : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    virtual std::string codeList() const = 0;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class DcsActions1 : public DcsActions
+{
+  public:
+    std::string codeList() const;
+};
+
+class DcsActions2 : public DcsActions
+{
+  public:
+    std::string codeList() const;
+};
+
+class RemTxtSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class CustomAlarmSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class ConfirmationSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    std::list<std::string> dbSessionObjectNamesForRead() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class Brands : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::list<std::string> dbSessionObjectNames() const;
+
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
                                   std::optional<CacheTable::Row>& newRow) const;

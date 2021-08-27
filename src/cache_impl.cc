@@ -129,6 +129,20 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
   if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
   if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
+  if (cacheCode=="RFISC_RATES")         return new CacheTable::RfiscRates;
+  if (cacheCode=="RFISC_RATES_SELF_CKIN") return new CacheTable::RfiscRatesSelfCkin;
+  if (cacheCode=="RFIC_TYPES")          return new CacheTable::RficTypes;
+  if (cacheCode=="RFISC_TYPES")         return new CacheTable::RfiscTypes;
+  if (cacheCode=="RFISC_SETS")          return new CacheTable::RfiscSets;
+  if (cacheCode=="RFISC_COMP_PROPS")    return new CacheTable::RfiscCompProps;
+  if (cacheCode=="RFISC_BAG_PROPS")     return new CacheTable::RfiscBagProps;
+  if (cacheCode=="DCS_SERVICE_APPLYING") return new CacheTable::DcsServiceApplying;
+  if (cacheCode=="DCS_ACTIONS1")        return new CacheTable::DcsActions1;
+  if (cacheCode=="DCS_ACTIONS2")        return new CacheTable::DcsActions2;
+  if (cacheCode=="REM_TXT_SETS")        return new CacheTable::RemTxtSets;
+  if (cacheCode=="CUSTOM_ALARM_SETS")   return new CacheTable::CustomAlarmSets;
+  if (cacheCode=="CONFIRMATION_SETS")   return new CacheTable::ConfirmationSets;
+  if (cacheCode=="BRANDS")              return new CacheTable::Brands;
 
   return nullptr;
 }
@@ -2054,9 +2068,11 @@ void BrandFares::beforeApplyingRowChanges(const TCacheUpdateStatus status,
 
   if (newRow)
   {
-    std::string fareBasis=newRow.value().getAsString_ThrowOnEmpty("fare_basis");
+    const std::string fareBasis = newRow.value().getAsString_ThrowOnEmpty("fare_basis");
     checkInvalidSymbolInName(fareBasis, false /*latinOnly*/, "-/*", "BRAND_FARES", "FARE_BASIS");
   }
+
+  setRowId("id", status, newRow);
 }
 
 void BrandFares::afterApplyingRowChanges(const TCacheUpdateStatus status,
@@ -2159,6 +2175,822 @@ void BiPrintRules::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                            const std::optional<Row>& newRow) const
 {
   HistoryTable("bi_print_rules").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//RfiscRates
+
+bool RfiscRates::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscRates::selectSql() const
+{
+  return "SELECT rfisc_rates.id, rfisc_rates.airline, rfisc_rates.airp_dep, rfisc_rates.airp_arv, "
+         "       rfisc_rates.brand, rfisc_rates.sale_first_date, "
+         "       " + lastDateSelectSQL("RFISC_RATES", "sale_last_date") + ", "
+         "       rfisc_rates.rfisc, rfisc_rates.rate, rfisc_rates.rate_cur, "
+         "       brands.id AS brand_view, rfisc_rates.airline AS rfisc_airline, "
+         "       rfisc_rates.airp_dep AS rfisc_airp_dep, rfisc_rates.airp_arv AS rfisc_airp_arv "
+         "FROM rfisc_rates, brands "
+         "WHERE rfisc_rates.airline=brands.airline AND "
+         "      rfisc_rates.brand=brands.code AND "
+         "      " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " AND "
+         "      " + getSQLFilter("airp_dep",  AccessControl::PermittedAirportsOrNull) + " AND "
+         "      " + getSQLFilter("airp_arv",  AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY rfisc_rates.airline, rfisc_rates.airp_dep, rfisc_rates.airp_arv, rfisc_rates.brand, "
+         "         rfisc_rates.rfisc, rfisc_rates.sale_first_date, rfisc_rates.sale_last_date NULLS LAST ";
+}
+
+std::string RfiscRates::deleteSql() const
+{
+  return "DELETE FROM rfisc_rates "
+         "WHERE id = :OLD_id ";
+}
+
+bool RfiscRates::insertImplemented() const
+{
+  return true;
+}
+
+bool RfiscRates::updateImplemented() const
+{
+  return true;
+}
+
+void RfiscRates::onApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<Row>& oldRow,
+                                      const std::optional<Row>& newRow) const
+{
+  if (status == usInserted)
+  {
+    const CacheTable::Row& row = newRow.value();
+    insertRfiscRates(row.getAsInteger_ThrowOnEmpty("id"),
+                     row.getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                     row.getAsDateTime("sale_last_date", ASTRA::NoExists),
+                     row.getAsString("airline"),
+                     row.getAsString("airp_dep"),
+                     row.getAsString("airp_arv"),
+                     row.getAsString("brand"),
+                     row.getAsString("rfisc_airline"),
+                     row.getAsString("rfisc"),
+                     row.getAsInteger_ThrowOnEmpty("rate"),
+                     row.getAsString("rate_cur"));
+  }
+
+  if (status == usModified)
+  {
+    updateRfiscRates(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                     newRow.value().getAsDateTime_ThrowOnEmpty("sale_first_date"),
+                     newRow.value().getAsDateTime("sale_last_date", ASTRA::NoExists),
+                     newRow.value().getAsString("airline"),
+                     newRow.value().getAsString("airp_dep"),
+                     newRow.value().getAsString("airp_arv"),
+                     newRow.value().getAsString("brand"),
+                     newRow.value().getAsString("rfisc_airline"),
+                     newRow.value().getAsString("rfisc"),
+                     newRow.value().getAsInteger_ThrowOnEmpty("rate"),
+                     newRow.value().getAsString("rate_cur"));
+  }
+}
+
+std::list<std::string> RfiscRates::dbSessionObjectNames() const
+{
+  return {"RFISC_RATES"};
+}
+
+std::list<std::string> RfiscRates::dbSessionObjectNamesForRead() const
+{
+  return {"RFISC_RATES","BRANDS"};
+}
+
+void RfiscRates::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    const std::string airp_dep = newRow.value().getAsString("airp_dep");
+    const std::string airp_arv = newRow.value().getAsString("airp_arv");
+    if ((!airp_dep.empty() && airp_arv.empty())
+        || (airp_dep.empty() && !airp_arv.empty()))
+    {
+      throw UserException("MSG.AIRPS_ISNULL_OR_REQUIRED");
+    }
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+  checkAirportAccess("airp_arv", oldRow, newRow);
+
+  if (newRow)
+  {
+    const std::string rfisc_airline = newRow.value().getAsString("rfisc_airline");
+    const std::string airline = newRow.value().getAsString("airline");
+    if (!rfisc_airline.empty() && rfisc_airline != airline) {
+        throw UserException("MSG.BRAND_DOES_NOT_MEET_RFISC");
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void RfiscRates::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rfisc_rates").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//RfiscRatesSelfCkin
+
+bool RfiscRatesSelfCkin::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscRatesSelfCkin::selectSql() const
+{
+  return "SELECT id, airline, airp_dep, airp_arv, craft, rfisc, rate, rate_cur "
+         "FROM rfisc_rates_self_ckin "
+         "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " AND "
+         "      " + getSQLFilter("airp_dep",  AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY airline, rfisc ";
+}
+
+std::string RfiscRatesSelfCkin::insertSql() const
+{
+  return "INSERT INTO rfisc_rates_self_ckin(id, airline, airp_dep, airp_arv, craft, rfisc, rate, rate_cur) "
+         "VALUES(:id, :airline, :airp_dep, :airp_arv, :craft, :rfisc, :rate, :rate_cur) ";
+}
+
+std::string RfiscRatesSelfCkin::updateSql() const
+{
+  return "UPDATE rfisc_rates_self_ckin "
+         "SET airline=:airline, airp_dep=:airp_dep, airp_arv=:airp_arv, craft=:craft, "
+         "    rfisc=:rfisc, rate=:rate, rate_cur=:rate_cur "
+         "WHERE id = :OLD_id ";
+}
+
+std::string RfiscRatesSelfCkin::deleteSql() const
+{
+  return "DELETE FROM rfisc_rates_self_ckin "
+         "WHERE id = :OLD_id ";
+}
+
+std::list<std::string> RfiscRatesSelfCkin::dbSessionObjectNames() const
+{
+  return {"RFISC_RATES_SELF_CKIN"};
+}
+
+void RfiscRatesSelfCkin::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                                  const std::optional<CacheTable::Row>& oldRow,
+                                                  std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void RfiscRatesSelfCkin::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                                 const std::optional<CacheTable::Row>& oldRow,
+                                                 const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rfisc_rates_self_ckin").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//RficTypes
+
+bool RficTypes::userDependence() const
+{
+  return true;
+}
+
+std::string RficTypes::selectSql() const
+{
+  return "SELECT code,name,name_lat "
+         "FROM rfic_types "
+         "ORDER BY code ";
+}
+
+std::list<std::string> RficTypes::dbSessionObjectNames() const
+{
+  return {"RFIC_TYPES"};
+}
+
+//RfiscTypes
+
+bool RfiscTypes::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscTypes::selectSql() const
+{
+  return "SELECT airline, code "
+         "FROM rfisc_comp_props "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " "
+         "ORDER BY airline, code";
+}
+
+std::list<std::string> RfiscTypes::dbSessionObjectNames() const
+{
+  return {"RFISC_COMP_PROPS"};
+}
+
+//RfiscSets
+
+bool RfiscSets::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscSets::selectSql() const
+{
+  return "SELECT id, airline, flt_no, airp_dep, rfic, rfisc, auto_checkin "
+         "FROM rfisc_sets "
+         "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+         "      " + getSQLFilter("airp_dep",  AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY airline, rfic, id ";
+}
+
+std::string RfiscSets::insertSql() const
+{
+  return "INSERT INTO rfisc_sets(id, airline, flt_no, airp_dep, rfic, rfisc, auto_checkin) "
+         "VALUES(:id, :airline, :flt_no, :airp_dep, :rfic, :rfisc, :auto_checkin) ";
+}
+
+std::string RfiscSets::updateSql() const
+{
+  return "UPDATE rfisc_sets "
+         "SET airline=:airline, flt_no=:flt_no, airp_dep=:airp_dep, rfic=:rfic, "
+         "    rfisc=:rfisc, auto_checkin=:auto_checkin "
+         "WHERE id=:OLD_id ";
+}
+
+std::string RfiscSets::deleteSql() const
+{
+  return "DELETE FROM rfisc_sets "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> RfiscSets::dbSessionObjectNames() const
+{
+  return {"RFISC_SETS"};
+}
+
+void RfiscSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  if (newRow) {
+      const std::string rfic = newRow.value().getAsString("rfic");
+      if (rfic == "C") {
+          throw UserException("MSG.FORBIDDEN_INSERT_RFIC",
+                              LParams() << LParam("rfic", rfic));
+      }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void RfiscSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rfisc_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//RfiscCompProps
+
+bool RfiscCompProps::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscCompProps::selectSql() const
+{
+  return "SELECT airline, code, rate_color, id, pr_prot_ckin "
+         "FROM rfisc_comp_props "
+         "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY airline, code ";
+}
+
+std::string RfiscCompProps::insertSql() const
+{
+  return "INSERT INTO rfisc_comp_props(airline, code, rate_color, id, pr_prot_ckin) "
+         "VALUES(:airline, :code, :rate_color, :id, :pr_prot_ckin) ";
+}
+
+std::string RfiscCompProps::updateSql() const
+{
+  return "UPDATE rfisc_comp_props "
+         "SET airline=:airline, code=:code, rate_color=:rate_color, pr_prot_ckin=:pr_prot_ckin "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::string RfiscCompProps::deleteSql() const
+{
+  return "DELETE FROM rfisc_comp_props "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::list<std::string> RfiscCompProps::dbSessionObjectNames() const
+{
+  return {"RFISC_COMP_PROPS"};
+}
+
+void RfiscCompProps::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void RfiscCompProps::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rfisc_comp_props").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//RfiscBagProps
+
+bool RfiscBagProps::userDependence() const
+{
+  return true;
+}
+
+std::string RfiscBagProps::selectSql() const
+{
+  return "SELECT airline, code, rem_code_lci, rem_code_ldm, priority, min_weight, max_weight, id "
+         "FROM rfisc_bag_props "
+         "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY priority NULLS LAST, code ";
+}
+
+std::string RfiscBagProps::insertSql() const
+{
+  return "INSERT INTO rfisc_bag_props(airline, code, rem_code_lci, rem_code_ldm, priority, min_weight, max_weight, id) "
+         "VALUES(:airline, :code, :rem_code_lci, :rem_code_ldm, :priority, :min_weight, :max_weight, :id) ";
+}
+
+std::string RfiscBagProps::updateSql() const
+{
+  return "UPDATE rfisc_bag_props "
+         "SET airline=:airline, code=:code, rem_code_lci = :rem_code_lci, "
+         "rem_code_ldm = :rem_code_ldm, priority=:priority, min_weight=:min_weight, max_weight=:max_weight "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::string RfiscBagProps::deleteSql() const
+{
+  return "DELETE FROM rfisc_bag_props "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::list<std::string> RfiscBagProps::dbSessionObjectNames() const
+{
+  return {"RFISC_BAG_PROPS"};
+}
+
+void RfiscBagProps::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  if (newRow) {
+    checkRange(newRow.value().getAsInteger("min_weight"),
+               newRow.value().getAsInteger("max_weight"),
+               "RFISC_BAG_PROPS", "MAX_WEIGHT");
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void RfiscBagProps::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rfisc_bag_props").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//DcsServiceApplying
+
+bool DcsServiceApplying::userDependence() const
+{
+  return true;
+}
+
+std::string DcsServiceApplying::selectSql() const
+{
+  return "SELECT a.id, a.airline, a.dcs_service, a.brand_airline, a.brand_code, brands.id AS brand_view, "
+         "       a.fqt_airline, a.fqt_tier_level, a.class, a.rfisc, a.pr_denial "
+         "FROM dcs_service_applying a "
+         "LEFT OUTER JOIN brands "
+         "ON a.brand_airline = brands.airline AND a.brand_code = brands.code "
+         "LEFT OUTER JOIN dcs_actions ON a.dcs_service = dcs_actions.code "
+         "WHERE " + getSQLFilter("a.airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY a.airline, dcs_actions.view_order, a.id ";
+}
+
+std::string DcsServiceApplying::insertSql() const
+{
+  return "INSERT INTO dcs_service_applying( "
+         "  id, airline, dcs_service, brand_airline, brand_code, fqt_airline, fqt_tier_level, class, rfisc, pr_denial "
+         ") VALUES ( "
+         "  :id, :airline, :dcs_service, :brand_airline, :brand_code, :fqt_airline, :fqt_tier_level, :class, :rfisc, :pr_denial "
+         ") ";
+}
+
+std::string DcsServiceApplying::updateSql() const
+{
+  return "UPDATE dcs_service_applying "
+         "SET airline=:airline, dcs_service=:dcs_service, brand_airline=:brand_airline, brand_code=:brand_code, "
+         "    fqt_airline=:fqt_airline, fqt_tier_level=:fqt_tier_level, class=:class, rfisc=:rfisc, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id ";
+}
+
+std::string DcsServiceApplying::deleteSql() const
+{
+  return "DELETE FROM dcs_service_applying "
+         "WHERE id = :OLD_id ";
+}
+
+std::list<std::string> DcsServiceApplying::dbSessionObjectNames() const
+{
+  return {"DCS_SERVICE_APPLYING"};
+}
+
+std::list<std::string> DcsServiceApplying::dbSessionObjectNamesForRead() const
+{
+  return {"DCS_SERVICE_APPLYING","BRANDS","DCS_ACTIONS"};
+}
+
+void DcsServiceApplying::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                                  const std::optional<CacheTable::Row>& oldRow,
+                                                  std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  if (newRow) {
+      const std::string brand_airline = newRow.value().getAsString("brand_airline");
+      const std::string airline = newRow.value().getAsString("airline");
+      if (!brand_airline.empty() && brand_airline != airline) {
+          throw UserException("MSG.BRAND_DOES_NOT_MEET_AIRLINE");
+      }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void DcsServiceApplying::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                                 const std::optional<CacheTable::Row>& oldRow,
+                                                 const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("dcs_service_applying").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//DcsActions
+
+bool DcsActions::userDependence() const
+{
+  return true;
+}
+
+std::string DcsActions::selectSql() const
+{
+  return "SELECT code, name, name_lat FROM dcs_actions "
+         "WHERE code IN (" + codeList() + ") "
+         "ORDER BY view_order ";
+}
+
+std::list<std::string> DcsActions::dbSessionObjectNames() const
+{
+  return {"DCS_ACTIONS"};
+}
+
+//DcsActions1
+
+std::string DcsActions1::codeList() const
+{
+  return "'PRINT_BP_ON_DESK', 'CHG_SEAT_ON_DESK'";
+}
+
+//DcsActions2
+
+std::string DcsActions2::codeList() const
+{
+  return "'CHECKIN_ON_DESK', 'BOARDING'";
+}
+
+//RemTxtSets
+
+bool RemTxtSets::userDependence() const
+{
+  return true;
+}
+
+std::string RemTxtSets::selectSql() const
+{
+  return "SELECT r.id, r.airline, rfisc, brand_airline, brand_code, brands.id brand_view, "
+         "       fqt_airline, fqt_tier_level, tag_index, text_length, text, pr_lat "
+         "FROM rem_txt_sets r "
+         "LEFT OUTER JOIN brands "
+         "ON brand_airline = brands.airline AND brand_code = brands.code "
+         "WHERE " + getSQLFilter("r.airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY r.airline, rfisc, brand_code, fqt_tier_level, tag_index ";
+}
+
+std::string RemTxtSets::insertSql() const
+{
+  return "INSERT INTO rem_txt_sets( "
+         "  id, airline, rfisc, brand_airline, brand_code, fqt_airline, fqt_tier_level, "
+         "  tag_index, text_length, text, pr_lat "
+         ") VALUES ( "
+         "  :id, :airline, :rfisc, :brand_airline, :brand_code, :fqt_airline, :fqt_tier_level, "
+         "  :tag_index, :text_length, :text, :pr_lat "
+         ") ";
+}
+
+std::string RemTxtSets::updateSql() const
+{
+  return "UPDATE rem_txt_sets SET "
+         "  airline = :airline, "
+         "  rfisc = :rfisc, "
+         "  brand_airline = :brand_airline, "
+         "  brand_code = :brand_code, "
+         "  fqt_airline = :fqt_airline, "
+         "  fqt_tier_level = :fqt_tier_level, "
+         "  tag_index = :tag_index, "
+         "  text_length = :text_length, "
+         "  text = :text, "
+         "  pr_lat = :pr_lat "
+         "WHERE id = :old_id ";
+}
+
+std::string RemTxtSets::deleteSql() const
+{
+  return "DELETE FROM rem_txt_sets "
+         "WHERE id = :OLD_id ";
+}
+
+std::list<std::string> RemTxtSets::dbSessionObjectNames() const
+{
+  return {"REM_TXT_SETS"};
+}
+
+std::list<std::string> RemTxtSets::dbSessionObjectNamesForRead() const
+{
+  return {"REM_TXT_SETS","BRANDS"};
+}
+
+void RemTxtSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  if (newRow) {
+      const std::string brand_airline = newRow.value().getAsString("brand_airline");
+      const std::string airline = newRow.value().getAsString("airline");
+      if (!brand_airline.empty() && brand_airline != airline) {
+          throw UserException("MSG.BRAND_DOES_NOT_MEET_AIRLINE");
+      }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void RemTxtSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("rem_txt_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//CustomAlarmSets
+
+bool CustomAlarmSets::userDependence() const
+{
+  return true;
+}
+
+std::string CustomAlarmSets::selectSql() const
+{
+  return "SELECT r.id, r.airline, rfisc, rfisc_tlg, brand_airline, brand_code, "
+         "       brands.id brand_view, fqt_airline, fqt_tier_level, alarm "
+         "FROM custom_alarm_sets r "
+         "LEFT OUTER JOIN brands "
+         "ON brand_airline = brands.airline AND brand_code = brands.code "
+         "WHERE " + getSQLFilter("r.airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY r.airline, brand_code, fqt_airline, fqt_tier_level, rfisc, rfisc_tlg ";
+}
+
+std::string CustomAlarmSets::insertSql() const
+{
+  return "INSERT INTO custom_alarm_sets( "
+         "  id, airline, rfisc, rfisc_tlg, brand_airline, brand_code, fqt_airline, fqt_tier_level, alarm "
+         ") VALUES ( "
+         "  :id, :airline, :rfisc, :rfisc_tlg, :brand_airline, :brand_code, :fqt_airline, :fqt_tier_level, :alarm "
+         ") ";
+}
+
+std::string CustomAlarmSets::updateSql() const
+{
+  return "UPDATE custom_alarm_sets SET "
+         "  airline = :airline, "
+         "  rfisc = :rfisc, "
+         "  rfisc_tlg = :rfisc_tlg, "
+         "  brand_airline = :brand_airline, "
+         "  brand_code = :brand_code, "
+         "  fqt_airline = :fqt_airline, "
+         "  fqt_tier_level = :fqt_tier_level, "
+         "  alarm = :alarm "
+         "WHERE id = :old_id ";
+}
+
+std::string CustomAlarmSets::deleteSql() const
+{
+  return "DELETE FROM custom_alarm_sets "
+         "WHERE id = :OLD_id ";
+}
+
+std::list<std::string> CustomAlarmSets::dbSessionObjectNames() const
+{
+  return {"CUSTOM_ALARM_SETS"};
+}
+
+std::list<std::string> CustomAlarmSets::dbSessionObjectNamesForRead() const
+{
+  return {"CUSTOM_ALARM_SETS","BRANDS"};
+}
+
+void CustomAlarmSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  if (newRow) {
+      const std::string brand_airline = newRow.value().getAsString("brand_airline");
+      const std::string airline = newRow.value().getAsString("airline");
+      if (!brand_airline.empty() && brand_airline != airline) {
+          throw UserException("MSG.BRAND_DOES_NOT_MEET_AIRLINE");
+      }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void CustomAlarmSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                         const std::optional<CacheTable::Row>& oldRow,
+                                         const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("custom_alarm_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//ConfirmationSets
+
+bool ConfirmationSets::userDependence() const
+{
+  return true;
+}
+
+std::string ConfirmationSets::selectSql() const
+{
+  return "SELECT a.id, a.airline, a.airp_dep, a.class, a.subclass, a.rfisc, a.rem_code, "
+         "       a.brand_airline, a.brand_code, brands.id AS brand_view, "
+         "       a.fqt_airline, a.fqt_tier_level, a.dcs_action, a.text, a.text_lat "
+         "FROM confirmation_sets a "
+         "LEFT OUTER JOIN brands "
+         "ON a.brand_airline = brands.airline AND a.brand_code = brands.code "
+         "WHERE " + getSQLFilter("a.airline",  AccessControl::PermittedAirlines) + " AND "
+          "     " + getSQLFilter("a.airp_dep",  AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY a.airline, a.dcs_action, a.id ";
+}
+
+std::string ConfirmationSets::insertSql() const
+{
+  return "INSERT INTO confirmation_sets(id, airline, airp_dep, class, subclass, rfisc, rem_code, "
+         "  brand_airline, brand_code, fqt_airline, fqt_tier_level, dcs_action, text, text_lat) "
+         "VALUES(:id, :airline, :airp_dep, :class, :subclass, :rfisc, :rem_code, "
+         "  :brand_airline, :brand_code, :fqt_airline, :fqt_tier_level, :dcs_action, :text, :text_lat) ";
+}
+
+std::string ConfirmationSets::updateSql() const
+{
+  return "UPDATE confirmation_sets "
+         "SET text=:text, text_lat=:text_lat "
+         "WHERE id=:OLD_id ";
+}
+
+std::string ConfirmationSets::deleteSql() const
+{
+  return "DELETE FROM confirmation_sets "
+         "WHERE id = :OLD_id ";
+}
+
+std::list<std::string> ConfirmationSets::dbSessionObjectNames() const
+{
+  return {"CONFIRMATION_SETS"};
+}
+
+std::list<std::string> ConfirmationSets::dbSessionObjectNamesForRead() const
+{
+  return {"CONFIRMATION_SETS","BRANDS"};
+}
+
+void ConfirmationSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                                const std::optional<CacheTable::Row>& oldRow,
+                                                std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  if (status == usInserted) {
+      const std::string brand_airline = newRow.value().getAsString("brand_airline");
+      const std::string airline = newRow.value().getAsString("airline");
+      if (!brand_airline.empty() && brand_airline != airline) {
+          throw UserException("MSG.BRAND_DOES_NOT_MEET_AIRLINE");
+      }
+  }
+
+  if (newRow) {
+      const std::string text_lat = newRow.value().getAsString("text_lat");
+      checkASCII(text_lat, "CONFIRMATION_SETS", "TEXT_LAT");
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void ConfirmationSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("confirmation_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//Brands
+
+bool Brands::userDependence() const
+{
+  return true;
+}
+
+std::string Brands::selectSql() const
+{
+  return "SELECT airline, code, name, name_lat, id "
+         "FROM brands "
+         "WHERE " + getSQLFilter("airline",  AccessControl::PermittedAirlines) + " "
+         "ORDER BY airline, code ";
+}
+
+std::string Brands::insertSql() const
+{
+  return "INSERT INTO brands(airline, code, name, name_lat, id) "
+         "VALUES(:airline, :code, :name, :name_lat, :id) ";
+}
+
+std::string Brands::updateSql() const
+{
+  return "UPDATE brands "
+         "SET airline=:airline, code=:code, name=:name, name_lat=:name_lat "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::string Brands::deleteSql() const
+{
+  return "DELETE FROM brands "
+         "WHERE airline=:OLD_airline AND code=:OLD_code ";
+}
+
+std::list<std::string> Brands::dbSessionObjectNames() const
+{
+  return {"BRANDS"};
+}
+
+void Brands::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                                const std::optional<CacheTable::Row>& oldRow,
+                                                std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void Brands::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("brands").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //BaggageWt

@@ -16,6 +16,7 @@
 #include "dev_consts.h"
 #include "dev_utils.h"
 #include "db_savepoint.h"
+#include "cache_callbacks.h"
 
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
@@ -2425,4 +2426,27 @@ void checkEdiAddr(const std::string& addr)
         throw UserException("MSG.TLG.INVALID_ADDR_CHARS",
                             LParams() << LParam("addr", addr));
     }
+}
+
+void checkRange(std::optional<int> min, std::optional<int> max,
+                const std::string& cacheTable, const std::string& cacheField)
+{
+  if (min && max && min.value() > max.value()) {
+    const std::string fieldName = getLocaleText(getCacheInfo(cacheTable).fieldTitle.at(cacheField));
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE",
+                        LParams() << LParam("fieldname", fieldName));
+  }
+}
+
+void checkASCII(const std::string& str, const std::string& cacheTable, const std::string& cacheField)
+{
+  for (int i = 0; i < str.size(); ++i) {
+    const char ch = str.at(i);
+    if (!IsAscii7(ch)) {
+      const std::string fieldName = getLocaleText(getCacheInfo(cacheTable).fieldTitle.at(cacheField));
+      throw UserException("MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
+                          LParams() << LParam("field_name", fieldName)
+                                    << LParam("symbol", ch));
+    }
+  }
 }

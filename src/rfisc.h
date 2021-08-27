@@ -800,4 +800,13 @@ bool need_for_payment(const GrpId_t& grp_id,
                       int excess_wt,
                       const std::optional<PaxId_t>& pax_id);
 
+void insertRfiscRates(int id, TDateTime first_datetime, TDateTime last_datetime,
+                      const std::string& airline, const std::string& airp_dep, const std::string& airp_arv,
+                      const std::string& brand, const std::string& rfisc_airline, const std::string& rfisc,
+                      int rate, const std::string& rate_cur);
+void updateRfiscRates(int id, TDateTime first_datetime, TDateTime last_datetime,
+                      const std::string& airline, const std::string& airp_dep, const std::string& airp_arv,
+                      const std::string& brand, const std::string& rfisc_airline, const std::string& rfisc,
+                      int rate, const std::string& rate_cur);
+
 #endif

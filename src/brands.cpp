@@ -210,11 +210,11 @@ void insertBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
   QParams qryParams;
   qryParams << QParam("airline", otString, airline)
             << QParam("fare_basis", otString, fare_basis)
-            << QParam("first_date", otInteger, first_date);
+            << QParam("first_date", otDate, first_date);
   if (last_date == ASTRA::NoExists) {
-    qryParams << QParam("last_date", otInteger, FNull);
+    qryParams << QParam("last_date", otDate, FNull);
   } else {
-    qryParams << QParam("last_date", otInteger, last_date + 1);
+    qryParams << QParam("last_date", otDate, last_date + 1);
   }
   qryParams << QParam("brand", otString, brand);
   if (id == ASTRA::NoExists) {
@@ -240,11 +240,11 @@ void updateBrandFare(int id, TDateTime first_datetime, TDateTime last_datetime,
   QParams qryParams;
   qryParams << QParam("airline", otString, airline)
             << QParam("fare_basis", otString, fare_basis)
-            << QParam("first_date", otInteger, first_date);
+            << QParam("first_date", otDate, first_date);
   if (last_date == ASTRA::NoExists) {
-    qryParams << QParam("last_date", otInteger, FNull);
+    qryParams << QParam("last_date", otDate, FNull);
   } else {
-    qryParams << QParam("last_date", otInteger, last_date + 1);
+    qryParams << QParam("last_date", otDate, last_date + 1);
   }
   qryParams << QParam("brand", otString, brand);
   DB::TCachedQuery updQry(

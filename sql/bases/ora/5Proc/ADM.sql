@@ -6,11 +6,6 @@ utSupport       CONSTANT TUserType := 0;
 utAirport       CONSTANT TUserType := 1;
 utAirline       CONSTANT TUserType := 2;
 
-PROCEDURE check_ascii(str	IN VARCHAR2,
-                      cache_code  IN cache_tables.code%TYPE,
-                      cache_field IN cache_fields.name%TYPE,
-                      vlang       IN lang_types.code%TYPE);
-
 PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               pr_lat      IN INTEGER,
                               symbols     IN VARCHAR2,
@@ -484,24 +479,6 @@ PROCEDURE check_range(vmin         IN NUMBER,
                       vcache_table IN cache_tables.code%TYPE,
                       vcache_field IN cache_fields.name%TYPE,
                       vlang        IN lang_types.code%TYPE);
-
-PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
-                             vsys_user_id     IN users2.user_id%TYPE,
-                             vairline         IN rfisc_rates.airline%TYPE,
-                             vairline_view    IN VARCHAR2,
-			     vairp_dep	      IN rfisc_rates.airp_dep%TYPE,
-			     vairp_dep_view   IN VARCHAR2,
-			     vairp_arv	      IN rfisc_rates.airp_dep%TYPE,
-			     vairp_arv_view   IN VARCHAR2,
-                             vbrand           IN rfisc_rates.brand%TYPE,
-                             vsale_first_date IN rfisc_rates.sale_first_date%TYPE,
-                             vsale_last_date  IN rfisc_rates.sale_last_date%TYPE,
-                             vrfisc_airline   IN rfisc_rates.airline%TYPE,
-                             vrfisc           IN rfisc_rates.rfisc%TYPE,
-                             vrate            IN rfisc_rates.rate%TYPE,
-                             vrate_cur        IN rfisc_rates.rate_cur%TYPE,
-                             vsetting_user    IN history_events.open_user%TYPE,
-                             vstation         IN history_events.open_desk%TYPE);
 
 END adm;
 /

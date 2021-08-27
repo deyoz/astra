@@ -15,26 +15,6 @@ last_date DATE
 
 TYPE periods_cur IS REF CURSOR RETURN periods_row;
 
-PROCEDURE check_ascii(str	IN VARCHAR2,
-                      cache_code  IN cache_tables.code%TYPE,
-                      cache_field IN cache_fields.name%TYPE,
-                      vlang       IN lang_types.code%TYPE)
-IS
-c       CHAR(1);
-info	 adm.TCacheInfo;
-lparams  system.TLexemeParams;
-BEGIN
-  FOR i IN 1..LENGTH(str) LOOP
-    c:=SUBSTR(str,i,1);
-    IF ASCII(c)>127 THEN
-      info:=adm.get_cache_info(cache_code);
-      lparams('field_name'):=info.field_title(cache_field);
-      lparams('symbol'):=c;
-      system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
-    END IF;
-  END LOOP;
-END check_ascii;
-
 PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               pr_lat      IN INTEGER,
                               symbols     IN VARCHAR2,
@@ -3157,105 +3137,6 @@ BEGIN
   DELETE FROM roles WHERE role_id=vrole_id;
   hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
 END delete_roles;
-
-PROCEDURE normalize_and_check_period(id IN NUMBER,
-                                     first_date IN DATE,
-                                     last_date IN DATE,
-                                     cur IN periods_cur,
-                                     norm_first_date OUT DATE,
-                                     norm_last_date OUT DATE)
-IS
-curRow		cur%ROWTYPE;
-BEGIN
-  norm_first_date:=TRUNC(first_date);
-  norm_last_date:=TRUNC(last_date)+1;
-  IF norm_last_date<=norm_first_date THEN
-    system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
-  END IF;
-  LOOP
-    FETCH cur INTO curRow;
-    EXIT WHEN cur%NOTFOUND;
-    IF id IS NULL OR id<>curRow.id THEN
-      IF (norm_last_date IS NOT NULL AND norm_last_date<=curRow.first_date) OR
-         (curRow.last_date IS NOT NULL AND curRow.last_date<=norm_first_date) THEN
-        NULL; /*не пересекаются*/
-      ELSE
-        system.raise_user_exception('MSG.PERIOD_OVERLAPS_WITH_INTRODUCED');
-      END IF;
-    END IF;
-  END LOOP;
-  CLOSE cur;
-EXCEPTION
-  WHEN OTHERS THEN
-    CLOSE cur;
-    norm_first_date:=NULL;
-    norm_last_date:=NULL;
-    RAISE;
-END normalize_and_check_period;
-
-PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
-                             vsys_user_id     IN users2.user_id%TYPE,
-                             vairline         IN rfisc_rates.airline%TYPE,
-                             vairline_view    IN VARCHAR2,
-			     vairp_dep	      IN rfisc_rates.airp_dep%TYPE,
-			     vairp_dep_view   IN VARCHAR2,
-			     vairp_arv	      IN rfisc_rates.airp_dep%TYPE,
-			     vairp_arv_view   IN VARCHAR2,
-                             vbrand           IN rfisc_rates.brand%TYPE,
-                             vsale_first_date IN rfisc_rates.sale_first_date%TYPE,
-                             vsale_last_date  IN rfisc_rates.sale_last_date%TYPE,
-                             vrfisc_airline   IN rfisc_rates.airline%TYPE,
-                             vrfisc           IN rfisc_rates.rfisc%TYPE,
-                             vrate            IN rfisc_rates.rate%TYPE,
-                             vrate_cur        IN rfisc_rates.rate_cur%TYPE,
-                             vsetting_user    IN history_events.open_user%TYPE,
-                             vstation         IN history_events.open_desk%TYPE)
-IS
-existing_periods     periods_cur;
-new_period           periods_row;
-vairlineh            rfisc_rates.airline%TYPE;
-vairp_deph           rfisc_rates.airp_dep%TYPE;
-vairp_arvh           rfisc_rates.airp_arv%TYPE;
-BEGIN
-  IF (vairp_dep IS NOT NULL AND vairp_arv IS NULL)OR
-     (vairp_dep IS NULL AND vairp_arv IS NOT NULL ) THEN
-    system.raise_user_exception('MSG.AIRPS_ISNULL_OR_REQUIRED');
-  END IF;
-  vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
-  vairp_deph:=adm.check_airp_access(vairp_dep,vairp_dep_view,vSYS_user_id,1);
-  vairp_arvh:=adm.check_airp_access(vairp_arv,vairp_arv_view,vSYS_user_id,1);
-  IF vrfisc_airline IS NOT NULL AND vrfisc_airline<>vairline THEN
-    system.raise_user_exception('MSG.BRAND_DOES_NOT_MEET_RFISC');
-  END IF;
-
-  OPEN existing_periods FOR
-    SELECT id, sale_first_date, sale_last_date
-    FROM rfisc_rates
-    WHERE airline=vairline AND
-         (airp_dep IS NULL AND vairp_dep IS NULL OR airp_dep=vairp_dep) AND
-         (airp_arv IS NULL AND vairp_arv IS NULL OR airp_arv=vairp_arv) AND
-          brand=vbrand AND rfisc=vrfisc;
-
-  normalize_and_check_period(vid,
-                             vsale_first_date,
-                             vsale_last_date,
-                             existing_periods,
-                             new_period.first_date,
-                             new_period.last_date);
-
-  IF vid IS NULL THEN
-    SELECT id__seq.nextval INTO new_period.id FROM dual;
-    INSERT INTO rfisc_rates(id, airline, airp_dep, airp_arv, brand, sale_first_date, sale_last_date, rfisc, rate, rate_cur)
-    VALUES(new_period.id, vairline, vairp_dep, vairp_arv, vbrand, new_period.first_date, new_period.last_date, vrfisc, vrate, vrate_cur);
-    hist.synchronize_history('rfisc_rates', new_period.id, vsetting_user, vstation);
-  ELSE
-    UPDATE rfisc_rates
-    SET airline=vairline, airp_dep=vairp_dep, airp_arv=vairp_arv, brand=vbrand, sale_first_date=new_period.first_date, sale_last_date=new_period.last_date,
-        rfisc=vrfisc, rate=vrate, rate_cur=vrate_cur
-    WHERE id=vid;
-    hist.synchronize_history('rfisc_rates', vid, vsetting_user, vstation);
-  END IF;
-END insert_rfisc_rates;
 
 END adm;
 /

@@ -40,8 +40,12 @@ bool TCustomAlarms::TSets::get(const std::string &airline)
     auto &sets = items[airline];
     if(not sets) {
         sets = boost::in_place();
-        TCachedQuery Qry("select * from custom_alarm_sets where airline = :airline",
-                QParams() << QParam("airline", otString, airline));
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("CUSTOM_ALARM_SETS"),
+              "SELECT * FROM custom_alarm_sets "
+              "WHERE airline = :airline",
+              QParams() << QParam("airline", otString, airline),
+              STDLOG);
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
             sets->push_back(TRow(

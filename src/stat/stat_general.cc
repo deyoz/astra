@@ -2254,11 +2254,11 @@ void insertPact(int id,
     QParams qryParams;
     qryParams << QParam("airline", otString, airline)
               << QParam("airp", otString, airp)
-              << QParam("first_date", otInteger, first_date);
+              << QParam("first_date", otDate, first_date);
     if (last_date == ASTRA::NoExists) {
-        qryParams << QParam("last_date", otInteger, FNull);
+        qryParams << QParam("last_date", otDate, FNull);
     } else {
-        qryParams << QParam("last_date", otInteger, last_date + 1);
+        qryParams << QParam("last_date", otDate, last_date + 1);
     }
     if (id == ASTRA::NoExists) {
       id = PgOra::getSeqNextVal_int("ID__SEQ");
@@ -2284,11 +2284,11 @@ void updatePact(int id,
     QParams qryParams;
     qryParams << QParam("airline", otString, airline)
               << QParam("airp", otString, airp)
-              << QParam("first_date", otInteger, first_date);
+              << QParam("first_date", otDate, first_date);
     if (last_date == ASTRA::NoExists) {
-        qryParams << QParam("last_date", otInteger, FNull);
+        qryParams << QParam("last_date", otDate, FNull);
     } else {
-        qryParams << QParam("last_date", otInteger, last_date + 1);
+        qryParams << QParam("last_date", otDate, last_date + 1);
     }
     DB::TCachedQuery updQry(
           PgOra::getRWSession("PACTS"),

@@ -179,7 +179,7 @@ namespace PgOra
                                       "CRAFTS",           "COUNTRIES"     "PERS_TYPES",
                                       "PAX_CATS",         "TRIP_TYPES",   "DELAYS",
                                       "TRIP_LITERS",      "REFUSAL_TYPES",
-                                      "RFIC_TYPES",       "PAY_TYPES",    "RCPT_DOC_TYPES",
+                                      "PAY_TYPES",        "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
@@ -394,10 +394,20 @@ namespace PgOra
                 "COMP_SUBCLS_SETS",
         }},
         { "SP_PG_GROUP_RFISC_BRANDS", {
-                "RFISC_COMP_PROPS", // "BRAND_FARES", "RFISC_RATES"
-                "BRAND_FARES",      // "BRANDS", "RFISC_RATES", "RFISC_COMP_PROPS", ADM.insert_brand_fares
-                "BI_PRINT_RULES",   // "BRANDS"
-                "BRANDS",           // "BRAND_FARES", "BI_PRINT_RULES"
+                "BI_PRINT_RULES", "HIST_BI_PRINT_RULES",     // "BRANDS"
+                "BRAND_FARES", "HIST_BRAND_FARES",           // "BRANDS", "RFISC_RATES", "RFISC_COMP_PROPS"
+                "RFISC_COMP_PROPS", "HIST_RFISC_COMP_PROPS", // "BRAND_FARES", "RFISC_RATES"
+                "RFISC_RATES", "HIST_RFISC_RATES",           // "BRANDS", "BRAND_FARES", "RFISC_COMP_PROPS"
+                "RFISC_RATES_SELF_CKIN", "HIST_RFISC_RATES_SELF_CKIN",
+                "RFISC_BAG_PROPS", "HIST_RFISC_BAG_PROPS",
+                "RFISC_SETS", "HIST_RFISC_SETS",
+                "RFIC_TYPES",
+                "DCS_SERVICE_APPLYING", "HIST_DCS_SERVICE_APPLYING", // "BRANDS", "DCS_ACTIONS"
+                "DCS_ACTIONS",                                       // "DCS_SERVICE_APPLYING", "BRANDS"
+                "REM_TXT_SETS", "HIST_REM_TXT_SETS",                 // "BRANDS"
+                "CUSTOM_ALARM_SETS", "HIST_CUSTOM_ALARM_SETS",       // "BRANDS"
+                "CONFIRMATION_SETS", "HIST_CONFIRMATION_SETS",       // "BRANDS"
+                "BRANDS", "HIST_BRANDS", // "BRAND_FARES", "BI_PRINT_RULES", "RFISC_RATES", "DCS_SERVICE_APPLYING", "DCS_ACTIONS", "REM_TXT_SETS", "CUSTOM_ALARM_SETS", "CONFIRMATION_SETS"
         }},
         { "SP_PG_GROUP_COMP_TRIP_COMP_RATES", {
                 "TRIP_COMP_RATES", // COMP_RATES

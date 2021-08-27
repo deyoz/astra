@@ -2049,7 +2049,7 @@ $(CHECKIN_2PAXES_2SEGS_1GROUP)
 $(pg_dump_table RFISC_LIST_ITEMS)
 $(pg_dump_table PAX_SERVICE_LISTS)
 $(pg_dump_table GRP_SERVICE_LISTS)
-$(dump_table RFISC_BAG_PROPS)
+$(db_dump_table RFISC_BAG_PROPS)
 
 $(LOAD_GRP_RFISC_OUTDATED 1 $(get grp_id_1479_1))
 $(LOAD_GRP_RFISC $(get grp_id_1479_1) EN)

@@ -892,6 +892,10 @@ void checkPeriodOverlaps(TDateTime first_date,
                          TDateTime last_date,
                          TDateTime prev_first_date,
                          TDateTime prev_last_date);
+void checkRange(std::optional<int> min, std::optional<int> max,
+                const std::string& cacheTable, const std::string& cacheField);
+
+void checkASCII(const std::string& str, const std::string& cacheTable, const std::string& cacheField);
 
 void checkEdiAddr(const std::string& addr);
 
