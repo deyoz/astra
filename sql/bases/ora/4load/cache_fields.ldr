@@ -1460,17 +1460,6 @@ BEGINDATA
 "BALANCE_TYPES"|1|"CODE"|"Код"||"U"||"S"|10||0|1|1|||||
 "BALANCE_TYPES"|2|"NAME"|"Описание"||||"S"|50||0|0|1|||||
 "BALANCE_TYPES"|3|"NAME_LAT"|"Описание (лат.)"||||"S"|50||1|0|1|||||
-"BALANCE_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
-"BALANCE_SETS"|2|"AIRP"||0|||"S"|3||0|0|0|"AIRPS"|"CODE"|1||1
-"BALANCE_SETS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|1||
-"BALANCE_SETS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
-"BALANCE_SETS"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
-"BALANCE_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
-"BALANCE_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
-"BALANCE_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
-"BALANCE_SETS"|7|"BORT"|"Борт"||"U"||"S"|10||1|0|0|||||
-"BALANCE_SETS"|8|"BALANCE_TYPE"|"Тип"||||"S"|5||0|0|0|"BALANCE_TYPES"|"CODE"|||
-"BALANCE_SETS"|9|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
 "REM_GRP"|1|"ID"||0|||"NU"|2||0|1|1|||||
 "REM_GRP"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
 "REM_GRP"|3|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
