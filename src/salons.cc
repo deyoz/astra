@@ -253,12 +253,21 @@ void TSeatTariffMap::get_rfisc_colors_internal(const std::string &airline_oper)
   if (iRFISColors==rfisc_colors.end())
   {
     _real_queries++;
-    DB::TCachedQuery Qry(PgOra::getROSession("RFISC_COMP_PROPS"),
-                     "SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc, pr_prot_ckin "
-                     "FROM rfisc_comp_props "
-                     "WHERE airline=:airline",
-                     QParams() << QParam("airline", otString, airline_oper),
-                     STDLOG);
+    DB::TCachedQuery Qry(
+        PgOra::getROSession("RFISC_COMP_PROPS"),
+        "SELECT "
+        "    rate_color, "
+        "    0 AS rate, "
+        "    NULL AS rate_cur, "
+        "    code AS rfisc, "
+        "    pr_prot_ckin, "
+        "    '' AS fare_basis "
+        "FROM "
+        "    rfisc_comp_props "
+        "WHERE "
+        "    airline=:airline",
+        QParams() << QParam("airline", otString, airline_oper),
+        STDLOG);
 
     ostringstream s;
     s << "airline_oper=" << airline_oper;
@@ -365,7 +374,8 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
               "    rate, "
               "    rate_cur, "
               "    NULL AS rfisc, "
-              "    0 AS pr_prot_ckin "
+              "    0 AS pr_prot_ckin, "
+              "    '' AS fare_basis "
               "FROM "
               "    trip_comp_rates "
               "WHERE "
