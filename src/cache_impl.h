@@ -1419,4 +1419,12 @@ public:
                                  const std::optional<CacheTable::Row>& newRow) const override;
 };
 
+class GenderTypes: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
 }//namespace CacheTable

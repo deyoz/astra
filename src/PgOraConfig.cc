@@ -179,22 +179,23 @@ namespace PgOra
         { "SP_PG_GROUP_STAGES", { "GRAPH_RULES"     , "GRAPH_STAGES"    , "GRAPH_TIMES"       , "STAGE_NAMES"      , "STAGE_SETS" ,
                                   "STAGE_STATUSES"  , "STAGE_TYPES"     , "CKIN_CLIENT_STAGES", "TRIP_FINAL_STAGES", "TRIP_STAGES",
                                   "TRIP_CKIN_CLIENT", "HIST_GRAPH_TIMES", "HIST_STAGE_NAMES"  , "HIST_STAGE_SETS" } },
-        { "SP_PG_GROUP_BASETABLES", { "AIRLINES",         "AIRPS",        "CITIES",
+
+        { "SP_PG_GROUP_BASETABLES_TMP", { "AIRLINES",         "AIRPS",        "CITIES",
                                       "CRAFTS",           "COUNTRIES"     "PERS_TYPES",
                                       "PAX_CATS",         "TRIP_TYPES",   "DELAYS",
                                       "TRIP_LITERS",      "REFUSAL_TYPES",
                                       "PAY_TYPES",        "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
-                                      "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
+                                      "PAX_DOC_COUNTRIES","TAG_COLORS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
-                                      "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES"
-        } },
+                                      "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES" } },
+        
+        { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES", } },
+
         { "SP_PG_GROUP_FAKE_DUAL_BT", { // FAKE DUAL USED IN base_tables.cc
-                "FAKE_DUAL_BT",
-        }},
+                "FAKE_DUAL_BT", } },
         { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_SETS", "TRIP_STATIONS"
-                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_HALL",
-        } },
+                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_HALL", } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
         { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES", "CLIENT_ERROR_LIST" } },
         { "SP_PG_GROUP_LIBRA", { "LIBRA_PROC_LOG_EVENTS", "AHM_DICT", "AHM_ID__SEQ" } },

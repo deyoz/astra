@@ -127,6 +127,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="EDI_ADDRS")           return new CacheTable::EdiAddrs;
   if (cacheCode=="ET_ADDR_SET")         return new CacheTable::EtAddrSet;
   if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
+  if (cacheCode=="GENDER_TYPES")        return new CacheTable::GenderTypes;
   if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
   if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
   if (cacheCode=="RFISC_RATES")         return new CacheTable::RfiscRates;
@@ -5283,6 +5284,22 @@ void DcsAddrSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                         const std::optional<CacheTable::Row>& newRow) const
 {
     HistoryTable("dcs_addr_set").synchronize(getRowId("id", oldRow, newRow));
+}
+
+// gender_types
+
+bool GenderTypes::userDependence() const {
+    return false;
+}
+
+std::string GenderTypes::selectSql() const {
+    return "SELECT code, code code_lat, name, name_lat "
+           "FROM gender_types "
+           "ORDER BY (CASE WHEN pr_inf=0 THEN 0 ELSE 1 END), code";
+}
+
+std::list<std::string> GenderTypes::dbSessionObjectNames() const {
+    return { "GENDER_TYPES" };
 }
 
 } //namespace CacheTables
