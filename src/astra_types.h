@@ -49,3 +49,7 @@ DECL_RIP_LENGTH(CurrencyCode_t, std::string, 3, 3);
 
 DECL_RIP_LENGTH(BortNum_t,     std::string, 5, 6)
 DECL_RIP_LENGTH(AhmCategory_t, std::string, 2, 30)
+
+DECL_RIP_RANGED(RightId_t, int, 1, 9999);
+DECL_RIP(RoleId_t, int);
+DECL_RIP(UserId_t, int);

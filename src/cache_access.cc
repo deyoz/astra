@@ -390,6 +390,126 @@ void ViewAccess<ValidatorCode_t>::downloadPermissions()
   permitted.emplace();
 }
 
+void RoleAccessAncestor::init()
+{
+  totally_permitted=TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+                    TReqInfo::Instance()->user.access.airps().totally_permitted();
+}
+
+std::tuple<std::string, std::list<std::string>> RoleAccessAncestor::getSqlProps() const
+{
+  return {"SELECT role_id FROM roles "
+          "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+                   + getSQLFilter("airp",    AccessControl::PermittedAirports),
+          {"ROLES"}};
+}
+
+std::tuple<std::string, std::list<std::string>> RoleAccessAncestor::getSqlPropsExtra() const
+{
+  const auto airlines_access=TReqInfo::Instance()->user.access.airlines();
+  const auto airps_access=TReqInfo::Instance()->user.access.airps();
+
+  if (airlines_access.totally_not_permitted() ||
+      airps_access.totally_not_permitted()) return {"", {}};
+
+  ostringstream sql;
+  sql << "SELECT roles.role_id "
+         "FROM extra_role_access, roles "
+         "WHERE (extra_role_access.airline_to=roles.airline OR "
+                "extra_role_access.airline_to IS NULL AND roles.airline IS NULL) AND "
+               "(extra_role_access.airp_to=roles.airp OR "
+                "extra_role_access.airp_to IS NULL AND roles.airp IS NULL) ";
+
+  if (airlines_access.totally_permitted())
+    sql << " AND extra_role_access.airline_from IS NULL";
+  else
+    sql << " AND extra_role_access.airline_from"
+        << (airlines_access.elems_permit()?" IN ":" NOT IN ")
+        << getSQLEnum(airlines_access.elems());
+
+  if (airps_access.totally_permitted())
+    sql << " AND extra_role_access.airp_from IS NULL";
+  else
+    sql << " AND extra_role_access.airp_from"
+        << (airps_access.elems_permit()?" IN ":" NOT IN ")
+        << getSQLEnum(airps_access.elems());
+
+  if (!viewOnly_)
+    sql << " AND full_access<>0";
+
+  return {sql.str(), {"ROLES", "EXTRA_ROLE_ACCESS"}};
+}
+
+void RoleAccessAncestor::addPermissions(const std::tuple<std::string, std::list<std::string>>& sqlProps)
+{
+  if (!permitted) permitted.emplace();
+
+  std::string sql;
+  std::list<std::string> sqlTables;
+  std::tie(sql, sqlTables) = sqlProps;
+
+  if (sql.empty()) return;
+
+  if (id_) sql += " AND roles.role_id=:role_id";
+
+  auto cur = make_db_curs(sql, PgOra::getROSession(sqlTables));
+
+  if (id_) cur.bind(":role_id", id_.value().get());
+
+  int roleId;
+  cur.def(roleId)
+     .exec();
+
+  while (!cur.fen()) permitted.value().emplace(roleId);
+}
+
+bool RoleAccessAncestor::check(const RoleId_t& id)
+{
+  if (totally_permitted) return true;
+
+  if (!permitted)
+  {
+    addPermissions(getSqlProps());
+    addPermissions(getSqlPropsExtra());
+  }
+
+  return algo::contains(permitted.value(), id);
+}
+
+bool RoleAccess::check(const RoleId_t& id)
+{
+  if (!RoleAccessAncestor::check(id)) return false;
+
+  auto cur = make_db_curs(
+    "SELECT role_rights.right_id "
+    "FROM "
+    "(SELECT role_rights.right_id "
+    " FROM role_rights "
+    " WHERE role_id=:role_id "
+    " UNION "
+    " SELECT role_assign_rights.right_id "
+    " FROM role_assign_rights "
+    " WHERE role_id=:role_id) role_rights "
+    "LEFT OUTER JOIN "
+    "(SELECT role_assign_rights.right_id "
+    " FROM user_roles INNER JOIN role_assign_rights "
+    " ON user_roles.role_id=role_assign_rights.role_id "
+    " WHERE user_roles.user_id=:user_id) user_rights "
+    "ON role_rights.right_id=user_rights.right_id "
+    "WHERE user_rights.right_id IS NULL "
+    "FETCH FIRST 1 ROWS ONLY",
+    PgOra::getROSession({"ROLE_RIGHTS", "ROLE_ASSIGN_RIGHTS", "USER_ROLES"}));
+
+  int rightId;
+  cur.stb()
+     .bind(":role_id", id.get())
+     .bind(":user_id", TReqInfo::Instance()->user.user_id)
+     .def(rightId)
+     .EXfet();
+
+  return (cur.err() == DbCpp::ResultCode::NoDataFound);
+}
+
 namespace CacheTable
 {
 
@@ -547,6 +667,22 @@ void checkAirlineOrAirlineAccess(const std::string& fieldName1,
         throw UserException(isNewRow?"MSG.NO_PERM_ENTER_AL_AND_INDEFINITE_AL":"MSG.NO_PERM_MODIFY_AL_AND_INDEFINITE_AL",
                             LParams() << LParam("airline", ElemIdToCodeNative(etAirline, (airline1?airline1:airline2).value().get())));
     }
+  }
+}
+
+void checkNotNullRoleAccess(const std::string& roleIdFieldName,
+                            const std::optional<CacheTable::Row>& oldRow,
+                            const std::optional<CacheTable::Row>& newRow)
+{
+  for(bool isNewRow : {false, true})
+  {
+    const std::optional<CacheTable::Row>& row = isNewRow?newRow:oldRow;
+    if (!row) continue;
+
+    RoleId_t roleId(row.value().getAsInteger_ThrowOnEmpty(roleIdFieldName));
+
+    if (!RoleAccess(roleId).check(roleId))
+      throw UserException(isNewRow?"MSG.ACCESS.NO_PERM_ENTER_USER_ROLE":"MSG.ACCESS.NO_PERM_MODIFY_USER_ROLE");
   }
 }
 

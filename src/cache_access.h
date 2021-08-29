@@ -95,6 +95,47 @@ bool ViewAccess<T>::check(const T& id)
   return algo::contains(permitted.value(), id);
 }
 
+class RoleAccessAncestor
+{
+  private:
+    bool viewOnly_;
+    std::optional< std::set<RoleId_t> > permitted;
+    std::optional<RoleId_t> id_;
+    void init();
+    std::tuple<std::string, std::list<std::string>> getSqlProps() const;
+    std::tuple<std::string, std::list<std::string>> getSqlPropsExtra() const;
+    void addPermissions(const std::tuple<std::string, std::list<std::string>>& sqlProps);
+  protected:
+    bool totally_permitted=false;
+    RoleAccessAncestor(const bool viewOnly) :
+      viewOnly_(viewOnly) { init(); }
+    RoleAccessAncestor(const bool viewOnly, const RoleId_t& id) :
+      viewOnly_(viewOnly), id_(id) { init(); };
+  public:
+    bool check(const RoleId_t& id);
+};
+
+class RoleAccessMinimum : public RoleAccessAncestor
+{
+  public:
+    RoleAccessMinimum() :                   RoleAccessAncestor(false)     {}
+    RoleAccessMinimum(const RoleId_t& id) : RoleAccessAncestor(false, id) {}
+};
+
+class RoleAccess : public RoleAccessAncestor
+{
+  public:
+    RoleAccess(const RoleId_t& id) : RoleAccessAncestor(false, id) {}
+    bool check(const RoleId_t& id);
+};
+
+class RoleViewAccess : public RoleAccessAncestor
+{
+  public:
+    RoleViewAccess() :                   RoleAccessAncestor(true)     {}
+    RoleViewAccess(const RoleId_t& id) : RoleAccessAncestor(true, id) {}
+};
+
 namespace CacheTable
 {
 
