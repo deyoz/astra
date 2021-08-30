@@ -1554,7 +1554,7 @@ void deleteByPointId(const PointId_t& point_id)
         make_db_curs("delete from aodb_unaccomp WHERE point_id=:point_id" , PgOra::getRWSession("aodb_unaccomp")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from aodb_pax WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from aodb_points WHERE point_id=:point_id" , PgOra::getRWSession("aodb_points")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from exch_flights WHERE point_id=:point_id" , PgOra::getRWSession("exch_flights")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from exch_flights WHERE point_id=:point_id" , PgOra::getRWSession("EXCH_FLIGHTS")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from counters2 WHERE point_dep=:point_id" , PgOra::getRWSession("counters2")).bind(":point_id", point_id.get()).exec();
 
         make_db_curs("DELETE FROM snapshot_points WHERE point_id=:point_id" , PgOra::getRWSession("snapshot_points")).bind(":point_id", point_id.get()).exec();

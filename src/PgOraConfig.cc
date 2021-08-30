@@ -483,6 +483,10 @@ namespace PgOra
                 "TIMATIC_SESSION",
                 "TIMATIC_SETS",
         }},
+        { "SP_PG_GROUP_EXCH_FLIGHTS", {
+                "EXCH_FLIGHTS",
+                "EXCH_FLIGHTS__SEQ",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

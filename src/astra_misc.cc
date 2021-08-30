@@ -2460,20 +2460,28 @@ void update_flights_change( int point_id )
   if ( !tripInfo.getByPointId ( point_id ) ) {
     return;
   }
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-     "BEGIN "
-     " UPDATE exch_flights "
-     "  SET time=:time, tid=exch_flights__seq.nextval "
-     " WHERE point_id=:point_id; "
-     " IF SQL%NOTFOUND THEN "
-     "  INSERT INTO exch_flights(point_id,time,tid) "
-     "   SELECT :point_id,:time,exch_flights__seq.nextval FROM DUAL; "
-     " END IF; "
-     "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "time", otDate, NowUTC() );
-  Qry.Execute();
+
+  int newTid=PgOra::getSeqNextVal_int("EXCH_FLIGHTS__SEQ");
+
+  DB::TQuery qryUpdate(PgOra::getRWSession("EXCH_FLIGHTS"),STDLOG);
+  qryUpdate.SQLText="UPDATE exch_flights "
+                    "  SET time=:time, tid=:tid "
+                    "WHERE point_id=:point_id";
+  qryUpdate.CreateVariable( "point_id", otInteger, point_id );
+  qryUpdate.CreateVariable( "tid", otInteger, newTid );
+  qryUpdate.CreateVariable( "time", otDate, NowUTC() );
+  qryUpdate.Execute();
+
+  if(qryUpdate.RowsProcessed()==0) // not found
+  {
+    DB::TQuery qryInsert(PgOra::getRWSession("EXCH_FLIGHTS"),STDLOG);
+    qryInsert.SQLText="INSERT INTO EXCH_FLIGHTS (point_id, time, tid) "
+                      "VALUES (:point_id, :time, :tid)";
+    qryInsert.CreateVariable( "point_id", otInteger, point_id );
+    qryInsert.CreateVariable( "tid", otInteger, newTid );
+    qryInsert.CreateVariable( "time", otDate, NowUTC() );
+    qryInsert.Execute();
+  }
 }
 
 

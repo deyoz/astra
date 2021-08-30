@@ -250,8 +250,8 @@ namespace EXCH_CHECKIN_RESULT
     ChangeFlightsDBData() {
       clear();
     }
-    void initChangeFlightsData( TQuery &Qry );
-    void createSQLRequest( const Request &request, TQuery &Qry  );
+    void initChangeFlightsData( DB::TQuery &Qry );
+    void createSQLRequest( const Request &request, DB::TQuery &Qry  );
   };
 
 
@@ -427,7 +427,7 @@ namespace EXCH_CHECKIN_RESULT
     initChangePaxIdsData( ChangePaxIdsQry );
   }
 
-  void ChangeFlightsDBData::initChangeFlightsData( TQuery &Qry )
+  void ChangeFlightsDBData::initChangeFlightsData( DB::TQuery &Qry )
   {
     clear();
     Qry.Execute();
@@ -436,7 +436,7 @@ namespace EXCH_CHECKIN_RESULT
     col_tid  = (col_tid = Qry.GetFieldIndex( "tid" )) >= 0 ?col_tid:ASTRA::NoExists;
   }
 
-  void ChangeFlightsDBData::createSQLRequest( const Request &request, TQuery &Qry )
+  void ChangeFlightsDBData::createSQLRequest( const Request &request, DB::TQuery &Qry )
   {
     string sql_text =
       "SELECT exch_flights.point_id,time, exch_flights.tid "
@@ -989,7 +989,7 @@ namespace EXCH_CHECKIN_RESULT
     xmlNodePtr node = docFlights->children;
     fromContext( request );
     ChangeFlightsDBData changeFlightsDBData;
-    TQuery changeFlightsQry(&OraSession);
+    DB::TQuery changeFlightsQry(PgOra::getROSession("EXCH_FLIGHTS"),STDLOG);
     TDateTime nowUTC = NowUTC();
     request.lastRequestTime  = ((request.lastRequestTime < nowUTC - 1.0/24.0)? nowUTC - 1.0/24.0:request.lastRequestTime);
     changeFlightsDBData.createSQLRequest( request, changeFlightsQry );
