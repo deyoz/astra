@@ -5,6 +5,7 @@
 #include <string>
 #include "oralib.h"
 #include "db_tquery.h"
+#include "cache_callbacks.h"
 
 namespace APIS
 {
@@ -155,7 +156,47 @@ const std::set<std::string> &customsUS();
 void getCustomsDependCountries(const std::string &regul, std::set<std::string> &depend);
 std::string getCustomsRegulCountry(const std::string &depend);
 
+std::string checkAndNormalizeEdiAddr(const std::string& addr);
+
 } //namespace APIS
+
+namespace CacheTable
+{
+
+class ApisFormats: public CacheTableReadonly
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class ApisTransports: public CacheTableReadonly
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class ApisSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::string insertSql() const override;
+    std::string updateSql() const override;
+    std::string deleteSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const override;
+};
+
+} //CacheTable
 
 #endif
 

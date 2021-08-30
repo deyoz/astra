@@ -164,7 +164,7 @@ RowId_t getRowId(const std::string& fieldName,
                  const std::optional<CacheTable::Row>& newRow);
 
 
-}
+} //namespace CacheTable
 
 class CacheTableCallbacks
 {

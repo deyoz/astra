@@ -1,6 +1,7 @@
 #include "apis_settings.h"
 #include "astra_utils.h"
 #include "PgOraConfig.h"
+#include "cache_access.h"
 #include <boost/utility/in_place_factory.hpp>
 
 #define NICKNAME "VLAD"
@@ -9,6 +10,7 @@
 
 using namespace ASTRA;
 using namespace std;
+using namespace AstraLocale;
 
 namespace APIS
 {
@@ -288,4 +290,227 @@ string getCustomsRegulCountry(const string &depend)
     return depend;
 }
 
+std::string checkAndNormalizeEdiAddr(const std::string& addr)
+{
+  if (addr.empty()) return "";
+
+  std::string addrPart1(addr), addrPart2;
+
+  string::size_type pos=addr.find(':');
+  if (pos!=string::npos)
+  {
+    addrPart1=addr.substr(0,pos);
+    addrPart2=addr.substr(pos+1);
+  };
+
+  TrimString(addrPart1);
+  TrimString(addrPart2);
+
+  if (addrPart1.empty())
+    throw UserException("MSG.TLG.INVALID_ADDR",
+                        LParams() << LParam("addr", addr));
+  if (addrPart1.size()>35)
+    throw UserException("MSG.TLG.INVALID_ADDR_LENGTH",
+                        LParams() << LParam("addr", addrPart1));
+  if (!isValidName(addrPart1, true, " "))
+    throw UserException("MSG.TLG.INVALID_ADDR_CHARS",
+                        LParams() << LParam("addr", addrPart1));
+
+  if (!addrPart2.empty())
+  {
+    if (addrPart2.size()>4)
+      throw UserException("MSG.TLG.INVALID_ADDR_LENGTH",
+                          LParams() << LParam("addr", addrPart2));
+    if (!IsLatinUpperLettersOrDigits(addrPart2))
+      throw UserException("MSG.TLG.INVALID_ADDR_CHARS",
+                          LParams() << LParam("addr", addrPart2));
+
+    return addrPart1+":"+addrPart2;
+  }
+
+  return addrPart1;
+}
+
+void checkSetting(const AirlineCode_t& airline,
+                  const std::optional<CountryCode_t>& countryDep,
+                  const std::optional<CountryCode_t>& countryArv,
+                  const CountryCode_t& countryControl,
+                  const std::string& format,
+                  std::string& ediAddr,
+                  std::string& ediOwnAddr)
+{
+  if (!((countryDep && countryControl==countryDep.value()) ||
+        (countryArv && countryControl==countryArv.value())))
+    throw UserException("MSG.COUNTRY_DEP_OR_ARV_MUST_MATCH_COUNTRY_CONTROL");
+
+  enum class FormatType { Edi, Iapi, Other };
+
+  FormatType fmtType(FormatType::Other);
+  if (format.substr(0,4)=="EDI_")  fmtType=FormatType::Edi;
+  if (format.substr(0,5)=="IAPI_") fmtType=FormatType::Iapi;
+
+  if (fmtType==FormatType::Other)
+  {
+    ediAddr.clear();
+    ediOwnAddr.clear();
+    return;
+  }
+
+  CountryCode_t countryRegulControl(getCustomsRegulCountry(countryControl.get()));
+
+  if (countryRegulControl==CountryCode_t("ñç") && fmtType==FormatType::Edi) ediAddr="CNADAPIS:ZZ";
+  if (countryRegulControl==CountryCode_t("ñç") && fmtType==FormatType::Iapi) ediAddr="NIAC";
+  if (countryRegulControl==CountryCode_t("àç")) ediAddr="NZCS";
+  if (countryRegulControl==CountryCode_t("ûë")) ediAddr="USCSAPIS:ZZ";
+  if (countryRegulControl==CountryCode_t("ÉÅ")) ediAddr="UKBAOP:ZZ";
+
+  ediAddr=checkAndNormalizeEdiAddr(ediAddr);
+  ediOwnAddr=checkAndNormalizeEdiAddr(ediOwnAddr);
+
+  if (ediAddr.empty())
+  {
+    try
+    {
+      const TCountriesRow& row=dynamic_cast<const TCountriesRow&>(base_tables.get("countries").get_row("code",countryControl.get()));
+
+      std::string addrPart1(row.code_lat);
+      if (addrPart1.empty()) addrPart1=row.code_iso;
+      if (addrPart1.empty()) addrPart1=row.code;
+      ediAddr=checkAndNormalizeEdiAddr(addrPart1+"APIS:ZZ");
+    }
+    catch(const std::exception&)
+    {
+      std::string fieldName=getLocaleText(getCacheInfo("APIS_SETS").fieldTitle.at("EDI_ADDR"));
+      throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE",
+                          LParams() << LParam("fieldname", fieldName));
+    }
+  }
+
+  if (ediOwnAddr.empty())
+  {
+    try
+    {
+      const TAirlinesRow& row=dynamic_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code",airline.get()));
+
+      std::string addrPart1(row.short_name_lat);
+      if (addrPart1.empty()) addrPart1=row.name_lat;
+      if (addrPart1.empty()) addrPart1=row.short_name;
+      if (addrPart1.empty()) addrPart1=row.name;
+      addrPart1.erase(35);
+
+      std::string addrPart2(row.code_lat);
+      if (addrPart2.empty()) addrPart2=row.code_icao_lat;
+      if (addrPart2.empty()) addrPart2=row.code;
+      if (addrPart2.empty()) addrPart2=row.code_icao;
+
+      ediOwnAddr=checkAndNormalizeEdiAddr(addrPart1+":"+addrPart2);
+
+      if (countryRegulControl==CountryCode_t("ñç") && fmtType==FormatType::Iapi) ediOwnAddr=addrPart2;
+    }
+    catch(const std::exception&)
+    {
+      std::string fieldName=getLocaleText(getCacheInfo("APIS_SETS").fieldTitle.at("EDI_OWN_ADDR"));
+      throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE",
+                          LParams() << LParam("fieldname", fieldName));
+    }
+  }
+}
+
 } //namespace APIS
+
+namespace CacheTable
+{
+
+//ApisFormats
+
+bool ApisFormats::userDependence() const {
+  return false;
+}
+std::string ApisFormats::selectSql() const {
+  return "SELECT code, name, name_lat FROM apis_formats WHERE code NOT IN ('APPS_SITA') ORDER BY code";
+}
+std::list<std::string> ApisFormats::dbSessionObjectNames() const {
+  return {"APIS_FORMATS"};
+}
+
+//ApisTransports
+
+bool ApisTransports::userDependence() const {
+  return false;
+}
+std::string ApisTransports::selectSql() const {
+  return "SELECT code, name, name_lat FROM msg_transports WHERE code IN ('FILE', 'RABBIT_MQ') ORDER BY code";
+}
+std::list<std::string> ApisTransports::dbSessionObjectNames() const {
+  return {"MSG_TRANSPORTS"};
+}
+
+//ApisSets
+
+bool ApisSets::userDependence() const {
+  return true;
+}
+std::string ApisSets::selectSql() const {
+  return "SELECT id, airline, country_dep, country_arv, country_control, format, "
+                "transport_type, transport_params, edi_addr, edi_own_addr, pr_denial "
+         "FROM apis_sets "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) +
+         "ORDER BY airline, country_control, format, country_dep, country_arv";
+}
+std::string ApisSets::insertSql() const {
+  return "INSERT INTO apis_sets(id, airline, country_dep, country_arv, country_control, format, "
+           "transport_type, transport_params, edi_addr, edi_own_addr, pr_denial) "
+         "VALUES(:id, :airline, :country_dep, :country_arv, :country_control, :format, "
+           ":transport_type, :transport_params, :edi_addr, :edi_own_addr, :pr_denial)";
+}
+std::string ApisSets::updateSql() const {
+  return "UPDATE apis_sets "
+         "SET airline=:airline, country_dep=:country_dep, country_arv=:country_arv, "
+             "country_control=:country_control, format=:format, "
+             "transport_type=:transport_type, transport_params=:transport_params, "
+             "edi_addr=:edi_addr, edi_own_addr=:edi_own_addr, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id";
+}
+std::string ApisSets::deleteSql() const {
+  return "DELETE FROM apis_sets WHERE id=:OLD_id";
+}
+std::list<std::string> ApisSets::dbSessionObjectNames() const {
+  return {"APIS_SETS"};
+}
+
+void ApisSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  if (newRow)
+  {
+    CacheTable::Row &row=newRow.value();
+
+    std::string countryDep=row.getAsString("country_dep");
+    std::string countryArv=row.getAsString("country_arv");
+    std::string ediAddr   =row.getAsString("edi_addr");
+    std::string ediOwnAddr=row.getAsString("edi_own_addr");
+
+    APIS::checkSetting(AirlineCode_t(row.getAsString_ThrowOnEmpty("airline")),
+                       countryDep.empty()?std::nullopt:std::optional(CountryCode_t(countryDep)),
+                       countryArv.empty()?std::nullopt:std::optional(CountryCode_t(countryArv)),
+                       CountryCode_t(row.getAsString_ThrowOnEmpty("country_control")),
+                       row.getAsString_ThrowOnEmpty("format"),
+                       ediAddr,
+                       ediOwnAddr);
+    row.setFromString("edi_addr", ediAddr);
+    row.setFromString("edi_own_addr", ediOwnAddr);
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void ApisSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                       const std::optional<CacheTable::Row>& oldRow,
+                                       const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("apis_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+} //CacheTable

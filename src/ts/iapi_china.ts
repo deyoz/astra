@@ -4410,6 +4410,9 @@ $(init_term)
 
 $(PREPARE_CN_EXCHANGE_SETTINGS UT)
 
+$(set id_apis_sets1 $(last_history_row_id apis_sets -01))
+$(set id_apis_sets2 $(last_history_row_id apis_sets -00))
+
 ??
 $(dump_table events_bilingual fields="lang, msg" order="ev_order, lang, part_num" display="on")
 
@@ -4422,14 +4425,14 @@ SELECT lang,  msg FROM events_bilingual ORDER BY ev_order, lang, part_num
 [RU] [Ввод строки в таблице 'Маршрутизация Edifact': Адрес='NIAC',Канон. имя='IAPIT'. Идентификатор: Адрес='NIAC'] $()
 [EN] [Line creation in table'Профили Edifact': Имя='IAPI',Версия='D',Подверсия='05B',Агентство='UN',Синтаксис='UNOA',Версия синтаксиса='4'. Identifier: Имя='IAPI'] $()
 [RU] [Ввод строки в таблице 'Профили Edifact': Имя='IAPI',Версия='D',Подверсия='05B',Агентство='UN',Синтаксис='UNOA',Версия синтаксиса='4'. Идентификатор: Имя='IAPI'] $()
-[EN] [Line creation in table'Настройка APIS': AIRLINE='ЮТ',А/к='',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
-[EN] [Откл.='0'. Identifier: AIRLINE='ЮТ',А/к='',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',Откл.='0'] $()
-[RU] [Ввод строки в таблице 'Настройка APIS': AIRLINE='ЮТ',А/к='',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
-[RU] [Откл.='0'. Идентификатор: AIRLINE='ЮТ',А/к='',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',Откл.='0'] $()
-[EN] [Line creation in table'Настройка APIS': AIRLINE='ЮТ',А/к='',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
-[EN] [Откл.='0'. Identifier: AIRLINE='ЮТ',А/к='',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',Откл.='0'] $()
-[RU] [Ввод строки в таблице 'Настройка APIS': AIRLINE='ЮТ',А/к='',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
-[RU] [Откл.='0'. Идентификатор: AIRLINE='ЮТ',А/к='',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',Откл.='0'] $()
+[EN] [Line creation in table'Настройка APIS': ID='$(get id_apis_sets1)',AIRLINE='ЮТ',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
+[EN] [Откл.='0'. Identifier: ID='$(get id_apis_sets1)'] $()
+[RU] [Ввод строки в таблице 'Настройка APIS': ID='$(get id_apis_sets1)',AIRLINE='ЮТ',COUNTRY_DEP='ЦН',COUNTRY_ARV='',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
+[RU] [Откл.='0'. Идентификатор: ID='$(get id_apis_sets1)'] $()
+[EN] [Line creation in table'Настройка APIS': ID='$(get id_apis_sets2)',AIRLINE='ЮТ',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
+[EN] [Откл.='0'. Identifier: ID='$(get id_apis_sets2)'] $()
+[RU] [Ввод строки в таблице 'Настройка APIS': ID='$(get id_apis_sets2)',AIRLINE='ЮТ',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
+[RU] [Откл.='0'. Идентификатор: ID='$(get id_apis_sets2)'] $()
 [EN] [Line creation in table'Представительства авиакомпаний': AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Identifier: AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя] $()
 [EN] [контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'] $()
 [RU] [Ввод строки в таблице 'Представительства авиакомпаний': AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Идентификатор: AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя] $()

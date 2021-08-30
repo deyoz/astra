@@ -143,16 +143,6 @@ PROCEDURE check_typeb_addrs(vtlg_type      IN typeb_addrs.tlg_type%TYPE,
                             vuser_id       IN users2.user_id%TYPE,
                             vexception     IN NUMBER);
 
-FUNCTION check_apis_edi_addr(vaddr IN apis_sets.edi_addr%TYPE) RETURN apis_sets.edi_addr%TYPE;
-PROCEDURE check_apis_sets(vairline      IN apis_sets.airline%TYPE,
-                          vcountry_dep  IN apis_sets.country_dep%TYPE,
-                          vcountry_arv  IN apis_sets.country_arv%TYPE,
-                          vcountry_control IN apis_sets.country_control%TYPE,
-                          vformat       IN apis_sets.format%TYPE,
-                          vedi_addr     IN OUT apis_sets.edi_addr%TYPE,
-                          vedi_own_addr IN OUT apis_sets.edi_own_addr%TYPE,
-                          vlang         IN lang_types.code%TYPE);
-
 FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,
                                vuser_id IN users2.user_id%TYPE) RETURN NUMBER;
 FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,

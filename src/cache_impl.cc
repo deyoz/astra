@@ -7,6 +7,7 @@
 #include "kiosk/kiosk_cache_impl.h"
 #include "stat/stat_general.h"
 #include "codeshare_sets.h"
+#include "apis_settings.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -145,6 +146,9 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="CUSTOM_ALARM_TYPES")  return new CacheTable::CustomAlarmTypes;
   if (cacheCode=="CONFIRMATION_SETS")   return new CacheTable::ConfirmationSets;
   if (cacheCode=="BRANDS")              return new CacheTable::Brands;
+  if (cacheCode=="APIS_FORMATS")        return new CacheTable::ApisFormats;
+  if (cacheCode=="APIS_TRANSPORTS")     return new CacheTable::ApisTransports;
+  if (cacheCode=="APIS_SETS")           return new CacheTable::ApisSets;
 
   return nullptr;
 }

@@ -83,7 +83,7 @@ struct TKiosksGrp {
     }
 };
 
-struct TParams {
+struct TKioskParams {
     string sessionId;
     TDateTime time_from;
     TDateTime time_to;
@@ -102,7 +102,7 @@ struct TParams {
     bool dev_log;
     bool screen_log;
 
-    TParams() { clear(); }
+    TKioskParams() { clear(); }
     void clear();
     void fromXML(xmlNodePtr reqNode);
     bool input_screen() const;
@@ -123,7 +123,7 @@ void TKiosksGrp::fromDB(int _kiosk_addr)
         items.push_back(Qry.get().FieldAsString("kiosk_id"));
 }
 
-bool TParams::input_screen() const
+bool TKioskParams::input_screen() const
 {
     return not (
         flt.empty() and
@@ -133,7 +133,7 @@ bool TParams::input_screen() const
         doc.empty());
 }
 
-void TParams::fromXML(xmlNodePtr reqNode)
+void TKioskParams::fromXML(xmlNodePtr reqNode)
 {
     clear();
     sessionId = NodeAsString("sessionId", reqNode, "");
@@ -157,7 +157,7 @@ void TParams::fromXML(xmlNodePtr reqNode)
     }
 }
 
-void TParams::clear()
+void TKioskParams::clear()
 {
     sessionId.clear();
     time_from = NoExists;
@@ -287,8 +287,8 @@ struct TSelfCkinLog {
     typedef map<int, TTimeMap> TItemsMap;
 
     TItemsMap items;
-    void fromDB(const TParams &params);
-    void fromDB(const TParams &params, DB::TCachedQuery &Qry);
+    void fromDB(const TKioskParams &params);
+    void fromDB(const TKioskParams &params, DB::TCachedQuery &Qry);
     void toXML(xmlNodePtr resNode);
     void rowToXML(xmlNodePtr rowNodek, const TSelfCkinLogItem &log_item, const string &err = "");
     bool found(const string &value, const string &param);
@@ -389,7 +389,7 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
-void TSelfCkinLog::fromDB(const TParams &params, DB::TCachedQuery &Qry)
+void TSelfCkinLog::fromDB(const TKioskParams &params, DB::TCachedQuery &Qry)
 {
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -449,7 +449,7 @@ void TSelfCkinLog::fromDB(const TParams &params, DB::TCachedQuery &Qry)
     }
 }
 
-void TSelfCkinLog::fromDB(const TParams &params)
+void TSelfCkinLog::fromDB(const TKioskParams &params)
 {
     if(params.kiosks_grp.no_data()) return;
     QParams QryParams;
@@ -518,7 +518,7 @@ void SelfCkinLogInterface::Run(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     get_compatible_report_form("SelfCkinLog", reqNode, resNode);
     STAT::set_variables(resNode);
 
-    TParams params;
+    TKioskParams params;
     params.fromXML(reqNode);
     TSelfCkinLog log;
     log.fromDB(params);
