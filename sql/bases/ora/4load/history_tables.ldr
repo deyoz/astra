@@ -59,6 +59,7 @@ BEGINDATA
 60|"aro_airps"|"id"|"aro_id, airp"
 61|"paid_ckin_sets"|"id"|"airline, flt_no, airp_dep, pr_permit, prot_timeout"
 62|"typeb_addr_options"|"id"|"typeb_addrs_id, tlg_type, category, value"
+64|"balance_sets"|"id"|"airp, airline, flt_no, bort, balance_type, pr_denial"
 65|"role_assign_rights"|"id"|"role_id, right_id"
 66|"file_param_sets"|"id"|"type, point_addr, own_point_addr, param_name, airline, airp, flt_no, param_value, pr_send"
 67|"et_addr_set"|"id"|"airline, flt_no, edi_addr, edi_own_addr, edi_addr_ext, edi_own_addr_ext, edifact_profile"
