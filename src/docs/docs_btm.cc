@@ -313,7 +313,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 tables.push_back("PAX_GRP");
                 tables.push_back("HALLS2");
                 SQLText += "JOIN (pax_grp "
-                           "      LEFT OUTER JOIN halls2 ON pax_grp.hall = halls2.id ";
+                           "      LEFT OUTER JOIN halls2 ON pax_grp.hall = halls2.id "
                            "      AND COALESCE(halls2.rpt_grp, ' ') = COALESCE(:zone, ' ') "
                            ") ON pax_grp.grp_id = bag_tags.grp_id AND pax_grp.hall IS NOT NULL ";
             }
