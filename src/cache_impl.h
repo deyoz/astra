@@ -358,6 +358,70 @@ class CrsSet : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class SelfCkinTypes : public CacheTableReadonly
+{
+public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class WebCkinSets : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+  protected:
+    virtual std::string selectSqlAddCondition() const;
+};
+
+class AirlineWebCkinSets : public WebCkinSets
+{
+  protected:
+    std::string selectSqlAddCondition() const;
+};
+
+class KioskCkinSets : public CacheTableWritableHandmade
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const { return ""; }
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void onApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              const std::optional<CacheTable::Row>& newRow) const {}
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+  protected:
+    virtual std::string selectSqlAddCondition() const;
+    virtual void bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const;
+};
+
+class AirlineKioskCkinSets : public KioskCkinSets
+{
+  protected:
+    std::string selectSqlAddCondition() const;
+    void bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const;
+};
+
 class Pacts : public CacheTableWritableHandmade
 {
   public:

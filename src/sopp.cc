@@ -7260,62 +7260,32 @@ void set_flight_sets(int point_id, int f, int c, int y)
 
   auto& sess = PgOra::getROSession({"CLIENT_TYPES", "CKIN_CLIENT_SETS"});
   DB::TQuery Qry(sess, STDLOG);
-  if(sess.isOracle()) {
-      Qry.SQLText=
-"SELECT client_types.code AS client_type, "
-"       ckin_client_sets.desk_grp_id, "
-"       NVL(ckin_client_sets.pr_permit,0) AS pr_permit, "
-"       NVL(ckin_client_sets.pr_waitlist,0) AS pr_waitlist, "
-"       NVL(ckin_client_sets.pr_tckin,0) AS pr_tckin, "
-"       NVL(ckin_client_sets.pr_upd_stage,0) AS pr_upd_stage, "
-"       NVL(ckin_client_sets.priority,0) AS priority "
-"FROM client_types, "
-" (SELECT client_type, "
-"         desk_grp_id, "
-"         pr_permit, "
-"         pr_waitlist, "
-"         pr_tckin, "
-"         pr_upd_stage, "
-"         DECODE(airline,NULL,0,8)+ "
-"         DECODE(flt_no,NULL,0,2)+ "
-"         DECODE(airp_dep,NULL,0,4) AS priority "
-"  FROM ckin_client_sets "
-"  WHERE (airline IS NULL OR airline=:airline) AND "
-"        (flt_no IS NULL OR flt_no=:flt_no) AND "
-"        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
-"WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) " //!!!ctMobile
-"ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
-  } else {
-    Qry.SQLText=
-"SELECT "
-"  client_types.code AS client_type, "
-"  ckin_client_sets.desk_grp_id, "
-"  coalesce(ckin_client_sets.pr_permit, 0) AS pr_permit, "
-"  coalesce(ckin_client_sets.pr_waitlist, 0) AS pr_waitlist, "
-"  coalesce(ckin_client_sets.pr_tckin, 0) AS pr_tckin, "
-"  coalesce(ckin_client_sets.pr_upd_stage, 0) AS pr_upd_stage, "
-"  coalesce(ckin_client_sets.priority, 0) AS priority "
-"FROM client_types "
-"  LEFT OUTER JOIN ("
-"     SELECT"
-"       client_type,"
-"       desk_grp_id,"
-"       pr_permit,"
-"       pr_waitlist,"
-"       pr_tckin,"
-"       pr_upd_stage,"
-"       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
-"        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
-"        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority"
-"     FROM ckin_client_sets"
-"     WHERE ((airline IS NULL OR airline = :airline)"
-"     AND (flt_no IS NULL OR flt_no = :flt_no)"
-"     AND (airp_dep IS NULL OR airp_dep = :airp_dep))"
-"            ) AS ckin_client_sets"
-"              ON client_types.code = ckin_client_sets.client_type"
-"          WHERE code IN (:ctWeb, :ctKiosk)"
-"          ORDER BY client_types.code, ckin_client_sets.desk_grp_id, priority DESC";
-  }
+  Qry.SQLText =
+      "SELECT client_types.code AS client_type, "
+      "       ckin_client_sets.desk_grp_id, "
+      "       COALESCE(ckin_client_sets.pr_permit,0) AS pr_permit, "
+      "       COALESCE(ckin_client_sets.pr_waitlist,0) AS pr_waitlist, "
+      "       COALESCE(ckin_client_sets.pr_tckin,0) AS pr_tckin, "
+      "       COALESCE(ckin_client_sets.pr_upd_stage,0) AS pr_upd_stage, "
+      "       COALESCE(ckin_client_sets.priority,0) AS priority "
+      "FROM client_types "
+      "LEFT OUTER JOIN ( "
+      "    SELECT client_type, "
+      "         desk_grp_id, "
+      "         pr_permit, "
+      "         pr_waitlist, "
+      "         pr_tckin, "
+      "         pr_upd_stage, "
+      "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+      "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+      "        CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
+      "    FROM ckin_client_sets "
+      "    WHERE (airline IS NULL OR airline=:airline) AND "
+      "          (flt_no IS NULL OR flt_no=:flt_no) AND "
+      "          (airp_dep IS NULL OR airp_dep=:airp_dep) "
+      ") ckin_client_sets ON client_types.code = ckin_client_sets.client_type "
+      "WHERE code IN (:ctWeb, :ctKiosk) " //!!!ctMobile
+      "ORDER BY client_types.code, ckin_client_sets.desk_grp_id, priority DESC ";
 
   Qry.CreateVariable("airline", otString, flt.airline);
   Qry.CreateVariable("flt_no", otInteger, flt.flt_no);

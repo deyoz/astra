@@ -103,7 +103,11 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="BALANCE_TYPES")       return new CacheTable::BalanceTypes;
   if (cacheCode=="BALANCE_SETS")        return new CacheTable::BalanceSets;
   if (cacheCode=="CRS_SET")             return new CacheTable::CrsSet;
-
+  if (cacheCode=="SELF_CKIN_TYPES")     return new CacheTable::SelfCkinTypes;
+  if (cacheCode=="WEB_CKIN_SETS")           return new CacheTable::WebCkinSets;
+  if (cacheCode=="AIRLINE_WEB_CKIN_SETS")   return new CacheTable::AirlineWebCkinSets;
+  if (cacheCode=="KIOSK_CKIN_SETS")         return new CacheTable::KioskCkinSets;
+  if (cacheCode=="AIRLINE_KIOSK_CKIN_SETS") return new CacheTable::AirlineKioskCkinSets;
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
   if (cacheCode=="BP_MODELS")           return new CacheTable::BpModels;
   if (cacheCode=="BP_BLANK_LIST")       return new CacheTable::BpBlankList;
@@ -277,6 +281,7 @@ void GrpBagTypes::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Select
 
   CreateVariablesFromParams({"grp_id"}, sqlParams, Qry);
   Qry.Execute();
+  if (Qry.Eof) return;
 
   int idxAirline=Qry.FieldIndex("airline");
   int idxBagType=Qry.FieldIndex("bag_type");
@@ -464,6 +469,7 @@ void GrpRfisc::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedR
 
   CreateVariablesFromParams({"grp_id"}, sqlParams, Qry);
   Qry.Execute();
+  if (Qry.Eof) return;
 
   int idxAirline=Qry.FieldIndex("airline");
   int idxServiceType=Qry.FieldIndex("service_type");
@@ -1420,6 +1426,229 @@ std::string lastDateSelectSQL(const std::string& objectName, const std::string& 
           : (field_name + " - 1 / 86400 AS " + field_name);
 }
 
+//SelfCkinTypes
+
+bool SelfCkinTypes::userDependence() const
+{
+  return false;
+}
+
+std::string SelfCkinTypes::selectSql() const
+{
+  return "SELECT code, name, name_lat "
+         "FROM client_types "
+         "WHERE code IN ('WEB', 'MOBIL', 'KIOSK') "
+         "ORDER BY priority ";
+}
+
+std::list<std::string> SelfCkinTypes::dbSessionObjectNames() const
+{
+  return {"CLIENT_TYPES"};
+}
+
+//WebCkinSets
+
+bool WebCkinSets::userDependence() const
+{
+  return true;
+}
+
+std::string WebCkinSets::selectSql() const
+{
+  return "SELECT id,airline,airp_dep,flt_no,pr_permit,pr_waitlist,pr_tckin,pr_upd_stage "
+         "FROM ckin_client_sets WHERE client_type='WEB' AND desk_grp_id IS NULL AND "
+         + selectSqlAddCondition() +
+         "      " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+         "      " + getSQLFilter("airp_dep", AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY airp_dep,airline,id ";
+}
+
+std::string WebCkinSets::insertSql() const
+{
+  return "INSERT INTO ckin_client_sets( "
+         "  id,client_type,desk_grp_id,flt_no,airline,airp_dep,pr_permit,pr_waitlist,pr_tckin,pr_upd_stage "
+         ") VALUES("
+         "  :id,'WEB',NULL,:flt_no,:airline,:airp_dep,:pr_permit,0,:pr_tckin,:pr_upd_stage "
+         ") ";
+}
+
+std::string WebCkinSets::updateSql() const
+{
+  return "UPDATE ckin_client_sets "
+         "SET airline=:airline,flt_no=:flt_no,airp_dep=:airp_dep,pr_permit=:pr_permit, "
+         "    pr_waitlist=:pr_waitlist,pr_tckin=:pr_tckin,pr_upd_stage=:pr_upd_stage "
+         "WHERE id=:OLD_id ";
+}
+
+std::string WebCkinSets::deleteSql() const
+{
+  return "DELETE FROM ckin_client_sets "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> WebCkinSets::dbSessionObjectNames() const
+{
+  return {"CKIN_CLIENT_SETS"};
+}
+
+void WebCkinSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void WebCkinSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          const std::optional<CacheTable::Row>& newRow) const
+{
+    HistoryTable("ckin_client_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+std::string WebCkinSets::selectSqlAddCondition() const
+{
+  return "";
+}
+
+//AirlineWebCkinSets
+
+std::string AirlineWebCkinSets::selectSqlAddCondition() const
+{
+  return "airline=:airline AND ";
+}
+
+//KioskCkinSets
+
+bool KioskCkinSets::userDependence() const
+{
+  return true;
+}
+
+std::string KioskCkinSets::insertSql() const
+{
+  return "INSERT INTO ckin_client_sets( "
+         "  id,client_type,desk_grp_id,flt_no,airline,airp_dep,pr_permit,pr_waitlist,pr_tckin,pr_upd_stage "
+         ") VALUES("
+         "  :id,'KIOSK',:desk_grp_id,:flt_no,:airline,:airp_dep,:pr_permit,0,:pr_tckin,:pr_upd_stage "
+         ") ";
+}
+
+std::string KioskCkinSets::updateSql() const
+{
+  return "UPDATE ckin_client_sets "
+         "SET desk_grp_id=:desk_grp_id,airline=:airline,flt_no=:flt_no,airp_dep=:airp_dep,pr_permit=:pr_permit, "
+         "    pr_waitlist=:pr_waitlist,pr_tckin=:pr_tckin,pr_upd_stage=:pr_upd_stage "
+         "WHERE id=:OLD_id ";
+}
+
+std::string KioskCkinSets::deleteSql() const
+{
+  return "DELETE FROM ckin_client_sets "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> KioskCkinSets::dbSessionObjectNames() const
+{
+  return {"CKIN_CLIENT_SETS"};
+}
+
+void KioskCkinSets::onSelectOrRefresh(const TParams& sqlParams, SelectedRows& rows) const
+{
+  DB::TCachedQuery Qry(
+              PgOra::getROSession("CKIN_CLIENT_SETS"),
+              "SELECT id,airline,airp_dep,flt_no,pr_permit,pr_waitlist,pr_tckin,pr_upd_stage, "
+              "       desk_grp_id, desk_grp_id AS desk_grp_view "
+              "FROM ckin_client_sets "
+              "WHERE client_type='KIOSK' AND desk_grp_id IS NOT NULL AND "
+              + selectSqlAddCondition() +
+              "      " + getSQLFilter("ckin_client_sets.airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+              "      " + getSQLFilter("ckin_client_sets.airp_dep", AccessControl::PermittedAirportsOrNull) + " "
+              "ORDER BY airp_dep,airline,desk_grp_view,ckin_client_sets.id ",
+              STDLOG);
+
+  bindAddParams(sqlParams, Qry.get());
+  Qry.get().Execute();
+
+  if (Qry.get().Eof) return;
+
+  const int idxId = Qry.get().FieldIndex("id");
+  const int idxAirline = Qry.get().FieldIndex("airline");
+  const int idxAirpDep = Qry.get().FieldIndex("airp_dep");
+  const int idxFltNo = Qry.get().FieldIndex("flt_no");
+  const int idxPrPermit = Qry.get().FieldIndex("pr_permit");
+  const int idxPrWaitlist = Qry.get().FieldIndex("pr_waitlist");
+  const int idxPrTckin = Qry.get().FieldIndex("pr_tckin");
+  const int idxPrUpdStage = Qry.get().FieldIndex("pr_upd_stage");
+  const int idxDeskGrpId = Qry.get().FieldIndex("desk_grp_id");
+  const int idxDeskGrpView = Qry.get().FieldIndex("desk_grp_view");
+
+  ViewAccess<DeskGrpId_t> validatorViewAccess;
+
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    if (!Qry.get().FieldIsNULL(idxDeskGrpId) &&
+        !validatorViewAccess.check(DeskGrpId_t(Qry.get().FieldAsInteger(idxDeskGrpId))))
+    {
+        continue;
+    }
+
+    rows.setFromInteger(Qry.get(), idxId)
+        .setFromString(Qry.get(), idxAirline)
+        .setFromString(Qry.get(), idxAirpDep)
+        .setFromInteger(Qry.get(), idxFltNo)
+        .setFromInteger(Qry.get(), idxPrPermit)
+        .setFromInteger(Qry.get(), idxPrWaitlist)
+        .setFromInteger(Qry.get(), idxPrTckin)
+        .setFromInteger(Qry.get(), idxPrUpdStage)
+        .setFromInteger(Qry.get(), idxDeskGrpId)
+        .setFromInteger(Qry.get(), idxDeskGrpView)
+        .addRow();
+  }
+}
+
+void KioskCkinSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+  checkDeskGrpAccess("desk_grp_id", true, oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void KioskCkinSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("ckin_client_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
+std::string KioskCkinSets::selectSqlAddCondition() const
+{
+  return "";
+}
+
+void KioskCkinSets::bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const
+{
+  ;
+}
+
+//AirlineKioskCkinSets
+
+std::string AirlineKioskCkinSets::selectSqlAddCondition() const
+{
+  return "ckin_client_sets.airline=:airline AND ";
+}
+
+void AirlineKioskCkinSets::bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const
+{
+  CreateVariablesFromParams({"airline"}, sqlParams, Qry);
+}
+
 //Pacts
 
 bool Pacts::userDependence() const
@@ -1978,6 +2207,7 @@ void TripBt::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRow
 
   CreateVariablesFromParams({"point_id"}, sqlParams, btQry);
   btQry.Execute();
+  if (btQry.Eof) return;
   const int idxPointId = btQry.FieldIndex("point_id");
   const int idxBtCode = btQry.FieldIndex("bt_code");
   for(; !btQry.Eof; btQry.Next())

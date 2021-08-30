@@ -136,6 +136,11 @@ namespace PgOra
                 "PRN_TEST_TAGS", // "PAX",
         } },
 
+        { "SP_PG_GROUP_CKIN_CLIENT",{
+                "CLIENT_TYPES",     // "CKIN_CLIENT_SETS"
+                "CKIN_CLIENT_SETS", "HIST_CKIN_CLIENT_SETS", // "CLIENT_TYPES"
+        } },
+
         { "SP_PG_GROUP_BP_BT_VO",{
                 "BP_TYPES",
                 "TRIP_BP"
