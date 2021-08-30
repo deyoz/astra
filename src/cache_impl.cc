@@ -153,6 +153,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="APIS_FORMATS")        return new CacheTable::ApisFormats;
   if (cacheCode=="APIS_TRANSPORTS")     return new CacheTable::ApisTransports;
   if (cacheCode=="APIS_SETS")           return new CacheTable::ApisSets;
+  if (cacheCode=="TIMATIC_SETS")        return new CacheTable::TimaticSets;
 
   return nullptr;
 }
@@ -5535,5 +5536,59 @@ std::string GenderTypes::selectSql() const {
 std::list<std::string> GenderTypes::dbSessionObjectNames() const {
     return { "GENDER_TYPES" };
 }
+
+//TimaticSets
+
+bool TimaticSets::userDependence() const {
+  return true;
+}
+std::string TimaticSets::selectSql() const {
+  return "SELECT id, airline, airp, host, port, username, sub_username, pwd, pr_denial "
+         "FROM timatic_sets "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlinesOrNull) + " AND "
+                  + getSQLFilter("airp",    AccessControl::PermittedAirportsOrNull) +
+         "ORDER BY id";
+}
+std::string TimaticSets::insertSql() const {
+  return "INSERT INTO timatic_sets(id, airline, airp, host, port, username, sub_username, pwd, pr_denial) "
+         "VALUES(:id, :airline, :airp, :host, :port, :username, :sub_username, :pwd, :pr_denial)";
+}
+std::string TimaticSets::updateSql() const {
+  return "UPDATE timatic_sets "
+         "SET airline=:airline, airp=:airp, host=:host, port=:port, username=:username, "
+             "sub_username=:sub_username, pwd=:pwd, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id";
+}
+std::string TimaticSets::deleteSql() const {
+  return "DELETE FROM timatic_sets WHERE id=:OLD_id";
+}
+std::list<std::string> TimaticSets::dbSessionObjectNames() const {
+  return {"TIMATIC_SETS"};
+}
+
+void TimaticSets::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow)
+  {
+    if (newRow.value().getAsString("airline").empty() &&
+        newRow.value().getAsString("airp").empty())
+      throw UserException("MSG.AIRLINE_OR_AIRPORT_REQUIRED");
+  }
+
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void TimaticSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("timatic_sets").synchronize(getRowId("id", oldRow, newRow));
+}
+
 
 } //namespace CacheTables
