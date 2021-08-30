@@ -25,7 +25,7 @@ template<> bool CommonData<T::IdaType>::GetInstanceCode_help(\
         T::IdaType &ida)\
 {\
     T::IdaType::BaseType IdaTmp = 0;\
-    auto c = make_db_curs(sql, PgOra::getROSession("SP_PG_GROUP_BASETABLES"));\
+    auto c = make_db_curs(sql, PgOra::getROSession("SP_PG_GROUP_BASETABLES_TMP"));\
     c.\
             bind(":code",code).\
             def(IdaTmp).\
