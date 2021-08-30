@@ -917,71 +917,104 @@ void SyncTripCompLayers(int point_id_tlg,
     }
 }
 
-TCompLayerType GetSeatRemLayer(const string &airline_mark, const string &seat_rem)
+class SeatRemLayerKey
 {
-  static bool rem_layers_init=false;
-  static map< pair<string,string>, TCompLayerType> rem_layers;
+  public:
+    std::string remCode;
+    std::string airlineMark;
+    ASVCStatus asvcStatus;
 
-  if (!rem_layers_init)
-  {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT rem_code, airline_mark, layer_type FROM seat_rem_layers";
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    SeatRemLayerKey(const std::string& remCode_,
+                    const std::string& airlineMark_,
+                    const ASVCStatus asvcStatus_) :
+      remCode(remCode_), airlineMark(airlineMark_), asvcStatus(asvcStatus_) {}
+
+    bool operator < (const SeatRemLayerKey &key) const
     {
-      TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
-      if (layer_type==cltUnknown) continue;
-      rem_layers[ make_pair(Qry.FieldAsString("rem_code"), Qry.FieldAsString("airline_mark")) ]=layer_type;
-    };
-    rem_layers_init=true;
-  };
-
-  map< pair<string,string>, TCompLayerType>::const_iterator i;
-  i=rem_layers.find( make_pair(seat_rem, airline_mark) );
-  if (i==rem_layers.end())
-    i=rem_layers.find( make_pair(seat_rem, "") );
-  if (i==rem_layers.end())
-    return cltUnknown;
-  else
-    return i->second;
-};
-
-bool lessSeatRemPriority(const pair<string, int> &item1,const pair<string, int> &item2)
-{
-  return item1.second<item2.second;
-};
-
-void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
-{
-  rems.clear();
-  int priority=100; //самый маленький приоритет
-  rems.push_back(make_pair("EXST",priority));
-  rems.push_back(make_pair("GPST",priority));
-  rems.push_back(make_pair("NSST",priority));
-  rems.push_back(make_pair("NSSA",priority));
-  rems.push_back(make_pair("NSSB",priority));
-  rems.push_back(make_pair("NSSW",priority));
-  rems.push_back(make_pair("SMST",priority));
-  rems.push_back(make_pair("SMSA",priority));
-  rems.push_back(make_pair("SMSB",priority));
-  rems.push_back(make_pair("SMSW",priority));
-  rems.push_back(make_pair("SEAT",priority));
-  rems.push_back(make_pair("RQST",priority));
-  for(TSeatRemPriority::iterator r=rems.begin();r!=rems.end();r++)
-  {
-    TCompLayerType rem_layer=GetSeatRemLayer(airline_mark, r->first);
-    if (rem_layer==cltUnknown) continue;
-    try
-    {
-       r->second = BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( "", rem_layer ),
-                                                                        BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline );
+      return std::tuple(remCode, airlineMark, asvcStatus) <
+             std::tuple(key.remCode, key.airlineMark, key.asvcStatus);
     }
-    catch(EBaseTableError&) {};
-  };
-  //сортируем
-  stable_sort(rems.begin(),rems.end(),lessSeatRemPriority);
 };
+
+static std::map<SeatRemLayerKey, TCompLayerType> getSeatRemLayerMap()
+{
+  LogTrace(TRACE5) << __func__;
+
+  std::map<SeatRemLayerKey, TCompLayerType> result;
+
+  auto cur = make_db_curs("SELECT rem_code, airline_mark, layer_with_asvc_hi, layer_with_asvc_hk, layer_without_asvc "
+                          "FROM seat_rem_layers", PgOra::getROSession("SEAT_REM_LAYERS"));
+
+  std::string remCode, airlineMark, layerWithAsvcHI, layerWithAsvcHK, layerWithoutAsvc;
+
+  cur.stb()
+     .def(remCode)
+     .defNull(airlineMark, "")
+     .defNull(layerWithAsvcHI, "")
+     .defNull(layerWithAsvcHK, "")
+     .defNull(layerWithoutAsvc, "")
+     .exec();
+
+  while (!cur.fen())
+  {
+    result.emplace(SeatRemLayerKey(remCode, airlineMark, ASVCStatus::HI),
+                   DecodeCompLayerType(layerWithAsvcHI.c_str()));
+    result.emplace(SeatRemLayerKey(remCode, airlineMark, ASVCStatus::HK),
+                   DecodeCompLayerType(layerWithAsvcHK.c_str()));
+    result.emplace(SeatRemLayerKey(remCode, airlineMark, ASVCStatus::NotFound),
+                   DecodeCompLayerType(layerWithoutAsvc.c_str()));
+  }
+
+  return result;
+}
+
+TCompLayerType getSeatRemLayer(const std::string &airlineMark,
+                               const std::string &seatRem,
+                               const ASVCStatus asvcStatus)
+{
+  static const auto remLayers=getSeatRemLayerMap();
+
+  std::optional<TCompLayerType> result;
+  result=algo::find_opt<std::optional>(remLayers, SeatRemLayerKey(seatRem, airlineMark, asvcStatus));
+  if (result) return result.value();
+  result=algo::find_opt<std::optional>(remLayers, SeatRemLayerKey(seatRem, "", asvcStatus));
+  if (result) return result.value();
+  return cltUnknown;
+}
+
+SeatRemPriority getSeatRemPriority(const std::string &airlineMark)
+{
+  SeatRemPriority result;
+
+
+  for(const string& seatRem : {"EXST", "GPST",
+                               "NSST", "NSSA", "NSSB", "NSSW",
+                               "SMST", "SMSA", "SMSB", "SMSW",
+                               "SEAT", "RQST"})
+  {
+    for(const ASVCStatus asvcStatus : {ASVCStatus::HI, ASVCStatus::HK, ASVCStatus::NotFound})
+    {
+      int priority=100;
+      TCompLayerType remLayer=getSeatRemLayer(airlineMark, seatRem, asvcStatus);
+      try
+      {
+        if (remLayer!=cltUnknown)
+          priority = BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( "", remLayer ),
+                                                                          BASIC_SALONS::TCompLayerTypes::ignoreAirline );
+      }
+      catch(EBaseTableError&) {}
+
+      result.emplace_back(seatRem, asvcStatus, priority);
+    }
+  }
+
+  stable_sort(result.begin(),
+              result.end(),
+              [](const SeatRemPriorityItem& item1,
+                 const SeatRemPriorityItem& item2) { return item1.priority<item2.priority; });
+
+  return result;
+}
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp,
                         const std::string& whence)

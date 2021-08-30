@@ -6,6 +6,7 @@
 #include <set>
 #include "astra_consts.h"
 #include "seats_utils.h"
+#include "remarks.h"
 
 bool IsTlgCompLayer(ASTRA::TCompLayerType layer_type);
 
@@ -130,13 +131,27 @@ void SyncTripCompLayers(int point_id_tlg,
                         int point_id_spp,
                         TPointIdsForCheck &point_ids_spp);
 
-//возвращает слой если ремарка места PNL для указанной компании может быть использована для платной регистрации
-//иначе возвращает cltUnknown
-ASTRA::TCompLayerType GetSeatRemLayer(const std::string &airline_mark, const std::string &seat_rem);
+ASTRA::TCompLayerType getSeatRemLayer(const std::string &airlineMark,
+                                      const std::string &seatRem,
+                                      const ASVCStatus asvcStatus);
 
-typedef std::vector< std::pair<std::string, int> > TSeatRemPriority;
+class SeatRemPriorityItem
+{
+  public:
+    std::string seatRem;
+    ASVCStatus asvcStatus;
+    int priority;
+
+    SeatRemPriorityItem(const std::string& seatRem_,
+                        const ASVCStatus asvcStatus_,
+                        const int priority_) :
+      seatRem(seatRem_), asvcStatus(asvcStatus_), priority(priority_) {}
+};
+
+using SeatRemPriority = std::vector<SeatRemPriorityItem>;
+
 //возвращает сортированный! по приоритетам список ремарок
-void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems);
+SeatRemPriority getSeatRemPriority(const std::string &airlineMark);
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp,
                         const std::string& whence);

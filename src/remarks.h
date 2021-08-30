@@ -83,6 +83,8 @@ class TierLevelKey
 
 std::ostream& operator<<(std::ostream& os, const TierLevelKey& tierLevel);
 
+enum class ASVCStatus { HD, HK, HI, NotFound };
+
 namespace CheckIn
 {
 
