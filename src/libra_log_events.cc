@@ -241,17 +241,18 @@ static int getOrGenAhmId(int airlineId)
 
 static int getAirlineId(const AirlineCode_t& airlineCode)
 {
-    // TODO DROPME
-    if(airlineCode.get() == "226") return 226;
-    if(airlineCode.get() == "534") return 534;
-
     const TAirlinesRow& row = dynamic_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code/code_lat", airlineCode.get()));
     return row.id;
 }
 
 static int ahmIdByLogEvent(const LogEvent& e)
 {
-    ASSERT(e.isAhm() && !e.Airline.empty());
+    ASSERT(e.isAhm());
+
+    if(e.Airline.empty()) {
+        LogError(STDLOG) << "Empty LogEvent.Airline from Libra!";
+        return 0;
+    }
 
     int airlineId = getAirlineId(AirlineCode_t(e.Airline));
     if(!e.Category.empty() && !e.BortNum.empty()) {
@@ -287,6 +288,11 @@ static void handleLogEvent(const LogEvent& e)
         msg.id1 = ahmIdByLogEvent(e);
     } else {
         msg.id1 = e.PointId;
+    }
+
+    if(!msg.id1) {
+        LogError(STDLOG) << "Invalid LogEvent from Libra! Skip it...";
+        return;
     }
 
     // RU
