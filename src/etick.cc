@@ -1158,7 +1158,7 @@ static boost::optional<std::string> segmentAirpSpecView(const AirportCode_t& air
                                                         const Ticketing::TicketNum_t& ticknum,
                                                         const Ticketing::CouponNum_t& cpnnum)
 {
-  if (airp.get()=="Ääã")
+  if (airp.get()=="ÉçÜ")
   {
     boost::optional<Itin> etDispItin=getEtDispCouponItin(ticknum, cpnnum);
     if (!etDispItin) return {};
@@ -1166,7 +1166,7 @@ static boost::optional<std::string> segmentAirpSpecView(const AirportCode_t& air
     const std::string& airpFromET=isDepartureAirp?etDispItin.get().depPointCode():
                                                   etDispItin.get().arrPointCode();
 
-    if (airpFromET=="TSE" || airpFromET=="NQZ") return airpFromET;
+    if (airpFromET=="KVD" || airpFromET=="GNJ") return airpFromET;
   }
   return {};
 }
