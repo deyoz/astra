@@ -38,6 +38,7 @@
 #include "baggage_calc.h"
 #include "pax_calc_data.h"
 #include "tlg/typeb_db.h"
+#include "crafts/SeatsPax.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/testmode.h>
@@ -3133,31 +3134,8 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
 void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode )
 {
   bool pr_free_seating = SALONS2::isFreeSeating( point_id );
-  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  TPaxSeats priorSeats( point_id );
+  SEATSPAX::TSeatPaxListCached p;
   bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
-
-  // места пассажира
-  TQuery SQry( &OraSession ); // salons.get_seat_no, salons.get_crs_seat_no
-  SQry.SQLText =
-    "BEGIN "
-    " IF :mode=0 THEN "
-    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:is_jmp,:layer_type,:point_id,'_seats',:pax_row); "
-    " ELSE "
-    "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'_seats',:crs_row); "
-    " END IF; "
-    "END;";
-  SQry.DeclareVariable( "mode", otInteger );
-  SQry.DeclareVariable( "pax_id", otInteger );
-  SQry.DeclareVariable( "xname", otString );
-  SQry.DeclareVariable( "yname", otString );
-  SQry.DeclareVariable( "layer_type", otString );
-  SQry.DeclareVariable( "seats", otInteger );
-  SQry.DeclareVariable( "point_id", otInteger );
-  SQry.DeclareVariable( "pax_row", otInteger );
-  SQry.DeclareVariable( "crs_row", otInteger );
-  SQry.DeclareVariable( "seat_no", otString );
-  SQry.DeclareVariable( "is_jmp", otInteger );
 
   //рейс пассажиров
   DB::TQuery TlgTripsQry( PgOra::getROSession("TLG_TRIPS"), STDLOG );
@@ -3288,80 +3266,36 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
 
     int pax_id=searchResult.pax_id.get();
 
-    std::string seat_no;
-    std::string layer_type;
+    SEATSPAX::TSeatsProps seatsProps;
+    bool no_isseat = false;
 
-    int mode = -1; // не надо искать место // режим для поиска мест 0 - регистрация иначе список pnl
     if (searchResult.grp_id)
-    {
-      if ( searchResult.refuse.empty() )
-      {
-        mode = 0;
-        SQry.SetVariable( "layer_type", searchResult.grp_status  );
-        SQry.SetVariable( "seats", searchResult.pax_seats  );
-        SQry.SetVariable( "point_id", point_id );
-        SQry.SetVariable( "pax_row", pax_row );
-//        ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
-//                           mode, pax_id, searchResult.pax_seats, point_id,
-//                           pax_row, searchResult.grp_status );
-      }
-    }
-    else {
-      mode = 1;
-      SQry.SetVariable( "xname", searchResult.seat_xname );
-      SQry.SetVariable( "yname", searchResult.seat_yname );
-      SQry.SetVariable( "layer_type", FNull );
-      SQry.SetVariable( "seats", searchResult.seats );
-      SQry.SetVariable( "point_id", searchResult.point_id_tlg.get() );
-      SQry.SetVariable( "crs_row", crs_row );
-//      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
-//                         mode, pax_id, searchResult.seats, point_id,
-//                         crs_row, "" );
-    }
+      p.get_seat_no( searchResult.pax_id,
+                     PointId_t(point_id),
+                     DecodePaxStatus(searchResult.grp_status),
+                     searchResult.refuse,
+                     searchResult.is_jmp,
+                     searchResult.pax_seats ,
+                     SEATSPAX::TSeatPax::psCheckin,
+                     pr_free_seating,
+                     SEATSPAX::TSeatPax::ef_Seats,
+                     seatsProps );
+    else
+      p.get_seat_no( searchResult.pax_id,
+                     searchResult.point_id_tlg,
+                     searchResult.seats,
+                     pr_free_seating,
+                     SEATSPAX::TSeatPax::ef_Seats,
+                     seatsProps );
 
-    if (mode==0 || mode==1)
-    {
-      SQry.SetVariable( "mode", mode );
-      SQry.SetVariable( "pax_id", pax_id );
-      SQry.SetVariable( "is_jmp", (int)(searchResult.is_jmp!=0) );
-      SQry.SetVariable( "seat_no", FNull );
-      SQry.Execute();
-      if ( mode == 0 )
-          pax_row++;
-      else
-          crs_row++;
+    no_isseat = ( (!seatsProps.seat_no.empty() && !seatsProps.from_waitlist) || pr_free_seating || !searchResult.seats );
+    if ( seatsProps.from_waitlist ) seatsProps.layer_type = cltUnknown;
 
-      if ( !SQry.VariableIsNULL( "seat_no" ) ) {
-          seat_no = SQry.GetVariableAsString( "seat_no" );
-          if ( mode == 0 ) {
-              layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",searchResult.grp_status)).layer_type;
-          }
-          else {
-              layer_type = SQry.GetVariableAsString( "layer_type" );
-          }
-      } // не задано место
-      else {
-          if ( mode == 0 &&
-             searchResult.seats &&
-             !pr_free_seating ) {
-              string old_seat_no;
-              if ( searchResult.wl_type.empty() ) {
-                old_seat_no = priorSeats.getSeats( pax_id, "seats" );
-                if ( !old_seat_no.empty() )
-                  old_seat_no = "(" + old_seat_no + ")";
-              }
-              else
-                  old_seat_no = AstraLocale::getLocaleText("ЛО");
-              seat_no=old_seat_no;
-          }
-      }
-    }
-
-    NewTextChild( node, "nseat_no", seat_no, "" );
+    NewTextChild( node, "nseat_no", seatsProps.seat_no, "" );
     if ( !searchResult.wl_type.empty() )
       NewTextChild( node, "wl_type", searchResult.wl_type );
-    NewTextChild( node, "layer_type", layer_type, "" );
-    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !searchResult.seats ) );
+    NewTextChild( node, "layer_type", EncodeCompLayerType(seatsProps.layer_type), "" );
+    NewTextChild( node, "isseat", no_isseat);
     NewTextChild( node, "seats", searchResult.seats, 1 );
     NewTextChild( node, "target", ElemIdToCodeNative(etAirp,searchResult.airp_arv ));
     if (!searchResult.airp_arv_final.empty())
