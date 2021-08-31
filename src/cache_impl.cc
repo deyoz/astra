@@ -159,7 +159,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="TRIP_LIST_DAYS")      return new CacheTable::TripListDays;
   if (cacheCode=="RIGHTS")              return new CacheTable::Rights;
   if (cacheCode=="PROFILED_RIGHTS_LIST") return new CacheTable::ProfiledRightsList;
-  if (cacheCode=="USERS2")              return new CacheTable::Users;
+  if (cacheCode=="USERS")               return new CacheTable::Users;
   if (cacheCode=="USERS_TYPES")         return new CacheTable::UserTypes;
 
   return nullptr;
