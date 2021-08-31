@@ -487,6 +487,7 @@ namespace PgOra
         { "SP_PG_GROUP_TIMATIC", {
                 "TIMATIC_SESSION",
                 "TIMATIC_SETS",
+                "HIST_TIMATIC_SETS",
         }},
         { "SP_PG_GROUP_EXCH_FLIGHTS", {
                 "EXCH_FLIGHTS",
