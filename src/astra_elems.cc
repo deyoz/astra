@@ -383,10 +383,10 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
       catch (const EBaseTableError&) {};
 
       if ((type==etAirp || type==etCity) &&
-          (elem=="TSE" || elem=="NQZ"))
+          (elem=="KVD" || elem=="GNJ"))
       {
         fmt=efmtCodeInter;
-        return "Ääã";
+        return "ÉçÜ";
       }
     }
     catch (const bad_cast&) {};
