@@ -240,6 +240,7 @@ astra_SOURCES = \
   wb_messages.cc \
   nosir_crstxt.cc \
   hooked_session.cc \
+  cache_tables/roles.cc \
   PgOraConfig.cc
 
 

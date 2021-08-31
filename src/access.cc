@@ -245,11 +245,6 @@ void insertIntoUsers2(
     HistoryTable("USERS2").synchronize(RowId_t(user_id));
 }
 
-    // Qry.SQLText = "INSERT INTO aro_airlines(aro_id, airline, id) "
-    //               "SELECT :user_id, airline, :id "
-    //               "FROM aro_airlines "
-    //               "WHERE aro_id = :sys_user_id";
-
 void insertIntoAroAirlines(
     const int user_id,
     const std::string& airline)
@@ -839,14 +834,11 @@ class TRolesARO:public TARO {
         TRolesARO()
         {
             Qry.SQLText =
-                "select "
-                "   roles.role_id "
-                "from "
-                "   user_roles, "
-                "   roles "
-                "where "
-                "   user_roles.user_id = :user_id and "
-                "   user_roles.role_id = roles.role_id";
+                "select roles.role_id "
+                  "from user_roles "
+                  "join roles "
+                    "on user_roles.user_id = :user_id "
+                   "and user_roles.role_id = roles.role_id";
             usersSQLText =
                 "select user_id from user_roles where user_id in "
                 "   (select user_id from user_roles where role_id = :aro user_cond) "

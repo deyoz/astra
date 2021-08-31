@@ -19,6 +19,7 @@ src
 src/crafts
 src/docs
 src/kiosk
+src/cache_tables
 src/stat
 src/tests/icu
 src/tlg

@@ -5,6 +5,7 @@
 #include "kassa.h"
 #include "brands.h"
 #include "kiosk/kiosk_cache_impl.h"
+#include "cache_tables/roles.h"
 #include "stat/stat_general.h"
 #include "codeshare_sets.h"
 #include "apis_settings.h"
@@ -154,6 +155,12 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="APIS_TRANSPORTS")     return new CacheTable::ApisTransports;
   if (cacheCode=="APIS_SETS")           return new CacheTable::ApisSets;
   if (cacheCode=="TIMATIC_SETS")        return new CacheTable::TimaticSets;
+  if (cacheCode=="ROLES")               return new CacheTable::Roles;
+  if (cacheCode=="TRIP_LIST_DAYS")      return new CacheTable::TripListDays;
+  if (cacheCode=="RIGHTS")              return new CacheTable::Rights;
+  if (cacheCode=="PROFILED_RIGHTS_LIST") return new CacheTable::ProfiledRightsList;
+  if (cacheCode=="USERS2")              return new CacheTable::Users;
+  if (cacheCode=="USERS_TYPES")         return new CacheTable::UserTypes;
 
   return nullptr;
 }

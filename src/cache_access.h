@@ -168,5 +168,9 @@ void checkAirlineOrAirlineAccess(const std::string& fieldName1,
                                  const std::optional<CacheTable::Row>& oldRow,
                                  const std::optional<CacheTable::Row>& newRow);
 
+void checkNotNullRoleAccess(const std::string& roleIdFieldName,
+                            const std::optional<CacheTable::Row>& oldRow,
+                            const std::optional<CacheTable::Row>& newRow);
+
 } //namespace CacheTable
 
