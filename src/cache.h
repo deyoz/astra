@@ -329,6 +329,8 @@ class CacheTableTermRequest : public TCacheTable
 
 };
 
+std::string get_role_name(int role_id);
+
 #endif/*XP_TESTING*/
 
 

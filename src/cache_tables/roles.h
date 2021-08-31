@@ -5,10 +5,13 @@
 namespace CacheTable
 {
 
-class Roles : public CacheTableWritableHandmade
+class Roles : public CacheTableWritable
 {
   public:
     std::string selectSql() const { return "";}
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
     bool userDependence() const override { return true; }
     bool insertImplemented() const override { return true; }
     bool updateImplemented() const override { return true; }
@@ -17,16 +20,19 @@ class Roles : public CacheTableWritableHandmade
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
                                   std::optional<CacheTable::Row>& newRow) const;
-    void onApplyingRowChanges(const TCacheUpdateStatus status,
-                              const std::optional<CacheTable::Row>& oldRow,
-                              const std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
     std::list<std::string> dbSessionObjectNames() const;
 };
 
-class TripListDays : public CacheTableWritableHandmade
+class TripListDays : public CacheTableWritable
 {
   public:
     std::string selectSql() const { return "";}
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
     bool userDependence() const override { return true; }
     bool insertImplemented() const override { return true; }
     bool updateImplemented() const override { return true; }
@@ -35,9 +41,9 @@ class TripListDays : public CacheTableWritableHandmade
     void beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                   const std::optional<CacheTable::Row>& oldRow,
                                   std::optional<CacheTable::Row>& newRow) const;
-    void onApplyingRowChanges(const TCacheUpdateStatus status,
-                              const std::optional<CacheTable::Row>& oldRow,
-                              const std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
     std::list<std::string> dbSessionObjectNames() const;
 };
 

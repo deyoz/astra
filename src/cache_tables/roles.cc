@@ -1,8 +1,11 @@
+#include "serverlib/dbcpp_cursctl.h"
+
 #include "roles.h"
 #include "PgOraConfig.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "cache_access.h"
+#include "cache.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -10,8 +13,6 @@
 using AstraLocale::UserException;
 
 namespace {
-
-// Roles
 
 bool checkRoleNameStartWith(const std::string& name)
 {
@@ -56,26 +57,39 @@ void insertIntoTripListDaysOnRoleName(const std::string& name, const int role_id
 
 void deleteFromTripListDays(const int role_id)
 {
-    make_db_curs(
-       "DELETE FROM trip_list_days WHERE role_id = :role_id",
-        PgOra::getRWSession("TRIP_LIST_DAYS"))
-       .bind(":role_id", role_id)
-       .exec();
-    HistoryTable("TRIP_LIST_DAYS").synchronize(RowId_t(role_id));
+    auto& sess = PgOra::getRWSession("TRIP_LIST_DAYS");
+
+    auto cur = make_db_curs("SELECT id FROM trip_list_days WHERE role_id = :role_id FOR UPDATE", sess);
+
+    int id;
+
+    cur.bind(":role_id", role_id)
+       .def(id)
+       .EXfet();
+
+    if (cur.err() != DbCpp::ResultCode::NoDataFound) {
+        make_db_curs(
+           "DELETE FROM trip_list_days WHERE id = :id",
+            sess)
+           .bind(":id", id)
+           .exec();
+        HistoryTable("TRIP_LIST_DAYS").synchronize(RowId_t(id));
+    }
 }
 
 void deleteFromRoleRights(const int role_id)
 {
-    auto cur = make_db_curs(
-       "DELETE FROM role_rights WHERE role_id = :role_id RETURNING id",
-        PgOra::getRWSession("ROLE_RIGHTS")
-    );
+    auto& sess = PgOra::getRWSession("ROLE_RIGHTS");
+
+    auto cur = make_db_curs("SELECT id FROM role_rights WHERE role_id = :role_id FOR UPDATE", sess);
 
     int id;
 
     cur.bind(":role_id", role_id)
        .def(id)
        .exec();
+
+    make_db_curs("DELETE FROM role_rights WHERE role_id = :role_id", sess).bind(":role_id", role_id).exec();
 
     while (!cur.fen()) {
         HistoryTable("ROLE_RIGHTS").synchronize(RowId_t(id));
@@ -84,10 +98,9 @@ void deleteFromRoleRights(const int role_id)
 
 void deleteFromRoleAssignRights(const int role_id)
 {
-    auto cur = make_db_curs(
-       "DELETE FROM role_assign_rights WHERE role_id = :role_id RETURNING id",
-        PgOra::getRWSession("ROLE_ASSIGN_RIGHTS")
-    );
+    auto& sess = PgOra::getRWSession("ROLE_ASSIGN_RIGHTS");
+
+    auto cur = make_db_curs("SELECT id FROM role_assign_rights WHERE role_id = :role_id FOR UPDATE", sess);
 
     int id;
 
@@ -95,134 +108,14 @@ void deleteFromRoleAssignRights(const int role_id)
        .def(id)
        .exec();
 
+    make_db_curs("DELETE FROM role_assign_rights WHERE role_id = :role_id", sess).bind(":role_id", role_id).exec();
+
     while (!cur.fen()) {
         HistoryTable("ROLE_ASSIGN_RIGHTS").synchronize(RowId_t(id));
     }
 }
 
-void insertIntoRoles(
-    const int role_id,
-    const std::string& name,
-    const std::string& airline,
-    const std::string& airp)
-{
-    make_db_curs(
-       "INSERT INTO roles(role_id, name, airline, airp) "
-                 "VALUES(:role_id,:name,:airline,:airp)",
-        PgOra::getRWSession("ROLES"))
-       .bind(":role_id", role_id)
-       .bind(":name", name)
-       .bind(":airline", airline)
-       .bind(":airp", airp)
-       .exec();
-    HistoryTable("ROLES").synchronize(RowId_t(role_id));
-}
-
-void updateRoles(
-    const int role_id,
-    const std::string& name,
-    const std::string& airline,
-    const std::string& airp)
-{
-    make_db_curs(
-       "UPDATE roles "
-       "SET name = :name, airline = :airline, airp = :airp "
-       "WHERE role_id = :role_id",
-        PgOra::getRWSession("ROLES"))
-       .bind(":name", name)
-       .bind(":airline", airline)
-       .bind(":airp", airp)
-       .bind(":role_id", role_id)
-       .exec();
-    HistoryTable("ROLES").synchronize(RowId_t(role_id));
-}
-
-void deleteFromRoles(const int role_id)
-{
-    make_db_curs(
-       "DELETE FROM roles WHERE role_id = :role_id",
-        PgOra::getRWSession("ROLES"))
-       .bind(":role_id", role_id)
-       .exec();
-    HistoryTable("ROLES").synchronize(RowId_t(role_id));
-}
-
-// TripListDays
-
-void checkShiftRangeThrowOnError(const int shift_down, const int shift_up)
-{
-    if (shift_down > shift_up) {
-        throw UserException("Неверный диапазон. Верхнее смещение меньше нижнего");
-    } else if (shift_up - shift_down >= 10) {
-        throw UserException("Диапазон не может превышать 10 дней");
-    }
-}
-
-void updateTripListDays(const int id, const int old_role_id, const int role_id, const int shift_down, const int shift_up)
-{
-    make_db_curs(
-       "UPDATE trip_list_days "
-       "SET role_id = :role_id, shift_down = :shift_down, shift_up = :shift_up "
-       "WHERE role_id = :old_role_id",
-        PgOra::getRWSession("TRIP_LIST_DAYS"))
-       .bind(":role_id", role_id)
-       .bind(":shift_down", shift_down)
-       .bind(":shift_up", shift_up)
-       .bind(":old_role_id", old_role_id)
-       .exec();
-    HistoryTable("TRIP_LIST_DAYS").synchronize(RowId_t(id));
-}
-
-void insertRoles(
-    const std::string& name,
-    const std::string& airline,
-    const std::string& airp)
-{
-    int role_id = PgOra::getSeqNextVal_int("ID__SEQ");
-    insertIntoRoles(role_id, name, airline, airp);
-    insertIntoTripListDaysOnRoleName(name, role_id);
-}
-
-void modifyRoles(
-    const int role_id,
-    const std::string& name,
-    const std::string& airline,
-    const std::string& airp)
-{
-    deleteFromTripListDays(role_id);
-    updateRoles(role_id, name, airline, airp);
-    insertIntoTripListDaysOnRoleName(name, role_id);
-}
-
-void deleteRoles(const int role_id)
-{
-    deleteFromTripListDays(role_id);
-    deleteFromRoleRights(role_id);
-    deleteFromRoleAssignRights(role_id);
-    deleteFromRoles(role_id);
-}
-
-
-void insertTripListDays(const int role_id, const int shift_down, const int shift_up)
-{
-    checkShiftRangeThrowOnError(shift_down, shift_up);
-    const int id = PgOra::getSeqNextVal_int("ID__SEQ");
-    insertIntoTripListDays(id, role_id, shift_down, shift_up);
-}
-
-
-void modifyTripListDays(const int id, const int old_role_id, const int role_id, const int shift_down, const int shift_up)
-{
-    checkShiftRangeThrowOnError(shift_down, shift_up);
-    updateTripListDays(id, old_role_id, role_id, shift_down, shift_up);
-}
-
-void deleteTripListDays(const int role_id)
-{
-    deleteFromTripListDays(role_id);
-}
-
-}
+} // namespace
 
 namespace CacheTable
 {
@@ -261,7 +154,7 @@ void Roles::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows
         .setFromString (ElemIdToCodeNative(etAirline, Qry.FieldAsString(idxAirline)))
         .setFromString (Qry, idxAirp)
         .setFromString (ElemIdToCodeNative(etAirp, Qry.FieldAsString(idxAirp)))
-        .setFromString (ElemIdToCodeNative(etRoles, Qry.FieldAsInteger(idxRoleId)))
+        .setFromString (get_role_name(Qry.FieldAsInteger(idxRoleId)))
         .addRow();
   }
 }
@@ -273,37 +166,49 @@ void Roles::beforeApplyingRowChanges(const TCacheUpdateStatus status,
   checkNotNullRoleAccess("role_id", oldRow, newRow);
   checkAirlineAccess("airline", oldRow, newRow);
   checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("role_id", status, newRow);
+
+  if (oldRow) {
+    int role_id = newRow.value().getAsInteger_ThrowOnEmpty("role_id");
+    ::deleteFromTripListDays(role_id);
+
+    if (status == usDeleted) {
+      ::deleteFromRoleRights(role_id);
+      ::deleteFromRoleAssignRights(role_id);
+    }
+  }
 }
 
-void Roles::onApplyingRowChanges(const TCacheUpdateStatus status,
-                                 const std::optional<CacheTable::Row>& oldRow,
-                                 const std::optional<CacheTable::Row>& newRow) const
+std::string Roles::insertSql() const {
+  return "INSERT INTO roles(role_id, name, airline, airp) "
+                   "VALUES(:role_id,:name,:airline,:airp)";
+}
+std::string Roles::updateSql() const {
+  return "UPDATE roles "
+         "SET name = :name, airline = :airline, airp = :airp "
+         "WHERE role_id = :OLD_role_id";
+}
+std::string Roles::deleteSql() const {
+  return "DELETE FROM roles WHERE role_id = :OLD_role_id";
+}
+
+void Roles::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           const std::optional<CacheTable::Row>& newRow) const
 {
-  if (status==usInserted)
-  {
-    const CacheTable::Row& row=newRow.value();
+  if (newRow) {
+    std::string name    = newRow.value().getAsString("name");
+    int role_id = newRow.value().getAsInteger_ThrowOnEmpty("role_id");
 
-    ::insertRoles(row.getAsString("name"),
-                          row.getAsString("airline"),
-                          row.getAsString("airp"));
+    ::insertIntoTripListDaysOnRoleName(name, role_id);
   }
 
-  if (status==usModified)
-  {
-    ::modifyRoles(oldRow.value().getAsInteger_ThrowOnEmpty("role_id"),
-                          newRow.value().getAsString("name"),
-                          newRow.value().getAsString("airline"),
-                          newRow.value().getAsString("airp"));
-  }
-
-  if (status==usDeleted)
-  {
-    ::deleteRoles(oldRow.value().getAsInteger_ThrowOnEmpty("role_id"));
-  }
+  HistoryTable("ROLES").synchronize(getRowId("role_id", oldRow, newRow));
 }
 
 std::list<std::string> Roles::dbSessionObjectNames() const {
-    return {"ROLES", "TRIP_LIST_DAYS", "ROLE_ASSIGN_RIGHTS", "ROLE_RIGHTS"};
+  return {"ROLES"};
 }
 
 // TripListDays
@@ -338,7 +243,7 @@ void TripListDays::onSelectOrRefresh(const TParams& sqlParams, CacheTable::Selec
     if (!viewAccess.check(roleId)) continue;
 
     rows.setFromInteger(Qry, idxRoleId)
-        .setFromString (ElemIdToCodeNative(etRoles, Qry.FieldAsInteger(idxRoleId)))
+        .setFromString (get_role_name(Qry.FieldAsInteger(idxRoleId)))
         .setFromInteger(Qry, idxShiftDown)
         .setFromInteger(Qry, idxShiftUp)
         .setFromInteger(Qry, idxId)
@@ -351,33 +256,40 @@ void TripListDays::beforeApplyingRowChanges(const TCacheUpdateStatus status,
                                             std::optional<CacheTable::Row>& newRow) const
 {
   checkNotNullRoleAccess("role_id", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+
+  if (newRow) {
+    const int shift_down = newRow.value().getAsInteger_ThrowOnEmpty("shift_down");
+    const int shift_up   = newRow.value().getAsInteger_ThrowOnEmpty("shift_up");
+
+    if (shift_down > shift_up) {
+      throw UserException("Неверный диапазон. Верхнее смещение меньше нижнего");
+    } else if (shift_up - shift_down >= 10) {
+      throw UserException("Диапазон не может превышать 10 дней");
+    }
+
+  }
 }
 
+std::string TripListDays::insertSql() const {
+  return "INSERT INTO trip_list_days(id, role_id, shift_down, shift_up) "
+                            "VALUES(:id,:role_id,:shift_down,:shift_up)";
+}
+std::string TripListDays::updateSql() const {
+  return "UPDATE trip_list_days "
+            "SET role_id = :role_id, shift_down = :shift_down, shift_up = :shift_up "
+          "WHERE id = :OLD_id";
+}
+std::string TripListDays::deleteSql() const {
+  return "DELETE FROM trip_list_days WHERE id = :OLD_id";
+}
 
-void TripListDays::onApplyingRowChanges(const TCacheUpdateStatus status,
-                                        const std::optional<CacheTable::Row>& oldRow,
-                                        const std::optional<CacheTable::Row>& newRow) const
+void TripListDays::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           const std::optional<CacheTable::Row>& newRow) const
 {
-  if (status==usInserted)
-  {
-    ::insertTripListDays(newRow.value().getAsInteger_ThrowOnEmpty("role_id"),
-                                 newRow.value().getAsInteger_ThrowOnEmpty("shift_down"),
-                                 newRow.value().getAsInteger_ThrowOnEmpty("shift_up"));
-  }
-
-  if (status==usModified)
-  {
-    ::modifyTripListDays(oldRow.value().getAsInteger_ThrowOnEmpty("id"),
-                                 oldRow.value().getAsInteger_ThrowOnEmpty("role_id"),
-                                 newRow.value().getAsInteger_ThrowOnEmpty("role_id"),
-                                 newRow.value().getAsInteger_ThrowOnEmpty("shift_down"),
-                                 newRow.value().getAsInteger_ThrowOnEmpty("shift_up"));
-  }
-
-  if (status==usDeleted)
-  {
-    ::deleteTripListDays(oldRow.value().getAsInteger_ThrowOnEmpty("role_id"));
-  }
+  HistoryTable("TRIP_LIST_DAYS").synchronize(getRowId("id", oldRow, newRow));
 }
 
 std::list<std::string> TripListDays::dbSessionObjectNames() const {
