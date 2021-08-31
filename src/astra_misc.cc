@@ -2059,7 +2059,7 @@ int getTripSetsPrLatSeat(const int point_id)
     int result;
 
     cur.stb()
-       .defNull(result, 0)
+       .defNull(result, 1)
        .bind(":point_id", point_id)
        .exfet();
 

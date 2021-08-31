@@ -1303,5 +1303,7 @@ std::string getFileSizeStr(double size);
 AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &data, const TTripInfo &fltInfo);
 AstraLocale::LexemaData GetLexemeDataWithRegNo(const AstraLocale::LexemaData &data, int reg_no);
 
+int getTripSetsPrLatSeat(const int point_id);
+
 #endif /*_ASTRA_MISC_H_*/
 

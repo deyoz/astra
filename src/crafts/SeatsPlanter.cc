@@ -474,7 +474,8 @@ public:
     salonList.ReadFlight( SALONS2::TFilterRoutesSets(_point_id,_point_arv.value()),
                           "", _pax_id );
     ASTRA::TCompLayerType pax_layer_type = cltUnknown;
-    SEATSPAX::PaxListSeatNo::get( salonList, PaxId_t(_pax_id), "one", false, pax_layer_type );
+    bool isseat;
+    SEATSPAX::PaxListSeatNo::get( salonList, PaxId_t(_pax_id), "one", false, pax_layer_type, isseat );
     if ( !_layer_type ) _layer_type.emplace(pax_layer_type);
     CheckResetLayer(pax_layer_type);
     std::set<SALONS2::TPlace*,SALONS2::CompareSeats> seats;
