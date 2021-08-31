@@ -898,32 +898,31 @@ bool TSendInfo::isSend() const
   };
 
   ostringstream sql;
-  TQuery SendQry(&OraSession);
-  SendQry.Clear();
+  DB::TQuery SendQry(PgOra::getROSession({"TYPEB_SEND", "POINTS"}), STDLOG);
 
   if (pr_dep && pr_arv)
   {
     //не привязывается к прилету и вылету
     sql << "SELECT pr_denial, "
-           "       DECODE(airline,NULL,0,8)+ "
-           "       DECODE(flt_no,NULL,0,1)+ "
-           "       DECODE(airp_dep,NULL,0,4)+ "
-           "       DECODE(airp_arv,NULL,0,2) AS priority ";
+           "(CASE WHEN airline  IS NULL THEN 0 ELSE 8 END) + "
+           "(CASE WHEN flt_no   IS NULL THEN 0 ELSE 1 END) + "
+           "(CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) + "
+           "(CASE WHEN airp_arv IS NULL THEN 0 ELSE 2 END) AS priority ";
   }
   else
   {
     if (pr_dep)
       sql << "SELECT pr_denial, "
-             "       DECODE(airline,NULL,0,8)+ "
-             "       DECODE(flt_no,NULL,0,1)+ "
-             "       DECODE(airp_dep,NULL,0,4)+ "
-             "       DECODE(airp_arv,NULL,0,2) AS priority ";
+             "(CASE WHEN airline  IS NULL THEN 0 ELSE 8 END) + "
+             "(CASE WHEN flt_no   IS NULL THEN 0 ELSE 1 END) + "
+             "(CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) + "
+             "(CASE WHEN airp_arv IS NULL THEN 0 ELSE 2 END) AS priority ";
     else
       sql << "SELECT pr_denial, "
-             "       DECODE(airline,NULL,0,8)+ "
-             "       DECODE(flt_no,NULL,0,1)+ "
-             "       DECODE(airp_dep,NULL,0,2)+ "
-             "       DECODE(airp_arv,NULL,0,4) AS priority ";
+             "(CASE WHEN airline  IS NULL THEN 0 ELSE 8 END) + "
+             "(CASE WHEN flt_no   IS NULL THEN 0 ELSE 1 END) + "
+             "(CASE WHEN airp_dep IS NULL THEN 0 ELSE 2 END) + "
+             "(CASE WHEN airp_arv IS NULL THEN 0 ELSE 4 END) AS priority ";
   };
 
   sql << "FROM typeb_send "
@@ -972,11 +971,11 @@ bool TSendInfo::isSend() const
 
   sql << "ORDER BY priority DESC";
 
-  SendQry.SQLText=sql.str().c_str();
+  SendQry.SQLText=sql.str();
   SendQry.Execute();
   if (SendQry.Eof||SendQry.FieldAsInteger("pr_denial")!=0) return false;
   return true;
-};
+}
 
 void add_filtered_item(const TSendInfo &sendInfo, DB::TQuery &Qry, set<TCreatePoint> &result)
 {

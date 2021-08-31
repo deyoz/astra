@@ -358,6 +358,12 @@ namespace PgOra
                 "TYPEB_CREATE_POINTS",
                 "TYPEB_OPTIONS"
         }},
+        { "SP_PG_GROUP_TYPEB_SEND", {
+                "TYPEB_SEND",               // "POINTS"
+                "TYPEB_SENDERS",
+                "TYPEB_SENDER_SYSTEMS",
+                "HIST_TYPEB_SEND",
+        }},
         { "SP_PG_GROUP_CRS_PNR", {
                 "CRS_PNR",
                 "CRS_PAX",
