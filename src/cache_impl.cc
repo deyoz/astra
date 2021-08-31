@@ -5033,7 +5033,7 @@ std::string RefusalTypes::getSelectOrRefreshSql(const bool isRefreshSql) const {
 
 std::string RefusalTypes::insertSqlOnApplyingChanges() const {
   return "INSERT INTO refusal_types(code, code_lat, name, name_lat, id, tid, pr_del) "
-         "VALUES(:code, :code_lat, :name, :name_lat, :grp_id, :is_iata, :id, :tid, :pr_del)";
+         "VALUES(:code, :code_lat, :name, :name_lat, :id, :tid, :pr_del)";
 }
 
 std::string RefusalTypes::updateSqlOnApplyingChanges() const {
