@@ -492,6 +492,12 @@ namespace PgOra
                 "EXCH_FLIGHTS",
                 "EXCH_FLIGHTS__SEQ",
         }},
+        { "SP_PG_GROUP_EXTRA_ACCESS", {
+                "EXTRA_ROLE_ACCESS",
+                "EXTRA_USER_ACCESS",
+                "HIST_EXTRA_ROLE_ACCESS",
+                "HIST_EXTRA_USER_ACCESS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
