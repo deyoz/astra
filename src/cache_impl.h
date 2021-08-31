@@ -3,6 +3,7 @@
 #include "cache_callbacks.h"
 #include "cache_access.h"
 #include "astra_misc.h"
+#include "flt_settings.h"
 
 CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode);
 
@@ -420,6 +421,149 @@ class AirlineKioskCkinSets : public KioskCkinSets
   protected:
     std::string selectSqlAddCondition() const;
     void bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const;
+};
+
+class AirpTerminals : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const { return ""; }
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BiHalls : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class Halls : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const { return ""; }
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class BiHallsAndTerminals : public CacheTableReadonly
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+};
+
+class BiAirlineService : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+};
+
+class HallSet : public CacheTableWritable
+{
+  public:
+    HallSet(TTripSetType type) : type_(type) {}
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
+  protected:
+    virtual std::string selectSqlAddCondition() const;
+  private:
+    TTripSetType type_;
+};
+
+class AirlineHallSet : public HallSet
+{
+  public:
+    AirlineHallSet(TTripSetType type) : HallSet(type) {}
+  protected:
+    std::string selectSqlAddCondition() const;
+};
+
+class TripHall : public CacheTableWritable
+{
+  public:
+    TripHall(TTripSetType type) : type_(type) {}
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const {}
+  private:
+    TTripSetType type_;
+};
+
+class StationHalls : public CacheTableWritable
+{
+  public:
+    bool userDependence() const;
+    std::string selectSql() const;
+    std::string insertSql() const;
+    std::string updateSql() const;
+    std::string deleteSql() const;
+    std::list<std::string> dbSessionObjectNames() const;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const;
+    void afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                 const std::optional<CacheTable::Row>& oldRow,
+                                 const std::optional<CacheTable::Row>& newRow) const;
 };
 
 class Pacts : public CacheTableWritableHandmade

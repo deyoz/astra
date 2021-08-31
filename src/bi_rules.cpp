@@ -106,24 +106,18 @@ namespace BIPrintRules {
         if(op_type != TDevOper::PrnBI and op_type != TDevOper::PrnBP) return false;
         rule.pr_print_bi = op_type == TDevOper::PrnBI;
 
-        TCachedQuery Qry(
-                "select "
-                "   terminal, "
-                "   hall, "
-                "   pr_print_bi "
-                "from "
-                "   bi_airline_service "
-                "where "
-                "   airline = :airline and "
-                "   airp = :airp and "
-                "   pr_denial = 0 "
-                "order by "
-                "   hall nulls first "
-                ,
-                QParams()
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("BI_AIRLINE_SERVICE"),
+              "SELECT terminal, hall, pr_print_bi "
+              "FROM bi_airline_service "
+              "WHERE airline = :airline AND "
+              "      airp = :airp AND "
+              "      pr_denial = 0 "
+              "ORDER BY hall NULLS FIRST ",
+              QParams()
                 << QParam("airline", otString, info.airline)
-                << QParam("airp", otString, info.airp)
-                );
+                << QParam("airp", otString, info.airp),
+              STDLOG);
         Qry.get().Execute();
         bool result = not Qry.get().Eof;
         if(result) {
@@ -142,8 +136,12 @@ namespace BIPrintRules {
                 if(hall == NoExists) {
                     if(pr_print_bi == rule.pr_print_bi) {
                         // Если бизнес зал не задан, достаем все залы данного терминала.
-                        TCachedQuery hallsQry("select id from bi_halls where terminal = :terminal",
-                                QParams() << QParam("terminal", otInteger, Qry.get().FieldAsInteger("terminal")));
+                        DB::TCachedQuery hallsQry(
+                              PgOra::getROSession("BI_HALLS"),
+                              "SELECT id FROM bi_halls "
+                              "WHERE terminal = :terminal",
+                              QParams() << QParam("terminal", otInteger, Qry.get().FieldAsInteger("terminal")),
+                              STDLOG);
                         hallsQry.get().Execute();
                         for(; not hallsQry.get().Eof; hallsQry.get().Next())
                             rule.halls[hallsQry.get().FieldAsInteger("id")] = terminal;

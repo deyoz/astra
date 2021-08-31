@@ -6817,28 +6817,27 @@ void set_trip_sets(const TAdvTripInfo &flt)
   InsBpQry.DeclareVariable("bp_type", otString);
   InsBpQry.DeclareVariable("op_type", otString);
 
-  DB::TQuery Qry(PgOra::getROSession("BP_SET"), STDLOG);
-  Qry.SQLText=
-"SELECT"
-"   class, bp_type,"
-"   (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
-"    CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
-"    CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
-"FROM bp_set "
-"WHERE op_type = :op_type AND "
-"      (airline IS NULL OR airline = :airline) AND "
-"      (flt_no IS NULL OR flt_no = :flt_no) AND "
-"      (airp_dep IS NULL OR airp_dep = :airp_dep) "
-"ORDER BY class, priority DESC";
+  DB::TQuery QryBpSet(PgOra::getROSession("BP_SET"), STDLOG);
+  QryBpSet.SQLText=
+      "SELECT"
+      "   class, bp_type,"
+      "   (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
+      "    CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
+      "    CASE WHEN airp_dep IS NULL THEN 0 ELSE 4 END) AS priority "
+      "FROM bp_set "
+      "WHERE op_type = :op_type AND "
+      "      (airline IS NULL OR airline = :airline) AND "
+      "      (flt_no IS NULL OR flt_no = :flt_no) AND "
+      "      (airp_dep IS NULL OR airp_dep = :airp_dep) "
+      "ORDER BY class, priority DESC";
 
-  Qry.CreateVariable("airline", otString, flt.airline);
-  Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
-  Qry.CreateVariable("airp_dep", otString, flt.airp);
-  Qry.DeclareVariable("op_type", otString);
+  QryBpSet.CreateVariable("airline", otString, flt.airline);
+  QryBpSet.CreateVariable("flt_no", otInteger, flt.flt_no);
+  QryBpSet.CreateVariable("airp_dep", otString, flt.airp);
+  QryBpSet.DeclareVariable("op_type", otString);
 
   for(int pass=0; pass<4; pass++)
   {
-
     TDevOper::Enum op_type;
     TElemType elem_op_type;
     string ins_cls_lexeme;
@@ -6870,15 +6869,15 @@ void set_trip_sets(const TAdvTripInfo &flt)
             break;
     }
 
-    Qry.SetVariable("op_type", DevOperTypes().encode(op_type));
-    Qry.Execute();
+    QryBpSet.SetVariable("op_type", DevOperTypes().encode(op_type));
+    QryBpSet.Execute();
 
     bool pr_first=true;
     string prev_cl;
-    for(;!Qry.Eof;Qry.Next())
+    for(;!QryBpSet.Eof;QryBpSet.Next())
     {
-      string cl=Qry.FieldAsString("class");
-      string bp_type=Qry.FieldAsString("bp_type");
+      string cl=QryBpSet.FieldAsString("class");
+      string bp_type=QryBpSet.FieldAsString("bp_type");
       if (pr_first || prev_cl!=cl)
       {
         InsBpQry.SetVariable("class", cl);
@@ -6904,7 +6903,6 @@ void set_trip_sets(const TAdvTripInfo &flt)
       prev_cl=cl;
     };
   };
-  Qry.DeleteVariable("op_type");
 
   //багажные бирки
   DB::TQuery InsBtQry(PgOra::getRWSession("TRIP_BT"), STDLOG);
@@ -6914,7 +6912,8 @@ void set_trip_sets(const TAdvTripInfo &flt)
   InsBtQry.CreateVariable("point_id", otInteger, flt.point_id);
   InsBtQry.DeclareVariable("tag_type", otString);
 
-  Qry.SQLText=
+  DB::TQuery QryBtSet(PgOra::getROSession("BT_SET"), STDLOG);
+  QryBtSet.SQLText=
     "SELECT tag_type, "
     "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
     "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
@@ -6924,11 +6923,14 @@ void set_trip_sets(const TAdvTripInfo &flt)
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
     "ORDER BY priority DESC ";
-  Qry.Execute();
+  QryBtSet.CreateVariable("airline", otString, flt.airline);
+  QryBtSet.CreateVariable("flt_no", otInteger, flt.flt_no);
+  QryBtSet.CreateVariable("airp_dep", otString, flt.airp);
+  QryBtSet.Execute();
 
-  if (!Qry.Eof)
+  if (!QryBtSet.Eof)
   {
-    string tag_type=Qry.FieldAsString("tag_type");
+    string tag_type=QryBtSet.FieldAsString("tag_type");
     InsBtQry.SetVariable("tag_type", tag_type);
     InsBtQry.Execute();
 
@@ -6947,7 +6949,8 @@ void set_trip_sets(const TAdvTripInfo &flt)
   InsHallQry.DeclareVariable("hall", otInteger);
   InsHallQry.DeclareVariable("pr_misc", otInteger);
 
-  Qry.SQLText=
+  DB::TQuery QryHallSet(PgOra::getROSession("HALL_SET"), STDLOG);
+  QryHallSet.SQLText=
     "SELECT type,hall,pr_misc, "
     "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
     "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
@@ -6957,16 +6960,19 @@ void set_trip_sets(const TAdvTripInfo &flt)
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
     "ORDER BY type,hall,priority DESC ";
-  Qry.Execute();
+  QryHallSet.CreateVariable("airline", otString, flt.airline);
+  QryHallSet.CreateVariable("flt_no", otInteger, flt.flt_no);
+  QryHallSet.CreateVariable("airp_dep", otString, flt.airp);
+  QryHallSet.Execute();
 
   bool pr_first=true;
   int prev_type=NoExists;
   int prev_hall=NoExists;
-  for(;!Qry.Eof;Qry.Next())
+  for(;!QryHallSet.Eof;QryHallSet.Next())
   {
-    int type=Qry.FieldAsInteger("type");
-    int hall=Qry.FieldIsNULL("hall")?NoExists:Qry.FieldAsInteger("hall");
-    bool pr_misc=Qry.FieldAsInteger("pr_misc")!=0;
+    int type=QryHallSet.FieldAsInteger("type");
+    int hall=QryHallSet.FieldIsNULL("hall")?NoExists:QryHallSet.FieldAsInteger("hall");
+    bool pr_misc=QryHallSet.FieldAsInteger("pr_misc")!=0;
     if (pr_first || prev_type!=type || prev_hall!=hall)
     {
       InsHallQry.SetVariable("type", type);
@@ -7027,7 +7033,8 @@ void set_trip_sets(const TAdvTripInfo &flt)
   InsTpcQry.DeclareVariable("pr_permit", otInteger);
   InsTpcQry.DeclareVariable("prot_timeout", otInteger);
 
-  Qry.SQLText=
+  DB::TQuery QryCkinSet(PgOra::getRWSession("PAID_CKIN_SETS"), STDLOG);
+  QryCkinSet.SQLText=
     "SELECT pr_permit,prot_timeout, "
     "       (CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
     "        CASE WHEN flt_no IS NULL THEN 0 ELSE 2 END + "
@@ -7037,14 +7044,17 @@ void set_trip_sets(const TAdvTripInfo &flt)
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
     "ORDER BY priority DESC ";
-  Qry.Execute();
+  QryCkinSet.CreateVariable("airline", otString, flt.airline);
+  QryCkinSet.CreateVariable("flt_no", otInteger, flt.flt_no);
+  QryCkinSet.CreateVariable("airp_dep", otString, flt.airp);
+  QryCkinSet.Execute();
 
   bool pr_permit=false;
   int prot_timeout=NoExists;
-  if (!Qry.Eof)
+  if (!QryCkinSet.Eof)
   {
-    pr_permit=Qry.FieldAsInteger("pr_permit")!=0;
-    prot_timeout=Qry.FieldIsNULL("prot_timeout")?NoExists:Qry.FieldAsInteger("prot_timeout");
+    pr_permit=QryCkinSet.FieldAsInteger("pr_permit")!=0;
+    prot_timeout=QryCkinSet.FieldIsNULL("prot_timeout")?NoExists:QryCkinSet.FieldAsInteger("prot_timeout");
   };
 
   InsTpcQry.SetVariable("pr_permit", (int)pr_permit);

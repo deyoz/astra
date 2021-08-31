@@ -12,6 +12,8 @@ DECL_RIP(PnrId_t,      int);
 DECL_RIP(ReqCtxtId_t,  int);
 DECL_RIP(MoveId_t,     int);
 DECL_RIP(RouteIdScd_t, int);
+DECL_RIP(TerminalId_t, int);
+DECL_RIP(HallId_t,     int);
 
 DECL_RIP(TrferId_t,    int);
 DECL_RIP(TrferGrpId_t, int);

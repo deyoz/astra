@@ -254,66 +254,6 @@ BEGIN
   END IF;
 END add_originator;
 
-PROCEDURE check_hall_airp(vhall_id       IN halls2.id%TYPE,
-                          vpoint_id      IN points.point_id%TYPE)
-IS
-vairp airps.code%TYPE;
-BEGIN
-  IF vpoint_id IS NOT NULL THEN
-    SELECT airp INTO vairp FROM points WHERE point_id=vpoint_id;
-    vairp:=check_hall_airp(vhall_id, vairp);
-  END IF;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN NULL;
-END check_hall_airp;
-
-FUNCTION check_hall_airp(vhall_id       IN halls2.id%TYPE,
-                         vairp          IN airps.code%TYPE) RETURN airps.code%TYPE
-IS
-vairp2 airps.code%TYPE;
-BEGIN
-  vairp2:=vairp;
-  IF vhall_id IS NOT NULL THEN
-    SELECT airp INTO vairp2 FROM halls2 WHERE id=vhall_id;
-    IF vairp IS NOT NULL AND vairp<>vairp2 THEN
-        system.raise_user_exception('MSG.HALL_DOES_NOT_MEET_AIRP_DEP');
-    END IF;
-  END IF;
-  RETURN vairp2;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN vairp;
-END check_hall_airp;
-
-PROCEDURE check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
-                              vpoint_id      IN points.point_id%TYPE)
-IS
-vairp airps.code%TYPE;
-BEGIN
-  IF vpoint_id IS NOT NULL THEN
-    SELECT airp INTO vairp FROM points WHERE point_id=vpoint_id;
-    vairp:=check_terminal_airp(vterminal_id, vairp);
-  END IF;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN NULL;
-END check_terminal_airp;
-
-FUNCTION check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
-                             vairp          IN airps.code%TYPE) RETURN airps.code%TYPE
-IS
-vairp2 airps.code%TYPE;
-BEGIN
-  vairp2:=vairp;
-  IF vterminal_id IS NOT NULL THEN
-    SELECT airp INTO vairp2 FROM airp_terminals WHERE id=vterminal_id;
-    IF vairp IS NOT NULL AND vairp<>vairp2 THEN
-        system.raise_user_exception('MSG.TERMINAL_DOES_NOT_MEET_AIRP_DEP');
-    END IF;
-  END IF;
-  RETURN vairp2;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN vairp;
-END check_terminal_airp;
-
 FUNCTION check_right_access(vright_id IN rights_list.ida%TYPE,
                             vuser_id IN users2.user_id%TYPE,
                             vexception IN NUMBER) RETURN rights_list.ida%TYPE

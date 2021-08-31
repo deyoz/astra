@@ -284,8 +284,8 @@ $(set pax_id_TUMALI $(get_pax_id $(get point_dep_UT_100) TUMALI VALERII))
 
 # это нужно для того чтобы pr_brd = 1 в таблице PAX,то есть посадить пассажира
 # А это в свою очередь нужно чтобы заполнилась таблица STAT_AD и потом ARX_STAT_AD
-$(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
-       VALUES($(get point_dep_UT_100), 101, NULL, 1)})
+$(db_sql TRIP_HALL {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
+                    VALUES($(get point_dep_UT_100), 101, NULL, 1)})
 
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)

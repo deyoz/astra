@@ -5,12 +5,12 @@ $(defmacro PREPARE_HALLS_FOR_BOARDING
 {
 $(set airp_other_ $(if $(eq $(get_elem_id etAirp $(airp_dep)) "„Œ„") "VKO" "„Œ„"))
 
-$(sql {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
-       VALUES(776, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)})
-$(sql {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
-       VALUES(777, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)})
-$(sql {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
-       VALUES(778, '$(get_elem_id etAirp $(get airp_other_))', NULL, '$(get airp_other_)', NULL, NULL, 0)})
+$(db_sql HALLS2 {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
+                 VALUES(776, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)})
+$(db_sql HALLS2 {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
+                 VALUES(777, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)})
+$(db_sql HALLS2 {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
+                 VALUES(778, '$(get_elem_id etAirp $(get airp_other_))', NULL, '$(get airp_other_)', NULL, NULL, 0)})
 })
 
 $(defmacro DEPLANE_ALL_REQUEST

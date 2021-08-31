@@ -146,6 +146,14 @@ namespace PgOra
                 "TRIP_BP"
         } },
 
+        { "SP_PG_GROUP_HALLS_TERMINALS",{
+                "AIRP_TERMINALS", "HIST_AIRP_TERMINALS",
+                "BI_HALLS", "HIST_BI_HALLS",
+                "BI_AIRLINE_SERVICE", "HIST_BI_AIRLINE_SERVICE",
+                "HALL_SET", "HIST_HALL_SET",
+                "TRIP_HALL",
+        } },
+
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
@@ -202,7 +210,7 @@ namespace PgOra
         { "SP_PG_GROUP_FAKE_DUAL_BT", { // FAKE DUAL USED IN base_tables.cc
                 "FAKE_DUAL_BT", } },
         { "SP_PG_GROUP_SPP_SETS", { "LAST_TAG_RANGES2", "TRIP_CALC_DATA", "TRIP_AUTO_WEIGHING", "TRIP_SETS", "TRIP_STATIONS"
-                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , "TRIP_HALL", } },
+                                    "TAG_RANGES2"     , "TRIP_PAID_CKIN", "TRIP_PERS_WEIGHTS" , } },
         { "SP_PG_GROUP_ADM", { "ROT" } },
         { "SP_PG_GROUP_LOCALE_MESSAGES", { "LOCALE_MESSAGES", "CLIENT_ERROR_LIST" } },
         { "SP_PG_GROUP_LIBRA", { "LIBRA_PROC_LOG_EVENTS", "AHM_DICT", "AHM_ID__SEQ" } },
@@ -327,6 +335,9 @@ namespace PgOra
                 "TCKIN_SEGMENTS", // "PAX","PAX_GRP","MARK_TRIPS","TRANSFER","TRFER_TRIPS"
                 "MARK_TRIPS",     // "PAX","PAX_GRP","TRANSFER","TRFER_TRIPS","TCKIN_SEGMENTS","POINTS"
                 "TAG_TYPES",      // "PAX_GRP","BAG_TAGS","TAG_TYPES","BAG2","TRANSFER"
+
+                "HALLS2", "HIST_HALLS2", // "PAX","PAX_GRP","POINTS","BAG2","CLS_GRP","TRANSFER","TRFER_TRIPS","TCKIN_PAX_GRP","STATION_HALLS","STATIONS"
+                "STATION_HALLS", "HIST_STATION_HALLS", // "HALLS2","STATIONS","TRIP_STATIONS"
         }},
         { "SP_PG_GROUP_TRIP_TASK", {
                 "TRIP_CLASSES",

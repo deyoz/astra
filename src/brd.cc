@@ -1393,20 +1393,18 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           //проверка принадлежности зала а/п вылета рейса
           hall=NodeAsInteger("hall",reqNode);
-          TQuery HallQry(&OraSession);
-          HallQry.Clear();
+          DB::TQuery HallQry(PgOra::getROSession({"HALLS2","POINTS"}), STDLOG);
           HallQry.SQLText=
             "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
-            "FROM halls2,points "
-            "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
-            "      halls2.id(+)=:hall AND "
-            "      points.airp=halls2.airp(+)";
+            "FROM points "
+            "LEFT OUTER JOIN halls2 ON points.airp=halls2.airp AND halls2.id=:hall "
+            "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 ";
           HallQry.CreateVariable("point_id",otInteger,point_id);
           HallQry.CreateVariable("hall",otInteger,hall);
           HallQry.Execute();
           if (HallQry.Eof ||
-              strcmp(HallQry.FieldAsString("hall_airp"),
-                     HallQry.FieldAsString("flt_airp"))!=0) hall=NoExists;
+              HallQry.FieldAsString("hall_airp") != HallQry.FieldAsString("flt_airp"))
+            hall=NoExists;
         };
 
         if (hall==NoExists)

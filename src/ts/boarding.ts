@@ -1024,7 +1024,7 @@ $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 ### удаляем "Досмотр при посадке на рейс" для всех залов
 ### проверяем, что настройка "Досмотровый контроль перед посадкой" на высадку никак не влияет
 
-$(sql {DELETE FROM trip_hall WHERE point_id=$(get point_dep)})
+$(db_sql TRIP_HALL {DELETE FROM trip_hall WHERE point_id=$(get point_dep)})
 
 $(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id_01) 776 "" 0 capture=on)
 

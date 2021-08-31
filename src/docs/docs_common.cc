@@ -626,18 +626,13 @@ TDateTime getReportSCDOut(int point_id)
 vector<string> get_grp_zone_list(int point_id)
 {
     vector<string> result;
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"POINTS","HALLS2"}), STDLOG);
     Qry.SQLText =
-        "select distinct  "
-        "   rpt_grp  "
-        "from  "
-        "   points,  "
-        "   halls2  "
-        "where  "
-        "   points.point_id = :point_id and "
-        "   halls2.airp = points.airp "
-        "order by  "
-        "   rpt_grp ";
+        "SELECT DISTINCT rpt_grp "
+        "FROM points, halls2  "
+        "WHERE points.point_id = :point_id "
+        "AND halls2.airp = points.airp "
+        "ORDER BY rpt_grp ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next())
@@ -744,13 +739,12 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, string lang)
 
 string get_hall_list(string airp, TRptParams &rpt_params)
 {
-    TQuery Qry(&OraSession);
-    string SQLText = (string)
-        "SELECT id FROM halls2 WHERE "
-        "   airp = :airp AND "
-        "   NVL(rpt_grp, ' ') = NVL(:rpt_grp, ' ') "
-        "ORDER BY "
-        "   name ";
+    DB::TQuery Qry(PgOra::getROSession("HALLS2"), STDLOG);
+    string SQLText =
+        "SELECT id FROM halls2 "
+        "WHERE airp = :airp "
+        "AND COALESCE(rpt_grp, ' ') = COALESCE(:rpt_grp, ' ') "
+        "ORDER BY name ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("rpt_grp", otString, rpt_params.ckin_zone);

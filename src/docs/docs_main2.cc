@@ -27,8 +27,11 @@ const string exam = "exam";
 
 string get_ckin_zone(int grp_hall_id)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select rpt_grp from halls2 where id = :id";
+    DB::TQuery Qry(PgOra::getROSession("HALLS2"), STDLOG);
+    Qry.SQLText =
+        "SELECT rpt_grp "
+        "FROM halls2 "
+        "WHERE id = :id";
     Qry.CreateVariable("id", otInteger, grp_hall_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -111,11 +114,11 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 int get_grp_hall_id(string airp, string grp)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("HALLS2"), STDLOG);
     Qry.SQLText =
-        "select id from halls2 where "
-        "   airp = :airp and (rpt_grp = :rpt_grp or rpt_grp is null and :rpt_grp is null) and "
-        "   rownum < 2";
+        "SELECT id FROM halls2 "
+        "WHERE airp = :airp AND (rpt_grp = :rpt_grp OR rpt_grp IS NULL AND :rpt_grp IS NULL) "
+        "FETCH FIRST 1 ROWS ONLY";
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("rpt_grp", otString, grp);
     Qry.Execute();

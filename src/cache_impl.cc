@@ -109,6 +109,18 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="AIRLINE_WEB_CKIN_SETS")   return new CacheTable::AirlineWebCkinSets;
   if (cacheCode=="KIOSK_CKIN_SETS")         return new CacheTable::KioskCkinSets;
   if (cacheCode=="AIRLINE_KIOSK_CKIN_SETS") return new CacheTable::AirlineKioskCkinSets;
+  if (cacheCode=="AIRP_TERMINALS")      return new CacheTable::AirpTerminals;
+  if (cacheCode=="BI_HALLS")            return new CacheTable::BiHalls;
+  if (cacheCode=="HALLS")               return new CacheTable::Halls;
+  if (cacheCode=="BI_HALLS_AND_TERMINALS") return new CacheTable::BiHallsAndTerminals;
+  if (cacheCode=="BI_AIRLINE_SERVICE")  return new CacheTable::BiAirlineService;
+  if (cacheCode=="BRD_WITH_REG_SET")    return new CacheTable::HallSet(tsBrdWithReg);
+  if (cacheCode=="AIRLINE_BRD_WITH_REG_SET") return new CacheTable::AirlineHallSet(tsBrdWithReg);
+  if (cacheCode=="EXAM_WITH_BRD_SET")   return new CacheTable::HallSet(tsExamWithBrd);
+  if (cacheCode=="AIRLINE_EXAM_WITH_BRD_SET") return new CacheTable::AirlineHallSet(tsExamWithBrd);
+  if (cacheCode=="TRIP_BRD_WITH_REG")   return new CacheTable::TripHall(tsBrdWithReg);
+  if (cacheCode=="TRIP_EXAM_WITH_BRD")  return new CacheTable::TripHall(tsExamWithBrd);
+  if (cacheCode=="STATION_HALLS")       return new CacheTable::StationHalls;
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
   if (cacheCode=="BP_MODELS")           return new CacheTable::BpModels;
   if (cacheCode=="BP_BLANK_LIST")       return new CacheTable::BpBlankList;
@@ -1658,6 +1670,521 @@ std::string AirlineKioskCkinSets::selectSqlAddCondition() const
 void AirlineKioskCkinSets::bindAddParams(const TParams& sqlParams, DB::TQuery& Qry) const
 {
   CreateVariablesFromParams({"airline"}, sqlParams, Qry);
+}
+
+void checkHallAirp(const HallId_t& hall_id, const std::string& airp)
+{
+  DB::TCachedQuery Qry(
+              PgOra::getROSession("HALLS2"),
+              "SELECT airp FROM halls2 "
+              "WHERE id = :hall_id",
+              QParams() << QParam("hall_id", otInteger, hall_id.get()),
+              STDLOG);
+  Qry.get().Execute();
+  if (!Qry.get().Eof) {
+    if (airp != Qry.get().FieldAsString("airp"))
+    {
+      throw UserException("MSG.HALL_DOES_NOT_MEET_AIRP_DEP");
+    }
+  }
+}
+
+void checkHallAirp(const HallId_t& hall_id, const PointId_t& point_id)
+{
+  DB::TCachedQuery Qry(
+              PgOra::getROSession("POINTS"),
+              "SELECT airp FROM points "
+              "WHERE point_id = :point_id ",
+              QParams() << QParam("point_id", otInteger, point_id.get()),
+              STDLOG);
+  Qry.get().Execute();
+  if (!Qry.get().Eof) {
+    checkHallAirp(hall_id, Qry.get().FieldAsString("airp"));
+  }
+}
+
+void checkTerminalAirp(const TerminalId_t& terminal_id, const std::string& airp)
+{
+  DB::TCachedQuery Qry(
+              PgOra::getROSession("AIRP_TERMINALS"),
+              "SELECT airp FROM airp_terminals "
+              "WHERE id = :terminal_id",
+              QParams() << QParam("terminal_id", otInteger, terminal_id.get()),
+              STDLOG);
+  Qry.get().Execute();
+  if (!Qry.get().Eof) {
+    if (airp != Qry.get().FieldAsString("airp"))
+    {
+      throw UserException("MSG.TERMINAL_DOES_NOT_MEET_AIRP_DEP");
+    }
+  }
+}
+
+void checkTerminalAirp(const TerminalId_t& terminal_id, const PointId_t& point_id)
+{
+  DB::TCachedQuery Qry(
+              PgOra::getROSession("POINTS"),
+              "SELECT airp FROM points "
+              "WHERE point_id = :point_id ",
+              QParams() << QParam("point_id", otInteger, point_id.get()),
+              STDLOG);
+  Qry.get().Execute();
+  if (!Qry.get().Eof) {
+    checkTerminalAirp(terminal_id, Qry.get().FieldAsString("airp"));
+  }
+}
+
+//AirpTerminals
+
+bool AirpTerminals::userDependence() const
+{
+  return true;
+}
+
+std::string AirpTerminals::selectSql() const
+{
+  return "SELECT airp,name,id "
+         "FROM airp_terminals "
+         "WHERE " + getSQLFilter("airp", AccessControl::PermittedAirports) + " "
+         "ORDER BY airp,name ";
+}
+
+std::string AirpTerminals::insertSql() const
+{
+  return "INSERT INTO airp_terminals(airp,name,id) "
+         "VALUES(:airp,:name,:id) ";
+}
+
+std::string AirpTerminals::deleteSql() const
+{
+  return "DELETE FROM airp_terminals "
+         "WHERE airp=:OLD_airp AND name=:OLD_name ";
+}
+
+std::list<std::string> AirpTerminals::dbSessionObjectNames() const
+{
+  return {"AIRP_TERMINALS"};
+}
+
+void AirpTerminals::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirportAccess("airp", oldRow, newRow);
+
+  setRowId("id", status, newRow);
+}
+
+void AirpTerminals::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("airp_terminals").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//BiHalls
+
+bool BiHalls::userDependence() const
+{
+  return true;
+}
+
+std::string BiHalls::selectSql() const
+{
+  return "SELECT id, airp, terminal, name, name_lat "
+         "FROM bi_halls "
+         "WHERE " + getSQLFilter("airp", AccessControl::PermittedAirports) + " "
+         "ORDER BY airp, name";
+}
+
+std::string BiHalls::insertSql() const
+{
+  return "INSERT INTO bi_halls(id, airp, terminal, name, name_lat) "
+         "VALUES(:id, :airp, :terminal, :name, :name_lat) ";
+}
+
+std::string BiHalls::updateSql() const
+{
+  return "UPDATE bi_halls "
+         "SET terminal=:terminal, name_lat=:name_lat "
+         "WHERE id=:OLD_id ";
+}
+
+std::string BiHalls::deleteSql() const
+{
+  return "DELETE FROM bi_halls "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> BiHalls::dbSessionObjectNames() const
+{
+  return {"BI_HALLS"};
+}
+
+void BiHalls::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                       const std::optional<CacheTable::Row>& oldRow,
+                                       std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirportAccess("airp", oldRow, newRow);
+  if (newRow) {
+    const std::optional<int> terminal_id = newRow.value().getAsInteger("terminal");
+    if (terminal_id) {
+      const std::string airp = newRow.value().getAsString("airp");
+      checkTerminalAirp(TerminalId_t(terminal_id.value()), airp);
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void BiHalls::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                          const std::optional<CacheTable::Row>& oldRow,
+                                          const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("bi_halls").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//Halls
+
+bool Halls::userDependence() const
+{
+  return true;
+}
+
+std::string Halls::selectSql() const
+{
+  return "SELECT id, airp, terminal, name, name_lat, rpt_grp, pr_vip "
+         "FROM halls2 "
+         "WHERE " + getSQLFilter("airp", AccessControl::PermittedAirports) + " "
+         "ORDER BY airp, name ";
+}
+
+std::string Halls::insertSql() const
+{
+  return "INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip) "
+         "VALUES(:id, :airp, :terminal, :name, :name_lat, :rpt_grp, :pr_vip) ";
+}
+
+std::string Halls::updateSql() const
+{
+  return "UPDATE halls2 "
+         "SET terminal=:terminal, name_lat=:name_lat, rpt_grp=:rpt_grp, pr_vip=:pr_vip "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> Halls::dbSessionObjectNames() const
+{
+  return {"HALLS2"};
+}
+
+void Halls::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                     const std::optional<CacheTable::Row>& oldRow,
+                                     std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirportAccess("airp", oldRow, newRow);
+  if (newRow) {
+    const std::optional<int> terminal_id = newRow.value().getAsInteger("terminal");
+    if (terminal_id) {
+      const std::string airp = newRow.value().getAsString("airp");
+      checkTerminalAirp(TerminalId_t(terminal_id.value()), airp);
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void Halls::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                    const std::optional<CacheTable::Row>& oldRow,
+                                    const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("halls2").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//BiHallsAndTerminals
+
+bool BiHallsAndTerminals::userDependence() const
+{
+  return false;
+}
+
+std::string BiHallsAndTerminals::selectSql() const
+{
+  return "SELECT airp, terminal, id AS hall "
+         "FROM bi_halls "
+         "UNION "
+         "SELECT airp, id, NULL "
+         "FROM airp_terminals "
+         "ORDER BY 1, 3 NULLS FIRST, 2 NULLS LAST ";
+}
+
+std::list<std::string> BiHallsAndTerminals::dbSessionObjectNames() const
+{
+  return {"AIRP_TERMINALS","BI_HALLS"};
+}
+
+//BiAirlineService
+
+bool BiAirlineService::userDependence() const
+{
+  return true;
+}
+
+std::string BiAirlineService::selectSql() const
+{
+  return "SELECT id, airline, airp, terminal, hall, pr_print_bi, pr_denial "
+         "FROM bi_airline_service "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " AND "
+         "      " + getSQLFilter("airp", AccessControl::PermittedAirports) + " "
+         "ORDER BY airline, airp, terminal, hall";
+}
+
+std::string BiAirlineService::insertSql() const
+{
+  return "INSERT INTO bi_airline_service(id, airline, airp, terminal, hall, pr_print_bi, pr_denial) "
+         "VALUES(:id, :airline, :airp, :terminal, :hall, :pr_print_bi, :pr_denial) ";
+}
+
+std::string BiAirlineService::updateSql() const
+{
+  return "UPDATE bi_airline_service "
+         "SET airline=:airline, airp=:airp, terminal=:terminal, hall=:hall, "
+         "    pr_print_bi=:pr_print_bi, pr_denial=:pr_denial "
+         "WHERE id=:OLD_id ";
+}
+
+std::string BiAirlineService::deleteSql() const
+{
+  return "DELETE FROM bi_airline_service "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> BiAirlineService::dbSessionObjectNames() const
+{
+  return {"BI_AIRLINE_SERVICE"};
+}
+
+void BiAirlineService::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                                const std::optional<CacheTable::Row>& oldRow,
+                                                std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp", oldRow, newRow);
+  if (newRow) {
+    const std::optional<int> hall_id = newRow.value().getAsInteger("hall");
+    if (hall_id) {
+      const std::string airp = newRow.value().getAsString("airp");
+      checkHallAirp(HallId_t(hall_id.value()), airp);
+    }
+    const std::optional<int> terminal_id = newRow.value().getAsInteger("terminal");
+    if (terminal_id) {
+      const std::string airp = newRow.value().getAsString("airp");
+      checkTerminalAirp(TerminalId_t(terminal_id.value()), airp);
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void BiAirlineService::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                               const std::optional<CacheTable::Row>& oldRow,
+                                               const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("bi_airline_service").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//HallSet
+
+bool HallSet::userDependence() const
+{
+  return true;
+}
+
+std::string HallSet::selectSql() const
+{
+  return "SELECT id,airline,flt_no,airp_dep,hall,pr_misc "
+         "FROM hall_set "
+         "WHERE type=" + std::to_string(type_) + " AND "
+         + selectSqlAddCondition() +
+         "      " + getSQLFilter("airline",  AccessControl::PermittedAirlinesOrNull) + " AND "
+         "      " + getSQLFilter("airp_dep", AccessControl::PermittedAirportsOrNull) + " "
+         "ORDER BY id";
+}
+
+std::string HallSet::insertSql() const
+{
+  return "INSERT INTO hall_set(id,type,airline,flt_no,airp_dep,hall,pr_misc) "
+         "VALUES(:id," + std::to_string(type_) + ",:airline,:flt_no,:airp_dep,:hall,:pr_misc) ";
+}
+
+std::string HallSet::updateSql() const
+{
+  return "UPDATE hall_set "
+         "SET airline=:airline,flt_no=:flt_no,airp_dep=:airp_dep,hall=:hall,pr_misc=:pr_misc "
+         "WHERE id=:OLD_id ";
+}
+
+std::string HallSet::deleteSql() const
+{
+  return "DELETE FROM hall_set "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> HallSet::dbSessionObjectNames() const
+{
+  return {"HALL_SET"};
+}
+
+void HallSet::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                       const std::optional<CacheTable::Row>& oldRow,
+                                       std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  checkAirportAccess("airp_dep", oldRow, newRow);
+
+  if (newRow) {
+    const std::optional<int> hall_id = newRow.value().getAsInteger("hall");
+    if (hall_id) {
+      const std::string airp = newRow.value().getAsString("airp_dep");
+      checkHallAirp(HallId_t(hall_id.value()), airp);
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void HallSet::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<CacheTable::Row>& oldRow,
+                                      const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("hall_set").synchronize(getRowId("id", oldRow, newRow));
+}
+
+std::string HallSet::selectSqlAddCondition() const
+{
+  return "";
+}
+
+//AirlineHallSet
+
+std::string AirlineHallSet::selectSqlAddCondition() const
+{
+  return "airline=:airline AND ";
+}
+
+//TripHall
+
+bool TripHall::userDependence() const
+{
+  return false;
+}
+
+std::string TripHall::selectSql() const
+{
+  return "SELECT point_id,hall,pr_misc "
+         "FROM trip_hall "
+         "WHERE point_id=:point_id AND type=" + std::to_string(type_) + " "
+         "ORDER BY hall";
+}
+
+std::string TripHall::insertSql() const
+{
+  return "INSERT INTO trip_hall(point_id,type,hall,pr_misc) "
+         "VALUES(:point_id," + std::to_string(type_) + ",:hall,:pr_misc) ";
+}
+
+std::string TripHall::updateSql() const
+{
+  return "UPDATE trip_hall "
+         "SET hall=:hall,pr_misc=:pr_misc "
+         "WHERE point_id=:OLD_point_id AND type=" + std::to_string(type_) + " "
+         "AND (hall=:OLD_hall OR hall IS NULL AND :OLD_hall IS NULL) ";
+}
+
+std::string TripHall::deleteSql() const
+{
+  return "DELETE FROM trip_hall "
+         "WHERE point_id=:OLD_point_id AND type=" + std::to_string(type_) + " "
+         "AND (hall=:OLD_hall OR hall IS NULL AND :OLD_hall IS NULL)";
+}
+
+std::list<std::string> TripHall::dbSessionObjectNames() const
+{
+  return {"TRIP_HALL"};
+}
+
+void TripHall::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                        const std::optional<CacheTable::Row>& oldRow,
+                                        std::optional<CacheTable::Row>& newRow) const
+{
+  if (newRow) {
+    const std::optional<int> hall_id = newRow.value().getAsInteger("hall");
+    const std::optional<int> point_id = newRow.value().getAsInteger("point_id");
+    if (hall_id && point_id) {
+      checkHallAirp(HallId_t(hall_id.value()), PointId_t(point_id.value()));
+    }
+  }
+}
+
+//StationHalls
+
+bool StationHalls::userDependence() const
+{
+  return true;
+}
+
+std::string StationHalls::selectSql() const
+{
+  return "SELECT airp, station, hall, id "
+         "FROM station_halls "
+         "WHERE " + getSQLFilter("airp", AccessControl::PermittedAirports) + " "
+         "ORDER BY airp, station, hall ";
+}
+
+std::string StationHalls::insertSql() const
+{
+  return "INSERT INTO station_halls(airp,station,hall,id) "
+         "VALUES(:airp,:station,:hall,:id) ";
+}
+
+std::string StationHalls::updateSql() const
+{
+  return "UPDATE station_halls "
+         "SET airp=:airp, station=:station, hall=:hall "
+         "WHERE airp=:OLD_airp AND station=:OLD_station AND hall=:OLD_hall ";
+}
+
+std::string StationHalls::deleteSql() const
+{
+  return "DELETE FROM station_halls "
+         "WHERE airp=:OLD_airp AND station=:OLD_station AND hall=:OLD_hall ";
+}
+
+std::list<std::string> StationHalls::dbSessionObjectNames() const
+{
+  return {"STATION_HALLS"};
+}
+
+void StationHalls::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirportAccess("airp", oldRow, newRow);
+  if (newRow) {
+    const std::optional<int> hall_id = newRow.value().getAsInteger("hall");
+    if (hall_id) {
+      const std::string airp = newRow.value().getAsString("airp");
+      checkHallAirp(HallId_t(hall_id.value()), airp);
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void StationHalls::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                           const std::optional<CacheTable::Row>& oldRow,
+                                           const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("station_halls").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //Pacts

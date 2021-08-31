@@ -1261,28 +1261,27 @@ void TripsInterface::readGates(int point_id, vector<string> &gates)
 
 void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryStations(PgOra::getROSession({"STATION_HALLS","HALLS2","STATIONS"}), STDLOG);
+  QryStations.SQLText =
     "SELECT halls2.id "
     "FROM station_halls,halls2,stations "
     "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
-    "     station_halls.airp=stations.airp AND "
-    "     station_halls.station=stations.name AND "
-    "     stations.desk=:desk AND stations.work_mode=:work_mode";
-  Qry.CreateVariable("airp_dep",otString,airp_dep);
-  Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
-  Qry.CreateVariable("work_mode",otString,work_mode);
-
-  Qry.Execute();
-  if (Qry.Eof)
+    "      station_halls.airp=stations.airp AND "
+    "      station_halls.station=stations.name AND "
+    "      stations.desk=:desk AND stations.work_mode=:work_mode";
+  QryStations.CreateVariable("airp_dep",otString,airp_dep);
+  QryStations.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
+  QryStations.CreateVariable("work_mode",otString,work_mode);
+  QryStations.Execute();
+  DB::TQuery QryHalls(PgOra::getROSession("HALLS2"), STDLOG);
+  if (QryStations.Eof)
   {
-    Qry.Clear();
-    Qry.SQLText =
+    QryHalls.SQLText =
       "SELECT id FROM halls2 WHERE airp=:airp_dep";
-    Qry.CreateVariable("airp_dep",otString,airp_dep);
-    Qry.Execute();
-  };
+    QryHalls.CreateVariable("airp_dep",otString,airp_dep);
+    QryHalls.Execute();
+  }
+  DB::TQuery& Qry = QryStations.Eof ? QryHalls : QryStations;
   xmlNodePtr node = NewTextChild( dataNode, "halls" );
   for(;!Qry.Eof;Qry.Next())
   {
@@ -2308,13 +2307,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     //заполняем все недостающие поля TPaxLoadItem
 
     DB::TQuery HallsQry(PgOra::getROSession("HALLS2"),STDLOG);
-    HallsQry.ClearParams();
     HallsQry.SQLText="SELECT airp FROM halls2 WHERE id=:id";
     HallsQry.DeclareVariable("id",otInteger);
     map<int, pair<string,string> > halls; //кэшируем информацию по залам
 
     DB::TQuery PointsQry(PgOra::getROSession("POINTS"),STDLOG);
-    PointsQry.ClearParams();
     PointsQry.SQLText="SELECT airp,point_num FROM points WHERE point_id=:point_id AND pr_del>=0";
     PointsQry.DeclareVariable("point_id",otInteger);
     map<int, pair<string,int> > points; //кэшируем информацию по пунктам
