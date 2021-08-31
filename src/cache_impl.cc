@@ -161,6 +161,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="PROFILED_RIGHTS_LIST") return new CacheTable::ProfiledRightsList;
   if (cacheCode=="USERS")               return new CacheTable::Users;
   if (cacheCode=="USERS_TYPES")         return new CacheTable::UserTypes;
+  if (cacheCode=="REFUSE")              return new CacheTable::RefusalTypes;
 
   return nullptr;
 }
@@ -5006,6 +5007,81 @@ std::optional<RowId_t> CkinRemTypes::getRowIdBeforeInsert(const CacheTable::Row&
 {
   auto cur=make_db_curs("SELECT id FROM ckin_rem_types WHERE code=:code AND pr_del<>0 FOR UPDATE",
                         PgOra::getRWSession("CKIN_REM_TYPES"));
+  int id;
+  cur.stb()
+     .def(id)
+     .bind(":code", row.getAsString_ThrowOnEmpty("code"))
+     .EXfet();
+
+  if (cur.err() != DbCpp::ResultCode::NoDataFound) return RowId_t(id);
+
+  return std::nullopt;
+}
+
+//RefusalTypes
+
+bool RefusalTypes::userDependence() const {
+  return false;
+}
+
+std::string RefusalTypes::getSelectOrRefreshSql(const bool isRefreshSql) const {
+  return std::string("SELECT id, code, code_lat, name, name_lat, tid, pr_del ") +
+         "FROM refusal_types "
+         "WHERE " + (isRefreshSql?"tid>:tid ":"pr_del=0 ") +
+         "ORDER BY (CASE WHEN code='€' THEN 0 ELSE 1 END), code";
+}
+
+std::string RefusalTypes::insertSqlOnApplyingChanges() const {
+  return "INSERT INTO refusal_types(code, code_lat, name, name_lat, id, tid, pr_del) "
+         "VALUES(:code, :code_lat, :name, :name_lat, :grp_id, :is_iata, :id, :tid, :pr_del)";
+}
+
+std::string RefusalTypes::updateSqlOnApplyingChanges() const {
+  return "UPDATE refusal_types "
+         "SET code=:code, code_lat=:code_lat, name=:name, name_lat=:name_lat, tid=:tid, pr_del=:pr_del "
+         "WHERE id=:id";
+}
+
+std::string RefusalTypes::deleteSqlOnApplyingChanges() const {
+  return "DELETE FROM refusal_types WHERE id=:id";
+}
+
+void RefusalTypes::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                            const std::optional<CacheTable::Row>& oldRow,
+                                            std::optional<CacheTable::Row>& newRow) const
+{
+  if(oldRow) {
+      std::string oldCode = oldRow->getAsString_ThrowOnEmpty("code");
+      if(oldCode == ASTRA::refuseAgentError) {
+          throw UserException("MSG.FORBIDDEN_DELETE_ERROR_AGENT_ROW");
+      }
+  }
+}
+
+std::list<std::string> RefusalTypes::dbSessionObjectNamesForRead() const {
+  return {"REFUSAL_TYPES"};
+}
+
+std::string RefusalTypes::tableName() const {
+  return "refusal_types";
+}
+std::string RefusalTypes::idFieldName() const {
+  return "id";
+}
+
+void RefusalTypes::bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const
+{
+  cur.stb()
+     .bind(":code",     row.getAsString("code"))
+     .bind(":code_lat", row.getAsString("code_lat"))
+     .bind(":name",     row.getAsString("name"))
+     .bind(":name_lat", row.getAsString("name_lat"));
+}
+
+std::optional<RowId_t> RefusalTypes::getRowIdBeforeInsert(const CacheTable::Row& row) const
+{
+  auto cur=make_db_curs("SELECT id FROM refusal_types WHERE code=:code AND pr_del<>0 FOR UPDATE",
+                        PgOra::getRWSession("REFUSAL_TYPES"));
   int id;
   cur.stb()
      .def(id)

@@ -1349,6 +1349,26 @@ class CkinRemTypes : public CacheTableKeepDeletedRows
     std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const override;
 };
 
+class RefusalTypes : public CacheTableKeepDeletedRows
+{
+  public:
+    bool userDependence() const override;
+    std::string getSelectOrRefreshSql(const bool isRefreshSql) const;
+    std::string selectSql() const override { return getSelectOrRefreshSql(false); }
+    std::string refreshSql() const override { return getSelectOrRefreshSql(true); }
+    std::string insertSqlOnApplyingChanges() const override;
+    std::string updateSqlOnApplyingChanges() const override;
+    std::string deleteSqlOnApplyingChanges() const override;
+    void beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                  const std::optional<CacheTable::Row>& oldRow,
+                                  std::optional<CacheTable::Row>& newRow) const override;
+    std::list<std::string> dbSessionObjectNamesForRead() const override;
+    std::string tableName() const override;
+    std::string idFieldName() const override;
+    void bind(const CacheTable::Row& row, DbCpp::CursCtl& cur) const override;
+    std::optional<RowId_t> getRowIdBeforeInsert(const CacheTable::Row& row) const override;
+};
+
 class BalanceTypes : public CacheTableReadonly
 {
   public:

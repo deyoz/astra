@@ -23,6 +23,8 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_ref");
 
     if(old_cbbg()) {
+        // 30.08.2021 - таблица REFUSAL_TYPES готова для переключения на PG (Боков)
+        // переключить надо вместо с PAX, PAX_GRP
         DB::TQuery Qry(PgOra::getROSession({"PAX", "PAX_GRP", "REFUSAL_TYPES"}), STDLOG);
         string SQLText =
             "SELECT point_dep AS point_id, "
