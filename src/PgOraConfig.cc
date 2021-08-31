@@ -356,7 +356,12 @@ namespace PgOra
                 "TYPEB_ADDRS",              // "POINTS"
                 "TYPEB_ADDR_TRANS_PARAMS",
                 "TYPEB_CREATE_POINTS",
-                "TYPEB_OPTIONS"
+                "TYPEB_OPTIONS",
+                "HIST_TYPEB_ADDR_OPTIONS",
+                "HIST_TYPEB_ADDR_OWNERS",
+                "HIST_TYPEB_ADDRS",
+                "HIST_TYPEB_ADDR_TRANS_PARAMS",
+                "HIST_TYPEB_CREATE_POINTS"
         }},
         { "SP_PG_GROUP_TYPEB_SEND", {
                 "TYPEB_SEND",               // "POINTS"
