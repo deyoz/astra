@@ -134,6 +134,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="ET_ADDR_SET")         return new CacheTable::EtAddrSet;
   if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
   if (cacheCode=="GENDER_TYPES")        return new CacheTable::GenderTypes;
+  if (cacheCode=="PAX_CATS")            return new CacheTable::PaxCats;
   if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
   if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
   if (cacheCode=="RFISC_RATES")         return new CacheTable::RfiscRates;
@@ -5618,6 +5619,52 @@ std::string GenderTypes::selectSql() const {
 
 std::list<std::string> GenderTypes::dbSessionObjectNames() const {
     return { "GENDER_TYPES" };
+}
+
+// pax_cats
+
+bool PaxCats::userDependence() const {
+    return false;
+}
+
+std::string PaxCats::selectSql() const {
+    return "SELECT code, name, name_lat, id "
+           "FROM pax_cats ORDER BY code";
+}
+
+std::string PaxCats::insertSql() const {
+    return "INSERT INTO pax_cats(code, name, name_lat, id) "
+           "VALUES(:code, :name, :name_lat, :id)";
+}
+
+std::string PaxCats::updateSql() const {
+    return "UPDATE pax_cats "
+           "SET code=:code, name=:name, name_lat=:name_lat "
+           "WHERE code=:OLD_code";
+}
+
+std::string PaxCats::deleteSql() const {
+    return "DELETE FROM pax_cats "
+           "WHERE code=:OLD_code";
+}
+
+std::list<std::string> PaxCats::dbSessionObjectNames() const
+{
+    return { "PAX_CATS" };
+}
+
+void PaxCats::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                              const std::optional<CacheTable::Row>& oldRow,
+                              std::optional<CacheTable::Row>& newRow) const
+{
+    setRowId("id", status, newRow);
+}
+
+void PaxCats::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                      const std::optional<CacheTable::Row>& oldRow,
+                                      const std::optional<CacheTable::Row>& newRow) const
+{
+    HistoryTable("pax_cats").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //TimaticSets

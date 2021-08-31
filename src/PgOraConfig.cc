@@ -187,7 +187,7 @@ namespace PgOra
 
         { "SP_PG_GROUP_BASETABLES_MIN", { "AIRLINES",         "AIRPS",        "CITIES",
                                       "CRAFTS",           "COUNTRIES"     "PERS_TYPES",
-                                      "PAX_CATS",         "TRIP_TYPES",   "DELAYS",
+                                                          "TRIP_TYPES",   "DELAYS",
                                       "TRIP_LITERS",
                                       "PAY_TYPES",        "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
@@ -196,8 +196,8 @@ namespace PgOra
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES" } },
         
         { "SP_PG_GROUP_BASETABLES_ORA", { "REFUSAL_TYPES" } },
-        { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES" } },
-        { "SP_PG_GROUP_BASETABLES_HIST", { "HIST_REFUSAL_TYPES" } },
+        { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES", "PAX_CATS" } },
+        { "SP_PG_GROUP_BASETABLES_HIST", { "HIST_REFUSAL_TYPES", "HIST_PAX_CATS" } },
 
         { "SP_PG_GROUP_FAKE_DUAL_BT", { // FAKE DUAL USED IN base_tables.cc
                 "FAKE_DUAL_BT", } },
