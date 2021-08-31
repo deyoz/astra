@@ -163,6 +163,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="USERS")               return new CacheTable::Users;
   if (cacheCode=="USERS_TYPES")         return new CacheTable::UserTypes;
   if (cacheCode=="REFUSE")              return new CacheTable::RefusalTypes;
+  if (cacheCode=="TYPEB_TRANSPORTS_OTHERS") return new CacheTable::TypeBTransportOthers;
 
   return nullptr;
 }
@@ -5720,5 +5721,19 @@ void TimaticSets::afterApplyingRowChanges(const TCacheUpdateStatus status,
   HistoryTable("timatic_sets").synchronize(getRowId("id", oldRow, newRow));
 }
 
+// TypeBTransportOthers
+
+bool TypeBTransportOthers::userDependence() const {
+    return false;
+}
+
+std::string TypeBTransportOthers::selectSql() const {
+    return "SELECT code, name, name_lat FROM msg_transports "
+           "WHERE code IN ('BAG_MESSAGE', 'HTTP_TYPEB') ORDER BY code";
+}
+
+std::list<std::string> TypeBTransportOthers::dbSessionObjectNames() const {
+    return { "MSG_TRANSPORTS" };
+}
 
 } //namespace CacheTables

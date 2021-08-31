@@ -1546,4 +1546,14 @@ class TimaticSets : public CacheTableWritable
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+
+class TypeBTransportOthers: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+
 }//namespace CacheTable

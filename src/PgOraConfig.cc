@@ -501,6 +501,9 @@ namespace PgOra
                 "HIST_EXTRA_ROLE_ACCESS",
                 "HIST_EXTRA_USER_ACCESS",
         }},
+        { "SP_PG_GROUP_MSG_TRANSPORTS", {
+                "MSG_TRANSPORTS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
