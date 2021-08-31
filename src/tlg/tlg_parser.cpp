@@ -7212,7 +7212,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   string system=isPRL?"DCS":"CRS";
 
-  DB::TQuery Qry(PgOra::getROSession("TYPEB_SENDERS"), STDLOG);
+  DB::TQuery Qry(PgOra::getRWSession("TYPEB_SENDERS"), STDLOG);
   Qry.SQLText="INSERT INTO typeb_senders(code,name) VALUES(:code,:code)";
   Qry.CreateVariable("code",otString,info.sender);
   try
@@ -7224,7 +7224,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     if (E.Code!=1) throw;
   };
 
-  DB::TQuery QryPnr(PgOra::getROSession("TYPEB_SENDER_SYSTEMS"), STDLOG);
+  DB::TQuery QryPnr(PgOra::getRWSession("TYPEB_SENDER_SYSTEMS"), STDLOG);
   QryPnr.SQLText="INSERT INTO typeb_sender_systems(sender,system) VALUES(:sender,:system)";
   QryPnr.CreateVariable("sender",otString,info.sender);
   QryPnr.CreateVariable("system",otString,system);
