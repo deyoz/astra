@@ -202,7 +202,7 @@ namespace PgOra
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES" } },
-        
+
         { "SP_PG_GROUP_BASETABLES_ORA", { "REFUSAL_TYPES" } },
         { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES", "PAX_CATS" } },
         { "SP_PG_GROUP_BASETABLES_HIST", { "HIST_REFUSAL_TYPES", "HIST_PAX_CATS" } },
@@ -514,6 +514,9 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_MSG_TRANSPORTS", {
                 "MSG_TRANSPORTS",
+        }},
+        { "SP_PG_GROUP_PAX_SEATS", {
+                "PAX_SEATS", // PAX, PAX_GRP
         }},
     };
 

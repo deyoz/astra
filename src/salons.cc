@@ -6209,12 +6209,13 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
     //!log           ipoint->point_id, pr_craft_lat );
     Qry.SetVariable( "point_id", ipoint->point_id );
     Qry.Execute();
-    int idx_pax_id = Qry.FieldIndex( "pax_id" );
-    int idx_xname = Qry.FieldIndex( "xname" );
-    int idx_yname = Qry.FieldIndex( "yname" );
+
     std::map<int,TPassSeats> old_seats, new_seats;
     std::map<int,std::map<TSeat,TPlace*,CompareSeat> > seatsDescrs;
     for ( ; !Qry.Eof; Qry.Next() ) {
+      int idx_pax_id = Qry.FieldIndex( "pax_id" );
+      int idx_xname = Qry.FieldIndex( "xname" );
+      int idx_yname = Qry.FieldIndex( "yname" );
       old_seats[ Qry.FieldAsInteger( idx_pax_id ) ].insert( TSeat( Qry.FieldAsString( idx_yname ),
                                                                    Qry.FieldAsString( idx_xname ) ) );
     }
@@ -6264,7 +6265,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         //изменились места - удаляем старые, записываем новые
         DB::TCachedQuery DelQry(
               PgOra::getRWSession("PAX_SEATS"),
-              "DELETE pax_seats "
+              "DELETE FROM pax_seats "
               "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
               QParams() << QParam("point_id", otInteger, ipoint->point_id)
                         << QParam("pax_id", otInteger, inew->first),
@@ -6295,7 +6296,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
 
         DB::TCachedQuery DelQry(
               PgOra::getRWSession("PAX_SEATS"),
-              "DELETE pax_seats "
+              "DELETE FROM pax_seats "
               "WHERE point_id=:point_id AND pax_id=:pax_id AND COALESCE(pr_wl,0)=0 ",
               sqlParams,
               STDLOG);
@@ -7015,8 +7016,8 @@ int CompCheckSum::calcCheckSum( const std::string& buf ) {
 }
 
 CompCheckSum CompCheckSum::calcFromDB( int point_id ) {
-  DB::TQuery QryDisableLayer(PgOra::getROSession("TRIP_COMP_RANGES"),STDLOG);
   //только для размеченных слоев в компоновке
+  DB::TQuery QryDisableLayer(PgOra::getROSession("TRIP_COMP_RANGES"),STDLOG);
   QryDisableLayer.SQLText =
     "SELECT num,x,y FROM trip_comp_ranges "
     " WHERE point_id=:point_id AND layer_type=:disable_layer "
@@ -7024,9 +7025,7 @@ CompCheckSum CompCheckSum::calcFromDB( int point_id ) {
   QryDisableLayer.CreateVariable( "point_id", otInteger, point_id );
   QryDisableLayer.CreateVariable( "disable_layer", otString, EncodeCompLayerType( cltDisable ) );
   QryDisableLayer.Execute();
-  int idx_num_dis = QryDisableLayer.FieldIndex( "num" );
-  int idx_x_dis = QryDisableLayer.FieldIndex( "x" );
-  int idx_y_dis = QryDisableLayer.FieldIndex( "y" );
+
   DB::TQuery Qry(PgOra::getROSession("TRIP_COMP_ELEMS"),STDLOG);
   Qry.SQLText =
     "SELECT num,x,y,elem_type,class,xname,yname FROM trip_comp_elems "
@@ -7034,17 +7033,25 @@ CompCheckSum CompCheckSum::calcFromDB( int point_id ) {
     "ORDER BY num,x,y";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof )
+
+  if ( Qry.Eof ) {
     return CompCheckSum(0,0);
+  }
+
   ostringstream total_buf, base_buf;
-  int idx_num = Qry.FieldIndex( "num" );
-  int idx_x = Qry.FieldIndex( "x" );
-  int idx_y = Qry.FieldIndex( "y" );
-  int idx_elem_type = Qry.FieldIndex( "elem_type" );
-  int idx_class = Qry.FieldIndex( "class" );
-  int idx_xname = Qry.FieldIndex( "xname" );
-  int idx_yname = Qry.FieldIndex( "yname" );
   for ( ; !Qry.Eof; Qry.Next() ) {
+    int idx_num_dis = QryDisableLayer.FieldIndex( "num" );
+    int idx_x_dis = QryDisableLayer.FieldIndex( "x" );
+    int idx_y_dis = QryDisableLayer.FieldIndex( "y" );
+
+    int idx_num = Qry.FieldIndex( "num" );
+    int idx_x = Qry.FieldIndex( "x" );
+    int idx_y = Qry.FieldIndex( "y" );
+    int idx_elem_type = Qry.FieldIndex( "elem_type" );
+    int idx_class = Qry.FieldIndex( "class" );
+    int idx_xname = Qry.FieldIndex( "xname" );
+    int idx_yname = Qry.FieldIndex( "yname" );
+
     TSalonPoint p( Qry.FieldAsInteger( idx_x ),
                    Qry.FieldAsInteger( idx_y ),
                    Qry.FieldAsInteger( idx_num ) );
@@ -8874,9 +8881,9 @@ void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
 void getPaxSeatsWL( int point_id, std::map< bool,std::map < int, TSeatRanges > > &seats ) //docs
 {
   seats.clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PAX_SEATS"),STDLOG);
   Qry.SQLText =
-    "SELECT pax_id, xname, yname, NVL(pr_wl,0) pr_wl FROM pax_seats "
+    "SELECT pax_id, xname, yname, COALESCE(pr_wl,0) AS pr_wl FROM pax_seats "
     "WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
