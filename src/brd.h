@@ -53,8 +53,6 @@ public:
                                            const std::string &client_type,
                                            const TSortType sort,
                                            const bool usePaxCalcData=false);
-  static std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, const std::string& status,
-                                 const PointId_t& point_dep, int rownum);
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };

@@ -24,6 +24,7 @@
 #include "rfisc.h"
 #include "baggage_tags.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #include <serverlib/xml_stuff.h>
 
@@ -259,6 +260,7 @@ namespace EXCH_CHECKIN_RESULT
     TDateTime max_time;
     std::map<int,TTripInfo> trips;
     std::map<int,bool> syncs;
+    SEATSPAX::TSeatPaxListCached seatPaxList;
     int col_pax_id;
     int col_pax_tid;
     int col_grp_tid;
@@ -272,7 +274,8 @@ namespace EXCH_CHECKIN_RESULT
     int col_is_female;
     int col_airp_dep;
     int col_airp_arv;
-    int col_seat_no;
+    int col_grp_status;
+    int col_point_dep;
     int col_seats;
     int col_excess_wt_raw;
     int col_bag_pool_num;
@@ -302,7 +305,8 @@ namespace EXCH_CHECKIN_RESULT
       col_is_female = ASTRA::NoExists;
       col_airp_dep = ASTRA::NoExists;
       col_airp_arv = ASTRA::NoExists;
-      col_seat_no = ASTRA::NoExists;
+      col_grp_status = ASTRA::NoExists;
+      col_point_dep = ASTRA::NoExists;
       col_seats = ASTRA::NoExists;
       col_excess_wt_raw = ASTRA::NoExists;
       col_bag_pool_num = ASTRA::NoExists;
@@ -321,11 +325,11 @@ namespace EXCH_CHECKIN_RESULT
           "       pax.refuse, pax.pers_type, "
           "       COALESCE(pax.is_female,1) as is_female, "
           "       pax.subclass, "
-          "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
           "       pax.seats seats, "
           "       pax.bag_pool_num, "
           "       pax.pr_brd, "
-          "       pax_grp.status, "
+          "       pax_grp.status grp_status, "
+          "       pax_grp.point_dep, "
           "       pax_grp.client_type, "
           "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid, "
           "       pax_grp.excess_wt, pax_grp.bag_refuse "
@@ -379,7 +383,8 @@ namespace EXCH_CHECKIN_RESULT
     col_is_female = (col_is_female = PaxQry.GetFieldIndex( "is_female" )) >= 0 ?col_is_female:ASTRA::NoExists;
     col_airp_dep = (col_airp_dep = PaxQry.GetFieldIndex( "airp_dep" )) >= 0 ?col_airp_dep:ASTRA::NoExists;
     col_airp_arv = (col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" )) >= 0 ?col_airp_arv:ASTRA::NoExists;
-    col_seat_no = (col_seat_no = PaxQry.GetFieldIndex( "seat_no" )) >= 0 ?col_seat_no:ASTRA::NoExists;
+    col_grp_status = (col_grp_status = PaxQry.GetFieldIndex( "grp_status" )) >= 0 ?col_grp_status:ASTRA::NoExists;
+    col_point_dep = (col_point_dep = PaxQry.GetFieldIndex( "point_dep" )) >= 0 ?col_point_dep:ASTRA::NoExists;
     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
     col_excess_wt_raw = (col_excess_wt_raw = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt_raw:ASTRA::NoExists;
     col_bag_pool_num = ( col_bag_pool_num = PaxQry.GetFieldIndex( "bag_pool_num" )) >= 0 ?col_bag_pool_num:ASTRA::NoExists;
@@ -531,9 +536,13 @@ namespace EXCH_CHECKIN_RESULT
     }
     paxData.airp_dep = PaxQry.FieldAsString( col_airp_dep );
     paxData.airp_arv = PaxQry.FieldAsString( col_airp_arv );
-    paxData.seat_no = PaxQry.FieldAsString( col_seat_no );
     paxData.seats = PaxQry.FieldAsInteger( col_seats );
-
+    paxData.seat_no = seatPaxList.get_seat_no(PaxId_t(paxData.pax_id),
+                                              paxData.seats,
+                                              false,
+                                              DecodePaxStatus(PaxQry.FieldAsString( col_grp_status )),
+                                              PointId_t(PaxQry.FieldAsInteger( col_point_dep )),
+                                              SEATSPAX::TSeatPaxListCached::efTlg);
     int excess_wt_raw = PaxQry.FieldAsInteger(col_excess_wt_raw);
     int bag_refuse = PaxQry.FieldAsInteger("bag_refuse");
     paxData.excess_wt = TBagKilos(CKIN::get_excess_wt(GrpId_t(paxData.grp_id), PaxId_t(paxData.pax_id),

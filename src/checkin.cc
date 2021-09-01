@@ -70,6 +70,7 @@
 #include "check_grp_unification.h"
 #include "tlg/typeb_db.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/xml_stuff.h>
@@ -2587,14 +2588,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_excess_wt_raw=QryPaxes.FieldIndex("excess_wt_raw");
 
     map< pair<int/*grp_id*/, int/*pax_id*/>, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete_map;
-    TPaxSeats priorSeats(point_id);
     TRemGrp rem_grp;
     rem_grp.Load(retCKIN_VIEW, operFlt.airline);
 
-    int rownum = 0;
+    SEATSPAX::TSeatPaxListCached seatPaxList;
     for(;!QryPaxes.Eof;QryPaxes.Next())
     {
-      rownum++;
       int grp_id = QryPaxes.FieldAsInteger(col_grp_id);
       int pax_id = QryPaxes.FieldAsInteger(col_pax_id);
       int bag_refuse = QryPaxes.FieldAsInteger(col_bag_refuse);
@@ -2651,14 +2650,18 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       NewTextChild(paxNode,"subclass",ElemIdToCodeNative(etSubcls, QryPaxes.FieldAsString(col_subclass)));
 
-       const std::string seat_no_ = BrdInterface::get_seat_no(
-             PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
-             QryPaxes.FieldAsInteger(col_seats),
-             QryPaxes.FieldAsInteger(col_is_jmp),
-             QryPaxes.FieldAsString(col_status),
-             PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
-             rownum);
+      SEATSPAX::TSeatsProps seatProps;
+      seatPaxList.get_seat_no_pnl( PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
+                                   PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
+                                   DecodePaxStatus(QryPaxes.FieldAsString(col_status)),
+                                   "",
+                                   QryPaxes.FieldAsInteger(col_is_jmp),
+                                   QryPaxes.FieldAsInteger(col_seats),
+                                   free_seating,
+                                   SEATSPAX::TSeatPaxListCached::ef_Seats,
+                                   seatProps );
 
+      std::string seat_no_ = seatProps.from_waitlist?"":seatProps.seat_no;
       ostringstream seat_no_str;
       ostringstream seat_no;
       bool seat_no_alarm=false;
@@ -2671,9 +2674,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
            if (!cabin_cl.empty() && seat_no_.empty() && QryPaxes.FieldAsInteger(col_seats)>0)
           {
 
-            seat_no_str << "("
-                        << priorSeats.getSeats(pax_id,"seats")
-                        << ")"
+            seat_no_str << seatProps.seat_no
                         << class_change_str;
             seat_no_alarm=true;
           }
@@ -6447,19 +6448,6 @@ void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
   if (pax.pers_type==baby && pax.seats==0) cats.insert("INA");
 }
 
-std::string get_seat_no_one(const PaxId_t& pax_id, int seats, bool is_jmp, int rownum)
-{
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
-  Qry.SQLText =
-      "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,NULL,NULL,'one',:num) AS seat_no FROM dual ";
-  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
-  Qry.CreateVariable("seats", otInteger, seats);
-  Qry.CreateVariable("is_jmp", otInteger, is_jmp ? 1 : 0);
-  Qry.CreateVariable("num", otInteger, rownum);
-  Qry.Execute();
-  return Qry.FieldAsString("seat_no");
-}
-
 const char* pax_sql=
     "SELECT pax.*, "
     "       crs_pax.pax_id AS crs_pax_id, "
@@ -6556,14 +6544,14 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
 
         if (paxSection)
         {
-          int rownum = 0;
           list<TPaxItem>::iterator iReqPax=paxs.begin();
+          SEATSPAX::TSeatPaxCached seatPaxList;
           for(;!PaxQry.get().Eof; PaxQry.get().Next())
           {
-            rownum++;
             CheckIn::TPaxItem pax;
             pax.fromDB(PaxQry.get());
-            pax.seat_no = get_seat_no_one(PaxId_t(pax.id), pax.seats, pax.is_jmp, rownum);
+            pax.seat_no = seatPaxList.get_seat_no(PaxId_t(pax.id),
+                                                  SEATSPAX::TSeatPaxCached::efOne);
             if (!pax.refuse.empty() && !req_grps.include_refused) continue;
 
             if (svcSection && req_grps.include_unbound_svcs)
@@ -7127,14 +7115,13 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
 
       TPrPrint prPrint;
       node=NewTextChild(segNode,"passengers");
-      int rownum = 0;
+      SEATSPAX::TSeatPaxCached seatPaxList;
       for(;!PaxQry.Eof;PaxQry.Next())
       {
-        rownum++;
         CheckIn::TPaxItem pax;
         pax.fromDB(PaxQry);
-        pax.seat_no = get_seat_no_one(PaxId_t(pax.id), pax.seats, pax.is_jmp, rownum);
-
+        pax.seat_no = seatPaxList.get_seat_no(PaxId_t(pax.id),
+                                              SEATSPAX::TSeatPaxCached::efOne);
         CheckIn::TPaxTransferItem paxTrferItem;
         paxTrferItem.pax_id=pax.id;
         paxTrferItem.subclass=pax.getCabinSubclass();

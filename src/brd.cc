@@ -34,6 +34,7 @@
 #include "pax_confirmations.h"
 #include "checkin.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #include <serverlib/algo.h>
 
@@ -501,6 +502,7 @@ std::string get_bp_seat_no_lat(TDevOper::Enum op_type, int pax_id)
 
 bool CheckSeat(int pax_id, const string& scan_data)
 {
+    SEATSPAX::TSeatPaxCached seatPax;
     string scan_seat_no;
     if (!scan_data.empty())
     {
@@ -520,40 +522,22 @@ bool CheckSeat(int pax_id, const string& scan_data)
     if (scan_seat_no.empty())
     {
       //пытаемся сравнить с последним номером места, который отдали на печать
-      DB::TQuery Qry(PgOra::getROSession("PAX-salons.get_seat_no"), STDLOG);
-      Qry.SQLText =
-        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat "
-        "FROM pax "
-        "WHERE pax.pax_id=:pax_id";
-      Qry.CreateVariable("pax_id", otInteger, pax_id);
-      Qry.Execute();
-      if (!Qry.Eof)
+      std::string curr_seat_no_list_lat = seatPax.get_seat_no(PaxId_t(pax_id),SEATSPAX::TSeatPaxCached::efList,true);
+      const std::string bp_seat_no_lat = get_bp_seat_no_lat(TDevOper::PrnBP, pax_id);
+      if (!bp_seat_no_lat.empty() &&
+          bp_seat_no_lat != curr_seat_no_list_lat)
       {
-        const std::string bp_seat_no_lat = get_bp_seat_no_lat(TDevOper::PrnBP, pax_id);
-        if (!bp_seat_no_lat.empty() &&
-            bp_seat_no_lat != Qry.FieldAsString("curr_seat_no_list_lat"))
-        {
-          return false;
-        }
+        return false;
       }
     }
     else
     {
       //сравниваем с номером места, который пришел в 2D
-      DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG); // salons.get_seat_no
-      Qry.SQLText =
-        "SELECT LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
-        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat "
-        "FROM pax "
-        "WHERE pax_id=:pax_id";
-      Qry.CreateVariable("pax_id", otInteger, pax_id);
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        if (scan_seat_no!=Qry.FieldAsString("curr_seat_no_one") &&
-            scan_seat_no!=Qry.FieldAsString("curr_seat_no_one_lat"))
-          return false;
-      }
+      std::string curr_seat_no_one = StrUtils::LPad( seatPax.get_seat_no(PaxId_t(pax_id),SEATSPAX::TSeatPaxCached::efOne,false), 4, '0' );
+      std::string curr_seat_no_one_lat = StrUtils::LPad( seatPax.get_seat_no(PaxId_t(pax_id),SEATSPAX::TSeatPaxCached::efOne,true), 4, '0' );
+      if (scan_seat_no!=curr_seat_no_one &&
+          scan_seat_no!=curr_seat_no_one_lat)
+        return false;
     }
 
     return true;
@@ -563,21 +547,6 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
   GetPax(reqNode,resNode);
 };
-
-std::string BrdInterface::get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, const std::string& status,
-                                      const PointId_t& point_dep, int rownum)
-{
-  TQuery Qry(&OraSession, STDLOG);
-  Qry.SQLText = "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'_seats',:num) AS seat_no FROM DUAL ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id.get());
-  Qry.CreateVariable("seats",otInteger,seats);
-  Qry.CreateVariable("is_jmp",otInteger,is_jmp);
-  Qry.CreateVariable("status",otString,status);
-  Qry.CreateVariable("point_dep",otInteger,point_dep.get());
-  Qry.CreateVariable("num",otInteger,rownum);
-  Qry.Execute();
-  return Qry.FieldAsString("seat_no");
-}
 
 void BrdInterface::GetPaxQuery(DB::TQuery &Qry,
                                const int point_id,
@@ -1227,10 +1196,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TPaxItem paxWithSeat, paxWithoutSeat;
       AllAPIAttrs allAPIAttrs(fltInfo.scd_out);
-      int rownum = 0;
+      SEATSPAX::TSeatPaxListCached seatPaxList;
       for(;!QryPaxData.Eof;QryPaxData.Next())
       {
-        rownum++;
         if (grp_id!=QryPaxData.FieldAsInteger("grp_id"))
           throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
         int seats=QryPaxData.FieldAsInteger("seats");
@@ -1250,28 +1218,20 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         pax.docoConfirmed = QryPaxData.FieldAsInteger("doco_confirm") != 0;
         pax.alarms=getAPISAlarms(allAPIAttrs, QryPaxData, pax.name!="CBBG", pax_ext, pax.docoConfirmed, false,
                                  route_check_info, AirportCode_t(airp_arv), setList, pax.documentAlarm);
-        QParams params;
-        params << QParam("pax_id", otInteger, pax.pax_id)
-               << QParam("seats", otInteger, seats)
-               << QParam("is_jmp", otInteger, pax.is_jmp ? 1 : 0)
-               << QParam("status", otString, QryPaxData.FieldAsString("status"))
-               << QParam("point_dep", otInteger, point_id)
-               << QParam("num", otInteger, rownum);
-        DB::TCachedQuery SeatQry(
-              PgOra::getROSession("ORACLE"),
-              "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'list',:num,0) AS seat_no FROM dual",
-              params,
-              STDLOG);
-        SeatQry.get().Execute();
-        pax.seat_no=SeatQry.get().FieldAsString("seat_no");
-
-        DB::TCachedQuery SeatBgrQry(
-              PgOra::getROSession("ORACLE"),
-              "SELECT salons.get_seat_no(:pax_id,:seats,:is_jmp,:status,:point_dep,'seats',:num,1) AS seat_no_for_bgr FROM dual",
-              params,
-              STDLOG);
-        SeatBgrQry.get().Execute();
-        pax.seat_no_for_bgr=SeatBgrQry.get().FieldAsString("seat_no_for_bgr");
+        pax.seat_no = seatPaxList.get_seat_no(PaxId_t(pax.pax_id),
+                                              seats,
+                                              pax.is_jmp,
+                                              DecodePaxStatus(QryPaxData.FieldAsString("status")),
+                                              PointId_t(point_id),
+                                              SEATSPAX::TSeatPaxListCached::efList,
+                                              false);
+        pax.seat_no_for_bgr = seatPaxList.get_seat_no(PaxId_t(pax.pax_id),
+                                                      seats,
+                                                      pax.is_jmp,
+                                                      DecodePaxStatus(QryPaxData.FieldAsString("status")),
+                                                      PointId_t(point_id),
+                                                      SEATSPAX::TSeatPaxListCached::efSeats,
+                                                      true);
       };
 
       if (!paxWithSeat.exists() && !paxWithoutSeat.exists())
@@ -1812,10 +1772,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       using namespace CKIN;
       BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS_AND_TAGS);
       MainPax viewPax;
-      int rownum = 0;
+      SEATSPAX::TSeatPaxListCached seatPaxList;
       for(;!QryPaxes.Eof;QryPaxes.Next())
       {
-          rownum++;
           const int grp_id=QryPaxes.FieldAsInteger(col_grp_id);
           const int pax_id=QryPaxes.FieldAsInteger(col_pax_id);
           const int crs_pax_id=QryPaxes.FieldIsNULL(col_crs_pax_id)?NoExists:QryPaxes.FieldAsInteger(col_crs_pax_id);
@@ -1845,13 +1804,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               custom_alarms->fromDB(showWholeFlight, showWholeFlight ? point_id : pax_id);
           }
 
-          const std::string seat_no = BrdInterface::get_seat_no(
-                PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
-                QryPaxes.FieldAsInteger(col_seats),
-                QryPaxes.FieldAsInteger(col_is_jmp),
-                QryPaxes.FieldAsString(col_status),
-                PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
-                rownum);
+          const std::string seat_no = seatPaxList.get_seat_no(PaxId_t(QryPaxes.FieldAsInteger(col_pax_id)),
+                                                              QryPaxes.FieldAsInteger(col_seats),
+                                                              QryPaxes.FieldAsInteger(col_is_jmp),
+                                                              DecodePaxStatus(QryPaxes.FieldAsString(col_status)),
+                                                              PointId_t(QryPaxes.FieldAsInteger(col_point_dep)),
+                                                              SEATSPAX::TSeatPaxListCached::ef_Seats);
           LogTrace(TRACE3) << __func__ << ": seat_no=" << seat_no;
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);

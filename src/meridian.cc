@@ -17,6 +17,7 @@
 #include "payment_base.h"
 #include "flt_settings.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -225,7 +226,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   QryAODB.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
   QryAODB.CreateVariable( "airline", otString, airline );
   QryAODB.Execute();
-  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","PAX_DOC"}), STDLOG); // salons.get_seat_no
+  DB::TQuery PaxQry(PgOra::getROSession({"PAX","PAX_GRP","PAX_DOC"}), STDLOG);
   PaxQry.SQLText =
        "SELECT pax.pax_id,pax.reg_no,RTRIM(COALESCE(pax.surname,'')||' '||COALESCE(pax.name,'')) name,"
        "       pax_grp.grp_id,"
@@ -234,11 +235,11 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       pax.pers_type, "
        "       COALESCE(pax.is_female,1) as is_female, "
        "       pax.subclass, "
-       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
+       "       pax_grp.point_dep, "
        "       pax.seats seats, "
        "       pax.bag_pool_num, "
        "       pax.pr_brd, "
-       "       pax_grp.status, "
+       "       pax_grp.status grp_status, "
        "       pax_grp.client_type, "
        "       pax_doc.no document, "
        "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid, "
@@ -272,7 +273,8 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   int col_is_female =-1;
   int col_airp_dep = -1;
   int col_airp_arv = -1;
-  int col_seat_no = -1;
+  int col_point_dep = -1;
+  int col_grp_status = -1;
   int col_seats = -1;
   int col_excess_wt_raw = -1;
   int col_pr_brd = -1;
@@ -289,6 +291,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   using namespace CKIN;
   std::map<PointId_t, BagReader> bag_readers;
   MainPax view_pax;
+  SEATSPAX::TSeatPaxCached paxSeatList;
   for ( ;!QryAODB.Eof && pax_count<=500; QryAODB.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
     count_row++;
     int pax_id = QryAODB.FieldAsInteger( "pax_id" );
@@ -333,7 +336,8 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       col_is_female = PaxQry.GetFieldIndex( "is_female" );
       col_airp_dep = PaxQry.GetFieldIndex( "airp_dep" );
       col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" );
-      col_seat_no = PaxQry.GetFieldIndex( "seat_no" );
+      col_point_dep = PaxQry.GetFieldIndex( "point_dep" );
+      col_grp_status = PaxQry.GetFieldIndex( "grp_status" );
       col_seats = PaxQry.GetFieldIndex( "seats" );
       col_excess_wt_raw = PaxQry.GetFieldIndex( "excess_wt" );
       col_pr_brd = PaxQry.GetFieldIndex( "pr_brd" );
@@ -383,7 +387,13 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     NewTextChild( paxNode, "airp_dep", PaxQry.FieldAsString( col_airp_dep ) );
     NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString( col_airp_arv ) );
-    NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString( col_seat_no ) );
+    NewTextChild( paxNode, "seat_no",
+                  paxSeatList.get_seat_no(PaxId_t(pax_id),
+                                          PaxQry.FieldAsInteger( col_seats ),
+                                          false,
+                                          DecodePaxStatus(PaxQry.FieldAsString( col_grp_status )),
+                                          PointId_t(PaxQry.FieldAsInteger( col_point_dep )),
+                                          SEATSPAX::TSeatPaxCached::efTlg));
     NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger( col_seats ) );
     int excess_wt_raw = PaxQry.FieldAsInteger( col_excess_wt_raw );
     NewTextChild( paxNode, "excess", TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger("pax_id")))),

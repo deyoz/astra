@@ -297,25 +297,26 @@ std::string TSeatPax::getCheckinSeatNo(const TSeatRanges &ranges, const EnumForm
   return res_num;
 }
 
-std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
-                                   const EnumFormatSeats& format )
+std::string TSeatPax::get_seat_no_common( const PaxId_t& pax_id,
+                                          const EnumFormatSeats& format,
+                                          const bool& only_lat)
 {
   TSeatsProps seatProps;
   CheckIn::TSimplePaxItem pax;
   if (pax.getByPaxId(pax_id.get())) {
     CheckIn::TSimplePaxGrpItem grp;
     if (grp.getByPaxId(pax_id.get()))
-      return get_seat_no( pax_id,
-                          PointId_t(grp.point_dep),
-                          grp.status,
-                          pax.refuse,
-                          pax.is_jmp,
-                          pax.seats,
-                          EnumCheckinStatus::psCheckin,
-                          getFlightSetsPrFreeSeating(PointId_t(grp.point_dep)),
-                          format,
-                          getFlightSetsPrLatSeat(PointId_t(grp.point_dep)),
-                          seatProps);
+      return get_seat_no_int( pax_id,
+                              PointId_t(grp.point_dep),
+                              grp.status,
+                              pax.refuse,
+                              pax.is_jmp,
+                              pax.seats,
+                              EnumCheckinStatus::psCheckin,
+                              only_lat,
+                              format,
+                              only_lat,
+                              seatProps);
   }
   else {
     pax.getCrsByPaxId(pax_id);
@@ -324,27 +325,65 @@ std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
     if (pnr.point_id_tlg == ASTRA::NoExists) return "";
     int id = getPointIdByPointTlg(PointIdTlg_t(pnr.point_id_tlg));
     if ( id == ASTRA::NoExists ) return "";
-    return get_seat_no( pax_id,
-                        PointId_t(id),
-                        ASTRA::psCheckin,
-                        pax.refuse,
-                        pax.is_jmp,
-                        pax.seats,
-                        EnumCheckinStatus::psCRS,
-                        getFlightSetsPrFreeSeating(PointId_t(id)),
-                        format,
-                        getFlightSetsPrLatSeat(PointId_t(id)),
-                        seatProps);
+    return get_seat_no_int( pax_id,
+                            PointId_t(id),
+                            ASTRA::psCheckin,
+                            pax.refuse,
+                            pax.is_jmp,
+                            pax.seats,
+                            EnumCheckinStatus::psCRS,
+                            only_lat,
+                            format,
+                            only_lat,
+                            seatProps);
   }
   return "";
 }
 
+std::string TSeatPax::get_crs_seat_no( const PaxId_t& pax_id,
+                                       const int seats,
+                                       const PointIdTlg_t& point_id,
+                                       TCompLayerType& layer_type,
+                                       const EnumFormatSeats& format,
+                                       const bool& only_lat )
+{
+  TSeatsProps seatProps;
+  PointId_t id(getPointIdByPointTlg(point_id));
+  get_seat_no_int( pax_id,
+                   id,
+                   ASTRA::TPaxStatus::psCheckin,
+                   "",
+                   false,
+                   seats,
+                   psCRS,
+                   getFlightSetsPrFreeSeating(id),
+                   format,
+                   only_lat,
+                   seatProps);
+  layer_type = seatProps.layer_type;
+  return seatProps.seat_no;
+}
 
-std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
-                                   const PointIdTlg_t& point_id,
-                                   bool free_seating,
-                                   const EnumFormatSeats& format,
-                                   bool pr_lat_seat )
+std::string TSeatPax::get_crs_seat_no( const PaxId_t& pax_id,
+                                       const int seats,
+                                       const PointIdTlg_t& point_id,
+                                       const EnumFormatSeats& format,
+                                       const bool& only_lat )
+{
+  TCompLayerType layer_type;
+  return get_crs_seat_no(pax_id,
+                         seats,
+                         point_id,
+                         layer_type,
+                         format,
+                         only_lat);
+}
+
+std::string TSeatPax::get_crs_seat_no1( const PaxId_t& pax_id,
+                                        const PointIdTlg_t& point_id,
+                                        bool free_seating,
+                                        const EnumFormatSeats& format,
+                                        const bool& only_lat )
 {
   if (free_seating) return "";
   TSeatsProps seatProps;
@@ -352,73 +391,74 @@ std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
   if (!pax.getCrsByPaxId(pax_id)) return "";
   int id = getPointIdByPointTlg(point_id);
   if ( id == ASTRA::NoExists ) return "";
-  return get_seat_no( pax_id,
-                      PointId_t(id),
-                      ASTRA::psCheckin,
-                      pax.refuse,
-                      pax.is_jmp,
-                      pax.seats,
-                      EnumCheckinStatus::psCRS,
-                      free_seating,
-                      format, pr_lat_seat,
-                      seatProps );
+  return get_seat_no_int( pax_id,
+                          PointId_t(id),
+                          ASTRA::psCheckin,
+                          pax.refuse,
+                          pax.is_jmp,
+                          pax.seats,
+                          EnumCheckinStatus::psCRS,
+                          free_seating,
+                          format,
+                          only_lat,
+                          seatProps );
 }
 
-std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
-                                   const PointIdTlg_t& point_id,
-                                   int seats,
-                                   bool free_seating,
-                                   const EnumFormatSeats& format,
-                                   TSeatsProps& seatProps )
+std::string TSeatPax::get_crs_seat_no_pnl( const PaxId_t& pax_id,
+                                           const PointIdTlg_t& point_id,
+                                           int seats,
+                                           bool free_seating,
+                                           const EnumFormatSeats& format,
+                                           TSeatsProps& seatProps )
 {
   PointId_t id(getPointIdByPointTlg(point_id));
-  return get_seat_no( pax_id,
-                      id,
-                      ASTRA::TPaxStatus::psCheckin,
-                      "",
-                      false,
-                      seats,
-                      psCRS,
-                      free_seating,
-                      format,
-                      getFlightSetsPrLatSeat(id),
-                      seatProps);
+  return get_seat_no_int( pax_id,
+                          id,
+                          ASTRA::TPaxStatus::psCheckin,
+                          "",
+                          false,
+                          seats,
+                          psCRS,
+                          free_seating,
+                          format,
+                          false,
+                          seatProps);
 }
 
-std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
-                                   const PointId_t& point_id,
-                                   const ASTRA::TPaxStatus& grp_status,
-                                   const std::string& refuse,
-                                   bool is_jmp,
-                                   int seats,
-                                   const EnumCheckinStatus& checkin_status,
-                                   bool free_seating,
-                                   const EnumFormatSeats& format,
-                                   TSeatsProps& seatProps )
+std::string TSeatPax::get_seat_no_pnl( const PaxId_t& pax_id,
+                                       const PointId_t& point_id,
+                                       const ASTRA::TPaxStatus& grp_status,
+                                       const std::string& refuse,
+                                       bool is_jmp,
+                                       int seats,
+                                       bool free_seating,
+                                       const EnumFormatSeats& format,
+                                       TSeatsProps& seatProps )
 {
-  return get_seat_no( pax_id,
-                      point_id,
-                      grp_status,
-                      refuse,
-                      is_jmp,
-                      seats,
-                      checkin_status,
-                      free_seating,
-                      format,
-                      getFlightSetsPrLatSeat(point_id),
-                      seatProps);
+  return get_seat_no_int( pax_id,
+                          point_id,
+                          grp_status,
+                          refuse,
+                          is_jmp,
+                          seats,
+                          psCheckin,
+                          free_seating,
+                          format,
+                          false,
+                          seatProps);
 }
 
-std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
-                                   const PointId_t& point_id,
-                                   const ASTRA::TPaxStatus& grp_status,
-                                   const std::string& refuse,
-                                   bool is_jmp,
-                                   int seats,
-                                   const EnumCheckinStatus& checkin_status,
-                                   bool free_seating,
-                                   const EnumFormatSeats& format, bool pr_lat_seat,
-                                   TSeatsProps& seatProps )
+std::string TSeatPax::get_seat_no_int( const PaxId_t& pax_id,
+                                       const PointId_t& point_id,
+                                       const ASTRA::TPaxStatus& grp_status,
+                                       const std::string& refuse,
+                                       bool is_jmp,
+                                       int seats,
+                                       const EnumCheckinStatus& checkin_status,
+                                       bool free_seating,
+                                       const EnumFormatSeats& format,
+                                       const bool& ony_lat,
+                                       TSeatsProps& seatProps )
 {
   seatProps.clear();
 
@@ -426,6 +466,7 @@ std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
   if (seats == 0) return "";
   if (!refuse.empty()) return "";
   if (grp_status == psCrew) return "";
+  bool pr_lat_seat = ony_lat?true:getFlightSetsPrLatSeat(point_id);
 
   switch (checkin_status) {
     case psCheckin:
@@ -457,7 +498,8 @@ std::string TSeatPax::int_checkin_seat_no( const PaxId_t& pax_id,
 std::string TSeatPax::except_seat_trip_comp_layers( const PaxId_t& pax_id,
                                                     const PointId_t& point_id,
                                                     const ASTRA::TCompLayerType& checkin_layer,
-                                                    const EnumFormatSeats& format, bool pr_lat_seat,
+                                                    const EnumFormatSeats& format,
+                                                    bool pr_lat_seat,
                                                     int seats)
 {
   DB::TQuery SeatsQry(PgOra::getROSession({"TRIP_COMP_LAYERS"}), STDLOG);
@@ -500,8 +542,8 @@ std::string TSeatPax::checkin_seat_no( const PaxId_t& pax_id,
   seatProps.from_waitlist = (seatProps.seat_no.empty());
   if (!seatProps.from_waitlist) return seatProps.seat_no;
   seatProps.seat_no = int_checkin_seat_no( pax_id, point_id, seats,
-                                                     seatProps.from_waitlist,
-                                                     format, pr_lat_seat );
+                                           seatProps.from_waitlist,
+                                           format, pr_lat_seat );
   if ( !seatProps.seat_no.empty() )
     seatProps.seat_no = "(" + StrUtils::trim(seatProps.seat_no) + ")";
   else {
@@ -525,7 +567,8 @@ std::string TSeatPax::checkin_seat_no( const PaxId_t& pax_id,
 std::string TSeatPax::crs_seat_no(const PaxId_t& pax_id,
                                   const PointId_t& point_id,
                                   int seats,
-                                  const EnumFormatSeats& format, bool pr_lat_seat,
+                                  const EnumFormatSeats& format,
+                                  bool pr_lat_seat,
                                   TSeatsProps& seatProps)
 {
   TTotalRanges total_ranges;
@@ -549,24 +592,88 @@ std::string TSeatPax::crs_seat_no(const PaxId_t& pax_id,
 bool TSeatPax::is_waitlist( const PointId_t& point_id )
 {
   if ( SALONS2::isFreeSeating( point_id.get() ) ) return false;
+  auto& sess = PgOra::getROSession({"PAX_SEATS", "PAX", "PAX_GRP"});
   DB::TQuery WLTripQry(PgOra::getROSession({"PAX_SEATS","PAX","PAX_GRP"}), STDLOG);
-  //если в таблице pax_seats нет даных по зарегистрированному пассажиру или только pr_wl=0 то есть ЛО
-  WLTripQry.SQLText =
-    " SELECT MIN(COALESCE(pr_wl,0)) AS pr_wl "
-    "  FROM pax "
-    "  JOIN pax_grp ON pax_grp.grp_id=pax.grp_id AND "
-    "       pax_grp.point_dep=:point_id AND "
-    "       pax.refuse IS NULL AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pax.pr_brd IS NOT NULL AND "
-    "       seats>0 AND "
-    "       is_jmp=0 "
-    "  LEFT JOIN pax_seats ON pax_seats.pax_id=pax.pax_id AND "
-    "            pax_seats.point_id=:point_id ";
-
+  //если в таблице pax_seats нет даных по зарегистрированному пассажиру или только pr_wl=1 то есть ЛО
+  string sql =
+      "  SELECT 1 "
+      "      FROM pax "
+      "      JOIN pax_grp ON pax_grp.grp_id=pax.grp_id AND "
+      "           pax_grp.point_dep=:point_id AND "
+      "           pax.refuse IS NULL AND "
+      "           pax_grp.status NOT IN ('E') AND "
+      "           pax.pr_brd IS NOT NULL AND "
+      "           seats>0 AND "
+      "           is_jmp=0 "
+      "      LEFT JOIN pax_seats ON pax_seats.pax_id=pax.pax_id AND "
+      "                pax_seats.point_id=:point_id "
+      "       WHERE COALESCE(pr_wl,1)=1 ";
+  sql += sess.isOracle()?" AND rownum<2": " LIMIT 1";
+  WLTripQry.SQLText = sql;
   WLTripQry.CreateVariable("point_id",otInteger,point_id.get());
   WLTripQry.Execute();
-  return (!WLTripQry.Eof && WLTripQry.FieldAsInteger("pr_wl") == 0);
+  return !WLTripQry.Eof;
+}
+
+bool TSeatPax::is_waitlist( const PaxId_t& pax_id,
+                            const int seats,
+                            const bool is_jmp,
+                            const ASTRA::TPaxStatus& grp_status,
+                            const PointId_t& point_id )
+{
+  return get_seat_no( pax_id,
+                      seats,
+                      is_jmp,
+                      grp_status,
+                      point_id,
+                      EnumFormatSeats::efOne,
+                      true ).empty();
+}
+
+std::string TSeatPax::get_seat_no(const PaxId_t& pax_id,
+                                  const EnumFormatSeats& format,
+                                  const bool& only_lat)
+{
+  TSeatsProps seatProps;
+  CheckIn::TSimplePaxItem pax;
+  if (!pax.getByPaxId(pax_id.get())) return "";
+  CheckIn::TSimplePaxGrpItem grp;
+  if (!grp.getByPaxId(pax_id.get())) return "";
+    return get_seat_no_int( pax_id,
+                            PointId_t(grp.point_dep),
+                            grp.status,
+                            "",
+                            pax.is_jmp,
+                            pax.seats,
+                            EnumCheckinStatus::psCheckin,
+                            getFlightSetsPrFreeSeating(PointId_t(grp.point_dep)),
+                            format,
+                            only_lat,
+                            seatProps);
+}
+
+std::string TSeatPax::get_seat_no( const PaxId_t& pax_id,
+                                   const int seats,
+                                   const bool is_jmp,
+                                   const ASTRA::TPaxStatus& grp_status,
+                                   const PointId_t& point_id,
+                                   const EnumFormatSeats& format,
+                                   const bool& only_lat )
+{
+  TSeatsProps seatProps;
+  get_seat_no_int(pax_id,
+                  point_id,
+                  grp_status,
+                  "",
+                  is_jmp,
+                  seats,
+                  psCheckin,
+                  getFlightSetsPrFreeSeating(point_id),
+                  format,
+                  only_lat,
+                  seatProps);
+  if (seatProps.from_waitlist) seatProps.seat_no.clear();
+  return seatProps.seat_no;
 }
 
 //===============================================

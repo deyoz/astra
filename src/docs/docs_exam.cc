@@ -5,6 +5,7 @@
 #include "docs_utils.h"
 #include "xml_unit.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #include "serverlib/xmllibcpp.h"
 
@@ -66,7 +67,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         TRemGrp rem_grp;
         if(!Qry.Eof)
         {
-            int rownum = 0;
             rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
 
             bool check_pay_on_tckin_segs=false;
@@ -80,17 +80,17 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             MainPax viewPax;
 
             std::vector<PaxData4Exam> paxDataItems;
+            SEATSPAX::TSeatPaxListCached seatPaxList;
             for( ; !Qry.Eof; Qry.Next()) {
-                rownum++;
                 CheckIn::TSimplePaxItem pax;
                 pax.fromDB(Qry);
-                pax.seat_no = BrdInterface::get_seat_no(
-                      PaxId_t(Qry.FieldAsInteger("pax_id")),
-                      Qry.FieldAsInteger("seats"),
-                      Qry.FieldAsInteger("is_jmp"),
-                      Qry.FieldAsString("status"),
-                      PointId_t(Qry.FieldAsInteger("point_dep")),
-                      rownum);
+                pax.seat_no = seatPaxList.get_seat_no( PaxId_t(Qry.FieldAsInteger("pax_id")),
+                                                       Qry.FieldAsInteger("seats"),
+                                                       Qry.FieldAsInteger("is_jmp"),
+                                                       DecodePaxStatus(Qry.FieldAsString("status")),
+                                                       PointId_t(Qry.FieldAsInteger("point_dep")),
+                                                       SEATSPAX::TSeatPaxListCached::ef_Seats);
+
                 int grp_id = Qry.FieldAsInteger("grp_id");
                 const int bag_refuse = Qry.FieldAsInteger("bag_refuse");
                 const std::string user_descr = Qry.FieldAsString("user_descr");
@@ -148,7 +148,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     } else {
         if(!Qry.Eof)
         {
-            int rownum = 0;
             bool check_pay_on_tckin_segs=false;
             TTripInfo fltInfo;
             if (fltInfo.getByPointId(rpt_params.point_id))
@@ -163,15 +162,14 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
             pax_list.fromDB(Qry, true /*calcExcessPC*/);
 
+            SEATSPAX::TSeatPaxListCached seatPaxList;
             for(const auto &pax: pax_list) {
-                rownum++;
-                std::string seat_no = BrdInterface::get_seat_no(
-                    PaxId_t(Qry.FieldAsInteger("pax_id")),
-                    Qry.FieldAsInteger("seats"),
-                    Qry.FieldAsInteger("is_jmp"),
-                    Qry.FieldAsString("status"),
-                    PointId_t(Qry.FieldAsInteger("point_dep")),
-                    rownum);
+                std::string seat_no = seatPaxList.get_seat_no( PaxId_t(Qry.FieldAsInteger("pax_id")),
+                                                       Qry.FieldAsInteger("seats"),
+                                                       Qry.FieldAsInteger("is_jmp"),
+                                                       DecodePaxStatus(Qry.FieldAsString("status")),
+                                                       PointId_t(Qry.FieldAsInteger("point_dep")),
+                                                       SEATSPAX::TSeatPaxListCached::ef_Seats);
                 if(pax_list.options.flags.isFlag(REPORTS::oeSeatNo) && Qry.FieldAsInteger("seats") > 1) {
                   seat_no += "+" + std::to_string(Qry.FieldAsInteger("seats") - 1);
                 }

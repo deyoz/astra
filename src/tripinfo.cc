@@ -3134,7 +3134,7 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
 void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode )
 {
   bool pr_free_seating = SALONS2::isFreeSeating( point_id );
-  SEATSPAX::TSeatPaxListCached p;
+  SEATSPAX::TSeatPaxListCached seatPaxList;
   bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
 
   //рейс пассажиров
@@ -3216,7 +3216,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
 
   int point_id_tlg=-1;
   xmlNodePtr tripNode=NULL,paxNode=NULL,node=NULL;
-  int crs_row=1, pax_row=1;
   TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
   AstraLocale::OutputLang outputLang;
   for(const SearchCrsResult& searchResult: searchCrsResults)
@@ -3270,23 +3269,22 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     bool no_isseat = false;
 
     if (searchResult.grp_id)
-      p.get_seat_no( searchResult.pax_id,
-                     PointId_t(point_id),
-                     DecodePaxStatus(searchResult.grp_status),
-                     searchResult.refuse,
-                     searchResult.is_jmp,
-                     searchResult.pax_seats ,
-                     SEATSPAX::TSeatPax::psCheckin,
-                     pr_free_seating,
-                     SEATSPAX::TSeatPax::ef_Seats,
-                     seatsProps );
+      seatPaxList.get_seat_no_pnl( searchResult.pax_id,
+                         PointId_t(point_id),
+                         DecodePaxStatus(searchResult.grp_status),
+                         searchResult.refuse,
+                         searchResult.is_jmp,
+                         searchResult.pax_seats ,
+                         pr_free_seating,
+                         SEATSPAX::TSeatPax::ef_Seats,
+                         seatsProps );
     else
-      p.get_seat_no( searchResult.pax_id,
-                     searchResult.point_id_tlg,
-                     searchResult.seats,
-                     pr_free_seating,
-                     SEATSPAX::TSeatPax::ef_Seats,
-                     seatsProps );
+      seatPaxList.get_crs_seat_no_pnl( searchResult.pax_id,
+                             searchResult.point_id_tlg,
+                             searchResult.seats,
+                             pr_free_seating,
+                             SEATSPAX::TSeatPax::ef_Seats,
+                             seatsProps );
 
     no_isseat = ( (!seatsProps.seat_no.empty() && !seatsProps.from_waitlist) || pr_free_seating || !searchResult.seats );
     if ( seatsProps.from_waitlist ) seatsProps.layer_type = cltUnknown;

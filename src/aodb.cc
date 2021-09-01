@@ -36,6 +36,7 @@
 #include "code_convert.h"
 #include "franchise.h"
 #include "baggage_ckin.h"
+#include "crafts/SeatsPax.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -629,6 +630,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   BagReader bag_reader(PointId_t(point_id), std::nullopt, READ::BAGS);
   MainPax viewEx;
   int rownum = 0;
+  SEATSPAX::TSeatPaxListCached seatPaxList;
   while ( !Qry3.Eof ) {
     if ( !pr_unaccomp && Qry3.FieldAsInteger( "seats" ) == 0 ) {
       if ( Qry3.FieldIsNULL( "refuse" ) ) {
@@ -734,16 +736,12 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         viewEx.saveMainPax(grp_id, pax_id, bag_refuse==0);
         bag_pool_num = Qry3.FieldAsInteger("bag_pool_num");
       }
-      DB::TQuery QrySeat(PgOra::getROSession("ORACLE"), STDLOG);
-      QrySeat.SQLText =
-          "SELECT salons.get_seat_no(:pax_id,:seats,NULL,:status,point_id,'one',:num) AS seat_no FROM dual ";
-      QrySeat.CreateVariable("pax_id", otInteger, Qry3.FieldAsInteger("pax_id"));
-      QrySeat.CreateVariable("seats", otInteger, Qry3.FieldAsInteger("seats"));
-      QrySeat.CreateVariable("status", otString, Qry3.FieldAsString("status"));
-      QrySeat.CreateVariable("point_id", otInteger, point_id);
-      QrySeat.CreateVariable("num", otInteger, rownum);
-      QrySeat.Execute();
-      record<<setw(5)<<QrySeat.FieldAsString( "seat_no" );
+      record<<setw(5)<<seatPaxList.get_seat_no(PaxId_t(Qry3.FieldAsInteger("pax_id")),
+                                               Qry3.FieldAsInteger("seats"),
+                                               false,
+                                               DecodePaxStatus(Qry3.FieldAsString("status")),
+                                               PointId_t(point_id),
+                                               SEATSPAX::TSeatPaxListCached::efOne);
       record<<setw(2)<<Qry3.FieldAsInteger( "seats" )-1;
       record<<setw(4)<<TComplexBagExcess(TBagPieces(countPaidExcessPC(pax_id)),
         TBagKilos(viewEx.excessWt(grp_id, pax_id, Qry3.FieldAsInteger("excess_wt")))).getDeprecatedInt();
@@ -1972,7 +1970,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 
     if ( fl.rec_no > NoExists )
       max_rec_no = fl.rec_no;
-      ASTRA::commit();
+    ASTRA::commit();
   }
   DB::TQuery Qry(PgOra::getRWSession("AODB_SPP_FILES"), STDLOG);
   Qry.SQLText = "UPDATE aodb_spp_files SET "

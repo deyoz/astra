@@ -29,7 +29,8 @@ namespace SEATSPAX
         std::string except_seat_trip_comp_layers( const PaxId_t& pax_id,
                                                   const PointId_t& point_id,
                                                   const ASTRA::TCompLayerType& checkin_layer,
-                                                  const EnumFormatSeats& format, bool pr_lat_seat,
+                                                  const EnumFormatSeats& format,
+                                                  bool pr_lat_seat,
                                                   int seats);
         std::string int_checkin_seat_no( const PaxId_t& pax_id,
                                          const PointId_t& point_id,
@@ -74,51 +75,82 @@ namespace SEATSPAX
                                    const ASTRA::TPaxStatus& grp_status,
                                    bool is_jmp,
                                    int seats,
-                                   const EnumFormatSeats& format, bool pr_lat_seat,
+                                   const EnumFormatSeats& format,
+                                   bool pr_lat_seat,
                                    TSeatsProps& seatProps);
       std::string crs_seat_no(const PaxId_t& pax_id,
                               const PointId_t& point_id,
                               int seats,
-                              const EnumFormatSeats& format, bool pr_lat_seat,
+                              const EnumFormatSeats& format,
+                              bool pr_lat_seat,
                               TSeatsProps& seatProps);
     public:
       virtual ~TSeatPax(){}
       //можно вызвать любую, то чем больше параметров передаем, тем меньше запросов
-      std::string get_seat_no( const PaxId_t& pax_id,
-                               const EnumFormatSeats& format );
-      std::string get_seat_no( const PaxId_t& pax_id,
-                               const PointIdTlg_t& point_id,
-                               bool free_seating,
-                               const EnumFormatSeats& format,
-                               bool pr_lat_seat );
-      std::string get_seat_no( const PaxId_t& pax_id,
-                               const PointId_t& point_id,
-                               const ASTRA::TPaxStatus& grp_status,
-                               const std::string& refuse,
-                               bool is_jmp,
-                               int seats,
-                               const EnumCheckinStatus& checkin_status,
-                               bool free_seating,
-                               const EnumFormatSeats& format,
-                               TSeatsProps& seatProps );
-      std::string get_seat_no( const PaxId_t& pax_id,
-                               const PointIdTlg_t& point_id,
-                               int seats,
-                               bool free_seating,
-                               const EnumFormatSeats& format,
-                               TSeatsProps& seatProps );
-      std::string get_seat_no( const PaxId_t& pax_id,
-                               const PointId_t& point_id,
-                               const ASTRA::TPaxStatus& grp_status,
-                               const std::string& refuse,
-                               bool is_jmp,
-                               int seats,
-                               const EnumCheckinStatus& checkin_status,
-                               bool free_seating,
-                               const EnumFormatSeats& format,
-                               bool pr_lat_seat,
-                               TSeatsProps& seatProps );
+      //common - общая функция, которая вернет номер места регистрации, если пассажир зарегистрирован иначе брони
+      std::string get_seat_no_common( const PaxId_t& pax_id,
+                                      const EnumFormatSeats& format,
+                                      const bool& only_lat=false );
+      std::string get_crs_seat_no1( const PaxId_t& pax_id,
+                                    const PointIdTlg_t& point_id,
+                                    bool free_seating,
+                                    const EnumFormatSeats& format,
+                                    const bool& only_lat=false );
+      std::string get_seat_no_pnl( const PaxId_t& pax_id,
+                                   const PointId_t& point_id,
+                                   const ASTRA::TPaxStatus& grp_status,
+                                   const std::string& refuse,
+                                   bool is_jmp,
+                                   int seats,
+                                   bool free_seating,
+                                   const EnumFormatSeats& format,
+                                   TSeatsProps& seatProps );
+      std::string get_crs_seat_no_pnl( const PaxId_t& pax_id,
+                                       const PointIdTlg_t& point_id,
+                                       int seats,
+                                       bool free_seating,
+                                       const EnumFormatSeats& format,
+                                       TSeatsProps& seatProps );
+      std::string get_seat_no_int( const PaxId_t& pax_id,
+                                   const PointId_t& point_id,
+                                   const ASTRA::TPaxStatus& grp_status,
+                                   const std::string& refuse,
+                                   bool is_jmp,
+                                   int seats,
+                                   const EnumCheckinStatus& checkin_status,
+                                   bool free_seating,
+                                   const EnumFormatSeats& format,
+                                   const bool& only_lat,
+                                   TSeatsProps& seatProps );
+
       bool is_waitlist( const PointId_t& point_id );
+      /////////////////////////////////////////////////////////
+      bool is_waitlist( const PaxId_t& pax_id,
+                        const int seats,
+                        const bool is_jmp,
+                        const ASTRA::TPaxStatus& grp_status,
+                        const PointId_t& point_id );
+      std::string get_crs_seat_no( const PaxId_t& pax_id,
+                                   const int seats,
+                                   const PointIdTlg_t& point_id,
+                                   const EnumFormatSeats& format,
+                                   const bool& only_lat=false );
+      std::string get_crs_seat_no( const PaxId_t& pax_id,
+                                   const int seats,
+                                   const PointIdTlg_t& point_id,
+                                   TCompLayerType& layer_type,
+                                   const EnumFormatSeats& format,
+                                   const bool& only_lat=false );
+      std::string get_seat_no( const PaxId_t& pax_id,
+                               const int seats,
+                               const bool is_jmp,
+                               const ASTRA::TPaxStatus& grp_status,
+                               const PointId_t& point_id,
+                               const EnumFormatSeats& format,
+                               const bool& only_lat=false);
+      std::string get_seat_no(const PaxId_t& pax_id,
+                              const EnumFormatSeats& format,
+                              const bool& only_lat=false);
   };
 
   struct FlightSetsCache {
@@ -130,7 +162,8 @@ namespace SEATSPAX
     std::map<int,TFilterLayers> filters;
   };
 
-  //особого смысла нет, т.к. этот класса для работы по одному пассажиру
+  //имеет смысл использовать, когда есть несколько запросов по номеру места пассажира. например с разными pr_lat_seat или форматами
+  //например в посадке
   class TSeatPaxCached: public TSeatPax {
     protected:
       FlightSetsCache data;
