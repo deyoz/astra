@@ -1816,5 +1816,13 @@ class ServiceTypes: public CacheTableReadonly
     std::list<std::string> dbSessionObjectNames() const override;
 };
 
+class RateColors: public CacheTableReadonly
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
 
 }//namespace CacheTable

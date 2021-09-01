@@ -183,6 +183,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="REFUSE")              return new CacheTable::RefusalTypes;
   if (cacheCode=="TYPEB_TRANSPORTS_OTHERS") return new CacheTable::TypeBTransportOthers;
   if (cacheCode=="SERVICE_TYPES")       return new CacheTable::ServiceTypes;
+  if (cacheCode=="RATE_COLORS")         return new CacheTable::RateColors;
 
   return nullptr;
 }
@@ -6734,6 +6735,18 @@ std::string ServiceTypes::selectSql() const {
 }
 std::list<std::string> ServiceTypes::dbSessionObjectNames() const {
   return {"SERVICE_TYPES"};
+}
+
+//RateColors
+
+bool RateColors::userDependence() const {
+  return false;
+}
+std::string RateColors::selectSql() const {
+  return "SELECT code, name, name_lat FROM rate_colors ORDER BY code";
+}
+std::list<std::string> RateColors::dbSessionObjectNames() const {
+  return {"RATE_COLORS"};
 }
 
 } //namespace CacheTables
