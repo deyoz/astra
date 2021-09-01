@@ -199,13 +199,13 @@ namespace PgOra
                                                           "TRIP_TYPES",   "DELAYS",
                                       "TRIP_LITERS",
                                       "PAY_TYPES",        "RCPT_DOC_TYPES",
-                                      "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
+                                                                          "PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",
                                       "SEAT_DESCR",       "LANG_TYPES",   "CLASSES",
                                       "FORM_TYPES",       "FORM_PACKS",   "TYPEB_OPTION_VALUES" } },
 
         { "SP_PG_GROUP_BASETABLES_ORA", { "REFUSAL_TYPES" } },
-        { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES", "PAX_CATS" } },
+        { "SP_PG_GROUP_BASETABLES", { "GENDER_TYPES", "PAX_CATS", "PAX_DOC_TYPES", "PAX_DOC_SUBTYPES", } },
         { "SP_PG_GROUP_BASETABLES_HIST", { "HIST_REFUSAL_TYPES", "HIST_PAX_CATS" } },
 
         { "SP_PG_GROUP_FAKE_DUAL_BT", { // FAKE DUAL USED IN base_tables.cc
@@ -605,7 +605,7 @@ namespace PgOra
 #endif
     }
 
-    bool supportsPg(const std::initializer_list<std::string>& objects)
+    bool supportsPg(const std::list<std::string>& objects)
     {
       for (auto &obj : objects)
       {
@@ -613,6 +613,11 @@ namespace PgOra
           return false;
       }
       return true;
+    }
+
+    bool supportsPg(const std::initializer_list<std::string>& objects)
+    {
+        return supportsPg(std::list<std::string>(objects));
     }
 
     DbCpp::Session& getROSession(const std::string& objectName)

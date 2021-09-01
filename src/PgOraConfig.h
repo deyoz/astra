@@ -38,6 +38,7 @@ namespace PgOra
     DbCpp::Session& getRWSession(const std::string& objectName);
     DbCpp::Session& getAutoSession(const std::string& objectName);
     bool supportsPg(const std::string& objectName);
+    bool supportsPg(const std::list<std::string>& objects);
     bool supportsPg(const std::initializer_list<std::string>& objects);
     std::string getGroup(const std::string& objectName);
 

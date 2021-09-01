@@ -1683,6 +1683,38 @@ public:
     std::list<std::string> dbSessionObjectNames() const override;
 };
 
+class PaxDocTypes: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class PaxDocTypes2: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class PaxDocoTypes: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
+class PaxDocoTypes2: public CacheTableReadonly
+{
+public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
 class PaxCats: public CacheTableWritable
 {
 public:

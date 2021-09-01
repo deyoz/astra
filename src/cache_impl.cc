@@ -148,6 +148,10 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="DCS_ADDR_SET")        return new CacheTable::DcsAddrSet;
   if (cacheCode=="GENDER_TYPES")        return new CacheTable::GenderTypes;
   if (cacheCode=="PAX_CATS")            return new CacheTable::PaxCats;
+  if (cacheCode=="PAX_DOC_TYPES")       return new CacheTable::PaxDocTypes;
+  if (cacheCode=="PAX_DOC_TYPES2")      return new CacheTable::PaxDocTypes2;
+  if (cacheCode=="PAX_DOCO_TYPES")      return new CacheTable::PaxDocoTypes;
+  if (cacheCode=="PAX_DOCO_TYPES2")     return new CacheTable::PaxDocoTypes2;
   if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
   if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
   if (cacheCode=="DESK_LOGGING")        return new CacheTable::DeskLogging;
@@ -204,6 +208,11 @@ void checkInvalidSymbolInName(const std::string &value,
                         LParams() << LParam("field_name", fieldName)
                                   << LParam("symbol", *ch));
   }
+}
+
+std::string dualSql(const std::list<std::string>& dbSessionObjectNames)
+{
+    return PgOra::supportsPg(dbSessionObjectNames) ? "" : " FROM dual ";
 }
 
 bool GrpBagTypesOutdated::userDependence() const {
@@ -6224,6 +6233,80 @@ std::string GenderTypes::selectSql() const {
 
 std::list<std::string> GenderTypes::dbSessionObjectNames() const {
     return { "GENDER_TYPES" };
+}
+
+// pax_doc_types
+
+bool PaxDocTypes::userDependence() const {
+    return false;
+}
+
+std::string PaxDocTypes::selectSql() const {
+    return "SELECT code, code code_lat, name, name_lat FROM pax_doc_types "
+           "WHERE code NOT IN ('V','AC','L') "
+           "UNION "
+           "SELECT doc_type||code code, doc_type||code code_lat, name, name_lat FROM pax_doc_subtypes "
+           "WHERE doc_type NOT IN ('V','AC','L') "
+           "ORDER BY code";
+}
+
+std::list<std::string> PaxDocTypes::dbSessionObjectNames() const {
+    return { "PAX_DOC_TYPES", "PAX_DOC_SUBTYPES" };
+}
+
+// pax_doc_types2
+
+bool PaxDocTypes2::userDependence() const {
+    return false;
+}
+
+std::string PaxDocTypes2::selectSql() const {
+    return "SELECT code, code code_lat, name, name_lat FROM pax_doc_types "
+           "WHERE is_docs_type<>0 "
+           "ORDER BY code";
+}
+
+std::list<std::string> PaxDocTypes2::dbSessionObjectNames() const {
+    return { "PAX_DOC_TYPES" };
+}
+
+// pax_doco_types
+
+bool PaxDocoTypes::userDependence() const {
+    return false;
+}
+
+std::string PaxDocoTypes::selectSql() const {
+    return "SELECT code, code code_lat, name, name_lat FROM pax_doc_types "
+           "WHERE code IN ('V') "
+           "UNION "
+           "SELECT doc_type||code code, doc_type||code code_lat, name, name_lat FROM pax_doc_subtypes "
+           "WHERE doc_type IN ('V') "
+           "UNION "
+           "SELECT '-', '-', 'Виза не требуется', 'Visa is not required'" + dualSql(dbSessionObjectNames()) +
+           "ORDER BY code";
+}
+
+std::list<std::string> PaxDocoTypes::dbSessionObjectNames() const {
+    return { "PAX_DOC_TYPES", "PAX_DOC_SUBTYPES" };
+}
+
+// pax_doco_types2
+
+bool PaxDocoTypes2::userDependence() const {
+    return false;
+}
+
+std::string PaxDocoTypes2::selectSql() const {
+    return "SELECT code, code code_lat, name, name_lat FROM pax_doc_types "
+           "WHERE is_doco_type<>0 "
+           "UNION "
+           "SELECT '-', '-', 'Въездной документ не требуется', 'Въездной документ не требуется'" + dualSql(dbSessionObjectNames()) +
+           "ORDER BY code";
+}
+
+std::list<std::string> PaxDocoTypes2::dbSessionObjectNames() const {
+    return { "PAX_DOC_TYPES" };
 }
 
 // pax_cats
