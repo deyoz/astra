@@ -181,6 +181,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="USERS_TYPES")         return new CacheTable::UserTypes;
   if (cacheCode=="REFUSE")              return new CacheTable::RefusalTypes;
   if (cacheCode=="TYPEB_TRANSPORTS_OTHERS") return new CacheTable::TypeBTransportOthers;
+  if (cacheCode=="SERVICE_TYPES")       return new CacheTable::ServiceTypes;
 
   return nullptr;
 }
@@ -6653,6 +6654,18 @@ void Desks::afterApplyingRowChanges(const TCacheUpdateStatus status, const std::
                                     const std::optional<Row> &newRow) const
 {
     HistoryTable("DESK_GRP_SETS").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//ServiceTypes
+
+bool ServiceTypes::userDependence() const {
+  return false;
+}
+std::string ServiceTypes::selectSql() const {
+  return "SELECT code, name, name_lat FROM service_types ORDER BY code";
+}
+std::list<std::string> ServiceTypes::dbSessionObjectNames() const {
+  return {"SERVICE_TYPES"};
 }
 
 } //namespace CacheTables

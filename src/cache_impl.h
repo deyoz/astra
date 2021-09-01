@@ -1791,5 +1791,13 @@ public:
                                  const std::optional<CacheTable::Row>& newRow) const;
 };
 
+class ServiceTypes: public CacheTableReadonly
+{
+  public:
+    bool userDependence() const override;
+    std::string selectSql() const override;
+    std::list<std::string> dbSessionObjectNames() const override;
+};
+
 
 }//namespace CacheTable
