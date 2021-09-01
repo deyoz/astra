@@ -384,10 +384,14 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     if(move_ids.empty()) {
         readMoveIds();
     }
-
     HelpCpp::Timer timer;
     while (!move_ids.empty())
     {
+        if(timer.elapsedSeconds() > duration) {
+            LogTrace(TRACE6) << " TArxMoveFlt timer expired: " << timer.elapsedSeconds();
+            return false;
+        }
+
         MoveId_t move_id = move_ids.begin()->first;
         Dates::time_period date_period = move_ids.begin()->second;
         LogTrace(TRACE6) << __func__ << " move_id: " << move_id;
@@ -1744,12 +1748,13 @@ void move_noflt(const Dates::DateTime_t& arx_date, int max_rows, int time_durati
 {
     LogTrace(TRACE6) << __FUNCTION__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
-    Dates::DateTime_t local_time = Dates::second_clock::local_time();
-    Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
-    //Dates::DateTime_t time_finish = NowUTC() + time_duration/86400;
+    HelpCpp::Timer timer;
+
     while(step >= 1 && step <=4) {
         int rowsize = 0;
-        if(local_time > time_finish) {
+        if(timer.elapsedSeconds() > time_duration) {
+            LogTrace(TRACE5) << " move_noflt timer expired: " << timer.elapsedSeconds();
+            step = 0;
             return;
         }
         if(step == 1) {
@@ -1785,7 +1790,7 @@ bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
     HelpCpp::Timer timer;
     move_noflt(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
-    LogTrace(TRACE6) << " MoveNoFlt time: " << timer.elapsedSeconds();
+    LogTrace(TRACE5) << " MoveNoFlt time: " << timer.elapsedSeconds();
     proc_count++;
     return step>0;
 };
@@ -1852,6 +1857,10 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
     HelpCpp::Timer timer;
     while (!tlg_trip_points.empty())
     {
+        if(timer.elapsedSeconds() > duration) {
+            LogTrace(TRACE5) << " TArxTlgTrips timer expired: " << timer.elapsedSeconds();
+            return false;
+        }
         PointIdTlg_t point_id = tlg_trip_points.front();
         tlg_trip_points.erase(tlg_trip_points.begin());
         try
@@ -1866,7 +1875,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
             throw;
         };
     };
-    LogTrace(TRACE6) << " TArxTlgTrips time: " << timer.elapsedSeconds();
+    LogTrace(TRACE5) << " TArxTlgTrips time: " << timer.elapsedSeconds();
 
     return false;
 };
@@ -1928,6 +1937,10 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
     HelpCpp::Timer timer;
     while (!tlg_ids.empty())
     {
+        if(timer.elapsedSeconds() > duration) {
+            LogTrace(TRACE5) << " TArxTypeBIn timer expired: " << timer.elapsedSeconds();
+            return false;
+        }
         int tlg_id = tlg_ids.begin()->first;
         tlg_ids.erase(tlg_ids.begin());
 
@@ -1944,7 +1957,7 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
             throw;
         };
     };
-    LogTrace(TRACE6) << " TArxTypeBIn time: " << timer.elapsedSeconds();
+    LogTrace(TRACE5) << " TArxTypeBIn time: " << timer.elapsedSeconds();
     return false;
 }
 
@@ -2073,11 +2086,12 @@ void norms_rates_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_d
 {
     LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
-    Dates::DateTime_t local_time = Dates::second_clock::local_time();
-    Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
+    HelpCpp::Timer timer;
     while(step >= 1 && step <=5) {
         int rowsize = 0;
-        if(local_time > time_finish) {
+        if(timer.elapsedSeconds() > time_duration) {
+            LogTrace(TRACE5) << " norms_rates_etc timer expired: " << timer.elapsedSeconds();
+            step = 0;
             return;
         }
         if(step == 1) {
@@ -2115,7 +2129,7 @@ bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
     HelpCpp::Timer timer;
     norms_rates_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
-    LogTrace(TRACE6) << " TArxNormsRatesEtc time: " << timer.elapsedSeconds();
+    LogTrace(TRACE5) << " TArxNormsRatesEtc time: " << timer.elapsedSeconds();
     proc_count++;
     return step > 0;
 };
@@ -2200,17 +2214,13 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     dbo::Session session;
 
-    LogTrace5 << __func__ << " arx_date: " << arx_date << " remain_rows: " << remain_rows;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date << " remain_rows: " << remain_rows;
     std::vector<dbo::FILES> files = session.query<dbo::FILES>()
             .where("time < :arx_date")
             .fetch_first(":remain_rows")
             .for_update(true)
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
-    LogTrace5 << " FILES DELETED SIZE: " << files.size();
-    for(const auto & f : files) {
-        LogTrace5 << " f.id: " << f.id << " f.time: " << f.time;
-    }
     for(const auto & f : files) {
         make_db_curs("delete from FILE_PARAMS where ID = :id", PgOra::getRWSession("FILE_PARAMS")).bind(":id", f.id).exec();
         make_db_curs("delete from FILE_QUEUE where ID = :id", PgOra::getRWSession("FILE_QUEUE")).bind(":id", f.id).exec();
@@ -2347,11 +2357,12 @@ void tlgs_files_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_du
 {
     LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
-    Dates::DateTime_t local_time = Dates::second_clock::local_time();
-    Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
+    HelpCpp::Timer timer;
     while(step >= 1 && step <=8) {
         int rowsize = 0;
-        if(local_time > time_finish) {
+        if(timer.elapsedSeconds() > time_duration) {
+            LogTrace(TRACE5) << " tlgs_files_etc timer expired: " << timer.elapsedSeconds();
+            step = 0;
             return;
         }
         if(step == 1) {
@@ -2395,7 +2406,7 @@ bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
     HelpCpp::Timer timer;
     tlgs_files_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
-    LogTrace(TRACE6) << "TArxTlgsFilesEtc time: " << timer.elapsedSeconds();
+    LogTrace(TRACE5) << "TArxTlgsFilesEtc time: " << timer.elapsedSeconds();
     proc_count++;
     return step > 0;
 };
@@ -2430,7 +2441,7 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
 
     if (time(NULL)-prior_exec<ARX::ARX_SLEEP()) return false;
 
-    dbo::initStructures();
+    //dbo::initStructures();
 
     time_t time_finish = time(NULL)+ARX::ARX_DURATION();
 
@@ -2517,7 +2528,7 @@ bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
 {
     LogTrace(TRACE6) << __FUNCTION__ << " step: " << step;
 
-    dbo::initStructures();
+    //dbo::initStructures();
     auto arxMove = create_arx_manager(utcdate, step);
 
     LogTrace(TRACE6) << "arx_daily_pg: "
@@ -2799,7 +2810,7 @@ START_TEST(check_arx_tlgs)
     fail_unless(procTlg(tlg_id));                         // src/tlg/tlg.cpp
     errorTlg(tlg_id,"PARS", "bad system");                // src/tlg/tlg.cpp
 
-    dbo::initStructures();
+    //dbo::initStructures();
     const auto date = Dates::second_clock::universal_time() + Dates::days(15);
     fail_unless(1 == PG_ARX::arx_tlgs(date, 1));          // src/arx_daily_pg.cpp
 
