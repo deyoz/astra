@@ -370,6 +370,9 @@ namespace PgOra
                 "TYPEB_SENDER_SYSTEMS",
                 "HIST_TYPEB_SEND",
         }},
+        { "SP_PG_GROUP_TYPEB_HELP", {
+                "TYPEB_HELP",
+        }},
         { "SP_PG_GROUP_CRS_PNR", {
                 "CRS_PNR",
                 "CRS_PAX",

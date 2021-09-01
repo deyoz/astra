@@ -106,55 +106,57 @@ void TypeBHelp::fromDB(int typeb_in_id)
     tlgs_id = getTlgsId(typeb_in_id);
     if(tlgs_id == ASTRA::NoExists) return;
 
-    QParams QryParams;
-    QryParams
-        << QParam("tlgs_id", otInteger, tlgs_id)
-        << QParam("address", otString)
-        << QParam("intmsgid", otString)
-        << QParam("text", otString)
-        << QParam("timeout", otDate)
-        ;
-    TCachedQuery Qry(
-            "begin "
-            "delete from typeb_help where tlgs_id = :tlgs_id "
-            "returning "
-            "   tlgs_id, "
-            "   address, "
-            "   intmsgid, "
-            "   text, "
-            "   timeout "
-            "into "
-            "   :tlgs_id, "
-            "   :address, "
-            "   :intmsgid, "
-            "   :text, "
-            "   :timeout; "
-            "end; ",
-            QryParams);
-    Qry.get().Execute();
-    if(Qry.get().VariableIsNULL("intmsgid"))
+    QParams params;
+    params << QParam("tlgs_id", otInteger, tlgs_id);
+
+    DB::TCachedQuery QryLock(
+        PgOra::getRWSession("TYPEB_HELP"),
+        "SELECT tlgs_id, address, intmsgid, text, timeout "
+        "FROM typeb_help "
+        "WHERE tlgs_id = :tlgs_id "
+        "FOR UPDATE",
+        params,
+        STDLOG
+    );
+    QryLock.get().Execute();
+
+    DB::TCachedQuery QryDel(
+        PgOra::getRWSession("TYPEB_HELP"),
+        "DELETE FROM typeb_help "
+        "WHERE tlgs_id = :tlgs_id",
+        params,
+        STDLOG
+    );
+    QryDel.get().Execute();
+
+    if (QryLock.get().RowsProcessed() == 0) {
         tlgs_id = ASTRA::NoExists;
-    else {
-        addr = Qry.get().GetVariableAsString("address");
-        intmsgid = Qry.get().GetVariableAsString("intmsgid");
-        text = Qry.get().GetVariableAsString("text");
+    } else {
+        addr = QryLock.get().FieldAsString("address");
+        intmsgid = QryLock.get().FieldAsString("intmsgid");
+        text = QryLock.get().FieldAsString("text");
     }
     timeout = ASTRA::NoExists;
 }
 
 void TypeBHelp::toDB()
 {
-    QParams QryParams;
-    QryParams
-        << QParam("address", otString, addr)
-        << QParam("intmsgid", otString, intmsgid)
-        << QParam("text", otString, text)
-        << QParam("tlgs_id", otInteger, tlgs_id)
-        << QParam("timeout", otInteger, timeout);
-    TCachedQuery Qry(
-            "insert into typeb_help(address, intmsgid, text, tlgs_id, timeout) "
-            "values(:address, :intmsgid, :text, :tlgs_id, system.utcsysdate + :timeout/(24*60*60))", QryParams);
-    Qry.get().Execute();
+    QParams params;
+    params << QParam("address", otString, addr)
+           << QParam("intmsgid", otString, intmsgid)
+           << QParam("text", otString, text)
+           << QParam("tlgs_id", otInteger, tlgs_id)
+           << QParam("timeout", otDate, BASIC::date_time::NowUTC() + static_cast<TDateTime>(timeout) / (24 * 60 * 60));
+
+    DB::TCachedQuery QryIns(
+        PgOra::getRWSession("TYPEB_HELP"),
+        "INSERT INTO typeb_help (address, intmsgid, text, tlgs_id, timeout) "
+        "VALUES (:address, :intmsgid, :text, :tlgs_id, :timeout",
+        params,
+        STDLOG
+    );
+
+    QryIns.get().Execute();
 }
 
 string IntMsgIdAsString(const int msg_id[])
@@ -241,8 +243,14 @@ bool notify_msg(int typeb_in_id, const string &str)
 
 void clean_typeb_help()
 {
-    TCachedQuery Qry("delete from typeb_help where timeout < system.utcsysdate");
-    Qry.get().Execute();
+    DB::TCachedQuery QryDel(
+        PgOra::getRWSession("TYPEB_HELP"),
+        "DELETE FROM typeb_help "
+        "WHERE timeout < :timeout",
+        QParams() << QParam("timeout", otDate, BASIC::date_time::NowUTC()),
+        STDLOG
+    );
+    QryDel.get().Execute();
 }
 
 }
