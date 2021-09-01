@@ -536,6 +536,9 @@ namespace PgOra
                 "SERVICE_TYPES",
                 "RCPT_SERVICE_TYPES",
         }},
+        { "SP_PG_GROUP_TERM_MODES", {
+                "TERM_MODES",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
