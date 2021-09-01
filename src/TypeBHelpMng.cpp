@@ -151,7 +151,7 @@ void TypeBHelp::toDB()
     DB::TCachedQuery QryIns(
         PgOra::getRWSession("TYPEB_HELP"),
         "INSERT INTO typeb_help (address, intmsgid, text, tlgs_id, timeout) "
-        "VALUES (:address, :intmsgid, :text, :tlgs_id, :timeout",
+        "VALUES (:address, :intmsgid, :text, :tlgs_id, :timeout)",
         params,
         STDLOG
     );
