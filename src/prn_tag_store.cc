@@ -169,8 +169,9 @@ void TPrnTagStore::tst_get_tag_list(std::vector<string> &tags)
 
 void TPrnTagStore::TPrnTestTags::Init()
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select name, type, value, value_lat from prn_test_tags";
+    DB::TQuery Qry(PgOra::getROSession("PRN_TEST_TAGS"), STDLOG);
+    Qry.SQLText = "SELECT name, type, value, value_lat "
+                  "FROM prn_test_tags";
     Qry.Execute();
     if(Qry.Eof)
         throw Exception("TPrnTagStore::TPrnTestTags::Init: table prn_test_tags is empty");

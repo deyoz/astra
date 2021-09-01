@@ -130,10 +130,7 @@ namespace PgOra
                 "DEL_VO",
                 "TRIP_BT",       // "BT_MODELS","PRN_FORM_VERS"
                 "BI_PRINT_TYPES",
-        } },
-
-        { "SP_PG_GROUP_PRN_TEST_TAGS",{
-                "PRN_TEST_TAGS", // "PAX",
+                "PRN_TEST_TAGS",
         } },
 
         { "SP_PG_GROUP_CKIN_CLIENT",{

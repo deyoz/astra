@@ -1708,20 +1708,22 @@ class TScanParams
 
 bool ParseScanBPData(const string& data, TScanParams& params)
 {
-  DbCpp::Session& session = PgOra::getROSession({"PAX","PRN_TEST_TAGS"});
-  DB::TQuery Qry(session, STDLOG);
-  Qry.SQLText =
+  DB::TQuery QryPax(PgOra::getROSession("PAX"), STDLOG);
+  QryPax.SQLText =
       "SELECT pax_id "
-      "FROM pax WHERE pax_id=:pax_id "
-      "UNION "
-      + std::string(
-        session.isOracle()
-        ? "SELECT TO_NUMBER(value) FROM prn_test_tags "
-          "WHERE name=:tag_name AND TO_NUMBER(value)=:pax_id"
-        : "SELECT CAST(value AS NUMERIC) FROM prn_test_tags "
-          "WHERE name=:tag_name AND CAST(value AS NUMERIC)=:pax_id");
-  Qry.DeclareVariable("pax_id",otInteger);
-  Qry.CreateVariable("tag_name",otString,"pax_id");
+      "FROM pax WHERE pax_id=:pax_id ";
+  QryPax.DeclareVariable("pax_id",otInteger);
+
+  DbCpp::Session& session = PgOra::getROSession("PRN_TEST_TAGS");
+  DB::TQuery QryTestTags(session, STDLOG);
+  QryTestTags.SQLText =
+      session.isOracle()
+      ? "SELECT TO_NUMBER(value) FROM prn_test_tags "
+        "WHERE name=:tag_name AND TO_NUMBER(value)=:pax_id"
+      : "SELECT CAST(value AS NUMERIC) FROM prn_test_tags "
+        "WHERE name=:tag_name AND CAST(value AS NUMERIC)=:pax_id";
+  QryTestTags.DeclareVariable("pax_id",otInteger);
+  QryTestTags.CreateVariable("tag_name",otString,"pax_id");
 
 
   string str=data;
@@ -1753,9 +1755,11 @@ bool ParseScanBPData(const string& data, TScanParams& params)
         if (!IsDigit(str[p+j])) throw EConvertError("11");
 
       pax_id=ToInt(str.substr(p,10));
-      Qry.SetVariable("pax_id",pax_id);
-      Qry.Execute();
-      if (!Qry.Eof)
+      QryPax.SetVariable("pax_id",pax_id);
+      QryPax.Execute();
+      QryTestTags.SetVariable("pax_id",pax_id);
+      QryTestTags.Execute();
+      if (!QryPax.Eof || !QryTestTags.Eof)
       {
         if (init) return false;
         params.prefix=str.substr(0,ph);
