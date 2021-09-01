@@ -539,6 +539,9 @@ namespace PgOra
         { "SP_PG_GROUP_TERM_MODES", {
                 "TERM_MODES",
         }},
+        { "SP_PG_GROUP_TERM_PARAM_AIRLINES", {
+                "TERM_PARAM_AIRLINES", // AIRLINES
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
