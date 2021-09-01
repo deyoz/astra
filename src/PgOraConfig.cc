@@ -532,6 +532,10 @@ namespace PgOra
         { "SP_PG_GROUP_RATE_COLORS", {
                 "RATE_COLORS",
         }},
+        { "SP_PG_GROUP_SERVICE_TYPES", {
+                "SERVICE_TYPES",
+                "RCPT_SERVICE_TYPES",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

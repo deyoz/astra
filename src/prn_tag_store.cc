@@ -3851,8 +3851,8 @@ string TPrnTagStore::REMARKS5(TFieldParams fp)
 string TBagReceipt::get_service_name(bool is_inter)
 {
     if(service_name.empty()) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =  "select name, name_lat from rcpt_service_types where code = :code";
+        DB::TQuery Qry(PgOra::getROSession("RCPT_SERVICE_TYPES"), STDLOG);
+        Qry.SQLText =  "SELECT name, name_lat FROM rcpt_service_types WHERE code = :code";
         Qry.CreateVariable("code", otInteger, service_type);
         Qry.Execute();
         if(Qry.Eof) throw Exception("TBagReceipt::get_service_name: service_type not found (code = %d)", service_type);
@@ -3939,4 +3939,3 @@ bool get_pr_print_emda(int pax_id, const string &emd_no, int emd_coupon)
     Qry.get().Execute();
     return not Qry.get().Eof;
 }
-
