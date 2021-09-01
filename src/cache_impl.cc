@@ -149,6 +149,11 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="PAX_CATS")            return new CacheTable::PaxCats;
   if (cacheCode=="DESK_OWNERS_ADD")     return new CacheTable::DeskOwnersAdd;
   if (cacheCode=="DESK_OWNERS_GRP")     return new CacheTable::DeskOwnersGrp;
+  if (cacheCode=="DESK_LOGGING")        return new CacheTable::DeskLogging;
+  if (cacheCode=="DESK_TRACES")         return new CacheTable::DeskTraces;
+  if (cacheCode=="DESK_GRP")            return new CacheTable::DeskGrp;
+  if (cacheCode=="DESK_GRP_SETS")       return new CacheTable::DeskGrpSets;
+  if (cacheCode=="DESKS")               return new CacheTable::Desks;
   if (cacheCode=="RFISC_RATES")         return new CacheTable::RfiscRates;
   if (cacheCode=="RFISC_RATES_SELF_CKIN") return new CacheTable::RfiscRatesSelfCkin;
   if (cacheCode=="RFIC_TYPES")          return new CacheTable::RficTypes;
@@ -5954,6 +5959,8 @@ void DeskOwnersGrp::beforeApplyingRowChanges(const TCacheUpdateStatus status, co
     checkDeskGrpAccess("desk_grp_id", false, std::nullopt, newRow);
 }
 
+
+
 // edifact_profiles
 
 bool EdifactProfiles::userDependence() const {
@@ -6261,6 +6268,391 @@ std::string TypeBTransportOthers::selectSql() const {
 
 std::list<std::string> TypeBTransportOthers::dbSessionObjectNames() const {
     return { "MSG_TRANSPORTS" };
+}
+
+std::string DeskLogging::insertSql() const
+{
+    return "  INSERT INTO desk_logging(desk, file_size, send_size, send_portion, backup_num) "
+           "  VALUES(:desk, :file_size, :send_size, :send_portion, :backup_num); ";
+}
+
+std::string DeskLogging::updateSql() const
+{
+    return  " UPDATE desk_logging "
+            " SET desk=:desk, file_size=:file_size, send_size=:send_size, send_portion=:send_portion, "
+            "   backup_num=:backup_num "
+            " WHERE desk=:OLD_desk; ";
+}
+
+std::string DeskLogging::deleteSql() const
+{
+    return " DELETE FROM desk_logging WHERE desk=:OLD_desk; ";
+}
+
+std::list<std::string> DeskLogging::dbSessionObjectNames() const
+{
+    return {"DESK_LOGGING"};
+}
+
+void DeskLogging::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    DB::TQuery Qry(PgOra::getROSession("DESK_LOGGING"), STDLOG);
+    Qry.SQLText =
+        " SELECT desk, file_size, send_size, send_portion, backup_num "
+        " FROM desk_logging "
+        " ORDER BY desk ";
+    Qry.Execute();
+    if (Qry.Eof) return;
+
+    int idxDesk=Qry.FieldIndex("desk");
+    int idxFileSize=Qry.FieldIndex("file_size");
+    int idxSendSize=Qry.FieldIndex("send_size");
+    int idxSendPortion=Qry.FieldIndex("send_portion");
+    int idxBackupNum=Qry.FieldIndex("backup_num");
+
+    for(;!Qry.Eof; Qry.Next()) {
+        if(!checkViewAccess(Qry, idxDesk)) continue;
+
+        rows.setFromString(Qry,  idxDesk)
+            .setFromInteger(Qry, idxFileSize)
+            .setFromInteger(Qry, idxSendSize)
+            .setFromInteger(Qry, idxSendPortion)
+            .setFromInteger(Qry, idxBackupNum)
+            .addRow();
+    }
+}
+
+void DeskLogging::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                           std::optional<Row> &newRow) const
+{
+    checkDeskAccess("desk", oldRow, newRow);
+}
+
+std::string DeskTraces::insertSql() const
+{
+    return " INSERT INTO desk_traces(id,desk, first_trace, last_trace) "
+           " VALUES(:id, :desk, :first_trace, :last_trace) ";
+}
+
+std::string DeskTraces::updateSql() const
+{
+    return  "  UPDATE desk_traces "
+            "  SET desk=:desk, first_trace=:first_trace, last_trace=:last_trace "
+            "  WHERE id=:OLD_id ";
+}
+
+std::string DeskTraces::deleteSql() const
+{
+    return " DELETE FROM desk_traces WHERE id=:OLD_id ";
+}
+
+std::list<std::string> DeskTraces::dbSessionObjectNames() const
+{
+    return {"DESK_TRACES"};
+}
+
+void DeskTraces::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    DB::TQuery Qry(PgOra::getROSession("DESK_TRACES"), STDLOG);
+    Qry.SQLText =
+        " SELECT id, desk, first_trace, last_trace "
+        " FROM desk_traces "
+        " ORDER BY desk ";
+    Qry.Execute();
+    if (Qry.Eof) return;
+
+    int idxId=Qry.FieldIndex("id");
+    int idxDesk=Qry.FieldIndex("desk");
+    int idxFirstTrace=Qry.FieldIndex("first_trace");
+    int idxLastTrace=Qry.FieldIndex("last_trace");
+
+    for(;!Qry.Eof; Qry.Next()) {
+        if(!checkViewAccess(Qry, idxDesk)) continue;
+
+        rows.setFromInteger(Qry, idxId)
+            .setFromString(Qry,  idxDesk)
+            .setFromInteger(Qry, idxFirstTrace)
+            .setFromInteger(Qry, idxLastTrace)
+            .addRow();
+    }
+}
+
+void DeskTraces::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                          std::optional<Row> &newRow) const
+{
+    checkDeskAccess("desk", oldRow, newRow);
+    setRowId("id", status, newRow);
+}
+
+bool DeskGrpWritable::userDependence() const
+{
+    return true;
+}
+
+bool DeskGrpWritable::checkViewAccess(DB::TQuery &Qry, int idxDeskGrpId) const
+{
+    if (!deskGrpViewAccess) deskGrpViewAccess.emplace();
+
+    DeskGrpId_t deskGrpId(Qry.FieldAsInteger(idxDeskGrpId));
+    if (!deskGrpViewAccess.value().check(deskGrpId)) return false;
+
+    return true;
+}
+
+std::string DeskGrp::insertSql() const
+{
+    return " INSERT INTO desk_grp(grp_id, descr, descr_lat, city, airline, airp) "
+           " VALUES(:id, :name, :name_lat, :city, :airline, :airp) ";
+}
+
+std::string DeskGrp::updateSql() const
+{
+    return " UPDATE desk_grp "
+           " SET descr=:name, descr_lat=:name_lat, city=:city, airline=:airline, airp=:airp "
+           " WHERE grp_id=:OLD_grp_id ";
+}
+
+std::string DeskGrp::deleteSql() const
+{
+    return " DELETE FROM desk_grp "
+           " WHERE grp_id=:OLD_grp_id ";
+}
+
+std::list<std::string> DeskGrp::dbSessionObjectNames() const
+{
+    return {"DEsK_GRP"};
+}
+
+void DeskGrp::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    DB::TQuery Qry(PgOra::getROSession("DESK_GRP"), STDLOG);
+    Qry.SQLText =
+        " SELECT grp_id, descr AS name, descr_lat AS name_lat, city, airline, airp "
+        " FROM desk_grp "
+        " ORDER BY descr ";
+    Qry.Execute();
+    if (Qry.Eof) return;
+
+    int idxGrpId=Qry.FieldIndex("grp_id");
+    int idxName=Qry.FieldIndex("name");
+    int idxNameLat=Qry.FieldIndex("name_lat");
+    int idxCity=Qry.FieldIndex("city");
+    int idxAirline=Qry.FieldIndex("airline");
+    int idxAirp=Qry.FieldIndex("airp");
+
+   for(;!Qry.Eof; Qry.Next()) {
+        if(!checkViewAccess(Qry, idxGrpId)) continue;
+
+        rows.setFromInteger(Qry,  idxGrpId)
+            .setFromString(Qry,  idxName)
+            .setFromString(Qry, idxNameLat)
+            .setFromString(Qry, idxCity)
+            .setFromString(Qry, idxAirline)
+            .setFromString(Qry, idxAirp)
+            .addRow();
+    }
+}
+
+void DeskGrp::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                       std::optional<Row> &newRow) const
+{
+    if(newRow) {
+        Row row = *newRow;
+        std::string airp = row.getAsString("airp");
+        if(!airp.empty()) {
+            std::string city = row.getAsString_ThrowOnEmpty("city");
+            std::string vcity = getCityByAirp(AirportCode_t(airp)).get();
+            if(vcity != city) {
+                throw AstraLocale::UserException("MSG.AIRP_DOES_NOT_MEET_CITY");
+            }
+        }
+    }
+
+    checkAirlineAccess("airline", oldRow, newRow);
+    checkAirportAccess("airp", oldRow, newRow);
+
+    setRowId("id", status, newRow);
+}
+
+void DeskGrp::afterApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                      const std::optional<Row> &newRow) const
+{
+    HistoryTable("DESK_GRP").synchronize(getRowId("id", oldRow, newRow));
+}
+
+std::string DeskGrpSets::insertSql() const
+{
+    return " INSERT INTO desk_grp_sets(grp_id, pers_count_fmt, inf_seats_fmt) "
+           " VALUES(:grp_id, :pers_count_fmt, :inf_seats_fmt) ";
+}
+
+std::string DeskGrpSets::updateSql() const
+{
+    return " UPDATE desk_grp_sets "
+           " SET pers_count_fmt=:pers_count_fmt, inf_seats_fmt=:inf_seats_fmt "
+           " WHERE grp_id=:OLD_grp_id ";
+}
+
+std::string DeskGrpSets::deleteSql() const
+{
+    return " DELETE FROM desk_grp_sets WHERE grp_id=:OLD_grp_id ";
+}
+
+std::list<std::string> DeskGrpSets::dbSessionObjectNames() const
+{
+    return {"DESK_GRP_SETS"};
+}
+
+void DeskGrpSets::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    DB::TQuery Qry(PgOra::getROSession("DESK_GRP_SETS"), STDLOG);
+    Qry.SQLText =
+        " SELECT pers_count_fmt, inf_seats_fmt, grp_id, grp_id AS descr "
+        " FROM desk_grp_sets "
+        " ORDER BY grp_id ";
+    Qry.Execute();
+    if (Qry.Eof) return;
+
+    int idxPersCountFmt=Qry.FieldIndex("pers_count_fmt");
+    int idxInfSeatsFmt=Qry.FieldIndex("inf_seats_fmt");
+    int idxGrpId=Qry.FieldIndex("grp_id");
+    int idxDescr=Qry.FieldIndex("descr");
+
+    for(;!Qry.Eof; Qry.Next()) {
+        if(!checkViewAccess(Qry, idxGrpId)) continue;
+
+        rows.setFromInteger(Qry,  idxPersCountFmt)
+            .setFromInteger(Qry,  idxInfSeatsFmt)
+            .setFromInteger(Qry, idxGrpId)
+            .setFromString(ElemIdToNameLong(etDeskGrp, Qry.FieldAsInteger(idxDescr)))
+            .addRow();
+    }
+}
+
+void DeskGrpSets::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                           std::optional<Row> &newRow) const
+{
+    checkDeskGrpAccess("grp_id", false, oldRow, newRow);
+}
+
+void DeskGrpSets::afterApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                          const std::optional<Row> &newRow) const
+{
+    HistoryTable("DESK_GRP_SETS").synchronize(getRowId("grp_id", oldRow, newRow));
+}
+
+std::string Desks::insertSql() const
+{
+    return " INSERT INTO desks(code, grp_id, currency,id) "
+           " VALUES(:code, :grp_id, 'РУБ', :id) ";
+}
+
+std::string Desks::updateSql() const
+{
+    return " UPDATE desks SET grp_id=:grp_id "
+           " WHERE code=:OLD_code ";
+}
+
+std::list<std::string> Desks::dbSessionObjectNames() const
+{
+    return {"DESKS", "CRYPT_SETS"};
+}
+
+struct crypt_set
+{
+   std::string desk;
+   bool pr_crypt;
+
+};
+
+void Desks::onSelectOrRefresh(const TParams &sqlParams, SelectedRows &rows) const
+{
+    std::map<int, std::vector<crypt_set>> crypt_sets;
+    crypt_set s;
+    DB::TQuery QryC(PgOra::getROSession("CRYPT_SETS"), STDLOG);
+    QryC.SQLText =
+        " SELECT desk, desk_grp_id, pr_crypt "
+        " FROM CRYPT_SETS ";
+    QryC.Execute();
+
+    for(;!QryC.Eof; QryC.Next()) {
+        int desk_grp_id = QryC.FieldAsInteger("desk_grp_id");
+        s.desk = QryC.FieldAsString("desk");
+        s.pr_crypt = QryC.FieldAsInteger("pr_crypt")!=0;
+        crypt_sets[desk_grp_id].push_back(s);
+    }
+
+    DB::TQuery Qry(PgOra::getROSession("DESKS"), STDLOG);
+    Qry.SQLText =
+        " SELECT code, grp_id, grp_id AS descr, version, term_mode, last_logon, id "
+        " FROM desks "
+        " ORDER BY code ";
+    Qry.Execute();
+    if(Qry.Eof) return;
+
+    int idxCode = Qry.FieldIndex("code");
+    int idxGrpId = Qry.FieldIndex("grp_id");
+    int idxDescr = Qry.FieldIndex("descr");
+    int idxVersion = Qry.FieldIndex("version");
+    int idxTermMode = Qry.FieldIndex("term_mode");
+    int idxLastLogon = Qry.FieldIndex("last_logon");
+    int idxId = Qry.FieldIndex("id");
+
+
+    for(;!Qry.Eof; Qry.Next()) {
+        if(!checkViewAccess(Qry, idxCode)) continue;
+
+        std::string code = Qry.FieldAsString(idxCode);
+        int grp_id = Qry.FieldAsInteger(idxGrpId);
+
+        auto it = crypt_sets.find(grp_id);
+        if(it == crypt_sets.end()) continue;
+
+        bool pr_crypt = false;
+        //Ищем настройку по пульту(desk)
+        for(const auto &[desk, pr] : it->second) {
+            //Нашли общую настройку
+            if(desk.empty()) {
+                pr_crypt = pr;
+            }
+            //Нашли конкретную настройку по пульту
+            if(code == desk) {
+                pr_crypt = pr;
+                break;
+            }
+        }
+
+        rows.setFromString(Qry,  idxCode)
+            .setFromInteger(Qry, idxGrpId)
+            .setFromString(ElemIdToNameLong(etDeskGrp, Qry.FieldAsInteger(idxDescr)))
+            .setFromString(Qry,  idxVersion)
+            .setFromString(Qry, idxTermMode)
+            .setFromDateTime(Qry, idxLastLogon)
+            .setFromInteger(Qry, idxId)
+            .setFromBoolean(pr_crypt)
+            .addRow();
+
+    }
+}
+
+void Desks::beforeApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                     std::optional<Row> &newRow) const
+{
+    if (newRow)
+    {
+       std::string code = newRow.value().getAsString_ThrowOnEmpty("code");
+       if (code.size()!=6) throw UserException("MSG.INVALID_DESK_LENGTH");
+       if (!IsUpperLettersOrDigits(code)) throw UserException("MSG.INVALID_DESK_CHARS");
+    }
+
+    checkDeskGrpAccess("grp_id", false, std::nullopt, newRow);
+    setRowId("id", status, newRow);
+}
+
+void Desks::afterApplyingRowChanges(const TCacheUpdateStatus status, const std::optional<Row> &oldRow,
+                                    const std::optional<Row> &newRow) const
+{
+    HistoryTable("DESK_GRP_SETS").synchronize(getRowId("id", oldRow, newRow));
 }
 
 } //namespace CacheTables
