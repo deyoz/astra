@@ -6708,7 +6708,7 @@ std::string Desks::updateSql() const
 
 std::list<std::string> Desks::dbSessionObjectNames() const
 {
-    return {"DESKS", "CRYPT_SETS"};
+    return {"DESKS"};
 }
 
 struct crypt_set
