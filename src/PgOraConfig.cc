@@ -529,6 +529,9 @@ namespace PgOra
         { "SP_PG_GROUP_PAX_SEATS", {
                 "PAX_SEATS", // PAX, PAX_GRP
         }},
+        { "SP_PG_GROUP_RATE_COLORS", {
+                "RATE_COLORS",
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
