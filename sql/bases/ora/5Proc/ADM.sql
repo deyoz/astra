@@ -6,13 +6,6 @@ utSupport       CONSTANT TUserType := 0;
 utAirport       CONSTANT TUserType := 1;
 utAirline       CONSTANT TUserType := 2;
 
-PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
-                              pr_lat      IN INTEGER,
-                              symbols     IN VARCHAR2,
-                              cache_code  IN cache_tables.code%TYPE,
-                              cache_field IN cache_fields.name%TYPE,
-                              vlang       IN lang_types.code%TYPE);
-
 PROCEDURE check_period(pr_new           BOOLEAN,
                        vfirst_date      DATE,
                        vlast_date       DATE,
@@ -422,17 +415,6 @@ PROCEDURE sync_PNL_options(vid              typeb_addrs.id%TYPE,
                            vforwarding      typeb_addr_options.value%TYPE,
                            vsetting_user    history_events.open_user%TYPE,
                            vstation         history_events.open_desk%TYPE);
-
-PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
-                                 vairline      airline_offices.airline%TYPE,
-                                 vcountry_control airline_offices.country_control%TYPE,
-                                 vcontact_name airline_offices.contact_name%TYPE,
-                                 vphone        airline_offices.phone%TYPE,
-                                 vfax          airline_offices.fax%TYPE,
-                                 vto_apis      airline_offices.to_apis%TYPE,
-                                 vlang         lang_types.code%TYPE,
-                                 vsetting_user history_events.open_user%TYPE,
-                                 vstation      history_events.open_desk%TYPE);
 
 PROCEDURE insert_roles(vname          roles.name%TYPE,
                        vairline       airlines.code%TYPE,

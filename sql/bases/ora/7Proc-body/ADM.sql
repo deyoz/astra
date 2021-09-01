@@ -15,26 +15,6 @@ last_date DATE
 
 TYPE periods_cur IS REF CURSOR RETURN periods_row;
 
-PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
-                              pr_lat      IN INTEGER,
-                              symbols     IN VARCHAR2,
-                              cache_code  IN cache_tables.code%TYPE,
-                              cache_field IN cache_fields.name%TYPE,
-                              vlang       IN lang_types.code%TYPE)
-IS
-c CHAR(1);
-info	 adm.TCacheInfo;
-lparams  system.TLexemeParams;
-BEGIN
-  c:=system.invalid_char_in_name(str, pr_lat, symbols);
-  IF c IS NOT NULL THEN
-    info:=adm.get_cache_info(cache_code);
-    lparams('field_name'):=info.field_title(cache_field);
-    lparams('symbol'):=c;
-    system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
-  END IF;
-END check_chars_in_name;
-
 PROCEDURE check_period(pr_new           BOOLEAN,
                        vfirst_date      DATE,
                        vlast_date       DATE,
@@ -2819,39 +2799,6 @@ BEGIN
   sync_typeb_options(cur, vsetting_user, vstation);
   CLOSE cur;
 END sync_PNL_options;
-
-PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
-                                 vairline      airline_offices.airline%TYPE,
-                                 vcountry_control airline_offices.country_control%TYPE,
-                                 vcontact_name airline_offices.contact_name%TYPE,
-                                 vphone        airline_offices.phone%TYPE,
-                                 vfax          airline_offices.fax%TYPE,
-                                 vto_apis      airline_offices.to_apis%TYPE,
-                                 vlang         lang_types.code%TYPE,
-                                 vsetting_user history_events.open_user%TYPE,
-                                 vstation      history_events.open_desk%TYPE)
-IS
-i BINARY_INTEGER;
-vidh     airline_offices.id%TYPE;
-BEGIN
-  IF vto_apis<>0 THEN
-    check_chars_in_name(vcontact_name, 1, ' -', 'AIRLINE_OFFICES', 'CONTACT_NAME', vlang);
-    check_chars_in_name(vphone,        1, ' -', 'AIRLINE_OFFICES', 'PHONE',        vlang);
-    check_chars_in_name(vfax,          1, ' -', 'AIRLINE_OFFICES', 'FAX',          vlang);
-  END IF;
-  IF vid IS NULL THEN
-    INSERT INTO airline_offices(id, airline, country_control, contact_name, phone, fax, to_apis)
-    VALUES(id__seq.nextval, vairline, vcountry_control, vcontact_name, vphone, vfax, vto_apis)
-    RETURNING id INTO vidh;
-    hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);
-  ELSE
-    UPDATE airline_offices
-    SET airline=vairline, country_control=vcountry_control, contact_name=vcontact_name,
-        phone=vphone, fax=vfax, to_apis=vto_apis
-    WHERE id=vid;
-    hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);
-  END IF;
-END modify_airline_offices;
 
 PROCEDURE insert_roles(vname          roles.name%TYPE,
                        vairline       airlines.code%TYPE,

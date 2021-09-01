@@ -154,6 +154,10 @@ namespace PgOra
                 "TRIP_HALL",
         } },
 
+        { "SP_PG_GROUP_AIRLINE_OFFICES",{
+                "AIRLINE_OFFICES", "HIST_AIRLINE_OFFICES",
+        } },
+
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },

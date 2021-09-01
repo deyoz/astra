@@ -4412,6 +4412,7 @@ $(PREPARE_CN_EXCHANGE_SETTINGS UT)
 
 $(set id_apis_sets1 $(last_history_row_id apis_sets -01))
 $(set id_apis_sets2 $(last_history_row_id apis_sets -00))
+$(set id_airline_offices $(last_history_row_id airline_offices))
 
 ??
 $(dump_table events_bilingual fields="lang, msg" order="ev_order, lang, part_num" display="on")
@@ -4433,9 +4434,7 @@ SELECT lang,  msg FROM events_bilingual ORDER BY ev_order, lang, part_num
 [EN] [Откл.='0'. Identifier: ID='$(get id_apis_sets2)'] $()
 [RU] [Ввод строки в таблице 'Настройка APIS': ID='$(get id_apis_sets2)',AIRLINE='ЮТ',COUNTRY_DEP='',COUNTRY_ARV='ЦН',COUNTRY_CONTROL='ЦН',Формат='IAPI_CN',TRANSPORT_TYPE='FILE',Параметры транспорта='apis/IAPI_CN',Адрес получателя='NIAC',Адрес DCS Астра='UT',] $()
 [RU] [Откл.='0'. Идентификатор: ID='$(get id_apis_sets2)'] $()
-[EN] [Line creation in table'Представительства авиакомпаний': AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Identifier: AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя] $()
-[EN] [контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'] $()
-[RU] [Ввод строки в таблице 'Представительства авиакомпаний': AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Идентификатор: AIRLINE='ЮТ',А/к='',COUNTRY_CONTROL='ЦН',Имя] $()
-[RU] [контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'] $()
-------------------- END events_bilingual DUMP COUNT=18 -------------------
+[EN] [Line creation in table'Представительства авиакомпаний': ID='$(get id_airline_offices)',AIRLINE='ЮТ',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Identifier: ID='$(get id_airline_offices)'] $()
+[RU] [Ввод строки в таблице 'Представительства авиакомпаний': ID='$(get id_airline_offices)',AIRLINE='ЮТ',COUNTRY_CONTROL='ЦН',Имя контакта='SIRENA-TRAVEL',Телефон='4959504991',Факс='4959504973',APIS='1'. Идентификатор: ID='$(get id_airline_offices)'] $()
+------------------- END events_bilingual DUMP COUNT=16 -------------------
 $()

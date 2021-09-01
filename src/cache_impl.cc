@@ -121,6 +121,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="TRIP_BRD_WITH_REG")   return new CacheTable::TripHall(tsBrdWithReg);
   if (cacheCode=="TRIP_EXAM_WITH_BRD")  return new CacheTable::TripHall(tsExamWithBrd);
   if (cacheCode=="STATION_HALLS")       return new CacheTable::StationHalls;
+  if (cacheCode=="AIRLINE_OFFICES")     return new CacheTable::AirlineOffices;
   if (cacheCode=="BP_TYPES")            return new CacheTable::BpTypes;
   if (cacheCode=="BP_MODELS")           return new CacheTable::BpModels;
   if (cacheCode=="BP_BLANK_LIST")       return new CacheTable::BpBlankList;
@@ -2191,6 +2192,73 @@ void StationHalls::afterApplyingRowChanges(const TCacheUpdateStatus status,
                                            const std::optional<CacheTable::Row>& newRow) const
 {
   HistoryTable("station_halls").synchronize(getRowId("id", oldRow, newRow));
+}
+
+//AirlineOffices
+
+bool AirlineOffices::userDependence() const
+{
+  return true;
+}
+
+std::string AirlineOffices::selectSql() const
+{
+  return "SELECT id, airline, country_control, contact_name, phone, fax, to_apis "
+         "FROM airline_offices "
+         "WHERE " + getSQLFilter("airline", AccessControl::PermittedAirlines) + " "
+         "ORDER BY airline, country_control";
+}
+
+std::string AirlineOffices::insertSql() const
+{
+  return "INSERT INTO airline_offices(id, airline, country_control, contact_name, phone, fax, to_apis) "
+         "VALUES(:id, :airline, :country_control, :contact_name, :phone, :fax, :to_apis) ";
+}
+
+std::string AirlineOffices::updateSql() const
+{
+  return "UPDATE airline_offices "
+         "SET airline=:airline, country_control=:country_control, contact_name=:contact_name, "
+         "    phone=:phone, fax=:fax, to_apis=:to_apis "
+         "WHERE id=:id ";
+}
+
+std::string AirlineOffices::deleteSql() const
+{
+  return "DELETE FROM airline_offices "
+         "WHERE id=:OLD_id ";
+}
+
+std::list<std::string> AirlineOffices::dbSessionObjectNames() const
+{
+  return {"AIRLINE_OFFICES"};
+}
+
+void AirlineOffices::beforeApplyingRowChanges(const TCacheUpdateStatus status,
+                                              const std::optional<CacheTable::Row>& oldRow,
+                                              std::optional<CacheTable::Row>& newRow) const
+{
+  checkAirlineAccess("airline", oldRow, newRow);
+  if (newRow) {
+    const int to_apis = newRow.value().getAsInteger_ThrowOnEmpty("to_apis");
+    if (to_apis != 0) {
+      const std::string contact_name = newRow.value().getAsString("contact_name");
+      checkInvalidSymbolInName(contact_name, true /*latinOnly*/, " -", "AIRLINE_OFFICES", "CONTACT_NAME");
+      const std::string phone = newRow.value().getAsString("phone");
+      checkInvalidSymbolInName(phone, true /*latinOnly*/, " -", "AIRLINE_OFFICES", "PHONE");
+      const std::string fax = newRow.value().getAsString("fax");
+      checkInvalidSymbolInName(fax, true /*latinOnly*/, " -", "AIRLINE_OFFICES", "FAX");
+    }
+  }
+
+  setRowId("id", status, newRow);
+}
+
+void AirlineOffices::afterApplyingRowChanges(const TCacheUpdateStatus status,
+                                             const std::optional<CacheTable::Row>& oldRow,
+                                             const std::optional<CacheTable::Row>& newRow) const
+{
+  HistoryTable("airline_offices").synchronize(getRowId("id", oldRow, newRow));
 }
 
 //Pacts
