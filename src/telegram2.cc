@@ -1718,7 +1718,7 @@ namespace PRL_SPACE {
         string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT HK" + IntToString(seats.get_seat_vector(false).size()) + " " + seat_list);
-        items.push_back(chkd(pax.reg_no, pax.name.name, pax.name.surname, seat_list.empty(), info.is_lat()));
+        items.push_back(chkd(pax.reg_no, pax.name.name, pax.name.surname, pax.pers_type == baby, info.is_lat()));
         internal_get(info, pax.pax_id, pax.subcls);
 
         QParams QryParams;
